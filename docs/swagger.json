@@ -1,0 +1,46 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/ck/table": {
+            "put": {
+                "description": "修改表",
+                "summary": "修改表",
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":nil}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建表",
+                "summary": "创建表",
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":nil}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "删除表",
+                "summary": "删除表",
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":nil}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

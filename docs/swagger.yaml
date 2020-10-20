@@ -1,0 +1,29 @@
+info:
+  contact: {}
+paths:
+  /ck/table:
+    delete:
+      description: 删除表
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":nil}'
+          schema:
+            type: string
+      summary: 删除表
+    post:
+      description: 创建表
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":nil}'
+          schema:
+            type: string
+      summary: 创建表
+    put:
+      description: 修改表
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":nil}'
+          schema:
+            type: string
+      summary: 修改表
+swagger: "2.0"

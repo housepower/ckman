@@ -1,0 +1,9 @@
+ckman
+test/*
+*.rpm
+*.tar.gz
+.DS_Store
+.idea/
+coverage.out
+coverage-all.out
+cscope.*

@@ -1,0 +1,28 @@
+server:
+  id: 1
+  ip: 0.0.0.0
+  port: 8808
+  https: false
+
+log:
+  level: INFO
+  max_count: 5
+  # megabytes
+  max_size: 10
+  # days
+  max_age: 10
+
+clickhouse:
+  hosts:
+    - 192.168.101.106:9000
+    - 192.168.101.108:9000
+    - 192.168.101.110:9000
+  user: eoi
+  password: '123456'
+  db: default
+  cluster: bench
+
+pprof:
+  enabled: true
+  ip: 0.0.0.0
+  port: 6060

@@ -1,0 +1,39 @@
+package log
+
+import (
+	"gitlab.eoitek.net/EOI/ckman/config"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
+)
+
+var Logger *zap.SugaredLogger
+
+func InitLogger(path string, config *config.CKManLogConfig) {
+	writeSyncer := getLogWriter(path, config)
+	encoder := getEncoder()
+	level := zapcore.InfoLevel
+	level.UnmarshalText([]byte(config.Level))
+	core := zapcore.NewCore(encoder, writeSyncer, level)
+
+	logger := zap.New(core, zap.AddCaller())
+	Logger = logger.Sugar()
+}
+
+func getEncoder() zapcore.Encoder {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	return zapcore.NewConsoleEncoder(encoderConfig)
+}
+
+func getLogWriter(path string, config *config.CKManLogConfig) zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   path,
+		MaxSize:    config.MaxSize,
+		MaxBackups: config.MaxCount,
+		MaxAge:     config.MaxAge,
+		LocalTime:  true,
+	}
+	return zapcore.AddSync(lumberJackLogger)
+}
