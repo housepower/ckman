@@ -1,28 +1,104 @@
+definitions:
+  model.AlterCkTableReq:
+    properties:
+      add:
+        items:
+          $ref: '#/definitions/model.CkTableNameTypeAfter'
+        type: array
+      drop:
+        items:
+          type: string
+        type: array
+      modify:
+        items:
+          $ref: '#/definitions/model.CkTableNameType'
+        type: array
+      name:
+        type: string
+    type: object
+  model.CkTableNameType:
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  model.CkTableNameTypeAfter:
+    properties:
+      after:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  model.CkTablePartition:
+    properties:
+      name:
+        type: string
+      policy:
+        type: integer
+    type: object
+  model.CreateCkTableReq:
+    properties:
+      fields:
+        items:
+          $ref: '#/definitions/model.CkTableNameType'
+        type: array
+      name:
+        type: string
+      order:
+        items:
+          type: string
+        type: array
+      partition:
+        $ref: '#/definitions/model.CkTablePartition'
+    type: object
 info:
   contact: {}
 paths:
-  /ck/table:
+  /api/v1/ck/table:
     delete:
       description: 删除表
+      parameters:
+      - description: table name
+        in: query
+        name: tableName
+        required: true
+        type: string
       responses:
         "200":
-          description: '{"code":200,"msg":"success","data":nil}'
+          description: '{"code":5002,"msg":"删除ClickHouse表失败","data":""}'
           schema:
             type: string
       summary: 删除表
     post:
       description: 创建表
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateCkTableReq'
       responses:
         "200":
-          description: '{"code":200,"msg":"success","data":nil}'
+          description: '{"code":5001,"msg":"创建ClickHouse表失败","data":""}'
           schema:
             type: string
       summary: 创建表
     put:
       description: 修改表
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.AlterCkTableReq'
       responses:
         "200":
-          description: '{"code":200,"msg":"success","data":nil}'
+          description: '{"code":5003,"msg":"更改ClickHouse表失败","data":""}'
           schema:
             type: string
       summary: 修改表

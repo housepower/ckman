@@ -1,5 +1,6 @@
 ckman
 test/*
+vendor/*
 *.rpm
 *.tar.gz
 .DS_Store

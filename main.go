@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/database/clickhouse"
 	"gitlab.eoitek.net/EOI/ckman/log"
@@ -13,25 +14,34 @@ import (
 	"syscall"
 )
 
+var (
+	Version        = ""
+	BuildTimeStamp = ""
+	GitCommitHash  = ""
+	Daemon         = false
+	ConfigFilePath = ""
+	LogFilePath    = ""
+	PidFilePath    = ""
+)
+
 func main() {
-	config.InitCmd()
-	if err := config.ParseConfigFile(config.ConfigFilePath); err != nil {
-		fmt.Printf("Parse config file %s fail: %v\n", config.ConfigFilePath, err)
+	InitCmd()
+	if err := config.ParseConfigFile(ConfigFilePath); err != nil {
+		fmt.Printf("Parse config file %s fail: %v\n", ConfigFilePath, err)
 		os.Exit(1)
 	}
-	log.InitLogger(config.LogFilePath, &config.GlobalConfig.Log)
+	log.InitLogger(LogFilePath, &config.GlobalConfig.Log)
 
 	daemon.SetSigHandler(termHandler, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
 	cntxt := &daemon.Context{
-		PidFileName: config.PidFilePath,
+		PidFileName: PidFilePath,
 		PidFilePerm: 0644,
 		LogFilePerm: 0640,
 		WorkDir:     "./",
 		Umask:       027,
 	}
 
-	if config.Daemon {
-		log.Logger.Info("daemonized ckman...")
+	if Daemon {
 		d, err := cntxt.Reborn()
 		if err != nil {
 			log.Logger.Fatal(err)
@@ -43,9 +53,9 @@ func main() {
 	}
 
 	log.Logger.Info("ckman starting...")
-	log.Logger.Infof("version: %v", config.Version)
-	log.Logger.Infof("utc build time: %v", config.BuildTimeStamp)
-	log.Logger.Infof("git commit hash: %v", config.GitCommitHash)
+	log.Logger.Infof("version: %v", Version)
+	log.Logger.Infof("build time: %v", BuildTimeStamp)
+	log.Logger.Infof("git commit hash: %v", GitCommitHash)
 
 	// start pprof
 	// http://127.0.0.1:6060/debug/pprof/
@@ -83,4 +93,31 @@ func main() {
 func termHandler(sig os.Signal) error {
 	log.Logger.Infof("got terminal signal %s", sig)
 	return daemon.ErrStop
+}
+
+var VersionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print version info",
+	Long:  "Print version info",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("version: %v\n", Version)
+		fmt.Printf("build time: %v\n", BuildTimeStamp)
+		fmt.Printf("git commit hash: %v\n", GitCommitHash)
+		os.Exit(0)
+	},
+}
+
+func InitCmd() {
+	var rootCmd = &cobra.Command{
+		Use:   "ckman",
+		Short: "ckman is used to manager and monitor clickhouse",
+	}
+
+	rootCmd.PersistentFlags().StringVarP(&ConfigFilePath, "conf", "c", "conf/ckman.yml", "Config file path")
+	rootCmd.PersistentFlags().StringVarP(&LogFilePath, "log", "l", "log/ckman.log", "Log file path")
+	rootCmd.PersistentFlags().StringVarP(&PidFilePath, "pid", "p", "run/ckman.pid", "Pid file path")
+	rootCmd.PersistentFlags().BoolVarP(&Daemon, "daemon", "d", false, "Run as daemon")
+	rootCmd.AddCommand(VersionCmd)
+
+	rootCmd.Execute()
 }

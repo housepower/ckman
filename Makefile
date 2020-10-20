@@ -17,7 +17,7 @@ TAG?=$(shell date +%y%m%d)
 
 .PHONY: build
 build:
-	$(CGO_ARGS) go build -ldflags "-X config.BuildTimeStamp=${TIME} -X config.GitCommitHash=${REVISION} -X config.Version=ckman-${VERSION}" -mod vendor
+	$(CGO_ARGS) go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}" -mod vendor
 
 .PHONY: test
 test:
@@ -40,6 +40,7 @@ package: build
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/ckman.yml ${PKGFULLDIR_TMP}/conf/ckman.yml
+	@cp ${SHDIR}/README.md ${PKGFULLDIR_TMP}
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}
 	@echo "create ${TARNAME} from ${PKGDIR}"
 	@tar -czf ${TARNAME} ${PKGDIR}

@@ -24,13 +24,24 @@ var doc = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/ck/table": {
+        "/api/v1/ck/table": {
             "put": {
                 "description": "修改表",
                 "summary": "修改表",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.AlterCkTableReq"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":nil}",
+                        "description": "{\"code\":5003,\"msg\":\"更改ClickHouse表失败\",\"data\":\"\"}",
                         "schema": {
                             "type": "string"
                         }
@@ -40,9 +51,20 @@ var doc = `{
             "post": {
                 "description": "创建表",
                 "summary": "创建表",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CreateCkTableReq"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":nil}",
+                        "description": "{\"code\":5001,\"msg\":\"创建ClickHouse表失败\",\"data\":\"\"}",
                         "schema": {
                             "type": "string"
                         }
@@ -52,13 +74,109 @@ var doc = `{
             "delete": {
                 "description": "删除表",
                 "summary": "删除表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "table name",
+                        "name": "tableName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":nil}",
+                        "description": "{\"code\":5002,\"msg\":\"删除ClickHouse表失败\",\"data\":\"\"}",
                         "schema": {
                             "type": "string"
                         }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "model.AlterCkTableReq": {
+            "type": "object",
+            "properties": {
+                "add": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkTableNameTypeAfter"
+                    }
+                },
+                "drop": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "modify": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkTableNameType"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.CkTableNameType": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.CkTableNameTypeAfter": {
+            "type": "object",
+            "properties": {
+                "after": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.CkTablePartition": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "policy": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.CreateCkTableReq": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkTableNameType"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "partition": {
+                    "$ref": "#/definitions/model.CkTablePartition"
                 }
             }
         }
