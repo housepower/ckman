@@ -100,6 +100,7 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 
 	params.Name = c.Query("tableName")
 	params.Cluster = ck.config.ClickHouse.Cluster
+	params.DB = ck.config.ClickHouse.DB
 	if err := ck.ckService.DeleteTable(&params); err != nil {
 		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(model.DELETE_CK_TABLE_FAIL), err.Error())
 		return

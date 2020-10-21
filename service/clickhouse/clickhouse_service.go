@@ -77,15 +77,15 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 		partition = fmt.Sprintf("toYYYYMMDD(%s)", params.Partition.Name)
 	}
 
-	create := fmt.Sprintf(`CREATE TABLE %s ON CLUSTER %s (%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)`,
-		params.Name, params.Cluster, strings.Join(columns, ","), params.Engine,
+	create := fmt.Sprintf(`CREATE TABLE %s.%s ON CLUSTER %s (%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)`,
+		params.DB, params.Name, params.Cluster, strings.Join(columns, ","), params.Engine,
 		partition, strings.Join(params.Order, ","))
 	if _, err := ck.DB.Exec(create); err != nil {
 		return err
 	}
 
-	create = fmt.Sprintf(`CREATE TABLE %s%s ON CLUSTER %s AS %s ENGINE = Distributed(%s, %s, %s, rand())`,
-		ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.Name,
+	create = fmt.Sprintf(`CREATE TABLE %s.%s%s ON CLUSTER %s AS %s ENGINE = Distributed(%s, %s, %s, rand())`,
+		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.Name,
 		params.Cluster, params.DB, params.Name)
 	if _, err := ck.DB.Exec(create); err != nil {
 		return err
@@ -95,12 +95,12 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 }
 
 func (ck *CkService) DeleteTable(params *model.DeleteCkTableParams) error {
-	delete := fmt.Sprintf("DROP TABLE %s ON CLUSTER %s", params.Name, params.Cluster)
+	delete := fmt.Sprintf("DROP TABLE %s.%s ON CLUSTER %s", params.DB, params.Name, params.Cluster)
 	if _, err := ck.DB.Exec(delete); err != nil {
 		return err
 	}
 
-	delete = fmt.Sprintf("DROP TABLE %s%s ON CLUSTER %s", ClickHouseDistributedTablePrefix,
+	delete = fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix,
 		params.Name, params.Cluster)
 	if _, err := ck.DB.Exec(delete); err != nil {
 		return err
@@ -114,11 +114,11 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	for _, value := range params.Add {
 		add := ""
 		if value.After != "" {
-			add = fmt.Sprintf("ALTER TABLE %s ON CLUSTER %s ADD COLUMN %s %s AFTER %s",
-				params.Name, params.Cluster, value.Name, value.Type, value.After)
+			add = fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s ADD COLUMN %s %s AFTER %s",
+				params.DB, params.Name, params.Cluster, value.Name, value.Type, value.After)
 		} else {
-			add = fmt.Sprintf("ALTER TABLE %s ON CLUSTER %s ADD COLUMN %s %s",
-				params.Name, params.Cluster, value.Name, value.Type)
+			add = fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s ADD COLUMN %s %s",
+				params.DB, params.Name, params.Cluster, value.Name, value.Type)
 		}
 		if _, err := ck.DB.Exec(add); err != nil {
 			return err
@@ -127,8 +127,8 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 
 	// modify column
 	for _, value := range params.Modify {
-		modify := fmt.Sprintf("ALTER TABLE %s ON CLUSTER %s MODIFY COLUMN %s %s",
-			params.Name, params.Cluster, value.Name, value.Type)
+		modify := fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s MODIFY COLUMN %s %s",
+			params.DB, params.Name, params.Cluster, value.Name, value.Type)
 		if _, err := ck.DB.Exec(modify); err != nil {
 			return err
 		}
@@ -136,22 +136,22 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 
 	// delete column
 	for _, value := range params.Drop {
-		drop := fmt.Sprintf("ALTER TABLE %s ON CLUSTER %s DROP COLUMN %s",
-			params.Name, params.Cluster, value)
+		drop := fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s DROP COLUMN %s",
+			params.DB, params.Name, params.Cluster, value)
 		if _, err := ck.DB.Exec(drop); err != nil {
 			return err
 		}
 	}
 
 	// 删除分布式表并重建
-	delete := fmt.Sprintf("DROP TABLE %s%s ON CLUSTER %s",
-		ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
+	delete := fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s",
+		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
 	if _, err := ck.DB.Exec(delete); err != nil {
 		return err
 	}
 
-	create := fmt.Sprintf(`CREATE TABLE %s%s ON CLUSTER %s AS %s ENGINE = Distributed(%s, %s, %s, rand())`,
-		ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.Name,
+	create := fmt.Sprintf(`CREATE TABLE %s.%s%s ON CLUSTER %s AS %s ENGINE = Distributed(%s, %s, %s, rand())`,
+		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.Name,
 		params.Cluster, params.DB, params.Name)
 	if _, err := ck.DB.Exec(create); err != nil {
 		return err

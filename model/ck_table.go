@@ -36,6 +36,7 @@ type CreateCkTableParams struct {
 type DeleteCkTableParams struct {
 	Name    string
 	Cluster string
+	DB      string
 }
 
 type CkTableNameTypeAfter struct {
