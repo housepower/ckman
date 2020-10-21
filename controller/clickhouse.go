@@ -3,9 +3,9 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/database/clickhouse"
 	_ "gitlab.eoitek.net/EOI/ckman/docs"
 	"gitlab.eoitek.net/EOI/ckman/model"
+	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 )
 
 const (
@@ -14,14 +14,14 @@ const (
 )
 
 type ClickHouseController struct {
-	config   *config.CKManConfig
-	ckClient *clickhouse.CkClient
+	config    *config.CKManConfig
+	ckService *clickhouse.CkService
 }
 
-func NewClickHouseController(config *config.CKManConfig, ckClient *clickhouse.CkClient) *ClickHouseController {
+func NewClickHouseController(config *config.CKManConfig, ckService *clickhouse.CkService) *ClickHouseController {
 	ck := &ClickHouseController{}
 	ck.config = config
-	ck.ckClient = ckClient
+	ck.ckService = ckService
 	return ck
 }
 
@@ -49,7 +49,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	params.Fields = req.Fields
 	params.Order = req.Order
 	params.Partition = req.Partition
-	if err := ck.ckClient.CreateTable(&params); err != nil {
+	if err := ck.ckService.CreateTable(&params); err != nil {
 		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(model.CREAT_CK_TABLE_FAIL), err.Error())
 		return
 	}
@@ -80,7 +80,7 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 	params.Add = req.Add
 	params.Drop = req.Drop
 	params.Modify = req.Modify
-	if err := ck.ckClient.AlterTable(&params); err != nil {
+	if err := ck.ckService.AlterTable(&params); err != nil {
 		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, model.GetMsg(model.ALTER_CK_TABLE_FAIL), err.Error())
 		return
 	}
@@ -100,7 +100,7 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 
 	params.Name = c.Query("tableName")
 	params.Cluster = ck.config.ClickHouse.Cluster
-	if err := ck.ckClient.DeleteTable(&params); err != nil {
+	if err := ck.ckService.DeleteTable(&params); err != nil {
 		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(model.DELETE_CK_TABLE_FAIL), err.Error())
 		return
 	}

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/database/clickhouse"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/server"
+	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 	"gopkg.in/sevlyar/go-daemon.v0"
 	"net/http"
 	_ "net/http/pprof"
@@ -66,12 +66,12 @@ func main() {
 		}(bind)
 	}
 
-	// create clickhouse client
-	ck := clickhouse.NewCkClient(&config.GlobalConfig.ClickHouse)
-	if err := ck.InitCkClient(); err != nil {
-		log.Logger.Fatalf("create clickhouse client fail: %v", err)
+	// create clickhouse service
+	ck := clickhouse.NewCkService(&config.GlobalConfig.ClickHouse)
+	if err := ck.InitCkService(); err != nil {
+		log.Logger.Fatalf("create clickhouse service fail: %v", err)
 	}
-	log.Logger.Info("create clickhouse client success")
+	log.Logger.Info("create clickhouse service success")
 
 	// start http server
 	svr := server.NewApiServer(&config.GlobalConfig, ck)

@@ -14,19 +14,19 @@ const (
 	ClickHouseDistributedTablePrefix string = "dist_"
 )
 
-type CkClient struct {
+type CkService struct {
 	config *config.CKManClickHouseConfig
 	DB     *sql.DB
 }
 
-func NewCkClient(config *config.CKManClickHouseConfig) *CkClient {
-	ck := &CkClient{}
+func NewCkService(config *config.CKManClickHouseConfig) *CkService {
+	ck := &CkService{}
 	ck.config = config
 	return ck
 }
 
-func (ck *CkClient) InitCkClient() error {
-	dataSourceName := fmt.Sprintf("tcp://%s?database=%s&username=%s&password=%s",
+func (ck *CkService) InitCkService() error {
+	dataSourceName := fmt.Sprintf("tcp://%s?service=%s&username=%s&password=%s",
 		ck.config.Hosts[0], ck.config.DB, ck.config.User, ck.config.Password)
 	if len(ck.config.Hosts) > 1 {
 		otherHosts := ck.config.Hosts[1:]
@@ -51,7 +51,7 @@ func (ck *CkClient) InitCkClient() error {
 	return nil
 }
 
-func (ck *CkClient) Stop() error {
+func (ck *CkService) Stop() error {
 	if ck.DB != nil {
 		return ck.DB.Close()
 	}
@@ -59,7 +59,7 @@ func (ck *CkClient) Stop() error {
 	return nil
 }
 
-func (ck *CkClient) CreateTable(params *model.CreateCkTableParams) error {
+func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	columns := make([]string, 0)
 	for _, value := range params.Fields {
 		columns = append(columns, fmt.Sprintf("%s %s", value.Name, value.Type))
@@ -94,7 +94,7 @@ func (ck *CkClient) CreateTable(params *model.CreateCkTableParams) error {
 	return nil
 }
 
-func (ck *CkClient) DeleteTable(params *model.DeleteCkTableParams) error {
+func (ck *CkService) DeleteTable(params *model.DeleteCkTableParams) error {
 	delete := fmt.Sprintf("DROP TABLE %s ON CLUSTER %s", params.Name, params.Cluster)
 	if _, err := ck.DB.Exec(delete); err != nil {
 		return err
@@ -109,7 +109,7 @@ func (ck *CkClient) DeleteTable(params *model.DeleteCkTableParams) error {
 	return nil
 }
 
-func (ck *CkClient) AlterTable(params *model.AlterCkTableParams) error {
+func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	// add column
 	for _, value := range params.Add {
 		add := ""

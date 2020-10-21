@@ -7,22 +7,22 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
 	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/database/clickhouse"
 	_ "gitlab.eoitek.net/EOI/ckman/docs"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"gitlab.eoitek.net/EOI/ckman/router"
+	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 	"net/http"
 	"time"
 )
 
 type ApiServer struct {
 	config *config.CKManConfig
-	ck     *clickhouse.CkClient
+	ck     *clickhouse.CkService
 	svr    *http.Server
 }
 
-func NewApiServer(config *config.CKManConfig, ck *clickhouse.CkClient) *ApiServer {
+func NewApiServer(config *config.CKManConfig, ck *clickhouse.CkService) *ApiServer {
 	server := &ApiServer{}
 	server.config = config
 	server.ck = ck
