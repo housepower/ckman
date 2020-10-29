@@ -35,6 +35,7 @@ func (ck *CkService) InitCkService() error {
 		dataSourceName += "&connection_open_strategy=random"
 	}
 
+	log.Logger.Infof("connect clickhouse with dsn '%s'", dataSourceName)
 	connect, err := sql.Open("clickhouse", dataSourceName)
 	if err != nil {
 		return err
@@ -95,13 +96,13 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 }
 
 func (ck *CkService) DeleteTable(params *model.DeleteCkTableParams) error {
-	delete := fmt.Sprintf("DROP TABLE %s.%s ON CLUSTER %s", params.DB, params.Name, params.Cluster)
+	delete := fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix,
+		params.Name, params.Cluster)
 	if _, err := ck.DB.Exec(delete); err != nil {
 		return err
 	}
 
-	delete = fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix,
-		params.Name, params.Cluster)
+	delete = fmt.Sprintf("DROP TABLE %s.%s ON CLUSTER %s", params.DB, params.Name, params.Cluster)
 	if _, err := ck.DB.Exec(delete); err != nil {
 		return err
 	}

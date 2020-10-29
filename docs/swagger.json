@@ -72,6 +72,90 @@
                     }
                 }
             }
+        },
+        "/api/v1/deploy/ck": {
+            "post": {
+                "description": "部署clickhouse",
+                "summary": "部署clickhouse",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeployCkReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":5016,\"msg\":\"检查组件启动状态失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/package": {
+            "get": {
+                "description": "获取安装包列表",
+                "summary": "获取安装包列表",
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":5005,\"msg\":\"获取安装包列表失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "上传安装包",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "summary": "上传安装包",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "安装包",
+                        "name": "package",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":5004,\"msg\":\"上传安装包失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "删除包",
+                "summary": "删除包",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "package name",
+                        "name": "packageName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":5002,\"msg\":\"删除ClickHouse表失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -98,6 +182,68 @@
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "model.CkCluster": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "shards": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkShard"
+                    }
+                }
+            }
+        },
+        "model.CkDeployConfig": {
+            "type": "object",
+            "properties": {
+                "clusters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkCluster"
+                    }
+                },
+                "password": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                },
+                "zkServers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.ZkNode"
+                    }
+                }
+            }
+        },
+        "model.CkReplica": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.CkShard": {
+            "type": "object",
+            "properties": {
+                "replicas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkReplica"
+                    }
                 }
             }
         },
@@ -157,6 +303,46 @@
                 },
                 "partition": {
                     "$ref": "#/definitions/model.CkTablePartition"
+                }
+            }
+        },
+        "model.DeployCkReq": {
+            "type": "object",
+            "properties": {
+                "clickHouse": {
+                    "$ref": "#/definitions/model.CkDeployConfig"
+                },
+                "directory": {
+                    "type": "string"
+                },
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "packages": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "password": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.ZkNode": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
                 }
             }
         }

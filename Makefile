@@ -35,10 +35,12 @@ coverage:
 .PHONY: package
 package: build
 	@rm -rf ${PKGFULLDIR_TMP}
-	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs
+	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
+	@cp ${SHDIR}/resources/config.xml ${PKGFULLDIR_TMP}/bin
+	@cp ${SHDIR}/resources/users.xml ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/ckman.yml ${PKGFULLDIR_TMP}/conf/ckman.yml
 	@cp ${SHDIR}/README.md ${PKGFULLDIR_TMP}
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}

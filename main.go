@@ -114,7 +114,7 @@ func InitCmd() {
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&ConfigFilePath, "conf", "c", "conf/ckman.yml", "Config file path")
-	rootCmd.PersistentFlags().StringVarP(&LogFilePath, "log", "l", "log/ckman.log", "Log file path")
+	rootCmd.PersistentFlags().StringVarP(&LogFilePath, "log", "l", "logs/ckman.log", "Log file path")
 	rootCmd.PersistentFlags().StringVarP(&PidFilePath, "pid", "p", "run/ckman.pid", "Pid file path")
 	rootCmd.PersistentFlags().BoolVarP(&Daemon, "daemon", "d", false, "Run as daemon")
 	rootCmd.AddCommand(VersionCmd)

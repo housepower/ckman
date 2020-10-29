@@ -20,6 +20,7 @@ type CKManServerConfig struct {
 	Ip    string
 	Port  int
 	Https bool
+	Peers []string
 }
 
 type CKManLogConfig struct {

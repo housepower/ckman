@@ -3,6 +3,7 @@ server:
   ip: 0.0.0.0
   port: 8808
   https: false
+  peers: []
 
 log:
   level: INFO

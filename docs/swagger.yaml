@@ -16,6 +16,46 @@ definitions:
       name:
         type: string
     type: object
+  model.CkCluster:
+    properties:
+      name:
+        type: string
+      shards:
+        items:
+          $ref: '#/definitions/model.CkShard'
+        type: array
+    type: object
+  model.CkDeployConfig:
+    properties:
+      clusters:
+        items:
+          $ref: '#/definitions/model.CkCluster'
+        type: array
+      password:
+        type: string
+      path:
+        type: string
+      user:
+        type: string
+      zkServers:
+        items:
+          $ref: '#/definitions/model.ZkNode'
+        type: array
+    type: object
+  model.CkReplica:
+    properties:
+      host:
+        type: string
+      port:
+        type: integer
+    type: object
+  model.CkShard:
+    properties:
+      replicas:
+        items:
+          $ref: '#/definitions/model.CkReplica'
+        type: array
+    type: object
   model.CkTableNameType:
     properties:
       name:
@@ -53,6 +93,32 @@ definitions:
         type: array
       partition:
         $ref: '#/definitions/model.CkTablePartition'
+    type: object
+  model.DeployCkReq:
+    properties:
+      clickHouse:
+        $ref: '#/definitions/model.CkDeployConfig'
+      directory:
+        type: string
+      hosts:
+        items:
+          type: string
+        type: array
+      packages:
+        items:
+          type: string
+        type: array
+      password:
+        type: string
+      user:
+        type: string
+    type: object
+  model.ZkNode:
+    properties:
+      host:
+        type: string
+      port:
+        type: integer
     type: object
 info:
   contact: {}
@@ -102,4 +168,59 @@ paths:
           schema:
             type: string
       summary: 修改表
+  /api/v1/deploy/ck:
+    post:
+      description: 部署clickhouse
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.DeployCkReq'
+      responses:
+        "200":
+          description: '{"code":5016,"msg":"检查组件启动状态失败","data":""}'
+          schema:
+            type: string
+      summary: 部署clickhouse
+  /api/v1/package:
+    delete:
+      description: 删除包
+      parameters:
+      - description: package name
+        in: query
+        name: packageName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":5002,"msg":"删除ClickHouse表失败","data":""}'
+          schema:
+            type: string
+      summary: 删除包
+    get:
+      description: 获取安装包列表
+      responses:
+        "200":
+          description: '{"code":5005,"msg":"获取安装包列表失败","data":""}'
+          schema:
+            type: string
+      summary: 获取安装包列表
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传安装包
+      parameters:
+      - description: 安装包
+        in: formData
+        name: package
+        required: true
+        type: file
+      responses:
+        "200":
+          description: '{"code":5004,"msg":"上传安装包失败","data":""}'
+          schema:
+            type: string
+      summary: 上传安装包
 swagger: "2.0"

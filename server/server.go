@@ -30,6 +30,7 @@ func NewApiServer(config *config.CKManConfig, ck *clickhouse.CkService) *ApiServ
 }
 
 func (server *ApiServer) Start() error {
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
 	// add log middleware
@@ -44,7 +45,7 @@ func (server *ApiServer) Start() error {
 	server.svr = &http.Server{
 		Addr: bind,
 		// Good practice to set timeouts to avoid Slowloris attacks.
-		WriteTimeout: time.Second * 15,
+		WriteTimeout: time.Second * 300,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
 		Handler:      r,
