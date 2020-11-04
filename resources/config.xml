@@ -465,7 +465,6 @@
         asynchronous_metrics - send data from table system.asynchronous_metrics
         status_info - send data from different component from CH, ex: Dictionaries status
     -->
-    <!--
     <prometheus>
         <endpoint>/metrics</endpoint>
         <port>9363</port>
@@ -475,7 +474,6 @@
         <asynchronous_metrics>true</asynchronous_metrics>
         <status_info>true</status_info>
     </prometheus>
-    -->
 
     <!-- Query log. Used only for queries with setting log_queries = 1. -->
     <query_log>

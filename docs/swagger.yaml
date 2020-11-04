@@ -1,3 +1,4 @@
+basePath: /
 definitions:
   model.AlterCkTableReq:
     properties:
@@ -113,6 +114,13 @@ definitions:
       user:
         type: string
     type: object
+  model.LoginReq:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
   model.ZkNode:
     properties:
       host:
@@ -122,6 +130,8 @@ definitions:
     type: object
 info:
   contact: {}
+  title: Swagger Example API
+  version: "1.0"
 paths:
   /api/v1/ck/table:
     delete:
@@ -137,6 +147,8 @@ paths:
           description: '{"code":5002,"msg":"删除ClickHouse表失败","data":""}'
           schema:
             type: string
+      security:
+      - ApiKeyAuth: []
       summary: 删除表
     post:
       description: 创建表
@@ -152,6 +164,8 @@ paths:
           description: '{"code":5001,"msg":"创建ClickHouse表失败","data":""}'
           schema:
             type: string
+      security:
+      - ApiKeyAuth: []
       summary: 创建表
     put:
       description: 修改表
@@ -167,6 +181,8 @@ paths:
           description: '{"code":5003,"msg":"更改ClickHouse表失败","data":""}'
           schema:
             type: string
+      security:
+      - ApiKeyAuth: []
       summary: 修改表
   /api/v1/deploy/ck:
     post:
@@ -183,7 +199,25 @@ paths:
           description: '{"code":5016,"msg":"检查组件启动状态失败","data":""}'
           schema:
             type: string
+      security:
+      - ApiKeyAuth: []
       summary: 部署clickhouse
+  /api/v1/login:
+    post:
+      description: 登陆
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.LoginReq'
+      responses:
+        "200":
+          description: '{"code":5032,"msg":"用户密码验证失败","data":""}'
+          schema:
+            type: string
+      summary: 登陆
   /api/v1/package:
     delete:
       description: 删除包
@@ -198,6 +232,8 @@ paths:
           description: '{"code":5002,"msg":"删除ClickHouse表失败","data":""}'
           schema:
             type: string
+      security:
+      - ApiKeyAuth: []
       summary: 删除包
     get:
       description: 获取安装包列表
@@ -206,6 +242,8 @@ paths:
           description: '{"code":5005,"msg":"获取安装包列表失败","data":""}'
           schema:
             type: string
+      security:
+      - ApiKeyAuth: []
       summary: 获取安装包列表
     post:
       consumes:
@@ -222,5 +260,12 @@ paths:
           description: '{"code":5004,"msg":"上传安装包失败","data":""}'
           schema:
             type: string
+      security:
+      - ApiKeyAuth: []
       summary: 上传安装包
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: token
+    type: apiKey
 swagger: "2.0"

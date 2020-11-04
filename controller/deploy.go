@@ -48,6 +48,7 @@ func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (
 // @Summary 部署clickhouse
 // @Description 部署clickhouse
 // @version 1.0
+// @Security ApiKeyAuth
 // @Param req body model.DeployCkReq true "request body"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"

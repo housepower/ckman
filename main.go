@@ -24,6 +24,12 @@ var (
 	PidFilePath    = ""
 )
 
+// @title Swagger Example API
+// @version 1.0
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name token
+// @BasePath /
 func main() {
 	InitCmd()
 	if err := config.ParseConfigFile(ConfigFilePath); err != nil {

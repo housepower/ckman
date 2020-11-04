@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
+	"gitlab.eoitek.net/EOI/ckman/common"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	_ "gitlab.eoitek.net/EOI/ckman/docs"
 	"gitlab.eoitek.net/EOI/ckman/log"
@@ -13,6 +14,7 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/router"
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -35,6 +37,8 @@ func (server *ApiServer) Start() error {
 
 	// add log middleware
 	r.Use(ginLoggerToFile())
+	// add authenticate middleware
+	r.Use(ginJWTAuth())
 
 	router.InitRouter(r, server.config, server.ck)
 
@@ -112,6 +116,52 @@ func ginLoggerToFile() gin.HandlerFunc {
 				reqUri,
 			)
 		}
-
 	}
+}
+
+func ginJWTAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.Request.Header.Get("token")
+		if token == "" {
+			if filterRequestURI(c.Request.RequestURI) {
+				return
+			} else {
+				model.WrapMsg(c, model.JWT_TOKEN_NONE, model.GetMsg(model.JWT_TOKEN_NONE), nil)
+				c.Abort()
+				return
+			}
+		}
+
+		j := common.NewJWT()
+		claims, code := j.ParserToken(token)
+		if code != model.SUCCESS {
+			model.WrapMsg(c, code, model.GetMsg(code), nil)
+			c.Abort()
+			return
+		}
+
+		// Verify client ip
+		if claims.ClientIP != c.ClientIP() {
+			model.WrapMsg(c, model.JWT_TOKEN_IP_MISMATCH, model.GetMsg(model.JWT_TOKEN_IP_MISMATCH), nil)
+			c.Abort()
+			return
+		}
+
+		c.Set("claims", claims)
+	}
+}
+
+func filterRequestURI(uri string) bool {
+	whiteList := []string{
+		"/swagger/",
+		"/api/v1/login",
+	}
+
+	for _, pre := range whiteList {
+		if match := strings.HasPrefix(uri, pre); match {
+			return true
+		}
+	}
+
+	return false
 }

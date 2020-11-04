@@ -16,32 +16,25 @@ TAG?=$(shell date +%y%m%d)
 
 
 .PHONY: build
-build:
-	$(CGO_ARGS) go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}" -mod vendor
+build: password
+	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}" -mod vendor
 
-.PHONY: test
-test:
-	$(foreach var,$(GOPACKAGES),$(CGO_ARGS) go test -v -mod vendor $(var) || exit 1;)
-	$(CGO_ARGS) go test -v -mod vendor .
-
-.PHONY: coverage
-coverage:
-	echo "mode: count" > coverage-all.out
-	$(foreach pkg,$(GOPACKAGES),\
-		$(CGO_ARGS) go test -coverprofile=coverage.out -covermode=count $(pkg);\
-		tail -n +2 coverage.out >> coverage-all.out;)
-	$(CGO_ARGS) go tool cover -func coverage-all.out
+.PHONY: password
+password:
+	go build -o ckmanpasswd password/password.go
 
 .PHONY: package
 package: build
 	@rm -rf ${PKGFULLDIR_TMP}
 	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
+	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/config.xml ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/users.xml ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/ckman.yml ${PKGFULLDIR_TMP}/conf/ckman.yml
+	@cp ${SHDIR}/resources/password ${PKGFULLDIR_TMP}/conf/password
 	@cp ${SHDIR}/README.md ${PKGFULLDIR_TMP}
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}
 	@echo "create ${TARNAME} from ${PKGDIR}"
@@ -51,4 +44,4 @@ package: build
 .PHONY: docker-build
 docker-build:
 	rm -rf ${PKGDIR}-*.tar.gz
-	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e "GO111MODULE=on" eoitek/agent-package:glibc2.12-centos6.8-go1.12.7 make package VERSION=${VERSION}
+	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e "GO111MODULE=on" amd64/golang:1.15.3 make package VERSION=${VERSION}

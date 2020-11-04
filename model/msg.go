@@ -18,6 +18,14 @@ var MsgFlags = map[int]string{
 	CONFIG_PACKAGE_FAIL:       "配置组件失败",
 	START_PACKAGE_FAIL:        "启动组件失败",
 	CHECK_PACKAGE_FAIL:        "检查组件启动状态失败",
+	JWT_TOKEN_EXPIRED:         "token已过期",
+	JWT_TOKEN_INVALID:         "无效的token",
+	JWT_TOKEN_NONE:            "请求未携带token",
+	JWT_TOKEN_IP_MISMATCH:     "Ip不匹配",
+	USER_VERIFY_FAIL:          "该用户不存在",
+	GET_USER_PASSWORD_FAIL:    "获取用户密码失败",
+	PASSWORD_VERIFY_FAIL:      "用户密码验证失败",
+	CREAT_TOKEN_FAIL:          "生成token失败",
 
 	UNKNOWN: "unknown",
 }

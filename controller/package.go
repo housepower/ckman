@@ -15,6 +15,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -36,6 +37,7 @@ func NewPackageController(config *config.CKManConfig) *PackageController {
 // @Summary 上传安装包
 // @Description 上传安装包
 // @version 1.0
+// @Security ApiKeyAuth
 // @accept multipart/form-data
 // @Param package formData file true "安装包"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
@@ -155,6 +157,7 @@ func UploadFileByURL(url string, localFile string) error {
 // @Summary 获取安装包列表
 // @Description 获取安装包列表
 // @version 1.0
+// @Security ApiKeyAuth
 // @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":5005,"msg":"获取安装包列表失败","data":""}"
 // @Router /api/v1/package [get]
@@ -184,12 +187,14 @@ func GetAllFiles(dirPth string) ([]string, error) {
 		}
 	}
 
+	sort.Strings(files)
 	return files, nil
 }
 
 // @Summary 删除包
 // @Description 删除包
 // @version 1.0
+// @Security ApiKeyAuth
 // @Param packageName query string true "package name"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":5002,"msg":"删除ClickHouse表失败","data":""}"

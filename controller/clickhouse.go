@@ -28,6 +28,7 @@ func NewClickHouseController(config *config.CKManConfig, ckService *clickhouse.C
 // @Summary 创建表
 // @Description 创建表
 // @version 1.0
+// @Security ApiKeyAuth
 // @Param req body model.CreateCkTableReq true "request body"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
@@ -60,6 +61,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 // @Summary 修改表
 // @Description 修改表
 // @version 1.0
+// @Security ApiKeyAuth
 // @Param req body model.AlterCkTableReq true "request body"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
@@ -91,6 +93,7 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 // @Summary 删除表
 // @Description 删除表
 // @version 1.0
+// @Security ApiKeyAuth
 // @Param tableName query string true "table name"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":5002,"msg":"删除ClickHouse表失败","data":""}"

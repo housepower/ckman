@@ -26,6 +26,11 @@ var doc = `{
     "paths": {
         "/api/v1/ck/table": {
             "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "修改表",
                 "summary": "修改表",
                 "parameters": [
@@ -49,6 +54,11 @@ var doc = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "创建表",
                 "summary": "创建表",
                 "parameters": [
@@ -72,6 +82,11 @@ var doc = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "删除表",
                 "summary": "删除表",
                 "parameters": [
@@ -95,6 +110,11 @@ var doc = `{
         },
         "/api/v1/deploy/ck": {
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "部署clickhouse",
                 "summary": "部署clickhouse",
                 "parameters": [
@@ -118,8 +138,38 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/login": {
+            "post": {
+                "description": "登陆",
+                "summary": "登陆",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.LoginReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":5032,\"msg\":\"用户密码验证失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/package": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "获取安装包列表",
                 "summary": "获取安装包列表",
                 "responses": {
@@ -132,6 +182,11 @@ var doc = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "上传安装包",
                 "consumes": [
                     "multipart/form-data"
@@ -156,6 +211,11 @@ var doc = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "删除包",
                 "summary": "删除包",
                 "parameters": [
@@ -355,6 +415,17 @@ var doc = `{
                 }
             }
         },
+        "model.LoginReq": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "model.ZkNode": {
             "type": "object",
             "properties": {
@@ -365,6 +436,13 @@ var doc = `{
                     "type": "integer"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "token",
+            "in": "header"
         }
     }
 }`
@@ -380,11 +458,11 @@ type swaggerInfo struct {
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = swaggerInfo{
-	Version:     "",
+	Version:     "1.0",
 	Host:        "",
-	BasePath:    "",
+	BasePath:    "/",
 	Schemes:     []string{},
-	Title:       "",
+	Title:       "Swagger Example API",
 	Description: "",
 }
 
