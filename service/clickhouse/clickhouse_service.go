@@ -160,3 +160,35 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 
 	return nil
 }
+
+func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkTableAttribute, error) {
+	attrs := make([]model.CkTableAttribute, 0)
+
+	desc := fmt.Sprintf("DESCRIBE TABLE %s.%s", params.DB, params.Name)
+	rows, err := ck.DB.Query(desc)
+	if err != nil {
+		return attrs, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			name, types, default_type, default_expression, comments, codec_expression, ttl_expression string
+		)
+		if err := rows.Scan(&name, &types, &default_type, &default_expression, &comments, &codec_expression, &ttl_expression); err != nil {
+			return []model.CkTableAttribute{}, err
+		}
+		attr := model.CkTableAttribute{
+			Name:              name,
+			Type:              types,
+			DefaultType:       default_type,
+			DefaultExpression: default_expression,
+			Comment:           comments,
+			CodecExpression:   codec_expression,
+			TTLExpression:     ttl_expression,
+		}
+		attrs = append(attrs, attr)
+	}
+
+	return attrs, nil
+}

@@ -60,3 +60,18 @@ type AlterCkTableParams struct {
 	Drop    []string
 	Modify  []CkTableNameType
 }
+
+type DescCkTableParams struct {
+	Name string
+	DB   string
+}
+
+type CkTableAttribute struct {
+	Name              string
+	Type              string
+	DefaultType       string
+	DefaultExpression string
+	Comment           string
+	CodecExpression   string
+	TTLExpression     string
+}

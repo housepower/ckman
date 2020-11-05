@@ -150,6 +150,22 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 删除表
+    get:
+      description: 描述表
+      parameters:
+      - description: table name
+        in: query
+        name: tableName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":5040,"msg":"描述ClickHouse表失败","data":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 描述表
     post:
       description: 创建表
       parameters:

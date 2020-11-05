@@ -19,6 +19,7 @@ func InitRouter(router *gin.Engine, config *config.CKManConfig, ck *clickhouse.C
 		groupV1.POST("/ck/table", ckController.CreateTable)
 		groupV1.PUT("/ck/table", ckController.AlterTable)
 		groupV1.DELETE("/ck/table", ckController.DeleteTable)
+		groupV1.GET("/ck/table", ckController.DescTable)
 		groupV1.POST("/package", packageController.Upload)
 		groupV1.GET("/package", packageController.List)
 		groupV1.DELETE("/package", packageController.Delete)

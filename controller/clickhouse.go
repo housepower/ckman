@@ -111,3 +111,25 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
+
+// @Summary 描述表
+// @Description 描述表
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param tableName query string true "table name"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
+// @Failure 200 {string} json "{"code":5040,"msg":"描述ClickHouse表失败","data":""}"
+// @Router /api/v1/ck/table [get]
+func (ck *ClickHouseController) DescTable(c *gin.Context) {
+	var params model.DescCkTableParams
+
+	params.Name = c.Query("tableName")
+	params.DB = ck.config.ClickHouse.DB
+	atts, err := ck.ckService.DescTable(&params)
+	if err != nil {
+		model.WrapMsg(c, model.DESC_CK_TABLE_FAIL, model.GetMsg(model.DESC_CK_TABLE_FAIL), err.Error())
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), atts)
+}

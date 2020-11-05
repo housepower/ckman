@@ -26,6 +26,7 @@ var MsgFlags = map[int]string{
 	GET_USER_PASSWORD_FAIL:    "获取用户密码失败",
 	PASSWORD_VERIFY_FAIL:      "用户密码验证失败",
 	CREAT_TOKEN_FAIL:          "生成token失败",
+	DESC_CK_TABLE_FAIL:        "描述ClickHouse表失败",
 
 	UNKNOWN: "unknown",
 }
