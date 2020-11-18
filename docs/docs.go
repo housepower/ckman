@@ -247,8 +247,8 @@ var doc = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "package name",
-                        "name": "packageName",
+                        "description": "package version",
+                        "name": "packageVersion",
                         "in": "query",
                         "required": true
                     }
@@ -291,28 +291,20 @@ var doc = `{
                 }
             }
         },
-        "model.CkCluster": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "shards": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.CkShard"
-                    }
-                }
-            }
-        },
         "model.CkDeployConfig": {
             "type": "object",
             "properties": {
-                "clusters": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.CkCluster"
-                    }
+                "ckTcpPort": {
+                    "type": "integer"
+                },
+                "clusterName": {
+                    "type": "string"
+                },
+                "isReplica": {
+                    "type": "boolean"
+                },
+                "packageVersion": {
+                    "type": "string"
                 },
                 "password": {
                     "type": "string"
@@ -327,28 +319,6 @@ var doc = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/model.ZkNode"
-                    }
-                }
-            }
-        },
-        "model.CkReplica": {
-            "type": "object",
-            "properties": {
-                "host": {
-                    "type": "string"
-                },
-                "port": {
-                    "type": "integer"
-                }
-            }
-        },
-        "model.CkShard": {
-            "type": "object",
-            "properties": {
-                "replicas": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.CkReplica"
                     }
                 }
             }
@@ -422,12 +392,6 @@ var doc = `{
                     "type": "string"
                 },
                 "hosts": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "packages": {
                     "type": "array",
                     "items": {
                         "type": "string"

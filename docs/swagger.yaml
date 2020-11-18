@@ -17,21 +17,16 @@ definitions:
       name:
         type: string
     type: object
-  model.CkCluster:
-    properties:
-      name:
-        type: string
-      shards:
-        items:
-          $ref: '#/definitions/model.CkShard'
-        type: array
-    type: object
   model.CkDeployConfig:
     properties:
-      clusters:
-        items:
-          $ref: '#/definitions/model.CkCluster'
-        type: array
+      ckTcpPort:
+        type: integer
+      clusterName:
+        type: string
+      isReplica:
+        type: boolean
+      packageVersion:
+        type: string
       password:
         type: string
       path:
@@ -41,20 +36,6 @@ definitions:
       zkServers:
         items:
           $ref: '#/definitions/model.ZkNode'
-        type: array
-    type: object
-  model.CkReplica:
-    properties:
-      host:
-        type: string
-      port:
-        type: integer
-    type: object
-  model.CkShard:
-    properties:
-      replicas:
-        items:
-          $ref: '#/definitions/model.CkReplica'
         type: array
     type: object
   model.CkTableNameType:
@@ -102,10 +83,6 @@ definitions:
       directory:
         type: string
       hosts:
-        items:
-          type: string
-        type: array
-      packages:
         items:
           type: string
         type: array
@@ -238,9 +215,9 @@ paths:
     delete:
       description: 删除包
       parameters:
-      - description: package name
+      - description: package version
         in: query
-        name: packageName
+        name: packageVersion
         required: true
         type: string
       responses:

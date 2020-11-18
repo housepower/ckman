@@ -168,7 +168,8 @@ func (p *PackageController) List(c *gin.Context) {
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), files)
+	versions := GetAllVersions(files)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), versions)
 }
 
 func GetAllFiles(dirPth string) ([]string, error) {
@@ -191,20 +192,66 @@ func GetAllFiles(dirPth string) ([]string, error) {
 	return files, nil
 }
 
+func GetAllVersions(files []string) []string {
+	versions := make([]string, 0)
+	ckClientMap := make(map[string]bool)
+	ckCommonMap := make(map[string]bool)
+	ckServerMap := make(map[string]bool)
+
+	for _, file := range files {
+		end := strings.LastIndex(file, "-")
+		if strings.HasPrefix(file, model.CkClientPackagePrefix) && strings.HasSuffix(file, model.CkClientPackageSuffix) {
+			start := len(model.CkClientPackagePrefix) + 1
+			version := file[start:end]
+			ckClientMap[version] = true
+			continue
+		}
+		if strings.HasPrefix(file, model.CkCommonPackagePrefix) && strings.HasSuffix(file, model.CkCommonPackageSuffix) {
+			start := len(model.CkCommonPackagePrefix) + 1
+			version := file[start:end]
+			ckCommonMap[version] = true
+			continue
+		}
+		if strings.HasPrefix(file, model.CkServerPackagePrefix) && strings.HasSuffix(file, model.CkServerPackageSuffix) {
+			start := len(model.CkServerPackagePrefix) + 1
+			version := file[start:end]
+			ckServerMap[version] = true
+			continue
+		}
+	}
+
+	for key, _ := range ckCommonMap {
+		_, clientOk := ckClientMap[key]
+		_, serverOk := ckServerMap[key]
+		if clientOk && serverOk {
+			versions = append(versions, key)
+		}
+	}
+
+	return versions
+}
+
 // @Summary 删除包
 // @Description 删除包
 // @version 1.0
 // @Security ApiKeyAuth
-// @Param packageName query string true "package name"
+// @Param packageVersion query string true "package version"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":5002,"msg":"删除ClickHouse表失败","data":""}"
 // @Router /api/v1/package [delete]
 func (p *PackageController) Delete(c *gin.Context) {
-	packageName := c.Query("packageName")
+	packageVersion := c.Query("packageVersion")
+	packages := make([]string, 3)
 
-	if err := os.Remove(path.Join(common.GetWorkDirectory(), DefaultPackageDirectory, packageName)); err != nil {
-		model.WrapMsg(c, model.DELETE_LOCAL_PACKAGE_FAIL, model.GetMsg(model.DELETE_LOCAL_PACKAGE_FAIL), err.Error())
-		return
+	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, packageVersion, model.CkClientPackageSuffix)
+	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, packageVersion, model.CkCommonPackageSuffix)
+	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, packageVersion, model.CkServerPackageSuffix)
+
+	for _, packageName := range packages {
+		if err := os.Remove(path.Join(common.GetWorkDirectory(), DefaultPackageDirectory, packageName)); err != nil {
+			model.WrapMsg(c, model.DELETE_LOCAL_PACKAGE_FAIL, model.GetMsg(model.DELETE_LOCAL_PACKAGE_FAIL), err.Error())
+			return
+		}
 	}
 
 	reqFromPeer := false
@@ -221,14 +268,14 @@ func (p *PackageController) Delete(c *gin.Context) {
 		for _, peer := range p.config.Server.Peers {
 			peerUrl := ""
 			if p.config.Server.Https {
-				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package?packageName=%s", peer, p.config.Server.Port, packageName)
+				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package?packageVersion=%s", peer, p.config.Server.Port, packageVersion)
 				err := DeleteFileByURL(peerUrl)
 				if err != nil {
 					model.WrapMsg(c, model.DELETE_PEER_PACKAGE_FAIL, model.GetMsg(model.DELETE_PEER_PACKAGE_FAIL), err.Error())
 					return
 				}
 			} else {
-				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package?packageName=%s", peer, p.config.Server.Port, packageName)
+				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package?packageVersion=%s", peer, p.config.Server.Port, packageVersion)
 				err := DeleteFileByURL(peerUrl)
 				if err != nil {
 					model.WrapMsg(c, model.DELETE_PEER_PACKAGE_FAIL, model.GetMsg(model.DELETE_PEER_PACKAGE_FAIL), err.Error())

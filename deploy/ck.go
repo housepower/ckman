@@ -12,22 +12,24 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
 )
 
 const (
-	TmpWorkDirectory      string = "/tmp/"
-	DefaultCkUser         string = "clickhouse"
-	DefaultCkPassword     string = "Ck123456!"
-	CkCommonPackagePrefix string = "clickhouse-common-static"
+	TmpWorkDirectory  string = "/tmp/"
+	DefaultCkUser     string = "clickhouse"
+	DefaultCkPassword string = "Ck123456!"
+	DefaultCkPort     int    = 9030
 )
 
 type Metrika struct {
 	XMLName   xml.Name  `xml:"yandex"`
 	ZkServers []Node    `xml:"zookeeper-servers>Node"`
 	CkServers []Cluster `xml:"clickhouse_remote_servers>Cluster"`
+	Macros    Macro     `xml:"macros"`
 }
 
 type Node struct {
@@ -43,14 +45,21 @@ type Cluster struct {
 }
 
 type Shard struct {
-	XMLName xml.Name `xml:"shard"`
-	Repicas []Repica
+	XMLName     xml.Name `xml:"shard"`
+	Replication bool     `xml:"internal_replication"`
+	Repicas     []Repica
 }
 
 type Repica struct {
 	XMLName xml.Name `xml:"replica"`
 	Host    string   `xml:"host"`
 	Port    int      `xml:"port"`
+}
+
+type Macro struct {
+	Cluster string `xml:"cluster"`
+	Shard   int    `xml:"shard"`
+	Repica  string `xml:"replica"`
 }
 
 type CKDeployFacotry struct{}
@@ -61,7 +70,25 @@ func (CKDeployFacotry) Create() Deploy {
 
 type CKDeploy struct {
 	DeployBase
-	Conf *model.CkDeployConfig
+	Conf      *model.CkDeployConfig
+	HostInfos []HostInfo
+}
+
+type HostInfo struct {
+	Ip          string
+	HostName    string
+	MemoryTotal int
+}
+
+type CkConfigTemplate struct {
+	CkTcpPort         int
+	Path              string
+	User              string
+	Password          string
+	ClusterName       string
+	MaxMemoryPerQuery int64
+	MaxMemoryAllQuery int64
+	MaxBytesGroupBy   int64
 }
 
 func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
@@ -77,6 +104,54 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 	}
 	if d.Conf.Password == "" {
 		d.Conf.Password = DefaultCkPassword
+	}
+	if d.Conf.CkTcpPort == 0 {
+		d.Conf.CkTcpPort = DefaultCkPort
+	}
+	if d.Conf.IsReplica && len(d.Hosts)%2 != 0 {
+		return fmt.Errorf("hosts length is not even number")
+	}
+	d.HostInfos = make([]HostInfo, len(d.Hosts))
+	HostNameMap := make(map[string]bool)
+
+	for index, host := range d.Hosts {
+		err := func() error {
+			session, err := common.SSHConnect(d.User, d.Password, host, 22)
+			if err != nil {
+				return err
+			}
+			defer session.Close()
+
+			cmd := "hostname -f && free -g"
+			output, err := common.SSHRun(session, cmd)
+			if err != nil {
+				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
+				return err
+			}
+
+			hostname := strings.Split(output, "\n")[0]
+			memory := strings.Replace(strings.Split(output, "\n")[2][7:19], " ", "", -1)
+			total, err := strconv.Atoi(memory)
+			if err != nil {
+				return err
+			}
+
+			info := HostInfo{
+				Ip:          host,
+				HostName:    hostname,
+				MemoryTotal: total,
+			}
+			d.HostInfos[index] = info
+			HostNameMap[hostname] = true
+			return nil
+		}()
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(HostNameMap) != len(d.Hosts) {
+		return fmt.Errorf("host name are the same")
 	}
 
 	return nil
@@ -101,15 +176,7 @@ func (d *CKDeploy) Install() error {
 	cmds := make([]string, 0)
 	cmds = append(cmds, fmt.Sprintf("cd %s", TmpWorkDirectory))
 	for _, pack := range d.Packages {
-		if strings.HasPrefix(pack, CkCommonPackagePrefix) {
-			cmds = append(cmds, fmt.Sprintf("rpm -ivh %s", pack))
-			break
-		}
-	}
-	for _, pack := range d.Packages {
-		if !strings.HasPrefix(pack, CkCommonPackagePrefix) {
-			cmds = append(cmds, fmt.Sprintf("rpm -ivh %s", pack))
-		}
+		cmds = append(cmds, fmt.Sprintf("rpm -ivh %s", pack))
 	}
 	cmds = append(cmds, fmt.Sprintf("mkdir -p %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
@@ -139,27 +206,37 @@ func (d *CKDeploy) Install() error {
 }
 
 func (d *CKDeploy) Config() error {
-	files := make([]string, 0)
-
-	conf, err := ParseConfigTemplate("config.xml", *d.Conf)
+	configTemplate := CkConfigTemplate{
+		CkTcpPort:   d.Conf.CkTcpPort,
+		Path:        d.Conf.Path,
+		User:        d.Conf.User,
+		Password:    d.Conf.Password,
+		ClusterName: d.Conf.ClusterName,
+	}
+	conf, err := ParseConfigTemplate("config.xml", configTemplate)
 	if err != nil {
 		return err
 	}
-	files = append(files, conf)
 
-	user, err := ParseConfigTemplate("users.xml", *d.Conf)
-	if err != nil {
-		return err
-	}
-	files = append(files, user)
+	for index, host := range d.Hosts {
+		files := make([]string, 3)
+		files[0] = conf
 
-	metrika, err := GenerateMetrikaTemplate("metrika.xml", *d.Conf)
-	if err != nil {
-		return err
-	}
-	files = append(files, metrika)
+		configTemplate.MaxMemoryPerQuery = int64((d.HostInfos[index].MemoryTotal / 2) * 1e9)
+		configTemplate.MaxMemoryAllQuery = int64(((d.HostInfos[index].MemoryTotal * 3) / 4) * 1e9)
+		configTemplate.MaxBytesGroupBy = int64((d.HostInfos[index].MemoryTotal / 4) * 1e9)
+		user, err := ParseConfigTemplate("users.xml", configTemplate)
+		if err != nil {
+			return err
+		}
+		files[1] = user
 
-	for _, host := range d.Hosts {
+		metrika, err := GenerateMetrikaTemplate("metrika.xml", *d.Conf, d.HostInfos, index)
+		if err != nil {
+			return err
+		}
+		files[2] = metrika
+
 		if err := common.ScpFiles(files, "/etc/clickhouse-server/", d.User, d.Password, host); err != nil {
 			return err
 		}
@@ -198,7 +275,7 @@ func (d *CKDeploy) Check() error {
 
 	hosts := make([]string, 0)
 	for _, host := range d.Hosts {
-		hosts = append(hosts, fmt.Sprintf("%s:%d", host, 9000))
+		hosts = append(hosts, fmt.Sprintf("%s:%d", host, d.Conf.CkTcpPort))
 	}
 
 	conf := &config.CKManClickHouseConfig{
@@ -218,7 +295,7 @@ func (d *CKDeploy) Check() error {
 	return nil
 }
 
-func ParseConfigTemplate(templateFile string, conf model.CkDeployConfig) (string, error) {
+func ParseConfigTemplate(templateFile string, conf CkConfigTemplate) (string, error) {
 	localPath := path.Join(common.GetWorkDirectory(), "bin", templateFile)
 
 	data, err := ioutil.ReadFile(localPath)
@@ -249,10 +326,13 @@ func ParseConfigTemplate(templateFile string, conf model.CkDeployConfig) (string
 	return tmplFile, nil
 }
 
-func GenerateMetrikaTemplate(templateFile string, conf model.CkDeployConfig) (string, error) {
+func GenerateMetrikaTemplate(templateFile string, conf model.CkDeployConfig, hostInfos []HostInfo, hostIndex int) (string, error) {
 	zkServers := make([]Node, 0)
 	ckServers := make([]Cluster, 0)
+	shard := 0
+	hostName := ""
 
+	// zookeeper-servers
 	for index, zk := range conf.ZkServers {
 		node := Node{
 			Index: index + 1,
@@ -262,32 +342,54 @@ func GenerateMetrikaTemplate(templateFile string, conf model.CkDeployConfig) (st
 		zkServers = append(zkServers, node)
 	}
 
-	for _, cluster := range conf.Clusters {
-		shards := make([]Shard, 0)
-		for _, shard := range cluster.Shards {
-			repicas := make([]Repica, 0)
-			for _, repica := range shard.Replicas {
-				rp := Repica{
-					Host: repica.Host,
-					Port: repica.Port,
-				}
-				repicas = append(repicas, rp)
-			}
-			sh := Shard{
-				Repicas: repicas,
-			}
-			shards = append(shards, sh)
+	// clickhouse_remote_servers
+	shards := make([]Shard, 0)
+	index := 0
+	shardIndex := 0
+	for index < len(hostInfos) {
+		shardIndex++
+		number := 1
+		if conf.IsReplica {
+			number = 2
 		}
-		ck := Cluster{
-			XMLName: xml.Name{Local: cluster.Name},
-			Shards:  shards,
+		replicas := make([]Repica, number)
+
+		for i := 0; i < number; i++ {
+			if hostIndex == index {
+				shard = shardIndex
+				hostName = hostInfos[index].HostName
+			}
+			rp := Repica{
+				Host: hostInfos[index].HostName,
+				Port: conf.CkTcpPort,
+			}
+			replicas[i] = rp
+			index++
 		}
-		ckServers = append(ckServers, ck)
+
+		sh := Shard{
+			Replication: conf.IsReplica,
+			Repicas:     replicas,
+		}
+		shards = append(shards, sh)
+	}
+	ck := Cluster{
+		XMLName: xml.Name{Local: conf.ClusterName},
+		Shards:  shards,
+	}
+	ckServers = append(ckServers, ck)
+
+	// macros
+	macros := Macro{
+		Cluster: conf.ClusterName,
+		Shard:   shard,
+		Repica:  hostName,
 	}
 
 	metrika := Metrika{
 		ZkServers: zkServers,
 		CkServers: ckServers,
+		Macros:    macros,
 	}
 	output, err := xml.MarshalIndent(metrika, "", "  ")
 	if err != nil {

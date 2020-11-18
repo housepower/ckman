@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/deploy"
@@ -62,17 +63,21 @@ func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (
 func (d *DeployController) DeployCk(c *gin.Context) {
 	var req model.DeployCkReq
 	var factory deploy.DeployFactory
+	packages := make([]string, 3)
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(model.INVALID_PARAMS), err.Error())
 		return
 	}
 
+	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, req.ClickHouse.PackageVersion, model.CkCommonPackageSuffix)
+	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, req.ClickHouse.PackageVersion, model.CkServerPackageSuffix)
+	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, req.ClickHouse.PackageVersion, model.CkClientPackageSuffix)
 	factory = deploy.CKDeployFacotry{}
 	ckDeploy := factory.Create()
 	base := &deploy.DeployBase{
 		Hosts:     req.Hosts,
-		Packages:  req.Packages,
+		Packages:  packages,
 		User:      req.User,
 		Password:  req.Password,
 		Directory: req.Directory,

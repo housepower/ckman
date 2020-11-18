@@ -75,7 +75,7 @@ func main() {
 	// create clickhouse service
 	ck := clickhouse.NewCkService(&config.GlobalConfig.ClickHouse)
 	if err := ck.InitCkService(); err != nil {
-		log.Logger.Fatalf("create clickhouse service fail: %v", err)
+		log.Logger.Errorf("create clickhouse service fail: %v", err)
 	}
 	log.Logger.Info("create clickhouse service success")
 

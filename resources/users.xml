@@ -4,11 +4,12 @@
     <profiles>
         <!-- Default settings. -->
         <default>
+            <!-- Maximum memory usage for processing single query, in bytes. -->
+            <max_memory_usage>{{.MaxMemoryPerQuery}}</max_memory_usage>
+            <max_memory_usage_for_all_queries>{{.MaxMemoryAllQuery}}</max_memory_usage_for_all_queries>
+            <max_bytes_before_external_group_by>{{.MaxBytesGroupBy}}</max_bytes_before_external_group_by>
             <max_query_size>1073741824</max_query_size>
             <distributed_aggregation_memory_efficient>1</distributed_aggregation_memory_efficient>
-            <max_bytes_before_external_group_by>60000000000</max_bytes_before_external_group_by>
-            <max_memory_usage>120000000000</max_memory_usage>
-            <max_memory_usage_for_all_queries>180000000000</max_memory_usage_for_all_queries>
             <joined_subquery_requires_alias>0</joined_subquery_requires_alias>
 
             <!-- Use cache of uncompressed blocks of data. Meaningful only for processing many of very short queries. -->
