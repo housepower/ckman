@@ -12,6 +12,7 @@ type CKManConfig struct {
 	Server     CKManServerConfig
 	Log        CKManLogConfig
 	ClickHouse CKManClickHouseConfig
+	Prometheus CKManPrometheusConfig
 	Pprof      CKManPprofConfig
 }
 
@@ -38,6 +39,11 @@ type CKManClickHouseConfig struct {
 	Cluster  string
 }
 
+type CKManPrometheusConfig struct {
+	Hosts   []string
+	Timeout int
+}
+
 type CKManPprofConfig struct {
 	Enabled bool
 	Ip      string
@@ -52,6 +58,7 @@ func fillDefault(c *CKManConfig) {
 	c.Log.MaxSize = 10
 	c.Log.MaxAge = 10
 	c.ClickHouse.DB = "default"
+	c.Prometheus.Timeout = 10
 	c.Pprof.Enabled = true
 	c.Pprof.Ip = "0.0.0.0"
 	c.Pprof.Port = 6060

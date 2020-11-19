@@ -164,24 +164,83 @@ var doc = `{
                 }
             }
         },
-        "/api/v1/login": {
-            "post": {
-                "description": "登陆",
-                "summary": "登陆",
+        "/api/v1/metric/query": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "查询指标",
+                "summary": "查询指标",
                 "parameters": [
                     {
-                        "description": "request body",
-                        "name": "req",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.LoginReq"
-                        }
+                        "type": "string",
+                        "description": "metric name",
+                        "name": "metric",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "metric time",
+                        "name": "time",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5032,\"msg\":\"用户密码验证失败\",\"data\":\"\"}",
+                        "description": "{\"code\":5050,\"msg\":\"获取指标失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/metric/query_range": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "查询指标范围",
+                "summary": "查询指标范围",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "metric name",
+                        "name": "metric",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "start time",
+                        "name": "start",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "end time",
+                        "name": "end",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "step window",
+                        "name": "step",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":5051,\"msg\":\"获取指标范围失败\",\"data\":\"\"}",
                         "schema": {
                             "type": "string"
                         }
@@ -256,6 +315,31 @@ var doc = `{
                 "responses": {
                     "200": {
                         "description": "{\"code\":5002,\"msg\":\"删除ClickHouse表失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/login": {
+            "post": {
+                "description": "登陆",
+                "summary": "登陆",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.LoginReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":5032,\"msg\":\"用户密码验证失败\",\"data\":\"\"}",
                         "schema": {
                             "type": "string"
                         }

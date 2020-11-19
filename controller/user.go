@@ -4,7 +4,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/common"
-	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"io/ioutil"
 	"path"
@@ -12,12 +11,10 @@ import (
 )
 
 type UserController struct {
-	config *config.CKManConfig
 }
 
-func NewUserController(config *config.CKManConfig) *UserController {
+func NewUserController() *UserController {
 	ck := &UserController{}
-	ck.config = config
 	return ck
 }
 
@@ -30,7 +27,7 @@ func NewUserController(config *config.CKManConfig) *UserController {
 // @Failure 200 {string} json "{"code":5030,"msg":"用户不存在","data":""}"
 // @Failure 200 {string} json "{"code":5031,"msg":"获取用户密码失败","data":""}"
 // @Failure 200 {string} json "{"code":5032,"msg":"用户密码验证失败","data":""}"
-// @Router /api/v1/login [post]
+// @Router /login [post]
 func (d *UserController) Login(c *gin.Context) {
 	var req model.LoginReq
 

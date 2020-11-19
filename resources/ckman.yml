@@ -8,9 +8,9 @@ server:
 log:
   level: INFO
   max_count: 5
-  # megabytes
+  # megabyte
   max_size: 10
-  # days
+  # day
   max_age: 10
 
 clickhouse:
@@ -22,6 +22,12 @@ clickhouse:
   password: '123456'
   db: default
   cluster: bench
+
+prometheus:
+  hosts:
+    - 192.168.101.105:19090
+  # second
+  timeout: 10
 
 pprof:
   enabled: true

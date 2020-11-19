@@ -7,6 +7,7 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/server"
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
+	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
 	"gopkg.in/sevlyar/go-daemon.v0"
 	"net/http"
 	_ "net/http/pprof"
@@ -76,11 +77,15 @@ func main() {
 	ck := clickhouse.NewCkService(&config.GlobalConfig.ClickHouse)
 	if err := ck.InitCkService(); err != nil {
 		log.Logger.Errorf("create clickhouse service fail: %v", err)
+	} else {
+		log.Logger.Info("create clickhouse service success")
 	}
-	log.Logger.Info("create clickhouse service success")
+
+	// create prometheus service
+	prom := prometheus.NewPrometheusService(&config.GlobalConfig.Prometheus)
 
 	// start http server
-	svr := server.NewApiServer(&config.GlobalConfig, ck)
+	svr := server.NewApiServer(&config.GlobalConfig, ck, prom)
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}

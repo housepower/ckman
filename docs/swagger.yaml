@@ -195,22 +195,60 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 部署clickhouse
-  /api/v1/login:
-    post:
-      description: 登陆
+  /api/v1/metric/query:
+    get:
+      description: 查询指标
       parameters:
-      - description: request body
-        in: body
-        name: req
+      - description: metric name
+        in: query
+        name: metric
         required: true
-        schema:
-          $ref: '#/definitions/model.LoginReq'
+        type: string
+      - description: metric time
+        in: query
+        name: time
+        required: true
+        type: string
       responses:
         "200":
-          description: '{"code":5032,"msg":"用户密码验证失败","data":""}'
+          description: '{"code":5050,"msg":"获取指标失败","data":""}'
           schema:
             type: string
-      summary: 登陆
+      security:
+      - ApiKeyAuth: []
+      summary: 查询指标
+  /api/v1/metric/query_range:
+    get:
+      description: 查询指标范围
+      parameters:
+      - description: metric name
+        in: query
+        name: metric
+        required: true
+        type: string
+      - description: start time
+        in: query
+        name: start
+        required: true
+        type: string
+      - description: end time
+        in: query
+        name: end
+        required: true
+        type: string
+      - description: step window
+        in: query
+        name: step
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":5051,"msg":"获取指标范围失败","data":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 查询指标范围
   /api/v1/package:
     delete:
       description: 删除包
@@ -256,6 +294,22 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 上传安装包
+  /login:
+    post:
+      description: 登陆
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.LoginReq'
+      responses:
+        "200":
+          description: '{"code":5032,"msg":"用户密码验证失败","data":""}'
+          schema:
+            type: string
+      summary: 登陆
 securityDefinitions:
   ApiKeyAuth:
     in: header

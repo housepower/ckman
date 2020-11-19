@@ -26,6 +26,10 @@ func NewCkService(config *config.CKManClickHouseConfig) *CkService {
 }
 
 func (ck *CkService) InitCkService() error {
+	if len(ck.config.Hosts) == 0 {
+		return fmt.Errorf("can't find any host")
+	}
+
 	dataSourceName := fmt.Sprintf("tcp://%s?service=%s&username=%s&password=%s",
 		ck.config.Hosts[0], ck.config.DB, ck.config.User, ck.config.Password)
 	if len(ck.config.Hosts) > 1 {
@@ -54,13 +58,18 @@ func (ck *CkService) InitCkService() error {
 
 func (ck *CkService) Stop() error {
 	if ck.DB != nil {
-		return ck.DB.Close()
+		ck.DB.Close()
 	}
 
+	ck.DB = nil
 	return nil
 }
 
 func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
+	if ck.DB == nil {
+		return fmt.Errorf("ck db is nil")
+	}
+
 	columns := make([]string, 0)
 	for _, value := range params.Fields {
 		columns = append(columns, fmt.Sprintf("%s %s", value.Name, value.Type))
@@ -96,6 +105,10 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 }
 
 func (ck *CkService) DeleteTable(params *model.DeleteCkTableParams) error {
+	if ck.DB == nil {
+		return fmt.Errorf("ck db is nil")
+	}
+
 	delete := fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix,
 		params.Name, params.Cluster)
 	if _, err := ck.DB.Exec(delete); err != nil {
@@ -111,6 +124,10 @@ func (ck *CkService) DeleteTable(params *model.DeleteCkTableParams) error {
 }
 
 func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
+	if ck.DB == nil {
+		return fmt.Errorf("ck db is nil")
+	}
+
 	// add column
 	for _, value := range params.Add {
 		add := ""
@@ -163,6 +180,9 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 
 func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkTableAttribute, error) {
 	attrs := make([]model.CkTableAttribute, 0)
+	if ck.DB == nil {
+		return attrs, fmt.Errorf("ck db is nil")
+	}
 
 	desc := fmt.Sprintf("DESCRIBE TABLE %s.%s", params.DB, params.Name)
 	rows, err := ck.DB.Query(desc)

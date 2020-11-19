@@ -8,26 +8,29 @@ import (
 	"github.com/swaggo/gin-swagger/swaggerFiles"
 	"gitlab.eoitek.net/EOI/ckman/common"
 	"gitlab.eoitek.net/EOI/ckman/config"
+	"gitlab.eoitek.net/EOI/ckman/controller"
 	_ "gitlab.eoitek.net/EOI/ckman/docs"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"gitlab.eoitek.net/EOI/ckman/router"
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
+	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
 	"net/http"
-	"strings"
 	"time"
 )
 
 type ApiServer struct {
 	config *config.CKManConfig
 	ck     *clickhouse.CkService
+	prom   *prometheus.PrometheusService
 	svr    *http.Server
 }
 
-func NewApiServer(config *config.CKManConfig, ck *clickhouse.CkService) *ApiServer {
+func NewApiServer(config *config.CKManConfig, ck *clickhouse.CkService, prom *prometheus.PrometheusService) *ApiServer {
 	server := &ApiServer{}
 	server.config = config
 	server.ck = ck
+	server.prom = prom
 	return server
 }
 
@@ -37,18 +40,21 @@ func (server *ApiServer) Start() error {
 
 	// add log middleware
 	r.Use(ginLoggerToFile())
-	// add authenticate middleware
-	r.Use(ginJWTAuth())
 
-	router.InitRouter(r, server.config, server.ck)
+	userController := controller.NewUserController()
+	r.POST("/login", userController.Login)
 
 	// http://127.0.0.1:8808/swagger/index.html
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	groupV1 := r.Group("/api/v1")
+	router.InitRouterV1(groupV1, server.config, server.ck, server.prom)
+	// add authenticate middleware for /api/v1
+	groupV1.Use(ginJWTAuth())
+
 	bind := fmt.Sprintf("%s:%d", server.config.Server.Ip, server.config.Server.Port)
 	server.svr = &http.Server{
-		Addr: bind,
-		// Good practice to set timeouts to avoid Slowloris attacks.
+		Addr:         bind,
 		WriteTimeout: time.Second * 300,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
@@ -123,13 +129,9 @@ func ginJWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.Request.Header.Get("token")
 		if token == "" {
-			if filterRequestURI(c.Request.RequestURI) {
-				return
-			} else {
-				model.WrapMsg(c, model.JWT_TOKEN_NONE, model.GetMsg(model.JWT_TOKEN_NONE), nil)
-				c.Abort()
-				return
-			}
+			model.WrapMsg(c, model.JWT_TOKEN_NONE, model.GetMsg(model.JWT_TOKEN_NONE), nil)
+			c.Abort()
+			return
 		}
 
 		j := common.NewJWT()
@@ -149,19 +151,4 @@ func ginJWTAuth() gin.HandlerFunc {
 
 		c.Set("claims", claims)
 	}
-}
-
-func filterRequestURI(uri string) bool {
-	whiteList := []string{
-		"/swagger/",
-		"/api/v1/login",
-	}
-
-	for _, pre := range whiteList {
-		if match := strings.HasPrefix(uri, pre); match {
-			return true
-		}
-	}
-
-	return false
 }

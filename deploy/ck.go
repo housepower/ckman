@@ -22,7 +22,7 @@ const (
 	TmpWorkDirectory  string = "/tmp/"
 	DefaultCkUser     string = "clickhouse"
 	DefaultCkPassword string = "Ck123456!"
-	DefaultCkPort     int    = 9030
+	DefaultCkPort     int    = 9000
 )
 
 type Metrika struct {

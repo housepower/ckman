@@ -30,6 +30,7 @@ package: build
 	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
+	@mv ${SHDIR}/schemer ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/config.xml ${PKGFULLDIR_TMP}/bin
@@ -45,4 +46,4 @@ package: build
 .PHONY: docker-build
 docker-build:
 	rm -rf ${PKGDIR}-*.tar.gz
-	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e "GO111MODULE=on" amd64/golang:1.15.3 make package VERSION=${VERSION}
+	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct amd64/golang:1.15.3 make package VERSION=${VERSION}
