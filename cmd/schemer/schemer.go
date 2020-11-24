@@ -33,15 +33,15 @@ func getObjectListFromClickHouse(db *sql.DB, query string) (names, statements []
 		err = errors.Wrapf(err, "")
 		return
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var name, statement string
-		if err := rows.Scan(&name, &statement); err == nil {
-			names = append(names, name)
-			statements = append(statements, statement)
-		} else {
+		if err = rows.Scan(&name, &statement); err != nil {
 			err = errors.Wrapf(err, "")
-			log.Errorf("UNABLE to scan row err: %+v", err)
+			return
 		}
+		names = append(names, name)
+		statements = append(statements, statement)
 	}
 	return
 }

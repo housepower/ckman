@@ -19,6 +19,7 @@ TAG?=$(shell date +%y%m%d)
 build: password
 	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}"
 	go build -o schemer cmd/schemer/schemer.go
+	go build -o rebalancer cmd/rebalancer/rebalancer.go
 
 .PHONY: password
 password:
