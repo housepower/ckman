@@ -2,38 +2,87 @@ package clickhouse
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
+	"gitlab.eoitek.net/EOI/ckman/common"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
+	"io/ioutil"
+	"os"
+	"path"
 	"strings"
+	"sync"
+	"time"
 )
 
 const (
 	ClickHouseDistributedTablePrefix string = "dist_"
+	ClickHouseDefaultDB              string = "default"
+	ClickHouseDefaultUser            string = "clickhouse"
+	ClickHouseDefaultPassword        string = "Ck123456!"
+	ClickHouseClustersFile           string = "clusters.json"
+	ClickHouseDefaultPort            int    = 9000
+	ClickHouseDefaultZkPort          int    = 2181
 )
 
+var CkClusters sync.Map
+var CkServices sync.Map
+
 type CkService struct {
-	config *config.CKManClickHouseConfig
+	Config *config.CKManClickHouseConfig
 	DB     *sql.DB
+}
+
+type ClusterService struct {
+	Service *CkService
+	Time    int64
+}
+
+func CkConfigFillDefault(config *config.CKManClickHouseConfig) {
+	if config.DB == "" {
+		config.DB = ClickHouseDefaultDB
+	}
+	if config.Port == 0 {
+		config.Port = ClickHouseDefaultPort
+	}
+	if config.ZkPort == 0 {
+		config.ZkPort = ClickHouseDefaultZkPort
+	}
 }
 
 func NewCkService(config *config.CKManClickHouseConfig) *CkService {
 	ck := &CkService{}
-	ck.config = config
+
+	CkConfigFillDefault(config)
+	ck.Config = config
+	ck.DB = nil
+
 	return ck
 }
 
+func (ck *CkService) Stop() error {
+	if ck.DB != nil {
+		ck.DB.Close()
+	}
+
+	ck.DB = nil
+	return nil
+}
+
 func (ck *CkService) InitCkService() error {
-	if len(ck.config.Hosts) == 0 {
+	if len(ck.Config.Hosts) == 0 {
 		return fmt.Errorf("can't find any host")
 	}
 
-	dataSourceName := fmt.Sprintf("tcp://%s?service=%s&username=%s&password=%s",
-		ck.config.Hosts[0], ck.config.DB, ck.config.User, ck.config.Password)
-	if len(ck.config.Hosts) > 1 {
-		otherHosts := ck.config.Hosts[1:]
+	dataSourceName := fmt.Sprintf("tcp://%s:%d?service=%s&username=%s&password=%s",
+		ck.Config.Hosts[0], ck.Config.Port, ck.Config.DB, ck.Config.User, ck.Config.Password)
+	if len(ck.Config.Hosts) > 1 {
+		otherHosts := make([]string, 0)
+		for _, host := range ck.Config.Hosts[1:] {
+			otherHosts = append(otherHosts, fmt.Sprintf("%s:%d", host, ck.Config.Port))
+		}
 		dataSourceName += "&alt_hosts="
 		dataSourceName += strings.Join(otherHosts, ",")
 		dataSourceName += "&connection_open_strategy=random"
@@ -56,18 +105,92 @@ func (ck *CkService) InitCkService() error {
 	return nil
 }
 
-func (ck *CkService) Stop() error {
-	if ck.DB != nil {
-		ck.DB.Close()
+func UnmarshalClusters() error {
+	localFile := path.Join(common.GetWorkDirectory(), "conf", ClickHouseClustersFile)
+
+	_, err := os.Stat(localFile)
+	if err != nil {
+		// file does not exist
+		return nil
 	}
 
-	ck.DB = nil
+	data, err := ioutil.ReadFile(localFile)
+	if err != nil {
+		return err
+	}
+
+	clustersMap := make(map[string]config.CKManClickHouseConfig)
+	err = json.Unmarshal(data, &clustersMap)
+	if err != nil {
+		return err
+	}
+
+	for key, value := range clustersMap {
+		CkClusters.Store(key, value)
+	}
+
 	return nil
+}
+
+func MarshalClusters() error {
+	clustersMap := make(map[string]config.CKManClickHouseConfig)
+	CkClusters.Range(func(k, v interface{}) bool {
+		clustersMap[k.(string)] = v.(config.CKManClickHouseConfig)
+		return true
+	})
+
+	data, err := json.Marshal(clustersMap)
+	if err != nil {
+		return err
+	}
+
+	localFile := path.Join(common.GetWorkDirectory(), "conf", ClickHouseClustersFile)
+	localFd, err := os.OpenFile(localFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return err
+	}
+	defer localFd.Close()
+
+	num, err := localFd.Write(data)
+	if err != nil {
+		return err
+	}
+
+	if num != len(data) {
+		return fmt.Errorf("do not write enough data")
+	}
+
+	return nil
+}
+
+func GetCkService(clusterName string) (*CkService, error) {
+	cluster, ok := CkServices.Load(clusterName)
+	if ok {
+		clusterService := cluster.(*ClusterService)
+		return clusterService.Service, nil
+	} else {
+		conf, ok := CkClusters.Load(clusterName)
+		if ok {
+			ckConfig := conf.(config.CKManClickHouseConfig)
+			service := NewCkService(&ckConfig)
+			if err := service.InitCkService(); err != nil {
+				return nil, err
+			}
+			clusterService := &ClusterService{
+				Service: service,
+				Time:    time.Now().Unix(),
+			}
+			CkServices.Store(clusterName, clusterService)
+			return service, nil
+		} else {
+			return nil, fmt.Errorf("can't find cluster %s service", clusterName)
+		}
+	}
 }
 
 func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	if ck.DB == nil {
-		return fmt.Errorf("ck db is nil")
+		return fmt.Errorf("clickhouse service unavailable")
 	}
 
 	columns := make([]string, 0)
@@ -106,7 +229,7 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 
 func (ck *CkService) DeleteTable(params *model.DeleteCkTableParams) error {
 	if ck.DB == nil {
-		return fmt.Errorf("ck db is nil")
+		return fmt.Errorf("clickhouse service unavailable")
 	}
 
 	delete := fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix,
@@ -125,7 +248,7 @@ func (ck *CkService) DeleteTable(params *model.DeleteCkTableParams) error {
 
 func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	if ck.DB == nil {
-		return fmt.Errorf("ck db is nil")
+		return fmt.Errorf("clickhouse service unavailable")
 	}
 
 	// add column
@@ -181,7 +304,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkTableAttribute, error) {
 	attrs := make([]model.CkTableAttribute, 0)
 	if ck.DB == nil {
-		return attrs, fmt.Errorf("ck db is nil")
+		return attrs, fmt.Errorf("clickhouse service unavailable")
 	}
 
 	desc := fmt.Sprintf("DESCRIBE TABLE %s.%s", params.DB, params.Name)
@@ -211,4 +334,51 @@ func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkTable
 	}
 
 	return attrs, nil
+}
+
+func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
+	if ck.DB == nil {
+		return nil, fmt.Errorf("clickhouse service unavailable")
+	}
+
+	rows, err := ck.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	colData := make([][]interface{}, 0)
+	colNames := make([]interface{}, len(cols))
+	// Create a slice of interface{}'s to represent each column,
+	// and a second slice to contain pointers to each item in the columns slice.
+	columns := make([]interface{}, len(cols))
+	columnPointers := make([]interface{}, len(cols))
+	for i, colName := range cols {
+		columnPointers[i] = &columns[i]
+		colNames[i] = colName
+	}
+	colData = append(colData, colNames)
+
+	for rows.Next() {
+		// Scan the result into the column pointers...
+		if err := rows.Scan(columnPointers...); err != nil {
+			return nil, err
+		}
+
+		// Create our map, and retrieve the value for each column from the pointers slice,
+		// storing it in the map with the name of the column as the key.
+		m := make([]interface{}, len(cols))
+		for i, _ := range columnPointers {
+			val := columnPointers[i].(*interface{})
+			m[i] = *val
+		}
+
+		colData = append(colData, m)
+	}
+
+	return colData, nil
 }

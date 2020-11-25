@@ -29,6 +29,10 @@ var MsgFlags = map[int]string{
 	DESC_CK_TABLE_FAIL:        "描述ClickHouse表失败",
 	QUERY_METRIC_FAIL:         "获取指标失败",
 	QUERY_RANGE_METRIC_FAIL:   "获取指标范围失败",
+	QUERY_CK_FAIL:             "查询ClickHouse失败",
+	CONNECT_CK_CLUSTER_FAIL:   "连接ClickHouse集群失败",
+	IMPORT_CK_CLUSTER_FAIL:    "导入ClickHouse集群失败",
+	UPDATE_CK_CLUSTER_FAIL:    "更新ClickHouse集群失败",
 
 	UNKNOWN: "unknown",
 }

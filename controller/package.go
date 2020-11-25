@@ -40,8 +40,8 @@ func NewPackageController(config *config.CKManConfig) *PackageController {
 // @Security ApiKeyAuth
 // @accept multipart/form-data
 // @Param package formData file true "安装包"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":5004,"msg":"上传安装包失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/package [post]
 func (p *PackageController) Upload(c *gin.Context) {
 	localFile, err := ParserFormData(c.Request)
@@ -158,8 +158,8 @@ func UploadFileByURL(url string, localFile string) error {
 // @Description 获取安装包列表
 // @version 1.0
 // @Security ApiKeyAuth
-// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":5005,"msg":"获取安装包列表失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"ok","data":["20.8.5.45"]}"
 // @Router /api/v1/package [get]
 func (p *PackageController) List(c *gin.Context) {
 	files, err := GetAllFiles(path.Join(common.GetWorkDirectory(), DefaultPackageDirectory))
@@ -235,9 +235,9 @@ func GetAllVersions(files []string) []string {
 // @Description 删除包
 // @version 1.0
 // @Security ApiKeyAuth
-// @Param packageVersion query string true "package version"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
+// @Param packageVersion query string true "package version" default(20.8.5.45)
 // @Failure 200 {string} json "{"code":5002,"msg":"删除ClickHouse表失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/package [delete]
 func (p *PackageController) Delete(c *gin.Context) {
 	packageVersion := c.Query("packageVersion")

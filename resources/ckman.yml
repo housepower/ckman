@@ -4,6 +4,7 @@ server:
   port: 8808
   https: false
   peers: []
+  session_timeout: 3600
 
 log:
   level: INFO
@@ -12,16 +13,6 @@ log:
   max_size: 10
   # day
   max_age: 10
-
-clickhouse:
-  hosts:
-    - 192.168.101.106:9000
-    - 192.168.101.108:9000
-    - 192.168.101.110:9000
-  user: eoi
-  password: '123456'
-  db: default
-  cluster: bench
 
 prometheus:
   hosts:

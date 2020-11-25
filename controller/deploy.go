@@ -6,6 +6,7 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/deploy"
 	"gitlab.eoitek.net/EOI/ckman/model"
+	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 )
 
 type DeployController struct {
@@ -51,7 +52,6 @@ func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param req body model.DeployCkReq true "request body"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
 // @Failure 200 {string} json "{"code":5011,"msg":"初始化组件失败","data":""}"
 // @Failure 200 {string} json "{"code":5012,"msg":"准备组件失败","data":""}"
@@ -59,6 +59,7 @@ func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (
 // @Failure 200 {string} json "{"code":5014,"msg":"配置组件失败","data":""}"
 // @Failure 200 {string} json "{"code":5015,"msg":"启动组件失败","data":""}"
 // @Failure 200 {string} json "{"code":5016,"msg":"检查组件启动状态失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Router /api/v1/deploy/ck [post]
 func (d *DeployController) DeployCk(c *gin.Context) {
 	var req model.DeployCkReq
@@ -89,5 +90,24 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		return
 	}
 
+	conf := convertCkConfig(&req)
+	clickhouse.CkClusters.Store(req.ClickHouse.ClusterName, conf)
+	clickhouse.MarshalClusters()
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+}
+
+func convertCkConfig(req *model.DeployCkReq) config.CKManClickHouseConfig {
+	conf := config.CKManClickHouseConfig{
+		Hosts:     req.Hosts,
+		Port:      req.ClickHouse.CkTcpPort,
+		User:      req.ClickHouse.User,
+		Password:  req.ClickHouse.Password,
+		Cluster:   req.ClickHouse.ClusterName,
+		ZkNodes:   req.ClickHouse.ZkNodes,
+		ZkPort:    req.ClickHouse.ZkPort,
+		IsReplica: req.ClickHouse.IsReplica,
+	}
+
+	clickhouse.CkConfigFillDefault(&conf)
+	return conf
 }

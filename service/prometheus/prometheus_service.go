@@ -26,7 +26,7 @@ func NewPrometheusService(config *config.CKManPrometheusConfig) *PrometheusServi
 
 func (p *PrometheusService) QueryMetric(params *model.MetricQueryReq) (m.Value, error) {
 	if p.hosts == 0 {
-		return nil, fmt.Errorf("can't find any host")
+		return nil, fmt.Errorf("prometheus service unavailable")
 	}
 	p.times++
 
@@ -51,7 +51,7 @@ func (p *PrometheusService) QueryMetric(params *model.MetricQueryReq) (m.Value, 
 
 func (p *PrometheusService) QueryRangeMetric(params *model.MetricQueryRangeReq) (m.Value, error) {
 	if p.hosts == 0 {
-		return nil, fmt.Errorf("can't find any host")
+		return nil, fmt.Errorf("prometheus service unavailable")
 	}
 	p.times++
 

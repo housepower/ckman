@@ -10,25 +10,21 @@ const (
 )
 
 type DeployCkReq struct {
-	Hosts      []string
-	User       string
-	Password   string
-	Directory  string
-	ClickHouse CkDeployConfig
+	Hosts      []string       `json:"hosts" example:"192.168.101.105,192.168.101.107"`
+	User       string         `json:"user" example:"root"`
+	Password   string         `json:"password" example:"123456"`
+	Directory  string         `json:"directory" example:"/usr/local/bin"`
+	ClickHouse CkDeployConfig `json:"clickhouse"`
 }
 
 type CkDeployConfig struct {
-	Path           string
-	User           string
-	Password       string
-	ZkServers      []ZkNode
-	ClusterName    string
-	IsReplica      bool
-	PackageVersion string
-	CkTcpPort      int
-}
-
-type ZkNode struct {
-	Host string
-	Port int
+	Path           string   `json:"path" example:"/data01/"`
+	User           string   `json:"user" example:"ck"`
+	Password       string   `json:"password" example:"123456"`
+	ZkNodes        []string `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
+	ZkPort         int      `json:"zkPort" example:"2181"`
+	ClusterName    string   `json:"clusterName" example:"test"`
+	IsReplica      bool     `json:"isReplica" example:"false"`
+	PackageVersion string   `json:"packageVersion" example:"20.8.5.45"`
+	CkTcpPort      int      `json:"ckTcpPort" example:"9000"`
 }

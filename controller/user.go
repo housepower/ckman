@@ -4,6 +4,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/common"
+	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"io/ioutil"
 	"path"
@@ -11,10 +12,12 @@ import (
 )
 
 type UserController struct {
+	config *config.CKManConfig
 }
 
-func NewUserController() *UserController {
+func NewUserController(config *config.CKManConfig) *UserController {
 	ck := &UserController{}
+	ck.config = config
 	return ck
 }
 
@@ -22,11 +25,11 @@ func NewUserController() *UserController {
 // @Description 登陆
 // @version 1.0
 // @Param req body model.LoginReq true "request body"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":""}"
 // @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
 // @Failure 200 {string} json "{"code":5030,"msg":"用户不存在","data":""}"
 // @Failure 200 {string} json "{"code":5031,"msg":"获取用户密码失败","data":""}"
 // @Failure 200 {string} json "{"code":5032,"msg":"用户密码验证失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"ok","data":{"username":"ckman","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"}}"
 // @Router /login [post]
 func (d *UserController) Login(c *gin.Context) {
 	var req model.LoginReq
@@ -57,7 +60,7 @@ func (d *UserController) Login(c *gin.Context) {
 	claims := common.CustomClaims{
 		StandardClaims: jwt.StandardClaims{
 			IssuedAt:  time.Now().Unix(),
-			ExpiresAt: time.Now().Add(time.Second * time.Duration(common.TokenExpireTime)).Unix(),
+			ExpiresAt: time.Now().Add(time.Second * time.Duration(d.config.Server.SessionTimeout)).Unix(),
 		},
 		Name:     common.DefaultUserName,
 		ClientIP: c.ClientIP(),

@@ -4,21 +4,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/model"
-	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
 	"strconv"
 )
 
 type MetricController struct {
 	config      *config.CKManConfig
-	ckService   *clickhouse.CkService
 	promService *prometheus.PrometheusService
 }
 
-func NewMetricController(config *config.CKManConfig, ckService *clickhouse.CkService, promService *prometheus.PrometheusService) *MetricController {
+func NewMetricController(config *config.CKManConfig, promService *prometheus.PrometheusService) *MetricController {
 	ck := &MetricController{}
 	ck.config = config
-	ck.ckService = ckService
 	ck.promService = promService
 	return ck
 }
@@ -27,11 +24,11 @@ func NewMetricController(config *config.CKManConfig, ckService *clickhouse.CkSer
 // @Description 查询指标
 // @version 1.0
 // @Security ApiKeyAuth
-// @Param metric query string true "metric name"
-// @Param time query string true "metric time"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
+// @Param metric query string true "metric name" default(ClickHouseMetrics_Read)
+// @Param time query string true "metric time" default(1606290000)
 // @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
 // @Failure 200 {string} json "{"code":5050,"msg":"获取指标失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"ok","data":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"value":[1606290000,"2"]}]}"
 // @Router /api/v1/metric/query [get]
 func (m *MetricController) Query(c *gin.Context) {
 	var params model.MetricQueryReq
@@ -57,13 +54,13 @@ func (m *MetricController) Query(c *gin.Context) {
 // @Description 查询指标范围
 // @version 1.0
 // @Security ApiKeyAuth
-// @Param metric query string true "metric name"
-// @Param start query string true "start time"
-// @Param end query string true "end time"
-// @Param step query string true "step window"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
+// @Param metric query string true "metric name" default(ClickHouseMetrics_Read)
+// @Param start query string true "start time" default(1606290000)
+// @Param end query string true "end time" default(1606290120)
+// @Param step query string true "step window" default(60)
 // @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
 // @Failure 200 {string} json "{"code":5051,"msg":"获取指标范围失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"ok","data":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"values":[[1606290000,"2"],[1606290060,"2"],[1606290120,"2"]]}]}"
 // @Router /api/v1/metric/query_range [get]
 func (m *MetricController) QueryRange(c *gin.Context) {
 	var params model.MetricQueryRangeReq

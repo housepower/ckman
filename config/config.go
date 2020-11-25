@@ -11,17 +11,17 @@ var GlobalConfig CKManConfig
 type CKManConfig struct {
 	Server     CKManServerConfig
 	Log        CKManLogConfig
-	ClickHouse CKManClickHouseConfig
 	Prometheus CKManPrometheusConfig
 	Pprof      CKManPprofConfig
 }
 
 type CKManServerConfig struct {
-	Id    int
-	Ip    string
-	Port  int
-	Https bool
-	Peers []string
+	Id             int
+	Ip             string
+	Port           int
+	Https          bool
+	Peers          []string
+	SessionTimeout int `yaml:"session_timeout"`
 }
 
 type CKManLogConfig struct {
@@ -32,11 +32,15 @@ type CKManLogConfig struct {
 }
 
 type CKManClickHouseConfig struct {
-	Hosts    []string
-	User     string
-	Password string
-	DB       string
-	Cluster  string
+	Hosts     []string `json:"hosts" example:"192.168.101.105,192.168.101.107"`
+	Port      int      `json:"port" example:"9000"`
+	User      string   `json:"user" example:"ck"`
+	Password  string   `json:"password" example:"123456"`
+	DB        string   `json:"database" example:"default"`
+	Cluster   string   `json:"cluster" example:"test"`
+	ZkNodes   []string `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
+	ZkPort    int      `json:"zkPort" example:"2181"`
+	IsReplica bool     `json:"isReplica" example:"false"`
 }
 
 type CKManPrometheusConfig struct {
@@ -53,11 +57,11 @@ type CKManPprofConfig struct {
 func fillDefault(c *CKManConfig) {
 	c.Server.Ip = "0.0.0.0"
 	c.Server.Port = 8808
+	c.Server.SessionTimeout = 3600
 	c.Log.Level = "INFO"
 	c.Log.MaxCount = 5
 	c.Log.MaxSize = 10
 	c.Log.MaxAge = 10
-	c.ClickHouse.DB = "default"
 	c.Prometheus.Timeout = 10
 	c.Pprof.Enabled = true
 	c.Pprof.Ip = "0.0.0.0"

@@ -1,5 +1,44 @@
 basePath: /
 definitions:
+  config.CKManClickHouseConfig:
+    properties:
+      cluster:
+        example: test
+        type: string
+      database:
+        example: default
+        type: string
+      hosts:
+        example:
+        - 192.168.101.105
+        - 192.168.101.107
+        items:
+          type: string
+        type: array
+      isReplica:
+        example: false
+        type: boolean
+      password:
+        example: "123456"
+        type: string
+      port:
+        example: 9000
+        type: integer
+      user:
+        example: ck
+        type: string
+      zkNodes:
+        example:
+        - 192.168.101.102
+        - 192.168.101.105
+        - 192.168.101.107
+        items:
+          type: string
+        type: array
+      zkPort:
+        example: 2181
+        type: integer
+    type: object
   model.AlterCkTableReq:
     properties:
       add:
@@ -7,6 +46,8 @@ definitions:
           $ref: '#/definitions/model.CkTableNameTypeAfter'
         type: array
       drop:
+        example:
+        - age
         items:
           type: string
         type: array
@@ -15,50 +56,76 @@ definitions:
           $ref: '#/definitions/model.CkTableNameType'
         type: array
       name:
+        example: test_table
         type: string
     type: object
   model.CkDeployConfig:
     properties:
       ckTcpPort:
+        example: 9000
         type: integer
       clusterName:
+        example: test
         type: string
       isReplica:
+        example: false
         type: boolean
       packageVersion:
+        example: 20.8.5.45
         type: string
       password:
+        example: "123456"
         type: string
       path:
+        example: /data01/
         type: string
       user:
+        example: ck
         type: string
-      zkServers:
+      zkNodes:
+        example:
+        - 192.168.101.102
+        - 192.168.101.105
+        - 192.168.101.107
         items:
-          $ref: '#/definitions/model.ZkNode'
+          type: string
         type: array
+      zkPort:
+        example: 2181
+        type: integer
     type: object
   model.CkTableNameType:
     properties:
       name:
+        example: _timestamp
         type: string
       type:
+        example: DateTime
         type: string
     type: object
   model.CkTableNameTypeAfter:
     properties:
       after:
+        example: _timestamp
         type: string
       name:
+        example: age
         type: string
       type:
+        example: Int32
         type: string
     type: object
   model.CkTablePartition:
     properties:
       name:
+        example: _timestamp
         type: string
       policy:
+        description: |-
+          0 split partition by day
+          1 split partition by week
+          2 split partition by month
+        example: 0
         type: integer
     type: object
   model.CreateCkTableReq:
@@ -68,8 +135,11 @@ definitions:
           $ref: '#/definitions/model.CkTableNameType'
         type: array
       name:
+        example: test_table
         type: string
       order:
+        example:
+        - _timestamp
         items:
           type: string
         type: array
@@ -78,50 +148,145 @@ definitions:
     type: object
   model.DeployCkReq:
     properties:
-      clickHouse:
+      clickhouse:
         $ref: '#/definitions/model.CkDeployConfig'
       directory:
+        example: /usr/local/bin
         type: string
       hosts:
+        example:
+        - 192.168.101.105
+        - 192.168.101.107
         items:
           type: string
         type: array
       password:
+        example: "123456"
         type: string
       user:
+        example: root
         type: string
     type: object
   model.LoginReq:
     properties:
       password:
+        example: 63cb91a2ceb9d4f7c8b1ba5e50046f52
         type: string
       username:
+        example: ckman
         type: string
-    type: object
-  model.ZkNode:
-    properties:
-      host:
-        type: string
-      port:
-        type: integer
     type: object
 info:
   contact: {}
   title: Swagger Example API
   version: "1.0"
 paths:
-  /api/v1/ck/table:
+  /api/v1/ck/cluster:
+    get:
+      description: 获取ClickHouse集群
+      responses:
+        "200":
+          description: '{"code":200,"msg":"ok","data":{"test":{"hosts":["192.168.101.105"],"port":9000,"user":"eoi","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.101.102"],"zkPort":2181,"isReplica":false}}}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取ClickHouse集群
+    post:
+      description: 导入ClickHouse集群
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/config.CKManClickHouseConfig'
+      responses:
+        "200":
+          description: '{"code":200,"msg":"ok","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 导入ClickHouse集群
+    put:
+      description: 更新ClickHouse集群
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/config.CKManClickHouseConfig'
+      responses:
+        "200":
+          description: '{"code":200,"msg":"ok","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 更新ClickHouse集群
+  /api/v1/ck/cluster/{clusterName}:
+    delete:
+      description: 删除ClickHouse集群
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"ok","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除ClickHouse集群
+  /api/v1/ck/query/{clusterName}:
+    get:
+      description: 执行query命令
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - default: show databases
+        description: sql
+        in: query
+        name: query
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"ok","data":[["name"],["default"],["system"]]}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 执行query命令
+  /api/v1/ck/table/{clusterName}:
     delete:
       description: 删除表
       parameters:
-      - description: table name
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - default: test_table
+        description: table name
         in: query
         name: tableName
         required: true
         type: string
       responses:
         "200":
-          description: '{"code":5002,"msg":"删除ClickHouse表失败","data":""}'
+          description: '{"code":200,"msg":"ok","data":null}'
           schema:
             type: string
       security:
@@ -130,14 +295,21 @@ paths:
     get:
       description: 描述表
       parameters:
-      - description: table name
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - default: test_table
+        description: table name
         in: query
         name: tableName
         required: true
         type: string
       responses:
         "200":
-          description: '{"code":5040,"msg":"描述ClickHouse表失败","data":""}'
+          description: '{"code":200,"msg":"ok","data":[{"name":"_timestamp","type":"DateTime","defaultType":"","defaultExpression":"","comment":"","codecExpression":"","ttlExpression":""}]}'
           schema:
             type: string
       security:
@@ -146,6 +318,12 @@ paths:
     post:
       description: 创建表
       parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
       - description: request body
         in: body
         name: req
@@ -154,7 +332,7 @@ paths:
           $ref: '#/definitions/model.CreateCkTableReq'
       responses:
         "200":
-          description: '{"code":5001,"msg":"创建ClickHouse表失败","data":""}'
+          description: '{"code":200,"msg":"ok","data":null}'
           schema:
             type: string
       security:
@@ -163,6 +341,12 @@ paths:
     put:
       description: 修改表
       parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
       - description: request body
         in: body
         name: req
@@ -171,7 +355,7 @@ paths:
           $ref: '#/definitions/model.AlterCkTableReq'
       responses:
         "200":
-          description: '{"code":5003,"msg":"更改ClickHouse表失败","data":""}'
+          description: '{"code":200,"msg":"ok","data":null}'
           schema:
             type: string
       security:
@@ -189,7 +373,7 @@ paths:
           $ref: '#/definitions/model.DeployCkReq'
       responses:
         "200":
-          description: '{"code":5016,"msg":"检查组件启动状态失败","data":""}'
+          description: '{"code":200,"msg":"success","data":nil}'
           schema:
             type: string
       security:
@@ -199,19 +383,21 @@ paths:
     get:
       description: 查询指标
       parameters:
-      - description: metric name
+      - default: ClickHouseMetrics_Read
+        description: metric name
         in: query
         name: metric
         required: true
         type: string
-      - description: metric time
+      - default: "1606290000"
+        description: metric time
         in: query
         name: time
         required: true
         type: string
       responses:
         "200":
-          description: '{"code":5050,"msg":"获取指标失败","data":""}'
+          description: '{"code":200,"msg":"ok","data":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"value":[1606290000,"2"]}]}'
           schema:
             type: string
       security:
@@ -221,29 +407,33 @@ paths:
     get:
       description: 查询指标范围
       parameters:
-      - description: metric name
+      - default: ClickHouseMetrics_Read
+        description: metric name
         in: query
         name: metric
         required: true
         type: string
-      - description: start time
+      - default: "1606290000"
+        description: start time
         in: query
         name: start
         required: true
         type: string
-      - description: end time
+      - default: "1606290120"
+        description: end time
         in: query
         name: end
         required: true
         type: string
-      - description: step window
+      - default: "60"
+        description: step window
         in: query
         name: step
         required: true
         type: string
       responses:
         "200":
-          description: '{"code":5051,"msg":"获取指标范围失败","data":""}'
+          description: '{"code":200,"msg":"ok","data":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"values":[[1606290000,"2"],[1606290060,"2"],[1606290120,"2"]]}]}'
           schema:
             type: string
       security:
@@ -253,14 +443,15 @@ paths:
     delete:
       description: 删除包
       parameters:
-      - description: package version
+      - default: 20.8.5.45
+        description: package version
         in: query
         name: packageVersion
         required: true
         type: string
       responses:
         "200":
-          description: '{"code":5002,"msg":"删除ClickHouse表失败","data":""}'
+          description: '{"code":200,"msg":"success","data":null}'
           schema:
             type: string
       security:
@@ -270,7 +461,7 @@ paths:
       description: 获取安装包列表
       responses:
         "200":
-          description: '{"code":5005,"msg":"获取安装包列表失败","data":""}'
+          description: '{"code":200,"msg":"ok","data":["20.8.5.45"]}'
           schema:
             type: string
       security:
@@ -288,7 +479,7 @@ paths:
         type: file
       responses:
         "200":
-          description: '{"code":5004,"msg":"上传安装包失败","data":""}'
+          description: '{"code":200,"msg":"success","data":null}'
           schema:
             type: string
       security:
@@ -306,7 +497,7 @@ paths:
           $ref: '#/definitions/model.LoginReq'
       responses:
         "200":
-          description: '{"code":5032,"msg":"用户密码验证失败","data":""}'
+          description: '{"code":200,"msg":"ok","data":{"username":"ckman","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"}}'
           schema:
             type: string
       summary: 登陆

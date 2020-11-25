@@ -13,7 +13,6 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"gitlab.eoitek.net/EOI/ckman/router"
-	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
 	"net/http"
 	"time"
@@ -21,15 +20,13 @@ import (
 
 type ApiServer struct {
 	config *config.CKManConfig
-	ck     *clickhouse.CkService
 	prom   *prometheus.PrometheusService
 	svr    *http.Server
 }
 
-func NewApiServer(config *config.CKManConfig, ck *clickhouse.CkService, prom *prometheus.PrometheusService) *ApiServer {
+func NewApiServer(config *config.CKManConfig, prom *prometheus.PrometheusService) *ApiServer {
 	server := &ApiServer{}
 	server.config = config
-	server.ck = ck
 	server.prom = prom
 	return server
 }
@@ -41,14 +38,14 @@ func (server *ApiServer) Start() error {
 	// add log middleware
 	r.Use(ginLoggerToFile())
 
-	userController := controller.NewUserController()
+	userController := controller.NewUserController(server.config)
 	r.POST("/login", userController.Login)
 
 	// http://127.0.0.1:8808/swagger/index.html
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	groupV1 := r.Group("/api/v1")
-	router.InitRouterV1(groupV1, server.config, server.ck, server.prom)
+	router.InitRouterV1(groupV1, server.config, server.prom)
 	// add authenticate middleware for /api/v1
 	groupV1.Use(ginJWTAuth())
 

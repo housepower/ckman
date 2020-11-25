@@ -6,15 +6,22 @@ import (
 	"net/http"
 )
 
+type ResponseBody struct {
+	Code int         `json:"code"`
+	Msg  string      `json:"msg"`
+	Data interface{} `json:"data"`
+}
+
 func WrapMsg(c *gin.Context, code int, msg string, data interface{}) error {
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "application/json; charset=utf-8")
 
-	jsonBytes, err := json.Marshal(map[string]interface{}{
-		"code": code,
-		"msg":  msg,
-		"data": data,
-	})
+	resp := ResponseBody{
+		Code: code,
+		Msg:  msg,
+		Data: data,
+	}
+	jsonBytes, err := json.Marshal(resp)
 	if err != nil {
 		log.Logger.Errorf("%s %s marshal response body fail: %s", c.Request.Method, c.Request.RequestURI, err.Error())
 		return err

@@ -20,10 +20,7 @@ import (
 )
 
 const (
-	TmpWorkDirectory  string = "/tmp/"
-	DefaultCkUser     string = "clickhouse"
-	DefaultCkPassword string = "Ck123456!"
-	DefaultCkPort     int    = 9000
+	TmpWorkDirectory string = "/tmp/"
 )
 
 type Metrika struct {
@@ -101,13 +98,13 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 	d.DeployBase = *base
 	d.Conf = c
 	if d.Conf.User == "" {
-		d.Conf.User = DefaultCkUser
+		d.Conf.User = clickhouse.ClickHouseDefaultUser
 	}
 	if d.Conf.Password == "" {
-		d.Conf.Password = DefaultCkPassword
+		d.Conf.Password = clickhouse.ClickHouseDefaultPassword
 	}
 	if d.Conf.CkTcpPort == 0 {
-		d.Conf.CkTcpPort = DefaultCkPort
+		d.Conf.CkTcpPort = clickhouse.ClickHouseDefaultPort
 	}
 	if d.Conf.IsReplica && len(d.Hosts)%2 != 0 {
 		return fmt.Errorf("hosts length is not even number")
@@ -279,14 +276,14 @@ func (d *CKDeploy) Check() error {
 		hosts = append(hosts, fmt.Sprintf("%s:%d", host, d.Conf.CkTcpPort))
 	}
 
-	conf := &config.CKManClickHouseConfig{
+	conf := config.CKManClickHouseConfig{
 		Hosts:    hosts,
 		User:     d.Conf.User,
 		Password: d.Conf.Password,
 		DB:       "default",
 	}
 
-	svr := clickhouse.NewCkService(conf)
+	svr := clickhouse.NewCkService(&conf)
 	defer svr.Stop()
 
 	if err := svr.InitCkService(); err != nil {
@@ -334,11 +331,11 @@ func GenerateMetrikaTemplate(templateFile string, conf model.CkDeployConfig, hos
 	hostName := ""
 
 	// zookeeper-servers
-	for index, zk := range conf.ZkServers {
+	for index, host := range conf.ZkNodes {
 		node := Node{
 			Index: index + 1,
-			Host:  zk.Host,
-			Port:  zk.Port,
+			Host:  host,
+			Port:  conf.ZkPort,
 		}
 		zkServers = append(zkServers, node)
 	}

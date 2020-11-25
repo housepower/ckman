@@ -73,19 +73,17 @@ func main() {
 		}(bind)
 	}
 
-	// create clickhouse service
-	ck := clickhouse.NewCkService(&config.GlobalConfig.ClickHouse)
-	if err := ck.InitCkService(); err != nil {
-		log.Logger.Errorf("create clickhouse service fail: %v", err)
-	} else {
-		log.Logger.Info("create clickhouse service success")
-	}
-
 	// create prometheus service
 	prom := prometheus.NewPrometheusService(&config.GlobalConfig.Prometheus)
 
+	// parse brokers file
+	err := clickhouse.UnmarshalClusters()
+	if err != nil {
+		log.Logger.Fatalf("parse brokers file fail: %v", err)
+	}
+
 	// start http server
-	svr := server.NewApiServer(&config.GlobalConfig, ck, prom)
+	svr := server.NewApiServer(&config.GlobalConfig, prom)
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}
@@ -98,7 +96,6 @@ func main() {
 
 	log.Logger.Warn("ckman exiting...")
 	svr.Stop()
-	ck.Stop()
 }
 
 func termHandler(sig os.Signal) error {

@@ -24,7 +24,148 @@ var doc = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/v1/ck/table": {
+        "/api/v1/ck/cluster": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取ClickHouse集群",
+                "summary": "获取ClickHouse集群",
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":{\"test\":{\"hosts\":[\"192.168.101.105\"],\"port\":9000,\"user\":\"eoi\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.101.102\"],\"zkPort\":2181,\"isReplica\":false}}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新ClickHouse集群",
+                "summary": "更新ClickHouse集群",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/config.CKManClickHouseConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "导入ClickHouse集群",
+                "summary": "导入ClickHouse集群",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/config.CKManClickHouseConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/cluster/{clusterName}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除ClickHouse集群",
+                "summary": "删除ClickHouse集群",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/query/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "执行query命令",
+                "summary": "执行query命令",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "show databases",
+                        "description": "sql",
+                        "name": "query",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":[[\"name\"],[\"default\"],[\"system\"]]}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/table/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -36,6 +177,15 @@ var doc = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "test_table",
                         "description": "table name",
                         "name": "tableName",
                         "in": "query",
@@ -44,7 +194,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5040,\"msg\":\"描述ClickHouse表失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":[{\"name\":\"_timestamp\",\"type\":\"DateTime\",\"defaultType\":\"\",\"defaultExpression\":\"\",\"comment\":\"\",\"codecExpression\":\"\",\"ttlExpression\":\"\"}]}",
                         "schema": {
                             "type": "string"
                         }
@@ -61,6 +211,14 @@ var doc = `{
                 "summary": "修改表",
                 "parameters": [
                     {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
                         "description": "request body",
                         "name": "req",
                         "in": "body",
@@ -72,7 +230,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5003,\"msg\":\"更改ClickHouse表失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -89,6 +247,14 @@ var doc = `{
                 "summary": "创建表",
                 "parameters": [
                     {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
                         "description": "request body",
                         "name": "req",
                         "in": "body",
@@ -100,7 +266,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5001,\"msg\":\"创建ClickHouse表失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -118,6 +284,15 @@ var doc = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "test_table",
                         "description": "table name",
                         "name": "tableName",
                         "in": "query",
@@ -126,7 +301,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5002,\"msg\":\"删除ClickHouse表失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -156,7 +331,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5016,\"msg\":\"检查组件启动状态失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":nil}",
                         "schema": {
                             "type": "string"
                         }
@@ -176,6 +351,7 @@ var doc = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "default": "ClickHouseMetrics_Read",
                         "description": "metric name",
                         "name": "metric",
                         "in": "query",
@@ -183,6 +359,7 @@ var doc = `{
                     },
                     {
                         "type": "string",
+                        "default": "1606290000",
                         "description": "metric time",
                         "name": "time",
                         "in": "query",
@@ -191,7 +368,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5050,\"msg\":\"获取指标失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":[{\"metric\":{\"__name__\":\"ClickHouseMetrics_Read\",\"instance\":\"192.168.101.105:9363\",\"job\":\"clickhouse_exporter\"},\"value\":[1606290000,\"2\"]}]}",
                         "schema": {
                             "type": "string"
                         }
@@ -211,6 +388,7 @@ var doc = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "default": "ClickHouseMetrics_Read",
                         "description": "metric name",
                         "name": "metric",
                         "in": "query",
@@ -218,6 +396,7 @@ var doc = `{
                     },
                     {
                         "type": "string",
+                        "default": "1606290000",
                         "description": "start time",
                         "name": "start",
                         "in": "query",
@@ -225,6 +404,7 @@ var doc = `{
                     },
                     {
                         "type": "string",
+                        "default": "1606290120",
                         "description": "end time",
                         "name": "end",
                         "in": "query",
@@ -232,6 +412,7 @@ var doc = `{
                     },
                     {
                         "type": "string",
+                        "default": "60",
                         "description": "step window",
                         "name": "step",
                         "in": "query",
@@ -240,7 +421,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5051,\"msg\":\"获取指标范围失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":[{\"metric\":{\"__name__\":\"ClickHouseMetrics_Read\",\"instance\":\"192.168.101.105:9363\",\"job\":\"clickhouse_exporter\"},\"values\":[[1606290000,\"2\"],[1606290060,\"2\"],[1606290120,\"2\"]]}]}",
                         "schema": {
                             "type": "string"
                         }
@@ -259,7 +440,7 @@ var doc = `{
                 "summary": "获取安装包列表",
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5005,\"msg\":\"获取安装包列表失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":[\"20.8.5.45\"]}",
                         "schema": {
                             "type": "string"
                         }
@@ -288,7 +469,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5004,\"msg\":\"上传安装包失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -306,6 +487,7 @@ var doc = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "default": "20.8.5.45",
                         "description": "package version",
                         "name": "packageVersion",
                         "in": "query",
@@ -314,7 +496,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5002,\"msg\":\"删除ClickHouse表失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -339,7 +521,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":5032,\"msg\":\"用户密码验证失败\",\"data\":\"\"}",
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":{\"username\":\"ckman\",\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\"}}",
                         "schema": {
                             "type": "string"
                         }
@@ -349,6 +531,60 @@ var doc = `{
         }
     },
     "definitions": {
+        "config.CKManClickHouseConfig": {
+            "type": "object",
+            "properties": {
+                "cluster": {
+                    "type": "string",
+                    "example": "test"
+                },
+                "database": {
+                    "type": "string",
+                    "example": "default"
+                },
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.101.105",
+                        "192.168.101.107"
+                    ]
+                },
+                "isReplica": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "password": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "port": {
+                    "type": "integer",
+                    "example": 9000
+                },
+                "user": {
+                    "type": "string",
+                    "example": "ck"
+                },
+                "zkNodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.101.102",
+                        "192.168.101.105",
+                        "192.168.101.107"
+                    ]
+                },
+                "zkPort": {
+                    "type": "integer",
+                    "example": 2181
+                }
+            }
+        },
         "model.AlterCkTableReq": {
             "type": "object",
             "properties": {
@@ -362,7 +598,10 @@ var doc = `{
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "age"
+                    ]
                 },
                 "modify": {
                     "type": "array",
@@ -371,7 +610,8 @@ var doc = `{
                     }
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "test_table"
                 }
             }
         },
@@ -379,31 +619,47 @@ var doc = `{
             "type": "object",
             "properties": {
                 "ckTcpPort": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 9000
                 },
                 "clusterName": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "test"
                 },
                 "isReplica": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "packageVersion": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "20.8.5.45"
                 },
                 "password": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "123456"
                 },
                 "path": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "/data01/"
                 },
                 "user": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "ck"
                 },
-                "zkServers": {
+                "zkNodes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/model.ZkNode"
-                    }
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.101.102",
+                        "192.168.101.105",
+                        "192.168.101.107"
+                    ]
+                },
+                "zkPort": {
+                    "type": "integer",
+                    "example": 2181
                 }
             }
         },
@@ -411,10 +667,12 @@ var doc = `{
             "type": "object",
             "properties": {
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "_timestamp"
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "DateTime"
                 }
             }
         },
@@ -422,13 +680,16 @@ var doc = `{
             "type": "object",
             "properties": {
                 "after": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "_timestamp"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "age"
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Int32"
                 }
             }
         },
@@ -436,10 +697,13 @@ var doc = `{
             "type": "object",
             "properties": {
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "_timestamp"
                 },
                 "policy": {
-                    "type": "integer"
+                    "description": "0 split partition by day\n1 split partition by week\n2 split partition by month",
+                    "type": "integer",
+                    "example": 0
                 }
             }
         },
@@ -453,13 +717,17 @@ var doc = `{
                     }
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "test_table"
                 },
                 "order": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "_timestamp"
+                    ]
                 },
                 "partition": {
                     "$ref": "#/definitions/model.CkTablePartition"
@@ -469,23 +737,30 @@ var doc = `{
         "model.DeployCkReq": {
             "type": "object",
             "properties": {
-                "clickHouse": {
+                "clickhouse": {
                     "$ref": "#/definitions/model.CkDeployConfig"
                 },
                 "directory": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "/usr/local/bin"
                 },
                 "hosts": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "192.168.101.105",
+                        "192.168.101.107"
+                    ]
                 },
                 "password": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "123456"
                 },
                 "user": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "root"
                 }
             }
         },
@@ -493,21 +768,12 @@ var doc = `{
             "type": "object",
             "properties": {
                 "password": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "63cb91a2ceb9d4f7c8b1ba5e50046f52"
                 },
                 "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.ZkNode": {
-            "type": "object",
-            "properties": {
-                "host": {
-                    "type": "string"
-                },
-                "port": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "ckman"
                 }
             }
         }
