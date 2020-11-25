@@ -20,7 +20,7 @@ var (
 	username = "eoi"
 	password = "123456"
 	dataDir  = "/data01/clickhouse"
-	table    = "nginx_access_log2"
+	table    = "nginx_access_log22"
 	osUser   = "root"
 	osPass   = "Eoi123456!"
 
@@ -42,6 +42,7 @@ func initConns() (err error) {
 			return
 		}
 		sshConns[host] = conn
+		log.Infof("initialized ssh connection to %s", host)
 		var db *sql.DB
 		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
 			host, port, "default", username, password)
@@ -50,6 +51,7 @@ func initConns() (err error) {
 			return
 		}
 		ckConns[host] = db
+		log.Infof("initialized clickhouse connection to %s", host)
 		locks[host] = &sync.Mutex{}
 	}
 	return
@@ -70,6 +72,7 @@ func getState() (tbls []TblPartitions, err error) {
 		db := ckConns[host]
 		var rows *sql.Rows
 		query := fmt.Sprintf(sizeSQLTemplate, table)
+		log.Infof("host %s: query: %s", host, query)
 		if rows, err = db.Query(query); err != nil {
 			err = errors.Wrapf(err, "")
 			return
@@ -91,6 +94,7 @@ func getState() (tbls []TblPartitions, err error) {
 		}
 		tbls = append(tbls, tbl)
 	}
+	log.Infof("tbls: %#v", tbls)
 	return
 }
 
@@ -101,13 +105,14 @@ func generatePlan(tbls []TblPartitions) {
 		var minIdx, maxIdx int
 		for minIdx = 0; minIdx < numTbls && tbls[minIdx].ToMoveOut != nil; minIdx++ {
 		}
-		for maxIdx = numTbls - 1; minIdx >= 0 && tbls[maxIdx].ToMoveIn; maxIdx++ {
+		for maxIdx = numTbls - 1; maxIdx >= 0 && tbls[maxIdx].ToMoveIn; maxIdx-- {
 		}
 		if minIdx >= maxIdx {
 			break
 		}
 		minTbl := &tbls[minIdx]
 		maxTbl := &tbls[maxIdx]
+		var found bool
 		for patt, pattSize := range maxTbl.Partitions {
 			if maxTbl.TotalSize >= minTbl.TotalSize+2*pattSize {
 				minTbl.TotalSize += pattSize
@@ -117,10 +122,15 @@ func generatePlan(tbls []TblPartitions) {
 				}
 				maxTbl.ToMoveOut[patt] = minTbl.Host
 				delete(maxTbl.Partitions, patt)
+				found = true
 				break
 			}
 		}
+		if !found {
+			break
+		}
 	}
+	log.Infof("plan: %#v", tbls)
 }
 
 func executePlan(tbl *TblPartitions) (err error) {
@@ -135,7 +145,7 @@ func executePlan(tbl *TblPartitions) (err error) {
 		srcDir := fmt.Sprintf("%s/data/default/%s/detached/", dataDir, table)
 		dstDir := fmt.Sprintf("%s/data/default/%s/detached", dataDir, table)
 
-		query := fmt.Sprintf("ALTER TABLE DETACH PARTITION %s", patt)
+		query := fmt.Sprintf("ALTER TABLE %s DETACH PARTITION '%s'", table, patt)
 		log.Infof("host: %s, query: %s", tbl.Host, query)
 		if _, err = srcCkConn.Exec(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -156,7 +166,7 @@ func executePlan(tbl *TblPartitions) (err error) {
 			}
 		}
 
-		query = fmt.Sprintf("ALTER TABLE ATTACH PARTITION %s", patt)
+		query = fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", table, patt)
 		log.Infof("host: %s, query: %s", dstHost, query)
 		if _, err = dstCkConn.Exec(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -182,8 +192,11 @@ func main() {
 	wg.Add(len(tbls))
 	for i := 0; i < len(tbls); i++ {
 		go func(tbl *TblPartitions) {
-			executePlan(tbl)
-			log.Infof("host: %s, rebalance done", tbl.Host)
+			if err := executePlan(tbl); err != nil {
+				log.Errorf("host: %s, got error %+v", tbl.Host, err)
+			} else {
+				log.Infof("host: %s, rebalance done", tbl.Host)
+			}
 			wg.Done()
 		}(&tbls[i])
 	}
