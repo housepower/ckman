@@ -14,6 +14,7 @@ import (
 )
 
 // Rebalance the whole cluster.
+// https://clickhouse.tech/docs/en/sql-reference/statements/alter/#synchronicity-of-alter-queries
 var (
 	ckHosts  = []string{"192.168.101.106", "192.168.101.108", "192.168.101.110"}
 	port     = 9000
