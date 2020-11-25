@@ -4,11 +4,6 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"gitlab.eoitek.net/EOI/ckman/common"
-	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/log"
-	"gitlab.eoitek.net/EOI/ckman/model"
-	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 	"io/ioutil"
 	"os"
 	"path"
@@ -16,6 +11,12 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"gitlab.eoitek.net/EOI/ckman/common"
+	"gitlab.eoitek.net/EOI/ckman/config"
+	"gitlab.eoitek.net/EOI/ckman/log"
+	"gitlab.eoitek.net/EOI/ckman/model"
+	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 )
 
 const (
@@ -116,14 +117,14 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 
 	for index, host := range d.Hosts {
 		err := func() error {
-			session, err := common.SSHConnect(d.User, d.Password, host, 22)
+			client, err := common.SSHConnect(d.User, d.Password, host, 22)
 			if err != nil {
 				return err
 			}
-			defer session.Close()
+			defer client.Close()
 
 			cmd := "hostname -f && free -g"
-			output, err := common.SSHRun(session, cmd)
+			output, err := common.SSHRun(client, cmd)
 			if err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
 				return err
@@ -183,14 +184,14 @@ func (d *CKDeploy) Install() error {
 
 	for _, host := range d.Hosts {
 		err := func() error {
-			session, err := common.SSHConnect(d.User, d.Password, host, 22)
+			client, err := common.SSHConnect(d.User, d.Password, host, 22)
 			if err != nil {
 				return err
 			}
-			defer session.Close()
+			defer client.Close()
 
 			cmd := strings.Join(cmds, " && ")
-			if output, err := common.SSHRun(session, cmd); err != nil {
+			if output, err := common.SSHRun(client, cmd); err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
 				return err
 			}
@@ -248,14 +249,14 @@ func (d *CKDeploy) Config() error {
 func (d *CKDeploy) Start() error {
 	for _, host := range d.Hosts {
 		err := func() error {
-			session, err := common.SSHConnect(d.User, d.Password, host, 22)
+			client, err := common.SSHConnect(d.User, d.Password, host, 22)
 			if err != nil {
 				return err
 			}
-			defer session.Close()
+			defer client.Close()
 
 			cmd := "systemctl start clickhouse-server"
-			if output, err := common.SSHRun(session, cmd); err != nil {
+			if output, err := common.SSHRun(client, cmd); err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
 				return err
 			}

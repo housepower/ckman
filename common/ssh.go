@@ -12,13 +12,12 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func SSHConnect(user, password, host string, port int) (*ssh.Session, error) {
+func SSHConnect(user, password, host string, port int) (*ssh.Client, error) {
 	var (
 		auth         []ssh.AuthMethod
 		addr         string
 		clientConfig *ssh.ClientConfig
 		client       *ssh.Client
-		session      *ssh.Session
 		err          error
 	)
 	// get auth method
@@ -41,12 +40,7 @@ func SSHConnect(user, password, host string, port int) (*ssh.Session, error) {
 		return nil, err
 	}
 
-	// create session
-	if session, err = client.NewSession(); err != nil {
-		return nil, err
-	}
-
-	return session, nil
+	return client, nil
 }
 
 func SFTPConnect(user, password, host string, port int) (*sftp.Client, error) {
@@ -112,11 +106,19 @@ func SFTPUpload(sftpClient *sftp.Client, localFilePath, remoteDir string) error 
 	return nil
 }
 
-func SSHRun(session *ssh.Session, shell string) (string, error) {
-	buf, err := session.CombinedOutput(shell)
-
-	result := string(buf)
-	return strings.TrimRight(result, "\n"), err
+func SSHRun(client *ssh.Client, shell string) (result string, err error) {
+	var session *ssh.Session
+	var buf []byte
+	// create session
+	if session, err = client.NewSession(); err != nil {
+		return
+	}
+	defer session.Close()
+	if buf, err = session.CombinedOutput(shell); err != nil {
+		return
+	}
+	result = strings.TrimRight(string(buf), "\n")
+	return
 }
 
 func ScpFiles(files []string, path, user, password, ip string) error {
@@ -132,6 +134,5 @@ func ScpFiles(files []string, path, user, password, ip string) error {
 			return err
 		}
 	}
-
 	return nil
 }

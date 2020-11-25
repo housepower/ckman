@@ -26,17 +26,17 @@ var (
 
 	sizeSQLTemplate = `SELECT partition, sum(data_compressed_bytes) AS compressed FROM system.parts WHERE table='%s' AND active=1 GROUP BY partition ORDER BY partition;`
 
-	sshConns map[string]*ssh.Session
+	sshConns map[string]*ssh.Client
 	ckConns  map[string]*sql.DB
 	locks    map[string]*sync.Mutex
 )
 
 func initConns() (err error) {
-	sshConns = make(map[string]*ssh.Session)
+	sshConns = make(map[string]*ssh.Client)
 	ckConns = make(map[string]*sql.DB)
 	locks = make(map[string]*sync.Mutex)
 	for _, host := range ckHosts {
-		var conn *ssh.Session
+		var conn *ssh.Client
 		if conn, err = common.SSHConnect(osUser, osPass, host, 22); err != nil {
 			err = errors.Wrapf(err, "")
 			return
@@ -159,11 +159,13 @@ func executePlan(tbl *TblPartitions) (err error) {
 		}
 		for _, cmd := range cmds {
 			log.Infof("host: %s, command: %s", tbl.Host, cmd)
-			if err = srcSshConn.Run(cmd); err != nil {
+			var out string
+			if out, err = common.SSHRun(srcSshConn, cmd); err != nil {
 				err = errors.Wrapf(err, "")
 				lock.Unlock()
 				return
 			}
+			log.Infof("host: %s, output: %s", tbl.Host, out)
 		}
 
 		query = fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", table, patt)
