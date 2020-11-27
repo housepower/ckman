@@ -45,15 +45,15 @@ func (server *ApiServer) Start() error {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	groupV1 := r.Group("/api/v1")
-	router.InitRouterV1(groupV1, server.config, server.prom)
 	// add authenticate middleware for /api/v1
 	groupV1.Use(ginJWTAuth())
+	router.InitRouterV1(groupV1, server.config, server.prom)
 
 	bind := fmt.Sprintf("%s:%d", server.config.Server.Ip, server.config.Server.Port)
 	server.svr = &http.Server{
 		Addr:         bind,
 		WriteTimeout: time.Second * 300,
-		ReadTimeout:  time.Second * 15,
+		ReadTimeout:  time.Second * 300,
 		IdleTimeout:  time.Second * 60,
 		Handler:      r,
 	}
