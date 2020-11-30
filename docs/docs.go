@@ -185,6 +185,14 @@ var doc = `{
                     },
                     {
                         "type": "string",
+                        "default": "default",
+                        "description": "database name",
+                        "name": "database",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "default": "test_table",
                         "description": "table name",
                         "name": "tableName",
@@ -288,6 +296,14 @@ var doc = `{
                         "description": "cluster name",
                         "name": "clusterName",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "default",
+                        "description": "database name",
+                        "name": "database",
+                        "in": "query",
                         "required": true
                     },
                     {
@@ -538,10 +554,6 @@ var doc = `{
                     "type": "string",
                     "example": "test"
                 },
-                "database": {
-                    "type": "string",
-                    "example": "default"
-                },
                 "hosts": {
                     "type": "array",
                     "items": {
@@ -551,10 +563,6 @@ var doc = `{
                         "192.168.101.105",
                         "192.168.101.107"
                     ]
-                },
-                "isReplica": {
-                    "type": "boolean",
-                    "example": false
                 },
                 "password": {
                     "type": "string",
@@ -593,6 +601,10 @@ var doc = `{
                     "items": {
                         "$ref": "#/definitions/model.CkTableNameTypeAfter"
                     }
+                },
+                "database": {
+                    "type": "string",
+                    "example": "default"
                 },
                 "drop": {
                     "type": "array",
@@ -710,6 +722,10 @@ var doc = `{
         "model.CreateCkTableReq": {
             "type": "object",
             "properties": {
+                "database": {
+                    "type": "string",
+                    "example": "default"
+                },
                 "fields": {
                     "type": "array",
                     "items": {
@@ -739,10 +755,6 @@ var doc = `{
             "properties": {
                 "clickhouse": {
                     "$ref": "#/definitions/model.CkDeployConfig"
-                },
-                "directory": {
-                    "type": "string",
-                    "example": "/usr/local/bin"
                 },
                 "hosts": {
                     "type": "array",

@@ -32,15 +32,18 @@ type CKManLogConfig struct {
 }
 
 type CKManClickHouseConfig struct {
-	Hosts     []string `json:"hosts" example:"192.168.101.105,192.168.101.107"`
-	Port      int      `json:"port" example:"9000"`
-	User      string   `json:"user" example:"ck"`
-	Password  string   `json:"password" example:"123456"`
-	DB        string   `json:"database" example:"default"`
-	Cluster   string   `json:"cluster" example:"test"`
-	ZkNodes   []string `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
-	ZkPort    int      `json:"zkPort" example:"2181"`
-	IsReplica bool     `json:"isReplica" example:"false"`
+	Hosts       []string `json:"hosts" example:"192.168.101.105,192.168.101.107"`
+	Port        int      `json:"port" example:"9000"`
+	User        string   `json:"user" example:"ck"`
+	Password    string   `json:"password" example:"123456"`
+	DB          string   `json:"database" swaggerignore:"true"`
+	Cluster     string   `json:"cluster" example:"test"`
+	ZkNodes     []string `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
+	ZkPort      int      `json:"zkPort" example:"2181"`
+	IsReplica   bool     `json:"isReplica" swaggerignore:"true"`
+	Version     string   `json:"version" swaggerignore:"true"`
+	SshUser     string   `json:"sshUser" example:"root"`
+	SshPassword string   `json:"sshPassword" example:"123456"`
 }
 
 type CKManPrometheusConfig struct {

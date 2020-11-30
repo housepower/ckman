@@ -145,12 +145,16 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	}
 
 	params.Name = req.Name
-	params.DB = ckService.Config.DB
+	params.DB = req.DB
 	params.Cluster = ckService.Config.Cluster
 	params.Engine = ClickHouseDefaultEngine
 	params.Fields = req.Fields
 	params.Order = req.Order
 	params.Partition = req.Partition
+	if params.DB == "" {
+		params.DB = ckService.Config.DB
+	}
+
 	if err := ckService.CreateTable(&params); err != nil {
 		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(model.CREAT_CK_TABLE_FAIL), err.Error())
 		return
@@ -186,12 +190,16 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 		return
 	}
 
-	params.Name = req.Name
-	params.DB = ckService.Config.DB
 	params.Cluster = ckService.Config.Cluster
+	params.Name = req.Name
+	params.DB = req.DB
 	params.Add = req.Add
 	params.Drop = req.Drop
 	params.Modify = req.Modify
+	if params.DB == "" {
+		params.DB = ckService.Config.DB
+	}
+
 	if err := ckService.AlterTable(&params); err != nil {
 		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, model.GetMsg(model.ALTER_CK_TABLE_FAIL), err.Error())
 		return
@@ -205,6 +213,7 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
+// @Param database query string true "database name" default(default)
 // @Param tableName query string true "table name" default(test_table)
 // @Failure 200 {string} json "{"code":5002,"msg":"删除ClickHouse表失败","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
@@ -219,9 +228,13 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 		return
 	}
 
-	params.Name = c.Query("tableName")
 	params.Cluster = ckService.Config.Cluster
-	params.DB = ckService.Config.DB
+	params.Name = c.Query("tableName")
+	params.DB = c.Query("database")
+	if params.DB == "" {
+		params.DB = ckService.Config.DB
+	}
+
 	if err := ckService.DeleteTable(&params); err != nil {
 		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(model.DELETE_CK_TABLE_FAIL), err.Error())
 		return
@@ -235,6 +248,7 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
+// @Param database query string true "database name" default(default)
 // @Param tableName query string true "table name" default(test_table)
 // @Failure 200 {string} json "{"code":5040,"msg":"描述ClickHouse表失败","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":[{"name":"_timestamp","type":"DateTime","defaultType":"","defaultExpression":"","comment":"","codecExpression":"","ttlExpression":""}]}"
@@ -250,7 +264,11 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 	}
 
 	params.Name = c.Query("tableName")
-	params.DB = ckService.Config.DB
+	params.DB = c.Query("database")
+	if params.DB == "" {
+		params.DB = ckService.Config.DB
+	}
+
 	atts, err := ckService.DescTable(&params)
 	if err != nil {
 		model.WrapMsg(c, model.DESC_CK_TABLE_FAIL, model.GetMsg(model.DESC_CK_TABLE_FAIL), err.Error())

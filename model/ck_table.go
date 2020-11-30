@@ -2,6 +2,7 @@ package model
 
 type CreateCkTableReq struct {
 	Name      string            `json:"name" example:"test_table"`
+	DB        string            `json:"database" example:"default"`
 	Fields    []CkTableNameType `json:"fields"`
 	Order     []string          `json:"order" example:"_timestamp"`
 	Partition CkTablePartition  `json:"partition"`
@@ -50,6 +51,7 @@ type CkTableNameTypeAfter struct {
 
 type AlterCkTableReq struct {
 	Name   string `json:"name" example:"test_table"`
+	DB     string `json:"database" example:"default"`
 	Add    []CkTableNameTypeAfter
 	Modify []CkTableNameType `json:"modify"`
 	Drop   []string          `json:"drop" example:"age"`

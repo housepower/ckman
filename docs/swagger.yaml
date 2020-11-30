@@ -5,9 +5,6 @@ definitions:
       cluster:
         example: test
         type: string
-      database:
-        example: default
-        type: string
       hosts:
         example:
         - 192.168.101.105
@@ -15,9 +12,6 @@ definitions:
         items:
           type: string
         type: array
-      isReplica:
-        example: false
-        type: boolean
       password:
         example: "123456"
         type: string
@@ -45,6 +39,9 @@ definitions:
         items:
           $ref: '#/definitions/model.CkTableNameTypeAfter'
         type: array
+      database:
+        example: default
+        type: string
       drop:
         example:
         - age
@@ -130,6 +127,9 @@ definitions:
     type: object
   model.CreateCkTableReq:
     properties:
+      database:
+        example: default
+        type: string
       fields:
         items:
           $ref: '#/definitions/model.CkTableNameType'
@@ -150,9 +150,6 @@ definitions:
     properties:
       clickhouse:
         $ref: '#/definitions/model.CkDeployConfig'
-      directory:
-        example: /usr/local/bin
-        type: string
       hosts:
         example:
         - 192.168.101.105
@@ -278,6 +275,12 @@ paths:
         name: clusterName
         required: true
         type: string
+      - default: default
+        description: database name
+        in: query
+        name: database
+        required: true
+        type: string
       - default: test_table
         description: table name
         in: query
@@ -299,6 +302,12 @@ paths:
         description: cluster name
         in: path
         name: clusterName
+        required: true
+        type: string
+      - default: default
+        description: database name
+        in: query
+        name: database
         required: true
         type: string
       - default: test_table

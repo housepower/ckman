@@ -13,7 +13,6 @@ type DeployCkReq struct {
 	Hosts      []string       `json:"hosts" example:"192.168.101.105,192.168.101.107"`
 	User       string         `json:"user" example:"root"`
 	Password   string         `json:"password" example:"123456"`
-	Directory  string         `json:"directory" example:"/usr/local/bin"`
 	ClickHouse CkDeployConfig `json:"clickhouse"`
 }
 

@@ -77,11 +77,10 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	factory = deploy.CKDeployFacotry{}
 	ckDeploy := factory.Create()
 	base := &deploy.DeployBase{
-		Hosts:     req.Hosts,
-		Packages:  packages,
-		User:      req.User,
-		Password:  req.Password,
-		Directory: req.Directory,
+		Hosts:    req.Hosts,
+		Packages: packages,
+		User:     req.User,
+		Password: req.Password,
 	}
 
 	code, err := DeployPackage(ckDeploy, base, &req.ClickHouse)
@@ -98,14 +97,17 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 func convertCkConfig(req *model.DeployCkReq) config.CKManClickHouseConfig {
 	conf := config.CKManClickHouseConfig{
-		Hosts:     req.Hosts,
-		Port:      req.ClickHouse.CkTcpPort,
-		User:      req.ClickHouse.User,
-		Password:  req.ClickHouse.Password,
-		Cluster:   req.ClickHouse.ClusterName,
-		ZkNodes:   req.ClickHouse.ZkNodes,
-		ZkPort:    req.ClickHouse.ZkPort,
-		IsReplica: req.ClickHouse.IsReplica,
+		Hosts:       req.Hosts,
+		Port:        req.ClickHouse.CkTcpPort,
+		User:        req.ClickHouse.User,
+		Password:    req.ClickHouse.Password,
+		Cluster:     req.ClickHouse.ClusterName,
+		ZkNodes:     req.ClickHouse.ZkNodes,
+		ZkPort:      req.ClickHouse.ZkPort,
+		IsReplica:   req.ClickHouse.IsReplica,
+		Version:     req.ClickHouse.PackageVersion,
+		SshUser:     req.User,
+		SshPassword: req.Password,
 	}
 
 	clickhouse.CkConfigFillDefault(&conf)
