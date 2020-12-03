@@ -18,6 +18,12 @@ definitions:
       port:
         example: 9000
         type: integer
+      sshPassword:
+        example: "123456"
+        type: string
+      sshUser:
+        example: root
+        type: string
       user:
         example: ck
         type: string
@@ -31,6 +37,15 @@ definitions:
         type: array
       zkPort:
         example: 2181
+        type: integer
+    type: object
+  model.AddNodeReq:
+    properties:
+      ip:
+        example: 192.168.101.108
+        type: string
+      shard:
+        example: 3
         type: integer
     type: object
   model.AlterCkTableReq:
@@ -241,6 +256,89 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 删除ClickHouse集群
+  /api/v1/ck/destroy/{clusterName}:
+    put:
+      description: 销毁ClickHouse集群
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 销毁ClickHouse集群
+  /api/v1/ck/get/{clusterName}:
+    get:
+      description: 获取ClickHouse集群信息
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":{"status":"green","version":"20.8.5.45","nodes":[{"ip":"192.168.101.105","hostname":"vm101105","status":"green"}]}}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取ClickHouse集群信息
+  /api/v1/ck/node/{clusterName}:
+    delete:
+      description: 删除ClickHouse集群节点
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - default: 192.168.101.105
+        description: node ip address
+        in: query
+        name: ip
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除ClickHouse集群节点
+    post:
+      description: 添加ClickHouse集群节点
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.AddNodeReq'
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 添加ClickHouse集群节点
   /api/v1/ck/query/{clusterName}:
     get:
       description: 执行query命令
@@ -265,6 +363,60 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 执行query命令
+  /api/v1/ck/rebalance/{clusterName}:
+    put:
+      description: 均衡ClickHouse集群
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 均衡ClickHouse集群
+  /api/v1/ck/start/{clusterName}:
+    put:
+      description: 启动ClickHouse集群
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 启动ClickHouse集群
+  /api/v1/ck/stop/{clusterName}:
+    put:
+      description: 停止ClickHouse集群
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 停止ClickHouse集群
   /api/v1/ck/table/{clusterName}:
     delete:
       description: 删除表
@@ -370,6 +522,30 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 修改表
+  /api/v1/ck/upgrade/{clusterName}:
+    put:
+      description: 升级ClickHouse集群
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - default: 20.8.5.45
+        description: package version
+        in: query
+        name: packageVersion
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 升级ClickHouse集群
   /api/v1/deploy/ck:
     post:
       description: 部署clickhouse

@@ -128,6 +128,137 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/destroy/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "销毁ClickHouse集群",
+                "summary": "销毁ClickHouse集群",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/get/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取ClickHouse集群信息",
+                "summary": "获取ClickHouse集群信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":{\"status\":\"green\",\"version\":\"20.8.5.45\",\"nodes\":[{\"ip\":\"192.168.101.105\",\"hostname\":\"vm101105\",\"status\":\"green\"}]}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/node/{clusterName}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "添加ClickHouse集群节点",
+                "summary": "添加ClickHouse集群节点",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.AddNodeReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除ClickHouse集群节点",
+                "summary": "删除ClickHouse集群节点",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "192.168.101.105",
+                        "description": "node ip address",
+                        "name": "ip",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/query/{clusterName}": {
             "get": {
                 "security": [
@@ -158,6 +289,93 @@ var doc = `{
                 "responses": {
                     "200": {
                         "description": "{\"code\":200,\"msg\":\"ok\",\"data\":[[\"name\"],[\"default\"],[\"system\"]]}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/rebalance/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "均衡ClickHouse集群",
+                "summary": "均衡ClickHouse集群",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/start/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "启动ClickHouse集群",
+                "summary": "启动ClickHouse集群",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/stop/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "停止ClickHouse集群",
+                "summary": "停止ClickHouse集群",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -318,6 +536,43 @@ var doc = `{
                 "responses": {
                     "200": {
                         "description": "{\"code\":200,\"msg\":\"ok\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/upgrade/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "升级ClickHouse集群",
+                "summary": "升级ClickHouse集群",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "20.8.5.45",
+                        "description": "package version",
+                        "name": "packageVersion",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -572,6 +827,14 @@ var doc = `{
                     "type": "integer",
                     "example": 9000
                 },
+                "sshPassword": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "sshUser": {
+                    "type": "string",
+                    "example": "root"
+                },
                 "user": {
                     "type": "string",
                     "example": "ck"
@@ -590,6 +853,19 @@ var doc = `{
                 "zkPort": {
                     "type": "integer",
                     "example": 2181
+                }
+            }
+        },
+        "model.AddNodeReq": {
+            "type": "object",
+            "properties": {
+                "ip": {
+                    "type": "string",
+                    "example": "192.168.101.108"
+                },
+                "shard": {
+                    "type": "integer",
+                    "example": 3
                 }
             }
         },

@@ -305,3 +305,151 @@ func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), data)
 }
+
+// @Summary 升级ClickHouse集群
+// @Description 升级ClickHouse集群
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param packageVersion query string true "package version" default(20.8.5.45)
+// @Failure 200 {string} json "{"code":5060,"msg":"升级ClickHouse集群失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Router /api/v1/ck/upgrade/{clusterName} [put]
+func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	packageVersion := c.Query("packageVersion")
+	fmt.Println(clusterName, packageVersion)
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+}
+
+// @Summary 启动ClickHouse集群
+// @Description 启动ClickHouse集群
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"code":5061,"msg":"启动ClickHouse服务失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Router /api/v1/ck/start/{clusterName} [put]
+func (ck *ClickHouseController) StartCk(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	fmt.Println(clusterName)
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+}
+
+// @Summary 停止ClickHouse集群
+// @Description 停止ClickHouse集群
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"code":5062,"msg":"停止ClickHouse集群失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Router /api/v1/ck/stop/{clusterName} [put]
+func (ck *ClickHouseController) StopCk(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	fmt.Println(clusterName)
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+}
+
+// @Summary 销毁ClickHouse集群
+// @Description 销毁ClickHouse集群
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"code":5063,"msg":"销毁ClickHouse集群失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Router /api/v1/ck/destroy/{clusterName} [put]
+func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	fmt.Println(clusterName)
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+}
+
+// @Summary 均衡ClickHouse集群
+// @Description 均衡ClickHouse集群
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"code":5064,"msg":"均衡ClickHouse集群失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Router /api/v1/ck/rebalance/{clusterName} [put]
+func (ck *ClickHouseController) RebalanceCk(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	fmt.Println(clusterName)
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+}
+
+// @Summary 获取ClickHouse集群信息
+// @Description 获取ClickHouse集群信息
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"code":5065,"msg":"获取ClickHouse集群信息失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":{"status":"green","version":"20.8.5.45","nodes":[{"ip":"192.168.101.105","hostname":"vm101105","status":"green"}]}}"
+// @Router /api/v1/ck/get/{clusterName} [get]
+func (ck *ClickHouseController) GetCkCluster(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	fmt.Println(clusterName)
+
+	info := model.CkClusterInfoRsp{
+		Status:  model.CkStatusGreen,
+		Version: "20.8.5.45",
+		Nodes: []model.CkClusterNode{
+			model.CkClusterNode{
+				Ip:       "192.168.101.105",
+				HostName: "vm101105",
+				Status:   model.CkStatusGreen,
+			},
+			model.CkClusterNode{
+				Ip:       "192.168.101.107",
+				HostName: "vm101107",
+				Status:   model.CkStatusGreen,
+			},
+		},
+	}
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), info)
+}
+
+// @Summary 添加ClickHouse集群节点
+// @Description 添加ClickHouse集群节点
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.AddNodeReq true "request body"
+// @Failure 200 {string} json "{"code":5066,"msg":"添加ClickHouse集群节点失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Router /api/v1/ck/node/{clusterName} [post]
+func (ck *ClickHouseController) AddNode(c *gin.Context) {
+	var req model.AddNodeReq
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(model.INVALID_PARAMS), err.Error())
+		return
+	}
+	fmt.Println(clusterName)
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+}
+
+// @Summary 删除ClickHouse集群节点
+// @Description 删除ClickHouse集群节点
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param ip query string true "node ip address" default(192.168.101.105)
+// @Failure 200 {string} json "{"code":5067,"msg":"删除ClickHouse集群节点失败","data":""}"
+// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Router /api/v1/ck/node/{clusterName} [delete]
+func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	ip := c.Query("ip")
+	fmt.Println(clusterName, ip)
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+}
