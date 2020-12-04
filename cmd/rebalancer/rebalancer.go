@@ -15,8 +15,13 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Rebalance the whole cluster.
+// Rebalance the whole cluster. It queries every shard to get partitions size, caculates a plan, for each selected partition, detach from source node, rsync to dest node and attach it.
 // https://clickhouse.tech/docs/en/sql-reference/statements/alter/#synchronicity-of-alter-queries
+
+// [FETCH PARTITION](https://clickhouse.tech/docs/en/sql-reference/statements/alter/partition/#alter_fetch-partition) drawbacks:
+// - This query only works for the replicated tables.
+// - If inserting to the partition during FETCH(node2)-ATTACH(node2)-DETACH(node1), you get data loss.
+
 var (
 	ckHosts    = []string{"192.168.101.106", "192.168.101.108", "192.168.101.110"}
 	ckAllHosts = []string{"192.168.101.106", "192.168.101.108", "192.168.101.110", "192.168.102.114", "192.168.102.115", "192.168.102.116", "192.168.101.107"}
