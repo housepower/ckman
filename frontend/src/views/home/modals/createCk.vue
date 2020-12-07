@@ -139,8 +139,8 @@ export default {
           port: +port,
           user,
           password,
-          sshPassword,
-          sshUser,
+          // sshPassword,
+          // sshUser,
           zkNodes: zkNodes.split(","),
           zkPort: +zkPort,
         });
@@ -158,8 +158,8 @@ export default {
             zkPort: +zkPort,
           },
           hosts: hosts.split(","),
-          password: "123456",
-          user: "root",
+          password: sshPassword,
+          user: sshUser,
         });
       }
     },
