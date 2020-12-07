@@ -801,6 +801,12 @@
     cssnano-preset-default "^4.0.0"
     postcss "^7.0.0"
 
+"@json-editor/json-editor@^2.5.1":
+  version "2.5.1"
+  resolved "https://registry.npm.taobao.org/@json-editor/json-editor/download/@json-editor/json-editor-2.5.1.tgz#50b0c3f5bdaacdc01f4c25607dd561a7b951c790"
+  dependencies:
+    core-js "^3.6.5"
+
 "@mrmlnc/readdir-enhanced@^2.2.1":
   version "2.2.1"
   resolved "https://registry.npm.taobao.org/@mrmlnc/readdir-enhanced/download/@mrmlnc/readdir-enhanced-2.2.1.tgz#524af240d1a360527b730475ecfa1344aa540dde"
@@ -5469,10 +5475,6 @@ pbkdf2@^3.0.3:
 performance-now@^2.1.0:
   version "2.1.0"
   resolved "https://registry.npm.taobao.org/performance-now/download/performance-now-2.1.0.tgz#6309f4e0e5fa913ec1c69307ae364b4b377c9e7b"
-
-pg-query-emscripten@^0.1.0:
-  version "0.1.0"
-  resolved "https://registry.npm.taobao.org/pg-query-emscripten/download/pg-query-emscripten-0.1.0.tgz#a4c6c7c6b3645ab0a4436bf650f3bcdf5b530c23"
 
 picomatch@^2.0.4, picomatch@^2.0.5, picomatch@^2.2.1:
   version "2.2.2"

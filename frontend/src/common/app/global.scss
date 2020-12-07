@@ -254,6 +254,10 @@ body {
   @extend .flex;
   flex-wrap: wrap;
 }
+.flex-end {
+  @extend .flex;
+  justify-content: flex-end;
+}
 
 .flex-1 {
   flex: 1;
