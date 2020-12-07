@@ -1,0 +1,9 @@
+.vscode
+node_modules
+dist
+public
+coverage
+/**/*.js
+/**/*.jsx
+/**/*.vue
+/src/assets
