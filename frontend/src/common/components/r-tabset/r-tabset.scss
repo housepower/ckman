@@ -1,0 +1,46 @@
+@import '~@/app/variables';
+
+nav {
+  display: flex;
+  margin: -15px -15px 15px;
+  border-bottom: 1px solid #eee;
+  position: relative;
+  bottom: -1px;
+
+  .no-collapse > & {
+    margin: 0 0 15px;
+  }
+
+  ::v-deep a {
+    display: block;
+    padding: 10px 15px;
+    line-height: 1.42857143;
+    color: #616161;
+    text-decoration: none !important;
+    position: relative;
+    transition: .2s;
+
+    &::after {
+      content: "";
+      display: block;
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -1px;
+      height: 3px;
+      background: $primary-color;
+      transform: scale(0);
+      transform-origin: center bottom;
+      transition: .2s transform;
+    }
+
+    &.router-link-active {
+      font-weight: bold;
+      color: $primary-color;
+
+      &::after {
+        transform: none;
+      }
+    }
+  }
+}

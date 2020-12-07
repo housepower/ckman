@@ -1,0 +1,112 @@
+.time-filter {
+  display: inline-block;
+  border: 1px solid #DCDFE6;
+  border-radius: 4px;
+
+  .timefilter-button {
+    color: #C9A100;
+    height: 29px;
+    line-height: 29px;
+    padding: 0 10px;
+    cursor: pointer;
+    display: inline-block;
+    transition: none;
+
+    &:hover {
+      color: #C9A100;
+      text-decoration: none;
+      background-color: #ECF0F1;
+    }
+  }
+
+  .timefilter-button-group {
+    display: flex;
+  }
+
+  &.moon:not(:hover) .time-text {
+    color: white;
+  }
+}
+
+.timefilter-popover {
+  .timefilter-tabset {
+    font-size: 13px;
+    padding: 6px;
+    display: flex;
+
+    > .el-tabs__content {
+      flex: 1;
+    }
+
+    header {
+      height: 24px;
+    }
+  }
+
+  .el-tab-pane > div {
+    display: flex;
+
+    section {
+      width: 300px;
+      margin: 0 12px;
+    }
+  }
+
+  .pane-fast {
+    position: relative;
+
+    &-right::before {
+      content: "";
+      position: absolute;
+      display: block;
+      width: 2px;
+      height: 100%;
+      left: -24px;
+      right: 0;
+      margin: 0 auto;
+      background: #ECF0F1;
+    }
+
+    ul {
+      columns: 3;
+    }
+
+    a {
+      padding: .1em .6em .15em;
+      display: inline-block;
+      border-radius: .25em;
+
+      &:hover {
+        color: #C9A100;
+      }
+    }
+
+    .active a {
+      background-color:#C9A100;
+      color: white;
+      pointer-events: none;
+    }
+
+    .label:not(.label-primary) {
+      color: inherit;
+    }
+  }
+
+  .pane-absolute {
+    input[type=datetime-local] {
+      &::-webkit-calendar-picker-indicator {
+        display: none;
+      }
+
+      margin-bottom: 12px;
+    }
+  }
+
+  .el-tabs--card > .el-tabs__header {
+    border-bottom: none;
+  }
+
+  ::v-deep .el-input__validateIcon {
+    display: none;
+  }
+}

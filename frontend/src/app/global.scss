@@ -1,0 +1,124 @@
+@import "~@/common/app/global";
+
+html, body {
+  min-width: 1000px;
+}
+
+a {
+  color: inherit;
+}
+
+.text-pre-wrap { white-space: pre-wrap; }
+
+@keyframes rotate {
+  to { transform: rotate(360deg); }
+}
+
+.rotating {
+  display: inline-block;
+  animation: .5s rotate infinite linear;
+}
+
+.fa-question-circle-o {
+  cursor: help;
+}
+
+.fc-yellow {
+  color: #F8E71C !important;
+}
+
+body {
+  background-color: transparent;
+}
+
+body[data-page] {
+  // background-color: #eaeef4;
+  background-color: var(--color-white);
+}
+
+[data-page=overview] {
+  background-color: transparent !important;
+}
+
+.step-number::before {
+  content: attr(step);
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  border-radius: 100%;
+  color: white;
+  font-size: 12px;
+  background: $primary-color;
+  text-align: center;
+  margin-right: 5px;
+}
+
+.select-theme {
+  border: 1px solid;
+  color: #00C8C1;
+  border-radius: 4px;
+  font-size: 12px;
+
+  a {
+    display: inline-block;
+    padding: 2px;
+
+    &.active {
+      background: #00C8C1;
+      color: white;
+
+      .theme-moon & {
+        color: #051E33;
+      }
+    }
+  }
+}
+
+.btn-bottom-box {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  padding: 15px 0 10px;
+  background: #FFFFFF;
+  border-top: 1px solid #E0E0E0;
+  box-shadow: 0 -1px 8px 0 rgba(0, 0, 0, 0.10);
+  text-align: center;
+}
+
+.btn-bottom-box-others {
+  margin-bottom: 65px;
+}
+
+.step-item {
+  position: relative;
+  margin-left: 35px;
+
+  &:before {
+    content: attr(step);
+    position: absolute;
+    left: -30px;
+    top: 5px;
+    z-index: 2;
+    width: 13px;
+    height: 13px;
+    background-color: $primary-color;
+    border-radius: 100%;
+    text-align: center;
+    color: white;
+    line-height: 1.1;
+    font-size: 12px;
+  }
+
+  &:not(:last-child):after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: -24px;
+    z-index: 1;
+    height: 100%;
+    border-left: 1px solid $primary-color;
+  }
+}

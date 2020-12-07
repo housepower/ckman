@@ -1,0 +1,93 @@
+.sharp-selector {
+  .select-selection {
+    cursor: default !important;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    height: auto;
+    padding: 0 8px;
+  }
+
+  .el-icon-search {
+    display: inline-block;
+    font-size: 12.5px;
+  }
+
+  .ss-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 4px;
+    border: 1px solid #e8eaec;
+    border-radius: 3px;
+    color: #4A4A4A;
+    background: #f7f7f7;
+    font-size: 12px;
+    vertical-align: middle;
+    height: 20px;
+    margin: 4px 0 4px 10px;
+    max-width: 99%;
+    line-height: normal;
+
+    .el-icon-close {
+      margin-left: 3px;
+    }
+
+    .ss-tag-text {
+      display: flex;
+      align-items: center;
+      color: inherit;
+      font-size: 12px;
+      flex: 1;
+      cursor: pointer;
+
+      i {
+        margin-right: 3px;
+      }
+
+      > span {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    .icomoon-addto {
+      display: inline-block;
+      font-size: 12px;
+      padding: 0 4px;
+      color: #7C7C7C;
+    }
+  }
+
+  .el-dropdown {
+    max-width: calc(100% - 12px);
+  }
+
+  .el-date-editor {
+    visibility: hidden;
+    width: 0 !important;
+    padding: 0 !important;
+
+    > * {
+      display: none;
+    }
+  }
+}
+
+.maxheight-list {
+  max-height: 217px;
+  overflow: auto;
+
+  > li {
+    width: 100% !important;
+  }
+
+  .filter-header {
+    background: white;
+    margin-top: -6px;
+    padding: 5px;
+    position: sticky;
+    top: -6px;
+  }
+}

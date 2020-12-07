@@ -1,0 +1,21 @@
+@import "variables";
+
+// form 必填项*位置修改
+.el-form-item {
+  &.is-required:not(.is-no-asterisk)  {
+    & > .el-form-item__label {
+      &:before {
+        display: none;
+      }
+
+      &:after {
+        content: '*';
+        color: #F56C6C;
+      }
+    }
+  }
+
+  .el-form-item__label, .el-form-item__content, .el-radio__label, .el-checkbox__label {
+    font-size: 13px;
+  }
+}

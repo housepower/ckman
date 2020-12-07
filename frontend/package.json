@@ -1,0 +1,53 @@
+{
+  "name": "ckman",
+  "displayName": "ckman管理平台",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "node_modules/.bin/vue-cli-service serve src/main.tsx",
+    "build": "vue-cli-service build src/main.jsx",
+    "lint": "vue-cli-service lint"
+  },
+  "dependencies": {
+    "ace-builds": "^1.4.12",
+    "axios": "^0.19.2",
+    "blueimp-md5": "^2.17.0",
+    "bytes": "^3.1.0",
+    "core-js": "^3.8.0",
+    "csv-parse": "^4.12.0",
+    "date-fns": "^2.15.0",
+    "echarts": "^4.8.0",
+    "element-ui-eoi": "^2.14.1",
+    "font-awesome": "^4.7.0",
+    "lodash-es": "^4.17.15",
+    "moment": "^2.27.0",
+    "platform": "^1.3.6",
+    "popper.js": "^1.16.1",
+    "reflect-metadata": "^0.1.13",
+    "vue": "^2.6.11",
+    "vue-draggable-resizable": "^2.2.0",
+    "vue-router": "^3.4.1"
+  },
+  "devDependencies": {
+    "@types/blueimp-md5": "^2.7.0",
+    "@types/bytes": "^3.1.0",
+    "@types/lodash-es": "^4.17.3",
+    "@types/platform": "^1.3.2",
+    "@typescript-eslint/eslint-plugin": "^3.8.0",
+    "@typescript-eslint/parser": "^3.8.0",
+    "@vue/cli-plugin-babel": "v4.4.6",
+    "@vue/cli-plugin-eslint": "^4.4.6",
+    "@vue/cli-plugin-typescript": "v4.4.6",
+    "@vue/cli-service": "v4.4.6",
+    "eslint": "^7.6.0",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-plugin-import": "^2.22.0",
+    "eslint-plugin-jsdoc": "^30.2.1",
+    "fibers": "^5.0.0",
+    "sass": "^1.26.10",
+    "sass-loader": "^9.0.3",
+    "typescript": "~3.9.7",
+    "vue-template-compiler": "^2.6.11",
+    "worker-loader": "^3.0.3"
+  }
+}
