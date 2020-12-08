@@ -35,9 +35,11 @@ module.exports = {
         __SERVICE_NAME__: JSON.stringify(packageJson.serviceName || null),
         __PROJECT_NAME__: JSON.stringify(packageJson.name),
         __PROJECT_DISPLAY_NAME__: JSON.stringify(packageJson.displayName),
-        __PROJECT_COMMIT_SHA__: JSON.stringify(repoInfo.sha),
-        __PROJECT_VERSION__: JSON.stringify(repoInfo.lastTag),
-        __PROJECT_COMMITS_SINCE_RELEASE__: JSON.stringify(repoInfo.commitsSinceLastTag),
+        __PROJECT_COMMIT_SHA__: JSON.stringify((repoInfo && repoInfo.sha) || null),
+        __PROJECT_VERSION__: JSON.stringify((repoInfo && repoInfo.lastTag) || null),
+        __PROJECT_COMMITS_SINCE_RELEASE__: JSON.stringify(
+          (repoInfo && repoInfo.commitsSinceLastTag) || null
+        ),
         __PROJECT_ENVIRONMENT__: JSON.stringify(
           process.env.NODE_ENV === 'production' ? 'prod' : 'dev'
         ),
