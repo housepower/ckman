@@ -6,10 +6,10 @@ module.exports = {
   ...commonConfig,
   devServer: {
     proxy: {
-      '/api/login': {
+      '/login': {
         target: 'http://192.168.21.73:8808',
         logLevel: 'debug',
-        pathRewrite: { '^/api/login': '/login' },
+        pathRewrite: { '^/login': '/login' },
         changeOrigin: true,
         secure: false,
         onProxyRes(proxyRes) {

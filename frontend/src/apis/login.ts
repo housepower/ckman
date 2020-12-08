@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const url = '/api/login';
+const url = '/login';
 
 export const LoginApi = {
   login(params) {
