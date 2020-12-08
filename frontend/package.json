@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "serve": "node_modules/.bin/vue-cli-service serve src/main.tsx",
-    "build": "vue-cli-service build src/main.jsx",
-    "lint": "vue-cli-service lint"
+    "build": "vue-cli-service build src/main.tsx",
+    "lint": "node_modules/.bin/vue-cli-service lint"
   },
   "dependencies": {
     "@json-editor/json-editor": "^2.5.1",
