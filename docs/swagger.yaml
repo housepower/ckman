@@ -1,44 +1,5 @@
 basePath: /
 definitions:
-  config.CKManClickHouseConfig:
-    properties:
-      cluster:
-        example: test
-        type: string
-      hosts:
-        example:
-        - 192.168.101.105
-        - 192.168.101.107
-        items:
-          type: string
-        type: array
-      password:
-        example: "123456"
-        type: string
-      port:
-        example: 9000
-        type: integer
-      sshPassword:
-        example: "123456"
-        type: string
-      sshUser:
-        example: root
-        type: string
-      user:
-        example: ck
-        type: string
-      zkNodes:
-        example:
-        - 192.168.101.102
-        - 192.168.101.105
-        - 192.168.101.107
-        items:
-          type: string
-        type: array
-      zkPort:
-        example: 2181
-        type: integer
-    type: object
   model.AddNodeReq:
     properties:
       ip:
@@ -79,9 +40,6 @@ definitions:
       clusterName:
         example: test
         type: string
-      isReplica:
-        example: false
-        type: boolean
       packageVersion:
         example: 20.8.5.45
         type: string
@@ -91,6 +49,10 @@ definitions:
       path:
         example: /data01/
         type: string
+      shards:
+        items:
+          $ref: '#/definitions/model.CkShard'
+        type: array
       user:
         example: ck
         type: string
@@ -105,6 +67,52 @@ definitions:
       zkPort:
         example: 2181
         type: integer
+    type: object
+  model.CkImportConfig:
+    properties:
+      cluster:
+        example: test
+        type: string
+      hosts:
+        example:
+        - 192.168.101.105
+        - 192.168.101.107
+        items:
+          type: string
+        type: array
+      password:
+        example: "123456"
+        type: string
+      port:
+        example: 9000
+        type: integer
+      user:
+        example: ck
+        type: string
+      zkNodes:
+        example:
+        - 192.168.101.102
+        - 192.168.101.105
+        - 192.168.101.107
+        items:
+          type: string
+        type: array
+      zkPort:
+        example: 2181
+        type: integer
+    type: object
+  model.CkReplica:
+    properties:
+      ip:
+        example: 192.168.101.105
+        type: string
+    type: object
+  model.CkShard:
+    properties:
+      replicas:
+        items:
+          $ref: '#/definitions/model.CkReplica'
+        type: array
     type: object
   model.CkTableNameType:
     properties:
@@ -168,7 +176,6 @@ definitions:
       hosts:
         example:
         - 192.168.101.105
-        - 192.168.101.107
         items:
           type: string
         type: array
@@ -212,7 +219,7 @@ paths:
         name: req
         required: true
         schema:
-          $ref: '#/definitions/config.CKManClickHouseConfig'
+          $ref: '#/definitions/model.CkImportConfig'
       responses:
         "200":
           description: '{"code":200,"msg":"ok","data":null}'
@@ -229,7 +236,7 @@ paths:
         name: req
         required: true
         schema:
-          $ref: '#/definitions/config.CKManClickHouseConfig'
+          $ref: '#/definitions/model.CkImportConfig'
       responses:
         "200":
           description: '{"code":200,"msg":"ok","data":null}'

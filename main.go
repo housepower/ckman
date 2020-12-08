@@ -9,8 +9,6 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
 	"gopkg.in/sevlyar/go-daemon.v0"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"syscall"
 )
@@ -63,15 +61,6 @@ func main() {
 	log.Logger.Infof("version: %v", Version)
 	log.Logger.Infof("build time: %v", BuildTimeStamp)
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
-
-	// start pprof
-	// http://127.0.0.1:6060/debug/pprof/
-	if config.GlobalConfig.Pprof.Enabled {
-		bind := fmt.Sprintf("%s:%d", config.GlobalConfig.Pprof.Ip, config.GlobalConfig.Pprof.Port)
-		go func(addr string) {
-			http.ListenAndServe(addr, nil)
-		}(bind)
-	}
 
 	// create prometheus service
 	prom := prometheus.NewPrometheusService(&config.GlobalConfig.Prometheus)

@@ -57,7 +57,7 @@ var doc = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/config.CKManClickHouseConfig"
+                            "$ref": "#/definitions/model.CkImportConfig"
                         }
                     }
                 ],
@@ -85,7 +85,7 @@ var doc = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/config.CKManClickHouseConfig"
+                            "$ref": "#/definitions/model.CkImportConfig"
                         }
                     }
                 ],
@@ -802,60 +802,6 @@ var doc = `{
         }
     },
     "definitions": {
-        "config.CKManClickHouseConfig": {
-            "type": "object",
-            "properties": {
-                "cluster": {
-                    "type": "string",
-                    "example": "test"
-                },
-                "hosts": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "192.168.101.105",
-                        "192.168.101.107"
-                    ]
-                },
-                "password": {
-                    "type": "string",
-                    "example": "123456"
-                },
-                "port": {
-                    "type": "integer",
-                    "example": 9000
-                },
-                "sshPassword": {
-                    "type": "string",
-                    "example": "123456"
-                },
-                "sshUser": {
-                    "type": "string",
-                    "example": "root"
-                },
-                "user": {
-                    "type": "string",
-                    "example": "ck"
-                },
-                "zkNodes": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "192.168.101.102",
-                        "192.168.101.105",
-                        "192.168.101.107"
-                    ]
-                },
-                "zkPort": {
-                    "type": "integer",
-                    "example": 2181
-                }
-            }
-        },
         "model.AddNodeReq": {
             "type": "object",
             "properties": {
@@ -914,10 +860,6 @@ var doc = `{
                     "type": "string",
                     "example": "test"
                 },
-                "isReplica": {
-                    "type": "boolean",
-                    "example": false
-                },
                 "packageVersion": {
                     "type": "string",
                     "example": "20.8.5.45"
@@ -929,6 +871,12 @@ var doc = `{
                 "path": {
                     "type": "string",
                     "example": "/data01/"
+                },
+                "shards": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkShard"
+                    }
                 },
                 "user": {
                     "type": "string",
@@ -948,6 +896,72 @@ var doc = `{
                 "zkPort": {
                     "type": "integer",
                     "example": 2181
+                }
+            }
+        },
+        "model.CkImportConfig": {
+            "type": "object",
+            "properties": {
+                "cluster": {
+                    "type": "string",
+                    "example": "test"
+                },
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.101.105",
+                        "192.168.101.107"
+                    ]
+                },
+                "password": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "port": {
+                    "type": "integer",
+                    "example": 9000
+                },
+                "user": {
+                    "type": "string",
+                    "example": "ck"
+                },
+                "zkNodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.101.102",
+                        "192.168.101.105",
+                        "192.168.101.107"
+                    ]
+                },
+                "zkPort": {
+                    "type": "integer",
+                    "example": 2181
+                }
+            }
+        },
+        "model.CkReplica": {
+            "type": "object",
+            "properties": {
+                "ip": {
+                    "type": "string",
+                    "example": "192.168.101.105"
+                }
+            }
+        },
+        "model.CkShard": {
+            "type": "object",
+            "properties": {
+                "replicas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkReplica"
+                    }
                 }
             }
         },
@@ -1038,8 +1052,7 @@ var doc = `{
                         "type": "string"
                     },
                     "example": [
-                        "192.168.101.105",
-                        "192.168.101.107"
+                        "192.168.101.105"
                     ]
                 },
                 "password": {

@@ -3,6 +3,7 @@ server:
   ip: 0.0.0.0
   port: 8808
   https: false
+  pprof: true
   peers: []
   session_timeout: 3600
 
@@ -19,8 +20,3 @@ prometheus:
     - 192.168.101.105:19090
   # second
   timeout: 10
-
-pprof:
-  enabled: true
-  ip: 0.0.0.0
-  port: 6060

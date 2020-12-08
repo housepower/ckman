@@ -90,25 +90,40 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	}
 
 	conf := convertCkConfig(&req)
+	conf.Mode = model.CkClusterDeploy
 	clickhouse.CkClusters.Store(req.ClickHouse.ClusterName, conf)
 	clickhouse.MarshalClusters()
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
 
-func convertCkConfig(req *model.DeployCkReq) config.CKManClickHouseConfig {
-	conf := config.CKManClickHouseConfig{
-		Hosts:       req.Hosts,
+func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {
+	conf := model.CKManClickHouseConfig{
 		Port:        req.ClickHouse.CkTcpPort,
 		User:        req.ClickHouse.User,
 		Password:    req.ClickHouse.Password,
 		Cluster:     req.ClickHouse.ClusterName,
 		ZkNodes:     req.ClickHouse.ZkNodes,
 		ZkPort:      req.ClickHouse.ZkPort,
-		IsReplica:   req.ClickHouse.IsReplica,
 		Version:     req.ClickHouse.PackageVersion,
 		SshUser:     req.User,
 		SshPassword: req.Password,
+		Shards:      req.ClickHouse.Shards,
+		Path:        req.ClickHouse.Path,
 	}
+
+	hosts := make([]string, 0)
+	hostnames := make([]string, 0)
+	for _, shard := range req.ClickHouse.Shards {
+		if len(shard.Replicas) > 1 {
+			conf.IsReplica = true
+		}
+		for _, replica := range shard.Replicas {
+			hosts = append(hosts, replica.Ip)
+			hostnames = append(hostnames, replica.HostName)
+		}
+	}
+	conf.Hosts = hosts
+	conf.Names = hostnames
 
 	clickhouse.CkConfigFillDefault(&conf)
 	return conf

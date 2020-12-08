@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
@@ -43,6 +44,11 @@ func (server *ApiServer) Start() error {
 
 	// http://127.0.0.1:8808/swagger/index.html
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// http://127.0.0.1:8808/debug/pprof/
+	if server.config.Server.Pprof {
+		pprof.Register(r)
+	}
 
 	groupV1 := r.Group("/api/v1")
 	// add authenticate middleware for /api/v1

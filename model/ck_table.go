@@ -25,6 +25,8 @@ const (
 	CkTablePartitionPolicyDay int = iota
 	CkTablePartitionPolicyWeek
 	CkTablePartitionPolicyMonth
+	ClickHouseDefaultEngine        string = "ReplacingMergeTree"
+	ClickHouseReplicaDefaultEngine string = "ReplicatedReplacingMergeTree"
 )
 
 type CreateCkTableParams struct {

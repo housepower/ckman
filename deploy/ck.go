@@ -13,14 +13,15 @@ import (
 	"time"
 
 	"gitlab.eoitek.net/EOI/ckman/common"
-	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 )
 
 const (
-	TmpWorkDirectory string = "/tmp/"
+	TmpWorkDirectory    string = "/tmp/"
+	CkClusterNodeAdd    int    = 1
+	CkClusterNodeDelete int    = 2
 )
 
 type Metrika struct {
@@ -45,10 +46,10 @@ type Cluster struct {
 type Shard struct {
 	XMLName     xml.Name `xml:"shard"`
 	Replication bool     `xml:"internal_replication"`
-	Repicas     []Repica
+	Replicas    []Replica
 }
 
-type Repica struct {
+type Replica struct {
 	XMLName xml.Name `xml:"replica"`
 	Host    string   `xml:"host"`
 	Port    int      `xml:"port"`
@@ -57,7 +58,7 @@ type Repica struct {
 type Macro struct {
 	Cluster string `xml:"cluster"`
 	Shard   int    `xml:"shard"`
-	Repica  string `xml:"replica"`
+	Replica string `xml:"replica"`
 }
 
 type CKDeployFacotry struct{}
@@ -73,8 +74,6 @@ type CKDeploy struct {
 }
 
 type HostInfo struct {
-	Ip          string
-	HostName    string
 	MemoryTotal int
 }
 
@@ -87,6 +86,13 @@ type CkConfigTemplate struct {
 	MaxMemoryPerQuery int64
 	MaxMemoryAllQuery int64
 	MaxBytesGroupBy   int64
+}
+
+type CkUpdateNodeParam struct {
+	Ip       string
+	Hostname string
+	Shard    int
+	Op       int
 }
 
 func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
@@ -106,9 +112,6 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 	if d.Conf.CkTcpPort == 0 {
 		d.Conf.CkTcpPort = clickhouse.ClickHouseDefaultPort
 	}
-	if d.Conf.IsReplica && len(d.Hosts)%2 != 0 {
-		return fmt.Errorf("hosts length is not even number")
-	}
 	d.HostInfos = make([]HostInfo, len(d.Hosts))
 	HostNameMap := make(map[string]bool)
 
@@ -120,27 +123,23 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 			}
 			defer client.Close()
 
-			cmd := "hostname -f && free -g"
+			cmd := "cat /proc/meminfo | grep MemTotal | awk '{print $2}'"
 			output, err := common.SSHRun(client, cmd)
 			if err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
 				return err
 			}
 
-			hostname := strings.Split(output, "\n")[0]
-			memory := strings.Replace(strings.Split(output, "\n")[2][7:19], " ", "", -1)
+			memory := strings.Trim(output, "\n")
 			total, err := strconv.Atoi(memory)
 			if err != nil {
 				return err
 			}
 
 			info := HostInfo{
-				Ip:          host,
-				HostName:    hostname,
 				MemoryTotal: total,
 			}
 			d.HostInfos[index] = info
-			HostNameMap[hostname] = true
 			return nil
 		}()
 		if err != nil {
@@ -148,7 +147,36 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 		}
 	}
 
-	if len(HostNameMap) != len(d.Hosts) {
+	clusterNodeNum := 0
+	for i, shard := range d.Conf.Shards {
+		for j, replica := range shard.Replicas {
+			err := func(shardIndex, replicaIndex int) error {
+				client, err := common.SSHConnect(d.User, d.Password, replica.Ip, 22)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+
+				cmd := "hostname -f"
+				output, err := common.SSHRun(client, cmd)
+				if err != nil {
+					log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, replica.Ip, output)
+					return err
+				}
+
+				hostname := strings.Trim(output, "\n")
+				d.Conf.Shards[shardIndex].Replicas[replicaIndex].HostName = hostname
+				HostNameMap[hostname] = true
+				clusterNodeNum++
+				return nil
+			}(i, j)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(HostNameMap) != clusterNodeNum {
 		return fmt.Errorf("host name are the same")
 	}
 
@@ -203,6 +231,62 @@ func (d *CKDeploy) Install() error {
 	return nil
 }
 
+func (d *CKDeploy) Uninstall() error {
+	cmds := make([]string, 0)
+	for _, pack := range d.Packages {
+		cmds = append(cmds, fmt.Sprintf("rpm -e %s", pack))
+	}
+
+	for _, host := range d.Hosts {
+		err := func() error {
+			client, err := common.SSHConnect(d.User, d.Password, host, 22)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			cmd := strings.Join(cmds, " && ")
+			if output, err := common.SSHRun(client, cmd); err != nil {
+				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
+				return err
+			}
+
+			return nil
+		}()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (d *CKDeploy) Upgrade() error {
+	cmd := fmt.Sprintf("cd %s && rpm --force -Uvh %s %s %s", TmpWorkDirectory, d.Packages[0], d.Packages[1], d.Packages[2])
+
+	for _, host := range d.Hosts {
+		err := func() error {
+			client, err := common.SSHConnect(d.User, d.Password, host, 22)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			if output, err := common.SSHRun(client, cmd); err != nil {
+				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
+				return err
+			}
+
+			return nil
+		}()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (d *CKDeploy) Config() error {
 	configTemplate := CkConfigTemplate{
 		CkTcpPort:   d.Conf.CkTcpPort,
@@ -220,16 +304,16 @@ func (d *CKDeploy) Config() error {
 		files := make([]string, 3)
 		files[0] = conf
 
-		configTemplate.MaxMemoryPerQuery = int64((d.HostInfos[index].MemoryTotal / 2) * 1e9)
-		configTemplate.MaxMemoryAllQuery = int64(((d.HostInfos[index].MemoryTotal * 3) / 4) * 1e9)
-		configTemplate.MaxBytesGroupBy = int64((d.HostInfos[index].MemoryTotal / 4) * 1e9)
+		configTemplate.MaxMemoryPerQuery = int64((d.HostInfos[index].MemoryTotal / 2) * 1e3)
+		configTemplate.MaxMemoryAllQuery = int64(((d.HostInfos[index].MemoryTotal * 3) / 4) * 1e3)
+		configTemplate.MaxBytesGroupBy = int64((d.HostInfos[index].MemoryTotal / 4) * 1e3)
 		user, err := ParseConfigTemplate("users.xml", configTemplate)
 		if err != nil {
 			return err
 		}
 		files[1] = user
 
-		metrika, err := GenerateMetrikaTemplate("metrika.xml", *d.Conf, d.HostInfos, index)
+		metrika, err := GenerateMetrikaTemplate("metrika.xml", d.Conf, host)
 		if err != nil {
 			return err
 		}
@@ -268,6 +352,56 @@ func (d *CKDeploy) Start() error {
 	return nil
 }
 
+func (d *CKDeploy) Stop() error {
+	for _, host := range d.Hosts {
+		err := func() error {
+			client, err := common.SSHConnect(d.User, d.Password, host, 22)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			cmd := "systemctl stop clickhouse-server"
+			if output, err := common.SSHRun(client, cmd); err != nil {
+				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
+				return err
+			}
+
+			return nil
+		}()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (d *CKDeploy) Restart() error {
+	for _, host := range d.Hosts {
+		err := func() error {
+			client, err := common.SSHConnect(d.User, d.Password, host, 22)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			cmd := "systemctl restart clickhouse-server"
+			if output, err := common.SSHRun(client, cmd); err != nil {
+				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
+				return err
+			}
+
+			return nil
+		}()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (d *CKDeploy) Check() error {
 	time.Sleep(5 * time.Second)
 
@@ -276,7 +410,7 @@ func (d *CKDeploy) Check() error {
 		hosts = append(hosts, fmt.Sprintf("%s:%d", host, d.Conf.CkTcpPort))
 	}
 
-	conf := config.CKManClickHouseConfig{
+	conf := model.CKManClickHouseConfig{
 		Hosts:    hosts,
 		User:     d.Conf.User,
 		Password: d.Conf.Password,
@@ -324,11 +458,9 @@ func ParseConfigTemplate(templateFile string, conf CkConfigTemplate) (string, er
 	return tmplFile, nil
 }
 
-func GenerateMetrikaTemplate(templateFile string, conf model.CkDeployConfig, hostInfos []HostInfo, hostIndex int) (string, error) {
+func GenerateMetrikaTemplate(templateFile string, conf *model.CkDeployConfig, hostIp string) (string, error) {
 	zkServers := make([]Node, 0)
 	ckServers := make([]Cluster, 0)
-	shard := 0
-	hostName := ""
 
 	// zookeeper-servers
 	for index, host := range conf.ZkNodes {
@@ -342,32 +474,30 @@ func GenerateMetrikaTemplate(templateFile string, conf model.CkDeployConfig, hos
 
 	// clickhouse_remote_servers
 	shards := make([]Shard, 0)
-	index := 0
 	shardIndex := 0
-	for index < len(hostInfos) {
-		shardIndex++
-		number := 1
-		if conf.IsReplica {
-			number = 2
+	hostName := ""
+	for i, shard := range conf.Shards {
+		isReplica := false
+		replicas := make([]Replica, 0)
+		if len(shard.Replicas) > 1 {
+			isReplica = true
 		}
-		replicas := make([]Repica, number)
 
-		for i := 0; i < number; i++ {
-			if hostIndex == index {
-				shard = shardIndex
-				hostName = hostInfos[index].HostName
+		for _, replica := range shard.Replicas {
+			if hostIp == replica.Ip {
+				shardIndex = i + 1
+				hostName = replica.HostName
 			}
-			rp := Repica{
-				Host: hostInfos[index].HostName,
+			rp := Replica{
+				Host: replica.HostName,
 				Port: conf.CkTcpPort,
 			}
-			replicas[i] = rp
-			index++
+			replicas = append(replicas, rp)
 		}
 
 		sh := Shard{
-			Replication: conf.IsReplica,
-			Repicas:     replicas,
+			Replication: isReplica,
+			Replicas:    replicas,
 		}
 		shards = append(shards, sh)
 	}
@@ -380,8 +510,8 @@ func GenerateMetrikaTemplate(templateFile string, conf model.CkDeployConfig, hos
 	// macros
 	macros := Macro{
 		Cluster: conf.ClusterName,
-		Shard:   shard,
-		Repica:  hostName,
+		Shard:   shardIndex,
+		Replica: hostName,
 	}
 
 	metrika := Metrika{
@@ -406,4 +536,385 @@ func GenerateMetrikaTemplate(templateFile string, conf model.CkDeployConfig, hos
 	}
 
 	return tmplFile, nil
+}
+
+func UpgradeCkCluster(conf *model.CKManClickHouseConfig, version string) error {
+	packages := make([]string, 3)
+	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, version, model.CkCommonPackageSuffix)
+	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, version, model.CkServerPackageSuffix)
+	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, version, model.CkClientPackageSuffix)
+	deploy := &CKDeploy{
+		DeployBase: DeployBase{
+			Hosts:    conf.Hosts,
+			User:     conf.SshUser,
+			Password: conf.SshPassword,
+			Packages: packages,
+		},
+	}
+	if err := deploy.Stop(); err != nil {
+		return err
+	}
+	if err := deploy.Prepare(); err != nil {
+		return err
+	}
+	if err := deploy.Upgrade(); err != nil {
+		return err
+	}
+	if err := deploy.Start(); err != nil {
+		return err
+	}
+	if err := deploy.Check(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func StartCkCluster(conf *model.CKManClickHouseConfig) error {
+	deploy := &CKDeploy{
+		DeployBase: DeployBase{
+			Hosts:    conf.Hosts,
+			User:     conf.SshUser,
+			Password: conf.SshPassword,
+		},
+	}
+
+	return deploy.Start()
+}
+
+func StopCkCluster(conf *model.CKManClickHouseConfig) error {
+	deploy := &CKDeploy{
+		DeployBase: DeployBase{
+			Hosts:    conf.Hosts,
+			User:     conf.SshUser,
+			Password: conf.SshPassword,
+		},
+	}
+
+	return deploy.Stop()
+}
+
+func DestroyCkCluster(conf *model.CKManClickHouseConfig) error {
+	packages := make([]string, 3)
+	packages[0] = fmt.Sprintf("%s-%s", model.CkClientPackagePrefix, conf.Version)
+	packages[1] = fmt.Sprintf("%s-%s", model.CkServerPackagePrefix, conf.Version)
+	packages[2] = fmt.Sprintf("%s-%s", model.CkCommonPackagePrefix, conf.Version)
+	deploy := &CKDeploy{
+		DeployBase: DeployBase{
+			Hosts:    conf.Hosts,
+			User:     conf.SshUser,
+			Password: conf.SshPassword,
+			Packages: packages,
+		},
+	}
+	if err := deploy.Stop(); err != nil {
+		return err
+	}
+	if err := deploy.Uninstall(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) error {
+	// add the node to conf struct
+	for _, host := range conf.Hosts {
+		if host == req.Ip {
+			return fmt.Errorf("node ip %s is duplicate", req.Ip)
+		}
+	}
+
+	replicaIndex := 0
+	isReplica := conf.IsReplica
+	shards := conf.Shards[:]
+	if len(shards) <= req.Shard {
+		isReplica = true
+		replica := model.CkReplica{
+			Ip: req.Ip,
+		}
+		replicaIndex = len(shards[req.Shard-1].Replicas)
+		shards[req.Shard-1].Replicas = append(shards[req.Shard-1].Replicas, replica)
+	} else if len(shards)+1 == req.Shard {
+		replica := model.CkReplica{
+			Ip: req.Ip,
+		}
+		shard := model.CkShard{
+			Replicas: []model.CkReplica{replica},
+		}
+		shards = append(shards, shard)
+	} else {
+		return fmt.Errorf("shard number %d is incorrect", req.Shard)
+	}
+
+	// install clickhouse and start service on the new node
+	packages := make([]string, 3)
+	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, conf.Version, model.CkCommonPackageSuffix)
+	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, conf.Version, model.CkServerPackageSuffix)
+	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, conf.Version, model.CkClientPackageSuffix)
+	deploy := &CKDeploy{}
+	base := &DeployBase{
+		Hosts:    []string{req.Ip},
+		User:     conf.SshUser,
+		Password: conf.SshPassword,
+		Packages: packages,
+	}
+	con := &model.CkDeployConfig{
+		Path:           conf.Path,
+		User:           conf.User,
+		Password:       conf.Password,
+		ZkNodes:        conf.ZkNodes,
+		ZkPort:         conf.ZkPort,
+		ClusterName:    conf.Cluster,
+		Shards:         shards,
+		PackageVersion: conf.Version,
+		CkTcpPort:      conf.Port,
+	}
+	if err := deploy.Init(base, con); err != nil {
+		return err
+	}
+	if err := deploy.Prepare(); err != nil {
+		return err
+	}
+	if err := deploy.Install(); err != nil {
+		return err
+	}
+	if err := deploy.Config(); err != nil {
+		return err
+	}
+	if err := deploy.Start(); err != nil {
+		return err
+	}
+	if err := deploy.Check(); err != nil {
+		return err
+	}
+
+	// update other nodes config and restart clickhouse service
+	deploy = &CKDeploy{}
+	base = &DeployBase{
+		Hosts:    conf.Hosts,
+		User:     conf.SshUser,
+		Password: conf.SshPassword,
+	}
+	con = &model.CkDeployConfig{
+		Path:           conf.Path,
+		User:           conf.User,
+		Password:       conf.Password,
+		ZkNodes:        conf.ZkNodes,
+		ZkPort:         conf.ZkPort,
+		ClusterName:    conf.Cluster,
+		Shards:         shards,
+		PackageVersion: conf.Version,
+		CkTcpPort:      conf.Port,
+	}
+	if err := deploy.Init(base, con); err != nil {
+		return err
+	}
+	if err := deploy.Config(); err != nil {
+		return err
+	}
+	if err := deploy.Restart(); err != nil {
+		return err
+	}
+	if err := deploy.Check(); err != nil {
+		return err
+	}
+
+	conf.Shards = shards
+	conf.Hosts = append(conf.Hosts, req.Ip)
+	conf.Names = append(conf.Names, shards[req.Shard-1].Replicas[replicaIndex].HostName)
+	conf.IsReplica = isReplica
+	return nil
+}
+
+func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
+	// find the node index
+	index := 0
+	for index < len(conf.Hosts) {
+		if conf.Hosts[index] == ip {
+			break
+		}
+		index++
+	}
+	if index >= len(conf.Hosts) {
+		return fmt.Errorf("can'f find node %s on cluster %s", ip, conf.Cluster)
+	}
+
+	// stop the node
+	deploy := &CKDeploy{
+		DeployBase: DeployBase{
+			Hosts:    []string{ip},
+			User:     conf.SshUser,
+			Password: conf.SshPassword,
+		},
+	}
+	if err := deploy.Stop(); err != nil {
+		return err
+	}
+
+	// remove the node from conf struct
+	hosts := append(conf.Hosts[:index], conf.Hosts[index+1:]...)
+	names := append(conf.Names[:index], conf.Names[index+1:]...)
+	shards := conf.Shards[:]
+	for i, shard := range shards {
+		found := false
+		for j, replica := range shard.Replicas {
+			if replica.Ip == ip {
+				found = true
+				if len(shard.Replicas) > 1 {
+					shards[i].Replicas = append(shards[i].Replicas[:j], shards[i].Replicas[j+1:]...)
+				} else {
+					shards = append(shards[:i], shards[i+1:]...)
+				}
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	isReplica := false
+	for _, shard := range shards {
+		if len(shard.Replicas) > 1 {
+			isReplica = true
+			break
+		}
+	}
+
+	// update other nodes config and restart clickhouse service
+	deploy = &CKDeploy{}
+	base := &DeployBase{
+		Hosts:    hosts,
+		User:     conf.SshUser,
+		Password: conf.SshPassword,
+	}
+	con := &model.CkDeployConfig{
+		Path:           conf.Path,
+		User:           conf.User,
+		Password:       conf.Password,
+		ZkNodes:        conf.ZkNodes,
+		ZkPort:         conf.ZkPort,
+		ClusterName:    conf.Cluster,
+		Shards:         shards,
+		PackageVersion: conf.Version,
+		CkTcpPort:      conf.Port,
+	}
+	if err := deploy.Init(base, con); err != nil {
+		return err
+	}
+	if err := deploy.Config(); err != nil {
+		return err
+	}
+	if err := deploy.Restart(); err != nil {
+		return err
+	}
+	if err := deploy.Check(); err != nil {
+		return err
+	}
+
+	conf.Hosts = hosts
+	conf.Names = names
+	conf.Shards = shards
+	conf.IsReplica = isReplica
+	return nil
+}
+
+func updateMetrikaconfig(user, password, host, clusterName string, port int, param CkUpdateNodeParam) error {
+	templateFile := "metrika.xml"
+	confFile := "/etc/clickhouse-server/metrika.xml"
+
+	client, err := common.SSHConnect(user, password, host, 22)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	cmd := fmt.Sprintf("cat %s", confFile)
+	output, err := common.SSHRun(client, cmd)
+	if err != nil {
+		log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
+		return err
+	}
+
+	metrika := Metrika{}
+	err = xml.Unmarshal([]byte(output), &metrika)
+	if err != nil {
+		return err
+	}
+
+	found := false
+	for index, cluster := range metrika.CkServers {
+		if cluster.XMLName.Local == clusterName {
+			found = true
+			shards := metrika.CkServers[index].Shards
+			if param.Op == CkClusterNodeAdd {
+				if len(shards) <= param.Shard {
+					shard := shards[param.Shard-1]
+					shard.Replication = true
+					shard.Replicas = append(shard.Replicas, Replica{
+						Host: param.Ip,
+						Port: port,
+					})
+				} else {
+					replicas := make([]Replica, 1)
+					replica := Replica{
+						Host: param.Ip,
+						Port: port,
+					}
+					replicas[0] = replica
+					shard := Shard{
+						Replication: false,
+						Replicas:    replicas,
+					}
+					shards = append(shards, shard)
+				}
+			} else if param.Op == CkClusterNodeDelete {
+				for i, shard := range shards {
+					found := false
+					for j, replica := range shard.Replicas {
+						if replica.Host == param.Hostname || replica.Host == param.Ip {
+							found = true
+							if len(shard.Replicas) > 1 {
+								shards[i].Replicas = append(shard.Replicas[:j], shard.Replicas[j+1:]...)
+								if len(shards[i].Replicas) == 1 {
+									shards[i].Replication = false
+								}
+							} else {
+								metrika.CkServers[index].Shards = append(shards[:i], shards[i+1:]...)
+							}
+							break
+						}
+					}
+					if found {
+						break
+					}
+				}
+			} else {
+				return fmt.Errorf("unsupported operate %d", param.Op)
+			}
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("can't find cluster")
+	}
+
+	data, err := xml.MarshalIndent(metrika, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmplFile := path.Join(common.GetWorkDirectory(), "package", templateFile)
+	localFd, err := os.OpenFile(tmplFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return err
+	}
+	defer localFd.Close()
+	if _, err := localFd.Write(data); err != nil {
+		return err
+	}
+	if err := common.ScpFiles([]string{tmplFile}, confFile, user, password, host); err != nil {
+		return err
+	}
+
+	return nil
 }

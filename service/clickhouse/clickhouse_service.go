@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
+	"github.com/MakeNowJust/heredoc"
 	"gitlab.eoitek.net/EOI/ckman/common"
-	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"io/ioutil"
@@ -31,7 +31,7 @@ var CkClusters sync.Map
 var CkServices sync.Map
 
 type CkService struct {
-	Config *config.CKManClickHouseConfig
+	Config *model.CKManClickHouseConfig
 	DB     *sql.DB
 }
 
@@ -40,7 +40,7 @@ type ClusterService struct {
 	Time    int64
 }
 
-func CkConfigFillDefault(config *config.CKManClickHouseConfig) {
+func CkConfigFillDefault(config *model.CKManClickHouseConfig) {
 	if config.DB == "" {
 		config.DB = ClickHouseDefaultDB
 	}
@@ -52,7 +52,7 @@ func CkConfigFillDefault(config *config.CKManClickHouseConfig) {
 	}
 }
 
-func NewCkService(config *config.CKManClickHouseConfig) *CkService {
+func NewCkService(config *model.CKManClickHouseConfig) *CkService {
 	ck := &CkService{}
 
 	CkConfigFillDefault(config)
@@ -119,7 +119,7 @@ func UnmarshalClusters() error {
 		return err
 	}
 
-	clustersMap := make(map[string]config.CKManClickHouseConfig)
+	clustersMap := make(map[string]model.CKManClickHouseConfig)
 	err = json.Unmarshal(data, &clustersMap)
 	if err != nil {
 		return err
@@ -133,9 +133,9 @@ func UnmarshalClusters() error {
 }
 
 func MarshalClusters() error {
-	clustersMap := make(map[string]config.CKManClickHouseConfig)
+	clustersMap := make(map[string]model.CKManClickHouseConfig)
 	CkClusters.Range(func(k, v interface{}) bool {
-		clustersMap[k.(string)] = v.(config.CKManClickHouseConfig)
+		clustersMap[k.(string)] = v.(model.CKManClickHouseConfig)
 		return true
 	})
 
@@ -171,7 +171,7 @@ func GetCkService(clusterName string) (*CkService, error) {
 	} else {
 		conf, ok := CkClusters.Load(clusterName)
 		if ok {
-			ckConfig := conf.(config.CKManClickHouseConfig)
+			ckConfig := conf.(model.CKManClickHouseConfig)
 			service := NewCkService(&ckConfig)
 			if err := service.InitCkService(); err != nil {
 				return nil, err
@@ -186,6 +186,89 @@ func GetCkService(clusterName string) (*CkService, error) {
 			return nil, fmt.Errorf("can't find cluster %s service", clusterName)
 		}
 	}
+}
+
+func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseConfig) error {
+	var replicas []model.CkReplica
+	conf.Hosts = req.Hosts
+	conf.Port = req.Port
+	conf.Cluster = req.Cluster
+	conf.User = req.User
+	conf.Password = req.Password
+	conf.ZkNodes = req.ZkNodes
+	conf.ZkPort = req.ZkPort
+
+	service := NewCkService(conf)
+	if err := service.InitCkService(); err != nil {
+		return err
+	}
+	defer service.Stop()
+
+	value, err := service.QueryInfo("select cluster, shard_num, replica_num, host_name, host_address from system.clusters order by cluster, shard_num, replica_num")
+	if err != nil {
+		return err
+	}
+	shardNum := 0
+	for i := 1; i < len(value); i++ {
+		if value[i][0].(string) == conf.Cluster {
+			if shardNum != value[i][1].(int) {
+				if shardNum != 0 {
+					shard := model.CkShard{
+						Replicas: replicas,
+					}
+					conf.Shards = append(conf.Shards, shard)
+				}
+				replicas = make([]model.CkReplica, 0)
+			}
+			if value[i][2].(int) > 1 {
+				conf.IsReplica = true
+			}
+			replica := model.CkReplica{
+				Ip:       value[i][4].(string),
+				HostName: value[i][3].(string),
+			}
+			replicas = append(replicas, replica)
+			conf.Hosts = append(conf.Hosts, value[i][4].(string))
+			conf.Names = append(conf.Names, value[i][3].(string))
+			shardNum = value[i][1].(int)
+		}
+	}
+	shard := model.CkShard{
+		Replicas: replicas,
+	}
+	conf.Shards = append(conf.Shards, shard)
+
+	value, err = service.QueryInfo("select version()")
+	if err != nil {
+		return err
+	}
+	conf.Version = value[1][0].(string)
+
+	return nil
+}
+
+func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []string {
+	statusList := make([]string, len(conf.Hosts))
+
+	for index, host := range conf.Hosts {
+		tmp := &model.CKManClickHouseConfig{
+			Hosts:    []string{host},
+			Port:     conf.Port,
+			Cluster:  conf.Cluster,
+			User:     conf.User,
+			Password: conf.Password,
+		}
+
+		service := NewCkService(tmp)
+		if err := service.InitCkService(); err != nil {
+			statusList[index] = model.CkStatusRed
+		} else {
+			statusList[index] = model.CkStatusGreen
+		}
+		service.Stop()
+	}
+
+	return statusList
 }
 
 func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
@@ -213,6 +296,11 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	create := fmt.Sprintf(`CREATE TABLE %s.%s ON CLUSTER %s (%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)`,
 		params.DB, params.Name, params.Cluster, strings.Join(columns, ","), params.Engine,
 		partition, strings.Join(params.Order, ","))
+	if params.Engine == model.ClickHouseReplicaDefaultEngine {
+		create = fmt.Sprintf(`CREATE TABLE %s.%s ON CLUSTER %s (%s) ENGINE = %s('/clickhouse/tables/{cluster}/{shard}/%s', '{replica}') PARTITION BY %s ORDER BY (%s)`,
+			params.DB, params.Name, params.Cluster, strings.Join(columns, ","), params.Engine, params.Name,
+			partition, strings.Join(params.Order, ","))
+	}
 	if _, err := ck.DB.Exec(create); err != nil {
 		return err
 	}
@@ -381,4 +469,78 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 	}
 
 	return colData, nil
+}
+
+func (ck *CkService) FetchSchemerFromOtherNode(host string) error {
+	names, statements, err := getCreateReplicaObjects(ck.DB, host)
+	if err != nil {
+		return err
+	}
+
+	num := len(names)
+	for i := 0; i < num; i++ {
+		if _, err = ck.DB.Exec(statements[i]); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func getObjectListFromClickHouse(db *sql.DB, query string) (names, statements []string, err error) {
+	// Some data available, let's fetch it
+	var rows *sql.Rows
+	if rows, err = db.Query(query); err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var name, statement string
+		if err := rows.Scan(&name, &statement); err != nil {
+			return nil, nil, err
+		}
+		names = append(names, name)
+		statements = append(statements, statement)
+	}
+
+	return
+}
+
+func getCreateReplicaObjects(db *sql.DB, srcHost string) (names, statements []string, err error) {
+	system_tables := fmt.Sprintf("remote('%s', system, tables)", srcHost)
+
+	sqlDBs := heredoc.Doc(strings.ReplaceAll(`
+		SELECT DISTINCT 
+			database AS name, 
+			concat('CREATE DATABASE IF NOT EXISTS "', name, '"') AS create_db_query
+		FROM system.tables
+		WHERE database != 'system'
+		SETTINGS skip_unavailable_shards = 1`,
+		"system.tables", system_tables,
+	))
+
+	sqlTables := heredoc.Doc(strings.ReplaceAll(`
+		SELECT DISTINCT 
+			name, 
+			replaceRegexpOne(create_table_query, 'CREATE (TABLE|VIEW|MATERIALIZED VIEW)', 'CREATE \\1 IF NOT EXISTS')
+		FROM system.tables
+		WHERE database != 'system' AND create_table_query != '' AND name not like '.inner.%'
+		SETTINGS skip_unavailable_shards = 1`,
+		"system.tables",
+		system_tables,
+	))
+
+	names1, statements1, err := getObjectListFromClickHouse(db, sqlDBs)
+	if err != nil {
+		return nil, nil, err
+	}
+	names2, statements2, err := getObjectListFromClickHouse(db, sqlTables)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	names = append(names1, names2...)
+	statements = append(statements1, statements2...)
+	return
 }
