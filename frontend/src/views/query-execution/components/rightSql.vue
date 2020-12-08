@@ -25,6 +25,7 @@
     <el-button type="primary"
                size="large"
                class="fs-18 width-full mt-15"
+               :disabled="sqlInput === ''"
                @click="query">Execute Query</el-button>
     <section class="list">
       <el-table :data="tableData"
