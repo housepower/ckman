@@ -31,7 +31,7 @@ axios.interceptors.request.use(config => {
     };
   } else {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
-    $router.replace('/login').catch(()=>{});;
+    $router.replace('/login').catch(()=>{});
   }
   if (++loading) {
     $progress.start();

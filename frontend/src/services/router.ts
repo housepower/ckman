@@ -6,7 +6,6 @@ Vue.use(Router);
 
 export const $router = new Router({
   mode: 'history',
-  base: '/static',
   routes: [
     {
       path: '/login',

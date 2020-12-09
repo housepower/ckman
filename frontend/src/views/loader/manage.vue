@@ -19,7 +19,6 @@
                   class="flex-1 ml-10" />
       </div>
     </div>
-
   </section>
 </template>
 <script>
@@ -29,16 +28,28 @@ import "@/assets/style/bootstrap4.css";
 export default {
   data() {
     return {
-      schema: Schame,
+      schema: Object.assign({}, Schame, { format: "categories" }),
       originValue: JsonValue,
       originStrinfyVal: JSON.stringify(JsonValue, null, 2),
       editor: null,
     };
   },
   mounted() {
+    this.handleData();
     this.createInstence();
   },
   methods: {
+    handleData() {
+      const collapsed = { collapsed: true };
+      for (let key in this.schema.properties) {
+        let val = this.schema["properties"][key];
+        if (val["type"] === "array") {
+          // val["options"] = collapsed;
+          val["items"]["options"] = collapsed;
+          val["items"]["headerTemplate"] = "{{ self.Name }}";
+        }
+      }
+    },
     createInstence() {
       this.editor = new JSONEditor(this.$refs.jsonEditor, {
         theme: "bootstrap4",
@@ -77,6 +88,19 @@ export default {
   .card {
     border: none;
     border-left: 1px solid rgba(143, 69, 69, 0.125) !important;
+  }
+  .je-object__container {
+    .je-object__title {
+      label {
+        display: inline-block;
+        max-width: 270px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 16px;
+        margin-bottom: 0;
+      }
+    }
   }
 }
 </style>

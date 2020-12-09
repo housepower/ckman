@@ -1,7 +1,7 @@
 export const Schame = {
   title: 'LoaderConfig',
-  "format": "categories",
-  "basicCategoryTitle": "Main",
+  format: 'categories',
+  basicCategoryTitle: 'Main',
   type: 'object',
   required: [
     'Common',
