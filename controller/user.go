@@ -1,14 +1,17 @@
 package controller
 
 import (
+	"io/ioutil"
+	"path"
+	"path/filepath"
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/common/log"
 	"gitlab.eoitek.net/EOI/ckman/common"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/model"
-	"io/ioutil"
-	"path"
-	"time"
 )
 
 type UserController struct {
@@ -44,14 +47,16 @@ func (d *UserController) Login(c *gin.Context) {
 		return
 	}
 
-	passwordFile := path.Join(common.GetWorkDirectory(), "conf/password")
+	passwordFile := path.Join(filepath.Dir(d.config.ConfigFile), "password")
 	data, err := ioutil.ReadFile(passwordFile)
 	if err != nil {
 		model.WrapMsg(c, model.GET_USER_PASSWORD_FAIL, model.GetMsg(model.GET_USER_PASSWORD_FAIL), err.Error())
 		return
 	}
 
+	log.Infof("expected password: %s, req.Password: %s", string(data), req.Password)
 	if pass := common.ComparePassword(string(data), req.Password); !pass {
+		log.Infof("PASSWORD_VERIFY_FAIL")
 		model.WrapMsg(c, model.PASSWORD_VERIFY_FAIL, model.GetMsg(model.PASSWORD_VERIFY_FAIL), nil)
 		return
 	}

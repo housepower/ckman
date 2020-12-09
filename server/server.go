@@ -3,8 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	static "github.com/choidamdam/gin-static-pkger"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/markbates/pkger"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
 	"gitlab.eoitek.net/EOI/ckman/common"
@@ -15,8 +21,6 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"gitlab.eoitek.net/EOI/ckman/router"
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
-	"net/http"
-	"time"
 )
 
 type ApiServer struct {
@@ -40,7 +44,15 @@ func (server *ApiServer) Start() error {
 	r.Use(ginLoggerToFile())
 
 	userController := controller.NewUserController(server.config)
-	r.POST("/login", userController.Login)
+
+	// https://github.com/gin-gonic/gin/issues/1048
+	// How do you solve vue.js HTML5 History Mode?
+	_ = pkger.Dir("/frontend/dist")
+	r.Use(static.Serve("/", static.LocalFile("/frontend/dist", false)))
+	homepage := embedStaticHandler("/frontend/dist/index.html", "text/html;charset=utf-8")
+	r.NoRoute(homepage)
+
+	r.POST("/api/login", userController.Login)
 
 	// http://127.0.0.1:8808/swagger/index.html
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -87,6 +99,22 @@ func (server *ApiServer) Stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
 	defer cancel()
 	server.svr.Shutdown(ctx)
+}
+
+func embedStaticHandler(embedPath, contentType string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		f, err := pkger.Open(embedPath)
+		if err != nil {
+			log.Logger.Errorf("failed to open embed static file %s", embedPath)
+			return
+		}
+		defer f.Close()
+		c.Status(http.StatusOK)
+		c.Header("Content-Type", contentType)
+		if _, err := io.Copy(c.Writer, f); err != nil {
+			log.Logger.Errorf("failed to copy embed static file %s", embedPath)
+		}
+	}
 }
 
 func ginLoggerToFile() gin.HandlerFunc {

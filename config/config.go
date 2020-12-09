@@ -1,14 +1,16 @@
 package config
 
 import (
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
+
+	"gopkg.in/yaml.v2"
 )
 
 var GlobalConfig CKManConfig
 
 type CKManConfig struct {
+	ConfigFile string
 	Server     CKManServerConfig
 	Log        CKManLogConfig
 	Prometheus CKManPrometheusConfig
@@ -71,6 +73,7 @@ func ParseConfigFile(path string) error {
 	if err != nil {
 		return err
 	}
+	GlobalConfig.ConfigFile = path
 
 	return nil
 }
