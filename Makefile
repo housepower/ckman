@@ -16,7 +16,6 @@ TAG?=$(shell date +%y%m%d)
 
 .PHONY: backend
 backend:
-	pkger
 	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}"
 	go build -o ckmanpasswd password/password.go
 	go build -o schemer cmd/schemer/schemer.go

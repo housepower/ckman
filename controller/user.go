@@ -8,7 +8,6 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/common/log"
 	"gitlab.eoitek.net/EOI/ckman/common"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/model"
@@ -54,9 +53,7 @@ func (d *UserController) Login(c *gin.Context) {
 		return
 	}
 
-	log.Infof("expected password: %s, req.Password: %s", string(data), req.Password)
 	if pass := common.ComparePassword(string(data), req.Password); !pass {
-		log.Infof("PASSWORD_VERIFY_FAIL")
 		model.WrapMsg(c, model.PASSWORD_VERIFY_FAIL, model.GetMsg(model.PASSWORD_VERIFY_FAIL), nil)
 		return
 	}
