@@ -47,6 +47,7 @@ export default {
   },
   methods: {
     async fetchData() {
+      this.list = [];
       const {
         data: { data },
       } = await PackageApi.getList();
@@ -57,7 +58,7 @@ export default {
         });
       });
     },
-    beforeUpload(file) {
+    async beforeUpload(file) {
       if (file.file.size > 200 * 1024 ** 2) {
         this.$message.error("文件不能超过200M");
         return;
@@ -65,18 +66,15 @@ export default {
       let formData = new FormData();
       formData.append("package", file.file);
       $loading.increase();
-      PackageApi.upload(formData)
-        .then(() => {
-          this.$message({
-            type: "success",
-            message: `${file.file.name}上传成功`,
-            duration: 5000,
-          });
-        })
-        .finally(() => $loading.decrease());
+      await PackageApi.upload(formData).finally(() => $loading.decrease());
+      this.$message({
+        type: "success",
+        message: `${file.file.name}上传成功`,
+        duration: 5000,
+      });
+      this.fetchData();
     },
     async remove(item) {
-      console.log(item);
       await this.$confirm("Confirm whether to delete ?", "Tip", {
         confirmButtonText: "Delete",
         cancelButtonText: "Cancel",
