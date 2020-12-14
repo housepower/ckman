@@ -195,11 +195,48 @@ definitions:
         example: ckman
         type: string
     type: object
+  model.UpdateConfigReq:
+    properties:
+      alertManagers:
+        example:
+        - 192.168.101.105:19093
+        items:
+          type: string
+        type: array
+      peers:
+        example:
+        - 192.168.21.74
+        items:
+          type: string
+        type: array
+      prometheus:
+        example:
+        - 192.168.101.105:19090
+        items:
+          type: string
+        type: array
+    type: object
 info:
   contact: {}
   title: Swagger Example API
   version: "1.0"
 paths:
+  /api/login:
+    post:
+      description: 登陆
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.LoginReq'
+      responses:
+        "200":
+          description: '{"code":200,"msg":"ok","data":{"username":"ckman","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"}}'
+          schema:
+            type: string
+      summary: 登陆
   /api/v1/ck/cluster:
     get:
       description: 获取ClickHouse集群
@@ -553,6 +590,24 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 升级ClickHouse集群
+  /api/v1/config:
+    put:
+      description: 更新配置
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateConfigReq'
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":nil}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 更新配置
   /api/v1/deploy/ck:
     post:
       description: 部署clickhouse
@@ -677,22 +732,6 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 上传安装包
-  /login:
-    post:
-      description: 登陆
-      parameters:
-      - description: request body
-        in: body
-        name: req
-        required: true
-        schema:
-          $ref: '#/definitions/model.LoginReq'
-      responses:
-        "200":
-          description: '{"code":200,"msg":"ok","data":{"username":"ckman","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"}}'
-          schema:
-            type: string
-      summary: 登陆
 securityDefinitions:
   ApiKeyAuth:
     in: header

@@ -10,7 +10,7 @@ import (
 var GlobalConfig CKManConfig
 
 type CKManConfig struct {
-	ConfigFile string
+	ConfigFile string `yaml:"-"`
 	Server     CKManServerConfig
 	Log        CKManLogConfig
 	Prometheus CKManPrometheusConfig
@@ -27,10 +27,10 @@ type CKManServerConfig struct {
 }
 
 type CKManLogConfig struct {
+	Level    string
 	MaxCount int `yaml:"max_count"`
 	MaxSize  int `yaml:"max_size"`
 	MaxAge   int `yaml:"max_age"`
-	Level    string
 }
 
 type CKManPrometheusConfig struct {
@@ -74,6 +74,25 @@ func ParseConfigFile(path string) error {
 		return err
 	}
 	GlobalConfig.ConfigFile = path
+
+	return nil
+}
+
+func MarshConfigFile() error {
+	out, err := yaml.Marshal(GlobalConfig)
+	if err != nil {
+		return err
+	}
+
+	localFd, err := os.OpenFile(GlobalConfig.ConfigFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return err
+	}
+	defer localFd.Close()
+
+	if _, err := localFd.Write(out); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -10,6 +10,8 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
 	"gopkg.in/sevlyar/go-daemon.v0"
 	"os"
+	"os/exec"
+	"os/signal"
 	"syscall"
 )
 
@@ -37,7 +39,6 @@ func main() {
 	}
 	log.InitLogger(LogFilePath, &config.GlobalConfig.Log)
 
-	daemon.SetSigHandler(termHandler, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
 	cntxt := &daemon.Context{
 		PidFileName: PidFilePath,
 		PidFilePerm: 0644,
@@ -62,6 +63,7 @@ func main() {
 	log.Logger.Infof("build time: %v", BuildTimeStamp)
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
 
+	signalCh := make(chan os.Signal, 1)
 	// create prometheus service
 	prom := prometheus.NewPrometheusService(&config.GlobalConfig.Prometheus)
 
@@ -72,24 +74,53 @@ func main() {
 	}
 
 	// start http server
-	svr := server.NewApiServer(&config.GlobalConfig, prom)
+	svr := server.NewApiServer(&config.GlobalConfig, prom, signalCh)
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}
 	log.Logger.Infof("start http server %s:%d success", config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
 
 	//block here, waiting for terminal signal
-	if err := daemon.ServeSignals(); err != nil {
-		log.Logger.Errorf("waiting for signal fail: %v", err)
-	}
-
-	log.Logger.Warn("ckman exiting...")
-	svr.Stop()
+	handleSignal(signalCh, svr)
 }
 
-func termHandler(sig os.Signal) error {
-	log.Logger.Infof("got terminal signal %s", sig)
-	return daemon.ErrStop
+func handleSignal(ch chan os.Signal, svr *server.ApiServer) {
+	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	for {
+		sig := <-ch
+		log.Logger.Infof("receive signal: %v", sig)
+		log.Logger.Warn("ckman exiting...")
+		switch sig {
+		case syscall.SIGINT, syscall.SIGTERM:
+			termHandler(svr)
+		case syscall.SIGHUP:
+			termHandler(svr)
+			reloadHandler()
+		}
+		break
+	}
+	signal.Stop(ch)
+}
+
+func termHandler(svr *server.ApiServer) error {
+	if err := svr.Stop(); err != nil {
+		return err
+	}
+
+	clickhouse.CkServices.Range(func(k, v interface{}) bool {
+		service := v.(*clickhouse.ClusterService)
+		service.Service.Stop()
+		return true
+	})
+
+	return nil
+}
+
+func reloadHandler() error {
+	cmd := exec.Command(os.Args[0], os.Args[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Start()
 }
 
 var VersionCmd = &cobra.Command{

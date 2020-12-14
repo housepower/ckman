@@ -41,6 +41,7 @@ var MsgFlags = map[int]string{
 	GET_CK_CLUSTER_INFO_FAIL:    "获取ClickHouse集群信息失败",
 	ADD_CK_CLUSTER_NODE_FAIL:    "添加ClickHouse集群节点失败",
 	DELETE_CK_CLUSTER_NODE_FAIL: "删除ClickHouse集群节点失败",
+	UPDATE_CONFIG_FAIL:          "更新配置失败",
 
 	UNKNOWN: "unknown",
 }

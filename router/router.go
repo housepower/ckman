@@ -6,13 +6,15 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/controller"
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
+	"os"
 )
 
-func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *prometheus.PrometheusService) {
+func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *prometheus.PrometheusService, signal chan os.Signal) {
 	ckController := controller.NewClickHouseController()
 	packageController := controller.NewPackageController(config)
 	deployController := controller.NewDeployController(config)
 	metricController := controller.NewMetricController(config, prom)
+	configController := controller.NewConfigController(signal)
 
 	groupV1.POST("/ck/cluster", ckController.ImportCk)
 	groupV1.PUT("/ck/cluster", ckController.UpdateCk)
@@ -37,4 +39,5 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *pr
 	groupV1.POST("/deploy/ck", deployController.DeployCk)
 	groupV1.GET("/metric/query", metricController.Query)
 	groupV1.GET("/metric/query_range", metricController.QueryRange)
+	groupV1.PUT("/config", configController.UpdateConfig)
 }

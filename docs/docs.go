@@ -24,6 +24,31 @@ var doc = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/login": {
+            "post": {
+                "description": "登陆",
+                "summary": "登陆",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.LoginReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":{\"username\":\"ckman\",\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\"}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/cluster": {
             "get": {
                 "security": [
@@ -580,6 +605,36 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/config": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新配置",
+                "summary": "更新配置",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateConfigReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":nil}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/deploy/ck": {
             "post": {
                 "security": [
@@ -768,31 +823,6 @@ var doc = `{
                 "responses": {
                     "200": {
                         "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/login": {
-            "post": {
-                "description": "登陆",
-                "summary": "登陆",
-                "parameters": [
-                    {
-                        "description": "request body",
-                        "name": "req",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.LoginReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":{\"username\":\"ckman\",\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\"}}",
                         "schema": {
                             "type": "string"
                         }
@@ -1075,6 +1105,38 @@ var doc = `{
                 "username": {
                     "type": "string",
                     "example": "ckman"
+                }
+            }
+        },
+        "model.UpdateConfigReq": {
+            "type": "object",
+            "properties": {
+                "alertManagers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.101.105:19093"
+                    ]
+                },
+                "peers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.21.74"
+                    ]
+                },
+                "prometheus": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.101.105:19090"
+                    ]
                 }
             }
         }

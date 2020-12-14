@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	static "github.com/choidamdam/gin-static-pkger"
@@ -27,12 +28,14 @@ type ApiServer struct {
 	config *config.CKManConfig
 	prom   *prometheus.PrometheusService
 	svr    *http.Server
+	signal chan os.Signal
 }
 
-func NewApiServer(config *config.CKManConfig, prom *prometheus.PrometheusService) *ApiServer {
+func NewApiServer(config *config.CKManConfig, prom *prometheus.PrometheusService, signal chan os.Signal) *ApiServer {
 	server := &ApiServer{}
 	server.config = config
 	server.prom = prom
+	server.signal = signal
 	return server
 }
 
@@ -65,7 +68,7 @@ func (server *ApiServer) Start() error {
 	groupV1 := r.Group("/api/v1")
 	// add authenticate middleware for /api/v1
 	groupV1.Use(ginJWTAuth())
-	router.InitRouterV1(groupV1, server.config, server.prom)
+	router.InitRouterV1(groupV1, server.config, server.prom, server.signal)
 
 	bind := fmt.Sprintf("%s:%d", server.config.Server.Ip, server.config.Server.Port)
 	server.svr = &http.Server{
@@ -94,11 +97,11 @@ func (server *ApiServer) Start() error {
 	return nil
 }
 
-func (server *ApiServer) Stop() {
+func (server *ApiServer) Stop() error {
 	waitTimeout := time.Duration(time.Second * 10)
 	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
 	defer cancel()
-	server.svr.Shutdown(ctx)
+	return server.svr.Shutdown(ctx)
 }
 
 func embedStaticHandler(embedPath, contentType string) gin.HandlerFunc {

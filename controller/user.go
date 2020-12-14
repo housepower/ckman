@@ -32,7 +32,7 @@ func NewUserController(config *config.CKManConfig) *UserController {
 // @Failure 200 {string} json "{"code":5031,"msg":"获取用户密码失败","data":""}"
 // @Failure 200 {string} json "{"code":5032,"msg":"用户密码验证失败","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":{"username":"ckman","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"}}"
-// @Router /login [post]
+// @Router /api/login [post]
 func (d *UserController) Login(c *gin.Context) {
 	var req model.LoginReq
 
