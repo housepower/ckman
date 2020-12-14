@@ -1,21 +1,32 @@
 <template>
   <main class="home-setting">
     <breadcrumb :data="['setting']"></breadcrumb>
-    <el-form ref="Form" :model="formModel" label-width="280px" label-position="left">
-      <el-form-item label="Ckman HA Pair Addresses:" prop="haAddress">
-        <el-input v-model="formModel.haAddress" class="width-350" />
+    <el-form ref="Form"
+             :model="formModel"
+             label-width="280px"
+             label-position="left">
+      <el-form-item label="Ckman HA Pair Addresses:"
+                    prop="peers">
+        <el-input v-model="formModel.peers"
+                  placeholder="多个ip逗号分隔"
+                  class="width-350" />
       </el-form-item>
-      <el-form-item label="Short-term Prometheus Pair Addresses:" prop="shortAddress">
-        <el-input v-model="formModel.shortAddress" class="width-350" />
+      <el-form-item label="Prometheus Addresses:"
+                    prop="prometheus">
+        <el-input v-model="formModel.prometheus"
+                  placeholder="多个ip逗号分隔"
+                  class="width-350" />
       </el-form-item>
-      <el-form-item label="long-term Prometheus Addresses:" prop="longAddress">
-        <el-input v-model="formModel.longAddress" class="width-350" />
-      </el-form-item>
-      <el-form-item label="Alert Manager Addresses:" prop="alertAddress">
-        <el-input v-model="formModel.alertAddress" class="width-350" />
+      <el-form-item label="Alert Manager Addresses:"
+                    prop="alertManagers">
+        <el-input v-model="formModel.alertManagers"
+                  placeholder="多个ip逗号分隔"
+                  class="width-350" />
       </el-form-item>
     </el-form>
-    <el-button type="primary" class="ml-360">Save & Reboot</el-button>
+    <el-button type="primary"
+               class="ml-360"
+               @click="saveConfig">Save & Reboot</el-button>
     <section class="rpms">
       <el-divider content-position="left">ClickHouse RPMs</el-divider>
       <rpm-list />
@@ -24,20 +35,40 @@
 </template>
 <script>
 import RpmList from "./component/rpms";
+import { PackageApi } from "@/apis";
 export default {
   name: "HomeSetting",
   data() {
     return {
       formModel: {
-        haAddress: "",
-        shortAddess: "",
-        longAddress: "",
-        alertAddress: "",
+        peers: "",
+        prometheus: "",
+        alertManagers: "",
       },
     };
   },
-  mounted() {},
-  methods: {},
+  mounted() {
+    this.fetchData();
+  },
+  methods: {
+    async fetchData() {
+      const {
+        data: { data },
+      } = await PackageApi.getConfig();
+      Object.keys(data).forEach((key) => {
+        this.formModel[key] = data[key] ? data[key].join(",") : "";
+      });
+    },
+    async saveConfig() {
+      Object.keys(this.formModel).forEach((key) => {
+        this.formModel[key] = this.formModel[key]
+          ? this.formModel[key].split(",")
+          : null;
+      });
+      await PackageApi.updateConfig(this.formModel);
+      this.$message.success("配置已更新");
+    },
+  },
   components: {
     RpmList,
   },

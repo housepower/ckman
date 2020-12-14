@@ -1,15 +1,8 @@
 <template>
   <section class="rpms text-right">
-    <el-upload class="ml-360"
-               action=""
-               multiple
-               :show-file-list="false"
-               :http-request="beforeUpload"
-               accept=".rpm">
-      <el-button type="primary"
-                 class="mb-15">Upload RPMs</el-button>
-    </el-upload>
-
+    <el-button type="primary"
+               class="mb-15"
+               @click="chooseFile">Upload RPMs</el-button>
     <el-table :data="list"
               border>
       <el-table-column prop="version"
@@ -35,7 +28,8 @@
 </template>
 <script>
 import { PackageApi } from "@/apis";
-import { $loading } from "@/services";
+import { $loading, $modal } from "@/services";
+import Upload from "./upload";
 export default {
   data() {
     return {
@@ -58,19 +52,15 @@ export default {
         });
       });
     },
-    async beforeUpload(file) {
-      if (file.file.size > 200 * 1024 ** 2) {
-        this.$message.error("文件不能超过200M");
-        return;
-      }
-      let formData = new FormData();
-      formData.append("package", file.file);
-      $loading.increase();
-      await PackageApi.upload(formData).finally(() => $loading.decrease());
-      this.$message({
-        type: "success",
-        message: `${file.file.name}上传成功`,
-        duration: 5000,
+    async chooseFile() {
+      await $modal({
+        props: {
+          title: "Upload File",
+          width: "650px",
+          cancelText: "Cancel",
+          okText: "Upload",
+        },
+        component: Upload,
       });
       this.fetchData();
     },
