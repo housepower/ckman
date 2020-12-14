@@ -40,4 +40,5 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *pr
 	groupV1.GET("/metric/query", metricController.Query)
 	groupV1.GET("/metric/query_range", metricController.QueryRange)
 	groupV1.PUT("/config", configController.UpdateConfig)
+	groupV1.GET("/config", configController.GetConfig)
 }

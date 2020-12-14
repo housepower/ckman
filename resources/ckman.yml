@@ -4,7 +4,6 @@ server:
   port: 8808
   https: false
   pprof: true
-  peers: []
   session_timeout: 3600
 
 log:

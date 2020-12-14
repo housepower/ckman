@@ -15,6 +15,11 @@ import (
 	"syscall"
 )
 
+const (
+	MARK_NAME  = "_GO_CKMAN_RELOAD"
+	MARK_VALUE = "1"
+)
+
 var (
 	Version        = ""
 	BuildTimeStamp = ""
@@ -47,7 +52,7 @@ func main() {
 		Umask:       027,
 	}
 
-	if Daemon {
+	if Daemon && os.Getenv(MARK_NAME) != MARK_VALUE {
 		d, err := cntxt.Reborn()
 		if err != nil {
 			log.Logger.Fatal(err)
@@ -117,9 +122,14 @@ func termHandler(svr *server.ApiServer) error {
 }
 
 func reloadHandler() error {
+	env := os.Environ()
+	mark := fmt.Sprintf("%s=%s", MARK_NAME, MARK_VALUE)
+	env = append(env, mark)
+
 	cmd := exec.Command(os.Args[0], os.Args[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = env
 	return cmd.Start()
 }
 

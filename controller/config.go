@@ -35,13 +35,8 @@ func (cf *ConfigController) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	if len(req.Peers) > 0 {
-		config.GlobalConfig.Server.Peers = req.Peers
-	}
-
-	if len(req.Prometheus) > 0 {
-		config.GlobalConfig.Prometheus.Hosts = req.Prometheus
-	}
+	config.GlobalConfig.Server.Peers = req.Peers
+	config.GlobalConfig.Prometheus.Hosts = req.Prometheus
 
 	if err := config.MarshConfigFile(); err != nil {
 		model.WrapMsg(c, model.UPDATE_CONFIG_FAIL, model.GetMsg(model.UPDATE_CONFIG_FAIL), err.Error())
@@ -50,4 +45,19 @@ func (cf *ConfigController) UpdateConfig(c *gin.Context) {
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 	cf.signal <- syscall.SIGHUP
+}
+
+// @Summary 获取配置
+// @Description 获取配置
+// @version 1.0
+// @Security ApiKeyAuth
+// @Success 200 {string} json "{"code":200,"msg":"ok","data":{"peers":null,"prometheus":["192.168.101.105:19090"],"alertManagers":null}}"
+// @Router /api/v1/config [get]
+func (cf *ConfigController) GetConfig(c *gin.Context) {
+	var req model.UpdateConfigReq
+
+	req.Peers = config.GlobalConfig.Server.Peers
+	req.Prometheus = config.GlobalConfig.Prometheus.Hosts
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), req)
 }

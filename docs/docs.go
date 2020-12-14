@@ -606,6 +606,23 @@ var doc = `{
             }
         },
         "/api/v1/config": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取配置",
+                "summary": "获取配置",
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":{\"peers\":null,\"prometheus\":[\"192.168.101.105:19090\"],\"alertManagers\":null}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "put": {
                 "security": [
                     {
