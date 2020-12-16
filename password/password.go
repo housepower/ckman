@@ -52,7 +52,7 @@ Password must contain at least three character categories among the following:
 		return
 	}
 
-	passwordFile := path.Join(config.GetWorkDirectory(), "conf/password")
+	passwordFile := path.Join(common.GetWorkDirectory(), "conf/password")
 	fileFd, err := os.OpenFile(passwordFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		fmt.Printf("\nOpen password file %s fail: %v\n", passwordFile, err)

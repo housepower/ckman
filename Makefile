@@ -56,9 +56,9 @@ docker-build:
 	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct amd64/golang:1.15.3 make package VERSION=${VERSION}
 
 .PHONY: rpm
-package: build
+rpm: build
 	nfpm pkg --packager rpm --target .
 
 .PHONY: deb
-package: build
+deb: build
 	nfpm pkg --packager deb --target .
