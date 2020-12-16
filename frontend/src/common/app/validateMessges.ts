@@ -2,7 +2,7 @@ import AsyncValidator from 'async-validator';
 
 Object.assign((AsyncValidator as any).messages, {
   default: () => '字段验证错误，请检查',
-  required: () => '必填字段',
+  required: () => 'Required fields',
   enum: (_, a) => `必须是 ${a} 其中之一`,
   whitespace: () => '该字段不能为空',
   date: {

@@ -77,15 +77,17 @@
 <script>
 import CreateCk from "./modals/createCk";
 import { $modal } from "@/services";
-import { ClusterApi } from "@/apis";
+import { ClusterApi, PackageApi } from "@/apis";
 export default {
   name: "Home",
   data() {
     return {
       list: [],
+      versionOptions: [],
     };
   },
   mounted() {
+    this.fetchVersionData();
     this.fetchData();
   },
   methods: {
@@ -101,6 +103,15 @@ export default {
         this.list.unshift(item);
       });
     },
+    async fetchVersionData() {
+      const {
+        data: { data },
+      } = await PackageApi.getList();
+      this.versionOptions = data.map((item) => ({
+        value: item,
+        label: item,
+      }));
+    },
     async importCk(type) {
       await $modal({
         component: CreateCk,
@@ -114,6 +125,7 @@ export default {
         },
         data: {
           type,
+          versionOptions: this.versionOptions,
         },
       });
       const tip = this.type ? "创建成功" : "导入成功";

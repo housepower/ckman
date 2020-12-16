@@ -5,18 +5,30 @@
              label-width="150px">
       <el-form-item label="ClickHouse Version:"
                     prop="packageVersion"
-                    v-if="type">
-        <el-input v-model="formModel.packageVersion"
-                  class="width-350" />
+                    v-if="type"
+                    required>
+        <el-select v-model="formModel.packageVersion"
+                   size="small"
+                   clearable
+                   filterable
+                   class="width-350">
+          <el-option v-for="item in versionOptions"
+                     :key="item.value"
+                     :label="item.label"
+                     :value="item.value">
+          </el-option>
+        </el-select>
       </el-form-item>
       <el-form-item label="Cluster Name:"
-                    prop="cluster">
+                    prop="cluster"
+                    required>
         <el-input v-model="formModel.cluster"
                   class="width-350" />
       </el-form-item>
       <el-form-item label="ClickHouse Node IP:"
                     prop="hosts"
-                    v-if="!type">
+                    v-if="!type"
+                    required>
         <el-input v-model="formModel.hosts"
                   type="textarea"
                   :autosize="{ minRows: 2 }"
@@ -24,25 +36,29 @@
                   class="width-350" />
       </el-form-item>
       <el-form-item label="ClickHouse TCP Port:"
-                    prop="port">
+                    prop="port"
+                    required>
         <el-input v-model="formModel.port"
                   class="width-350" />
       </el-form-item>
       <el-form-item label="ClickHouse Node List:"
                     prop="hosts"
-                    placeholder="多个ip,请以逗号,分隔填写"
-                    v-if="type">
+                    v-if="type"
+                    required>
         <el-input type="textarea"
                   :autosize="{ minRows: 2 }"
                   v-model="formModel.hosts"
+                  placeholder="多个ip,请以逗号,分隔填写"
                   class="width-350" />
       </el-form-item>
       <el-form-item label="Replica"
-                    v-if="type">
-        <el-switch v-model="formModel.replica"></el-switch>
+                    v-if="type"
+                    prop="isReplica">
+        <el-switch v-model="formModel.isReplica"></el-switch>
       </el-form-item>
       <el-form-item label="Zookeeper Node List:"
-                    prop="zkNodes">
+                    prop="zkNodes"
+                    required>
         <el-input type="textarea"
                   :autosize="{ minRows: 2 }"
                   placeholder="多个ip,请以逗号,分隔填写"
@@ -50,23 +66,27 @@
                   class="width-350" />
       </el-form-item>
       <el-form-item label="ZooKeeper Port:"
-                    prop="zkPort">
+                    prop="zkPort"
+                    required>
         <el-input v-model="formModel.zkPort"
                   class="width-350" />
       </el-form-item>
       <el-form-item label="Data path:"
                     prop="path"
-                    v-if="type">
+                    v-if="type"
+                    required>
         <el-input v-model="formModel.path"
                   class="width-350" />
       </el-form-item>
       <el-form-item label="Cluster Username:"
-                    prop="user">
+                    prop="user"
+                    required>
         <el-input v-model="formModel.user"
                   class="width-350" />
       </el-form-item>
       <el-form-item label="Cluster Password:"
-                    prop="password">
+                    prop="password"
+                    required>
         <el-input v-model="formModel.password"
                   type="password"
                   show-password
@@ -76,27 +96,29 @@
 
       <el-form-item label="SSH Username:"
                     prop="sshUser"
-                    v-if="type">
+                    v-if="type"
+                    required>
         <el-input v-model="formModel.sshUser"
                   class="width-350" />
       </el-form-item>
       <el-form-item label="SSH Password:"
                     prop="sshPassword"
-                    v-if="type">
+                    v-if="type"
+                    required>
         <el-input v-model="formModel.sshPassword"
                   type="password"
                   show-password
                   autocomplete="new-password"
                   class="width-350" />
       </el-form-item>
-
     </el-form>
   </section>
 </template>
 <script>
+import { chunk } from "lodash-es";
 import { ClusterApi } from "@/apis";
 export default {
-  props: ["type"],
+  props: ["type", "versionOptions"],
   data() {
     return {
       formModel: {
@@ -115,9 +137,24 @@ export default {
       },
     };
   },
-  mounted() {},
   methods: {
+    async dealShards(isReplica, hosts) {
+      if (!isReplica) {
+        return hosts.map((ip) => ({ replicas: [{ ip }] }));
+      } else {
+        const isAliquot = hosts.length % 2;
+        if (isAliquot) {
+          this.$message.warning("hosts字段ip数量有误");
+          return Promise.reject();
+        } else {
+          return chunk(hosts, 2).map((host) => ({
+            replicas: host.map((ip) => ({ ip })),
+          }));
+        }
+      }
+    },
     async onOk() {
+      await this.$refs.Form.validate();
       const {
         packageVersion,
         cluster,
@@ -132,6 +169,7 @@ export default {
         zkPort,
         path,
       } = this.formModel;
+
       if (!this.type) {
         await ClusterApi.importCluster({
           cluster,
@@ -139,17 +177,16 @@ export default {
           port: +port,
           user,
           password,
-          // sshPassword,
-          // sshUser,
           zkNodes: zkNodes.split(","),
           zkPort: +zkPort,
         });
       } else {
+        const shards = await this.dealShards(isReplica, hosts.split(","));
         await ClusterApi.createCluster({
           clickhouse: {
             ckTcpPort: +port,
             clusterName: cluster,
-            isReplica: isReplica,
+            shards,
             packageVersion,
             password,
             path,
