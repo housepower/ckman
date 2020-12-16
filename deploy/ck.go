@@ -405,6 +405,7 @@ func (d *CKDeploy) Check() error {
 
 	conf := model.CKManClickHouseConfig{
 		Hosts:    d.Hosts,
+		Port:     d.Conf.CkTcpPort,
 		User:     d.Conf.User,
 		Password: d.Conf.Password,
 		DB:       "default",
