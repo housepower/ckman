@@ -3,6 +3,8 @@ package config
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -95,4 +97,13 @@ func MarshConfigFile() error {
 	}
 
 	return nil
+}
+
+func GetWorkDirectory() string {
+	dir, err := filepath.Abs(filepath.Dir(GlobalConfig.ConfigFile))
+	if err != nil {
+		return ""
+	}
+
+	return strings.Replace(filepath.Dir(dir), "\\", "/", -1)
 }

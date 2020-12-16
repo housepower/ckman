@@ -1,0 +1,33 @@
+# nfpm example config file
+#
+# check https://nfpm.goreleaser.com/configuration for detailed usage
+#
+name: "ckman"
+arch: "amd64"
+platform: "linux"
+version: "v1.2.3"
+section: "default"
+priority: "extra"
+replaces:
+- ckman
+provides:
+- ckman
+- ckmanpasswd
+- schemer
+maintainer: "Fly Li <Fly@eoitek.com>"
+description: |
+  ckman is a tool which used to manage and monitor ClickHouse database
+vendor: "EOI"
+license: "MIT"
+files:
+  ./ckman: "/usr/local/bin/ckman"
+  ./ckmanpasswd: "/usr/local/bin/ckmanpasswd"
+  ./schemer: "/usr/local/bin/schemer"
+  ./README.md: "/etc/ckman/package/README.md"
+config_files:
+  ./resources/config.xml: "/etc/ckman/template/config.xml"
+  ./resources/users.xml: "/etc/ckman/template/users.xml"
+  ./resources/ckman.yaml: "/etc/ckman/conf/ckman.yaml"
+  ./resources/password: "/etc/ckman/conf/password"
+symlinks:
+  /sbin/ckman: "/usr/local/bin/ckman"

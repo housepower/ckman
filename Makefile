@@ -16,6 +16,7 @@ TAG?=$(shell date +%y%m%d)
 
 .PHONY: backend
 backend:
+	@rm -rf ${PKGFULLDIR}
 	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}"
 	go build -o ckmanpasswd password/password.go
 	go build -o schemer cmd/schemer/schemer.go
@@ -23,6 +24,7 @@ backend:
 
 .PHONY: build
 build:
+	@rm -rf ${PKGFULLDIR}
 	make -C frontend build
 	pkger
 	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}"
@@ -33,16 +35,15 @@ build:
 .PHONY: package
 package: build
 	@rm -rf ${PKGFULLDIR_TMP}
-	@rm -rf ${PKGFULLDIR}
-	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package
+	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package ${PKGFULLDIR_TMP}/template
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/schemer ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
-	@cp ${SHDIR}/resources/config.xml ${PKGFULLDIR_TMP}/bin
-	@cp ${SHDIR}/resources/users.xml ${PKGFULLDIR_TMP}/bin
-	@cp ${SHDIR}/resources/ckman.yml ${PKGFULLDIR_TMP}/conf/ckman.yml
+	@cp ${SHDIR}/resources/config.xml ${PKGFULLDIR_TMP}/template
+	@cp ${SHDIR}/resources/users.xml ${PKGFULLDIR_TMP}/template
+	@cp ${SHDIR}/resources/ckman.yaml ${PKGFULLDIR_TMP}/conf/ckman.yaml
 	@cp ${SHDIR}/resources/password ${PKGFULLDIR_TMP}/conf/password
 	@cp ${SHDIR}/README.md ${PKGFULLDIR_TMP}
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}
@@ -53,3 +54,11 @@ package: build
 docker-build:
 	rm -rf ${PKGDIR}-*.tar.gz
 	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct amd64/golang:1.15.3 make package VERSION=${VERSION}
+
+.PHONY: rpm
+package: build
+	nfpm pkg --packager rpm --target .
+
+.PHONY: deb
+package: build
+	nfpm pkg --packager deb --target .

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"gitlab.eoitek.net/EOI/ckman/common"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
@@ -97,7 +96,7 @@ func ParserFormData(request *http.Request) (string, error) {
 
 	log.Logger.Infof("Upload File: %s", handler.Filename)
 	log.Logger.Infof("File Size: %d", handler.Size)
-	localFile := path.Join(common.GetWorkDirectory(), DefaultPackageDirectory, handler.Filename)
+	localFile := path.Join(config.GetWorkDirectory(), DefaultPackageDirectory, handler.Filename)
 	localFd, err := os.OpenFile(localFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		log.Logger.Errorf("Create local file %s fail: %v", localFile, err)
@@ -162,7 +161,7 @@ func UploadFileByURL(url string, localFile string) error {
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":["20.8.5.45"]}"
 // @Router /api/v1/package [get]
 func (p *PackageController) List(c *gin.Context) {
-	files, err := GetAllFiles(path.Join(common.GetWorkDirectory(), DefaultPackageDirectory))
+	files, err := GetAllFiles(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory))
 	if err != nil {
 		model.WrapMsg(c, model.LIST_PACKAGE_FAIL, model.GetMsg(model.LIST_PACKAGE_FAIL), err.Error())
 		return
@@ -248,7 +247,7 @@ func (p *PackageController) Delete(c *gin.Context) {
 	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, packageVersion, model.CkServerPackageSuffix)
 
 	for _, packageName := range packages {
-		if err := os.Remove(path.Join(common.GetWorkDirectory(), DefaultPackageDirectory, packageName)); err != nil {
+		if err := os.Remove(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory, packageName)); err != nil {
 			model.WrapMsg(c, model.DELETE_LOCAL_PACKAGE_FAIL, model.GetMsg(model.DELETE_LOCAL_PACKAGE_FAIL), err.Error())
 			return
 		}

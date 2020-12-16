@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/MakeNowJust/heredoc"
-	"gitlab.eoitek.net/EOI/ckman/common"
+	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"io/ioutil"
@@ -106,7 +106,7 @@ func (ck *CkService) InitCkService() error {
 }
 
 func UnmarshalClusters() error {
-	localFile := path.Join(common.GetWorkDirectory(), "conf", ClickHouseClustersFile)
+	localFile := path.Join(config.GetWorkDirectory(), "conf", ClickHouseClustersFile)
 
 	_, err := os.Stat(localFile)
 	if err != nil {
@@ -144,7 +144,7 @@ func MarshalClusters() error {
 		return err
 	}
 
-	localFile := path.Join(common.GetWorkDirectory(), "conf", ClickHouseClustersFile)
+	localFile := path.Join(config.GetWorkDirectory(), "conf", ClickHouseClustersFile)
 	localFd, err := os.OpenFile(localFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return err

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"gitlab.eoitek.net/EOI/ckman/config"
 	"io/ioutil"
 	"os"
 	"path"
@@ -186,7 +187,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 func (d *CKDeploy) Prepare() error {
 	files := make([]string, 0)
 	for _, file := range d.Packages {
-		files = append(files, path.Join(common.GetWorkDirectory(), "package", file))
+		files = append(files, path.Join(config.GetWorkDirectory(), "package", file))
 	}
 
 	for _, host := range d.Hosts {
@@ -422,7 +423,7 @@ func (d *CKDeploy) Check() error {
 }
 
 func ParseConfigTemplate(templateFile string, conf CkConfigTemplate) (string, error) {
-	localPath := path.Join(common.GetWorkDirectory(), "bin", templateFile)
+	localPath := path.Join(config.GetWorkDirectory(), "template", templateFile)
 
 	data, err := ioutil.ReadFile(localPath)
 	if err != nil {
@@ -438,7 +439,7 @@ func ParseConfigTemplate(templateFile string, conf CkConfigTemplate) (string, er
 		return "", err
 	}
 
-	tmplFile := path.Join(common.GetWorkDirectory(), "package", templateFile)
+	tmplFile := path.Join(config.GetWorkDirectory(), "package", templateFile)
 	localFd, err := os.OpenFile(tmplFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return "", err
@@ -518,7 +519,7 @@ func GenerateMetrikaTemplate(templateFile string, conf *model.CkDeployConfig, ho
 		return "", err
 	}
 
-	tmplFile := path.Join(common.GetWorkDirectory(), "package", templateFile)
+	tmplFile := path.Join(config.GetWorkDirectory(), "package", templateFile)
 	localFd, err := os.OpenFile(tmplFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return "", err
@@ -897,7 +898,7 @@ func updateMetrikaconfig(user, password, host, clusterName string, port int, par
 	if err != nil {
 		return err
 	}
-	tmplFile := path.Join(common.GetWorkDirectory(), "package", templateFile)
+	tmplFile := path.Join(config.GetWorkDirectory(), "package", templateFile)
 	localFd, err := os.OpenFile(tmplFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return err
