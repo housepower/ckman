@@ -33,6 +33,7 @@ build:
 .PHONY: package
 package: build
 	@rm -rf ${PKGFULLDIR_TMP}
+	@rm -rf ${PKGFULLDIR}
 	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
@@ -47,7 +48,6 @@ package: build
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}
 	@echo "create ${TARNAME} from ${PKGDIR}"
 	@tar -czf ${TARNAME} ${PKGDIR}
-	@rm -rf ${PKGFULLDIR}
 
 .PHONY: docker-build
 docker-build:

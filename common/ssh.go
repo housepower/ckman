@@ -115,6 +115,7 @@ func SSHRun(client *ssh.Client, shell string) (result string, err error) {
 	}
 	defer session.Close()
 	if buf, err = session.CombinedOutput(shell); err != nil {
+		result = strings.TrimRight(string(buf), "\n")
 		return
 	}
 	result = strings.TrimRight(string(buf), "\n")

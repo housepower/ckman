@@ -201,9 +201,7 @@ func (d *CKDeploy) Prepare() error {
 func (d *CKDeploy) Install() error {
 	cmds := make([]string, 0)
 	cmds = append(cmds, fmt.Sprintf("cd %s", TmpWorkDirectory))
-	for _, pack := range d.Packages {
-		cmds = append(cmds, fmt.Sprintf("rpm -ivh %s", pack))
-	}
+	cmds = append(cmds, fmt.Sprintf("rpm --force -ivh %s %s %s", d.Packages[0], d.Packages[1], d.Packages[2]))
 	cmds = append(cmds, fmt.Sprintf("mkdir -p %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
 
@@ -405,13 +403,8 @@ func (d *CKDeploy) Restart() error {
 func (d *CKDeploy) Check() error {
 	time.Sleep(5 * time.Second)
 
-	hosts := make([]string, 0)
-	for _, host := range d.Hosts {
-		hosts = append(hosts, fmt.Sprintf("%s:%d", host, d.Conf.CkTcpPort))
-	}
-
 	conf := model.CKManClickHouseConfig{
-		Hosts:    hosts,
+		Hosts:    d.Hosts,
 		User:     d.Conf.User,
 		Password: d.Conf.Password,
 		DB:       "default",
