@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
@@ -37,6 +38,7 @@ func SSHConnect(user, password, host string, port int) (*ssh.Client, error) {
 	addr = fmt.Sprintf("%s:%d", host, port)
 
 	if client, err = ssh.Dial("tcp", addr, clientConfig); err != nil {
+		err = errors.Wrapf(err, "")
 		return nil, err
 	}
 
@@ -69,11 +71,13 @@ func SFTPConnect(user, password, host string, port int) (*sftp.Client, error) {
 	addr = fmt.Sprintf("%s:%d", host, port)
 
 	if sshClient, err = ssh.Dial("tcp", addr, clientConfig); err != nil {
+		err = errors.Wrapf(err, "")
 		return nil, err
 	}
 
 	// create sftp client
 	if sftpClient, err = sftp.NewClient(sshClient); err != nil {
+		err = errors.Wrapf(err, "")
 		return nil, err
 	}
 
@@ -83,6 +87,7 @@ func SFTPConnect(user, password, host string, port int) (*sftp.Client, error) {
 func SFTPUpload(sftpClient *sftp.Client, localFilePath, remoteDir string) error {
 	srcFile, err := os.Open(localFilePath)
 	if err != nil {
+		err = errors.Wrapf(err, "")
 		return err
 	}
 	defer srcFile.Close()
@@ -90,6 +95,7 @@ func SFTPUpload(sftpClient *sftp.Client, localFilePath, remoteDir string) error 
 	var remoteFileName = path.Base(localFilePath)
 	dstFile, err := sftpClient.Create(path.Join(remoteDir, remoteFileName))
 	if err != nil {
+		err = errors.Wrapf(err, "")
 		return err
 	}
 	defer dstFile.Close()
@@ -111,11 +117,13 @@ func SSHRun(client *ssh.Client, shell string) (result string, err error) {
 	var buf []byte
 	// create session
 	if session, err = client.NewSession(); err != nil {
+		err = errors.Wrapf(err, "")
 		return
 	}
 	defer session.Close()
 	if buf, err = session.CombinedOutput(shell); err != nil {
 		result = strings.TrimRight(string(buf), "\n")
+		err = errors.Wrapf(err, result)
 		return
 	}
 	result = strings.TrimRight(string(buf), "\n")
