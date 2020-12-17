@@ -51,7 +51,7 @@ export default {
 
 <style lang="scss" scoped>
 .container {
-  position: fixed;
+  position: absolute;
   left: 262px;
   top: 115px;
   bottom: 65px;

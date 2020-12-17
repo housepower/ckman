@@ -129,7 +129,7 @@ export default {
         },
       });
       const tip = this.type ? "创建成功" : "导入成功";
-      this.$message.success();
+      this.$message.success(`${tip}`);
       this.fetchData();
     },
     toCluster(item) {

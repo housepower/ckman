@@ -4,3 +4,4 @@ export * from './modal';
 export * from './message';
 export * from './root';
 export * from './progress';
+export * from './notify';

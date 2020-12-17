@@ -10,7 +10,7 @@ import './hackElementUI';
 
 import { $router } from '@/services';
 import { Project } from '../constants';
-import { $message, $progress, $root } from '../services';
+import { $message, $progress, $root, $notify } from '../services';
 
 const cancelTokenSources = new Map<CancelToken, Canceler>();
 let loading = 0;
@@ -88,7 +88,8 @@ const errorHandler = event => {
   }
 
   if (event.reason.isAxiosError) {
-    $message.fuck(event.reason);
+    // $message.fuck(event.reason);
+    $notify.fuck(event.reason);
     return;
   }
 

@@ -29,6 +29,7 @@ const data = {
   },
   clusterBench: null,
   tooltips: [],
+  notifys: [],
   userInfo: null,
 };
 _updateVueInstance(data as any);
@@ -39,6 +40,7 @@ new Vue({
     return (
       <div id="app" style="height: 100%">
         <vue-progressbar ref="progressbar" />
+        {this.notifys.map(attrs => <top-notify {...{ attrs }} />)}
         <router-view />
         {this.modals.map(attrs => <sharp-modal {...{ attrs }} />)}
         {this.loading.status ? <v-loading /> : null}

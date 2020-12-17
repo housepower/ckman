@@ -16,6 +16,7 @@ import { VLoading } from './v-loading';
 import { VueAceEditor } from './vue-ace-editor';
 import { VueEcharts } from './vue-echarts';
 import { VueProgressbar } from './vue-progressbar';
+import { TopNotify } from './top-notify';
 
 Object.entries({
   ChildViewHolder,
@@ -34,6 +35,7 @@ Object.entries({
   VueEcharts,
   VueProgressbar,
   VueAceEditor,
+  TopNotify,
 }).forEach(([name, component]) => Vue.component(name, component));
 
 export {
@@ -54,4 +56,5 @@ export {
   VueAceEditor,
   VueEcharts,
   VueProgressbar,
+  TopNotify,
 };

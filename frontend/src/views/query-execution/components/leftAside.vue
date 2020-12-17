@@ -59,7 +59,7 @@ export default {
 
 <style lang="scss" scoped>
 .left-aside-warp {
-  position: fixed;
+  position: absolute;
   left: 20px;
   top: 105px;
   bottom: 65px;

@@ -2,13 +2,14 @@ import axios, { AxiosError, AxiosResponse } from 'axios';
 
 import '@/common/app/run';
 import { $root, $router, _updateVueInstance } from '@/services';
+import { InvalidTokenCode } from '@/constants';
 
 axios.interceptors.response.use((value: AxiosResponse) => {
   if (value.config.url.startsWith(`/api`)) {
     if(value.data) {
       if(value.data.code) {
         if(+value.data.code !== 200) {
-          if(+value.data.code === 401 || +value.data.code === 5020) {
+          if(+value.data.code === 401 || InvalidTokenCode.includes(+value.data.code)) {
             if($router.currentRoute.name !== 'Login') {
               setTimeout(() => {
                 $router.push({

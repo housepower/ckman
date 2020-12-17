@@ -3,6 +3,7 @@ import Vue from 'vue';
 export interface RootBase extends Vue {
   modals?: import ('../services/modal').ModalPropModel[];
   tooltips?: import ('../components/sharp-tooltip').TooltipPropModel[];
+  notifys?: import ('../components/top-notify').TopNotifyModel[];
   drawers?: import('../services/modal').ModalPropModel[];
   loading: {
     status: number;
