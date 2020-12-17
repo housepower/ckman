@@ -8,10 +8,13 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/patrickmn/go-cache"
 	"gitlab.eoitek.net/EOI/ckman/common"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/model"
 )
+
+var TokenCache *cache.Cache
 
 type UserController struct {
 	config *config.CKManConfig
@@ -61,8 +64,8 @@ func (d *UserController) Login(c *gin.Context) {
 	j := common.NewJWT()
 	claims := common.CustomClaims{
 		StandardClaims: jwt.StandardClaims{
-			IssuedAt:  time.Now().Unix(),
-			ExpiresAt: time.Now().Add(time.Second * time.Duration(d.config.Server.SessionTimeout)).Unix(),
+			IssuedAt: time.Now().Unix(),
+			//ExpiresAt: time.Now().Add(time.Second * time.Duration(d.config.Server.SessionTimeout)).Unix(),
 		},
 		Name:     common.DefaultUserName,
 		ClientIP: c.ClientIP(),
@@ -77,6 +80,7 @@ func (d *UserController) Login(c *gin.Context) {
 		Username: req.Username,
 		Token:    token,
 	}
+	TokenCache.SetDefault(token, time.Now().Add(time.Second * time.Duration(d.config.Server.SessionTimeout)).Unix())
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), rsp)
 }

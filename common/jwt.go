@@ -38,13 +38,8 @@ func (j *JWT) ParserToken(tokenString string) (*CustomClaims, int) {
 	})
 
 	if err != nil {
-		if ve, ok := err.(*jwt.ValidationError); ok {
-			if ve.Errors&jwt.ValidationErrorExpired != 0 {
-				return nil, model.JWT_TOKEN_EXPIRED
-			} else {
-				return nil, model.JWT_TOKEN_INVALID
-			}
-
+		if _, ok := err.(*jwt.ValidationError); ok {
+			return nil, model.JWT_TOKEN_INVALID
 		}
 	}
 

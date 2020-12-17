@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/patrickmn/go-cache"
 	"io"
 	"net/http"
 	"os"
@@ -46,6 +47,7 @@ func (server *ApiServer) Start() error {
 	// add log middleware
 	r.Use(ginLoggerToFile())
 
+	controller.TokenCache = cache.New(time.Duration(server.config.Server.SessionTimeout)*time.Second, time.Minute)
 	userController := controller.NewUserController(server.config)
 
 	// https://github.com/gin-gonic/gin/issues/1048
@@ -68,6 +70,7 @@ func (server *ApiServer) Start() error {
 	groupV1 := r.Group("/api/v1")
 	// add authenticate middleware for /api/v1
 	groupV1.Use(ginJWTAuth())
+	groupV1.Use(ginRefreshTokenExpires())
 	router.InitRouterV1(groupV1, server.config, server.prom, server.signal)
 
 	bind := fmt.Sprintf("%s:%d", server.config.Server.Ip, server.config.Server.Port)
@@ -176,6 +179,13 @@ func ginJWTAuth() gin.HandlerFunc {
 			return
 		}
 
+		// Verify Expires
+		if _, ok := controller.TokenCache.Get(token); !ok {
+			model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, model.GetMsg(model.JWT_TOKEN_EXPIRED), nil)
+			c.Abort()
+			return
+		}
+
 		// Verify client ip
 		if claims.ClientIP != c.ClientIP() {
 			model.WrapMsg(c, model.JWT_TOKEN_IP_MISMATCH, model.GetMsg(model.JWT_TOKEN_IP_MISMATCH), nil)
@@ -184,5 +194,16 @@ func ginJWTAuth() gin.HandlerFunc {
 		}
 
 		c.Set("claims", claims)
+		c.Set("token", token)
+	}
+}
+
+func ginRefreshTokenExpires() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+		if value, exists := c.Get("token"); exists {
+			token := value.(string)
+			controller.TokenCache.SetDefault(token, time.Now().Add(time.Second * time.Duration(config.GlobalConfig.Server.SessionTimeout)).Unix())
+		}
 	}
 }
