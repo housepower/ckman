@@ -471,6 +471,7 @@ func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
 		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(model.DESTROY_CK_CLUSTER_FAIL), err.Error())
 		return
 	}
+	clickhouse.CkClusters.Delete(clusterName)
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
@@ -592,10 +593,12 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	service := clickhouse.NewCkService(tmp)
 	if err := service.InitCkService(); err != nil {
 		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
+		return
 	}
 	defer service.Stop()
 	if err := service.FetchSchemerFromOtherNode(req.Ip); err != nil {
 		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
+		return
 	}
 
 	clickhouse.CkClusters.Store(clusterName, conf)

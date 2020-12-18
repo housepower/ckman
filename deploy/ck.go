@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -190,10 +191,21 @@ func (d *CKDeploy) Prepare() error {
 		files = append(files, path.Join(config.GetWorkDirectory(), "package", file))
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(len(d.Hosts))
+	ch := make(chan error, len(d.Hosts))
 	for _, host := range d.Hosts {
-		if err := common.ScpFiles(files, TmpWorkDirectory, d.User, d.Password, host); err != nil {
-			return err
-		}
+		go func(host string, ch chan error) {
+			defer wg.Done()
+			if err := common.ScpFiles(files, TmpWorkDirectory, d.User, d.Password, host); err != nil {
+				ch <- err
+			}
+		}(host, ch)
+	}
+	wg.Wait()
+	close(ch)
+	for err := range ch {
+		return err
 	}
 
 	return nil
@@ -622,8 +634,9 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 
 	replicaIndex := 0
 	isReplica := conf.IsReplica
-	shards := conf.Shards[:]
-	if len(shards) <= req.Shard {
+	shards := make([]model.CkShard, len(conf.Shards))
+	copy(shards, conf.Shards)
+	if len(shards) >= req.Shard {
 		isReplica = true
 		replica := model.CkReplica{
 			Ip: req.Ip,
@@ -750,7 +763,8 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	// remove the node from conf struct
 	hosts := append(conf.Hosts[:index], conf.Hosts[index+1:]...)
 	names := append(conf.Names[:index], conf.Names[index+1:]...)
-	shards := conf.Shards[:]
+	shards := make([]model.CkShard, len(conf.Shards))
+	copy(shards, conf.Shards)
 	for i, shard := range shards {
 		found := false
 		for j, replica := range shard.Replicas {

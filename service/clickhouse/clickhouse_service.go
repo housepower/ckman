@@ -203,15 +203,18 @@ func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseCon
 		return err
 	}
 	defer service.Stop()
+	conf.Hosts = make([]string, 0)
+	conf.Names = make([]string, 0)
+	conf.Shards = make([]model.CkShard, 0)
 
 	value, err := service.QueryInfo("select cluster, shard_num, replica_num, host_name, host_address from system.clusters order by cluster, shard_num, replica_num")
 	if err != nil {
 		return err
 	}
-	shardNum := 0
+	shardNum := uint32(0)
 	for i := 1; i < len(value); i++ {
 		if value[i][0].(string) == conf.Cluster {
-			if shardNum != value[i][1].(int) {
+			if shardNum != value[i][1].(uint32) {
 				if shardNum != 0 {
 					shard := model.CkShard{
 						Replicas: replicas,
@@ -220,7 +223,7 @@ func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseCon
 				}
 				replicas = make([]model.CkReplica, 0)
 			}
-			if value[i][2].(int) > 1 {
+			if value[i][2].(uint32) > 1 {
 				conf.IsReplica = true
 			}
 			replica := model.CkReplica{
@@ -230,7 +233,7 @@ func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseCon
 			replicas = append(replicas, replica)
 			conf.Hosts = append(conf.Hosts, value[i][4].(string))
 			conf.Names = append(conf.Names, value[i][3].(string))
-			shardNum = value[i][1].(int)
+			shardNum = value[i][1].(uint32)
 		}
 	}
 	shard := model.CkShard{
