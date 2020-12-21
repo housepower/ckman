@@ -29,5 +29,7 @@ config_files:
   ./resources/users.xml: "/etc/ckman/template/users.xml"
   ./resources/ckman.yaml: "/etc/ckman/conf/ckman.yaml"
   ./resources/password: "/etc/ckman/conf/password"
+  ./resources/ckman.service: "/etc/systemd/system/ckman.service"
 symlinks:
   /sbin/ckman: "/usr/local/bin/ckman"
+  /etc/systemd/system/multi-user.target.wants/ckman.service: "/etc/systemd/system/ckman.service"

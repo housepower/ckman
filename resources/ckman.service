@@ -1,0 +1,14 @@
+[Unit]
+Description=ClickHouse monitor and manage tool
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+Type=forking
+Restart=always
+RestartSec=30
+RuntimeDirectory=ckman
+ExecStart=/usr/local/bin/ckman -c=/etc/ckman/conf/ckman.yaml -p=/run/ckman/ckman.pid -l=/var/log/ckman/ckman.log -d
+
+[Install]
+WantedBy=multi-user.target

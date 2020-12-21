@@ -583,7 +583,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	}
 
 	tmp := &model.CKManClickHouseConfig{
-		Hosts:    []string{conf.Hosts[0]},
+		Hosts:    []string{req.Ip},
 		Port:     conf.Port,
 		Cluster:  conf.Cluster,
 		User:     conf.User,
@@ -596,7 +596,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 		return
 	}
 	defer service.Stop()
-	if err := service.FetchSchemerFromOtherNode(req.Ip); err != nil {
+	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
 		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
 		return
 	}
