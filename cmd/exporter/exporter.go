@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"gitlab.eoitek.net/EOI/ckman/common"
-	"golang.org/x/crypto/ssh"
 )
 
 // export data of given time range to HDFS
@@ -23,32 +22,25 @@ var (
 	port     = 9000
 	username = "eoi"
 	password = "123456"
-	tables    = map[string]string{"sensor_dt_result_online22": "@time",}
+	tables   = map[string]string{"sensor_dt_result_online22": "@time"}
 	tsBegin  = "1970-01-01 00:00:00"
 	tsEnd    = "2020-11-01 00:00:00"
 	tsLayout = "2006-01-02 15:04:05"
 
 	maxFileSize  = 1e10 //10GB
 	tryIntervals = []string{"1 year", "1 month", "1 week", "1 day", "4 hour", "1 hour"}
-	workDir      = "/data01"
 	hdfsAddr     = "192.168.101.102:8020"
 	hdfsUser     = "root"
 	hdfsDir      = "/user/root"
-	osUser       = "root"
-	osPass       = "Eoi123456!"
 
-	// >8 gives error:    "ssh: rejected: administratively prohibited (open failed)"
-	parallelExport = 8
-	// >=4 saturates HDFS bandwidth 100%
-	parallelUpload = 4
+	// >=4 is able to exhaust HDFS cluster(3 DataNodes with HDDs) write bandwidth
+	parallelExport = 4
 
-	ckConns  map[string]*sql.DB
-	sshConns map[string]*ssh.Client
-	perNodePools map[string]*common.WorkerPool
+	ckConns    map[string]*sql.DB
 	globalPool *common.WorkerPool
-	wg sync.WaitGroup
-	cntErrors int32
-	estSize uint64
+	wg         sync.WaitGroup
+	cntErrors  int32
+	estSize    uint64
 )
 
 func initConns() (err error) {
@@ -64,27 +56,7 @@ func initConns() (err error) {
 		ckConns[host] = db
 		log.Infof("initialized clickhouse connection to %s", host)
 	}
-	sshConns = make(map[string]*ssh.Client)
-	for _, host := range ckHosts {
-		var conn *ssh.Client
-		if conn, err = common.SSHConnect(osUser, osPass, host, 22); err != nil {
-			err = errors.Wrapf(err, "")
-			return
-		}
-		sshConns[host] = conn
-		log.Infof("initialized ssh connection to %s", host)
-		var db *sql.DB
-		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-			host, port, "default", username, password)
-		if db, err = sql.Open("clickhouse", dsn); err != nil {
-			err = errors.Wrapf(err, "")
-			return
-		}
-		ckConns[host] = db
-		log.Infof("initialized clickhouse connection to %s", host)
-	}
-	perNodePools = make(map[string]*common.WorkerPool)
-	globalPool = common.NewWorkerPool(parallelUpload, len(ckHosts))
+	globalPool = common.NewWorkerPool(parallelExport, len(ckHosts))
 	return
 }
 
@@ -135,7 +107,7 @@ func getSlots(host, table string) (slots []time.Time, err error) {
 	if totalRowsCnt, err = selectUint64(host, fmt.Sprintf("SELECT count() FROM %s WHERE `%s`>='%s' AND `%s`<'%s'", table, tsColumn, tsBegin, tsColumn, tsEnd)); err != nil {
 		return
 	}
-	tblEstSize := totalRowsCnt*uint64(sizePerRow)
+	tblEstSize := totalRowsCnt * uint64(sizePerRow)
 	log.Infof("host %s: totol rows to export: %d, estimated size (in bytes): %d", host, totalRowsCnt, tblEstSize)
 	atomic.AddUint64(&estSize, tblEstSize)
 
@@ -171,7 +143,6 @@ func getSlots(host, table string) (slots []time.Time, err error) {
 }
 
 func export(host, table string, slots []time.Time) {
-	perNodePools[host] = common.NewWorkerPool(parallelExport, len(slots))
 	var err error
 	for i := 0; i < len(slots); i++ {
 		var slotBeg, slotEnd time.Time
@@ -190,57 +161,30 @@ func export(host, table string, slots []time.Time) {
 
 func exportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {
 	tsColumn := tables[table]
-	rsh := sshConns[host]
-	wp := perNodePools[host]
-	wg.Add(1)
-	wp.Submit(func() {
-		defer wg.Done()
-		fn := table + "_" + host + "_" + slotBeg.Format("20060102150405") + ".parquet"
-		fpl := filepath.Join(workDir, fn)
-		query := fmt.Sprintf("SELECT * FROM %s WHERE \\`%s\\`>='%s' AND \\`%s\\`<'%s' ORDER BY \\`%s\\` INTO OUTFILE '%s' FORMAT Parquet", table, tsColumn, slotBeg.Format(tsLayout), tsColumn, slotEnd.Format(tsLayout), tsColumn, fpl)
-		cmds := []string{
-			fmt.Sprintf("rm -f %s", fpl),
-			fmt.Sprintf(`clickhouse-client --host localhost --port %d --user %s --password %s --query "%s"`, port, username, password, query),
-		}
-		for _, cmd := range cmds {
-			if atomic.LoadInt32(&cntErrors) != 0 {
-				return
-			}
-			log.Infof("host: %s, slot %d, cmd: %s", host, seq, cmd)
-			if _, err := common.SSHRun(rsh, cmd); err != nil {
-				log.Errorf("host %s: got error %+v", host, err)
-				atomic.AddInt32(&cntErrors, 1)
-				return
-			}
-		}
-		log.Infof("host: %s, table %s, slot %d, export done", host, table, seq)
-		uploadSlot(host, table, seq, fn)
-	})
-}
-
-func uploadSlot(host, table string, seq int, fn string) {
-	rsh := sshConns[host]
 	wg.Add(1)
 	globalPool.Submit(func() {
 		defer wg.Done()
-		fpl := filepath.Join(workDir, fn)
-		fpr := filepath.Join(hdfsDir, fn)
-		cmds := []string{
-			fmt.Sprintf(`HADOOP_NAMENODE=%s HADOOP_USER_NAME=%s hdfs put %s %s`, hdfsAddr, hdfsUser, fpl, fpr),
-			fmt.Sprintf("rm -f %s", fpl),
+		hdfsTbl := "hdfs_" + table + "_" + slotBeg.Format("20060102150405")
+		fp := filepath.Join(hdfsDir, table+"_"+host+"_"+slotBeg.Format("20060102150405")+".parquet")
+		queries := []string{
+			fmt.Sprintf("DROP TABLE IF EXISTS %s", hdfsTbl),
+			fmt.Sprintf("CREATE TABLE %s AS %s ENGINE=HDFS('hdfs://%s%s', 'Parquet')", hdfsTbl, table, hdfsAddr, fp),
+			fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>='%s' AND `%s`<'%s'", hdfsTbl, table, tsColumn, slotBeg.Format(tsLayout), tsColumn, slotEnd.Format(tsLayout)),
+			fmt.Sprintf("DROP TABLE %s", hdfsTbl),
 		}
-		for _, cmd := range cmds {
+		db := ckConns[host]
+		for _, query := range queries {
 			if atomic.LoadInt32(&cntErrors) != 0 {
 				return
 			}
-			log.Infof("host: %s, table %s, slot %d, cmd: %s", host, table, seq, cmd)
-			if _, err := common.SSHRun(rsh, cmd); err != nil {
+			log.Infof("host %s, table %s, slot %d, query: %s", host, table, seq, query)
+			if _, err := db.Exec(query); err != nil {
 				log.Errorf("host %s: got error %+v", host, err)
 				atomic.AddInt32(&cntErrors, 1)
 				return
 			}
 		}
-		log.Infof("host: %s, table %s, slot %d, upload done", host, table, seq)
+		log.Infof("host %s, table %s, slot %d, export done", host, table, seq)
 	})
 }
 
@@ -276,7 +220,7 @@ func main() {
 		log.Fatalf("got error %+v", err)
 	}
 
-	t0 :=time.Now()
+	t0 := time.Now()
 	for i := 0; i < len(ckHosts); i++ {
 		host := ckHosts[i]
 		wg.Add(1)
@@ -298,8 +242,8 @@ func main() {
 		du := uint64(time.Since(t0).Seconds())
 		size := atomic.LoadUint64(&estSize)
 		msg := fmt.Sprintf("exported %d bytes in %d seconds", size, du)
-		if du!=0 {
-			msg += fmt.Sprintf(", %d bytes/s", size / du)
+		if du != 0 {
+			msg += fmt.Sprintf(", %d bytes/s", size/du)
 		}
 		log.Infof(msg)
 	}
