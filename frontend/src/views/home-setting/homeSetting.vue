@@ -36,6 +36,8 @@
 <script>
 import RpmList from "./component/rpms";
 import { PackageApi } from "@/apis";
+import { lineFeed } from "@/helpers";
+
 export default {
   name: "HomeSetting",
   data() {
@@ -62,7 +64,7 @@ export default {
     async saveConfig() {
       Object.keys(this.formModel).forEach((key) => {
         this.formModel[key] = this.formModel[key]
-          ? this.formModel[key].split(",")
+          ? lineFeed(this.formModel[key])
           : null;
       });
       await PackageApi.updateConfig(this.formModel);

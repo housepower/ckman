@@ -117,6 +117,7 @@
 <script>
 import { chunk } from "lodash-es";
 import { ClusterApi } from "@/apis";
+import { lineFeed } from "@/helpers";
 export default {
   props: ["type", "versionOptions"],
   data() {
@@ -169,19 +170,19 @@ export default {
         zkPort,
         path,
       } = this.formModel;
-
       if (!this.type) {
         await ClusterApi.importCluster({
           cluster,
-          hosts: hosts.split(","),
+          hosts: lineFeed(hosts),
           port: +port,
           user,
           password,
-          zkNodes: zkNodes.split(","),
+          zkNodes: lineFeed(zkNodes),
           zkPort: +zkPort,
         });
       } else {
-        const shards = await this.dealShards(isReplica, hosts.split(","));
+        console.log(lineFeed(hosts));
+        const shards = await this.dealShards(isReplica, lineFeed(hosts));
         await ClusterApi.createCluster({
           clickhouse: {
             ckTcpPort: +port,
@@ -191,10 +192,10 @@ export default {
             password,
             path,
             user,
-            zkNodes: zkNodes.split(","),
+            zkNodes: lineFeed(zkNodes),
             zkPort: +zkPort,
           },
-          hosts: hosts.split(","),
+          hosts: lineFeed(hosts),
           password: sshPassword,
           user: sshUser,
         });

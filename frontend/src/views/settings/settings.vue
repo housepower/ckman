@@ -39,6 +39,8 @@
 <script>
 import { ClusterApi } from "@/apis";
 import { isNull } from "lodash-es";
+import { lineFeed } from "@/helpers";
+
 export default {
   data() {
     return {
@@ -69,8 +71,8 @@ export default {
     async save() {
       await ClusterApi.updateCluster(
         Object.assign({}, this.formModel, {
-          zkNodes: this.formModel.zkNodes.split(","),
-          hosts: this.formModel.hosts.split(","),
+          zkNodes: lineFeed(this.formModel.zkNodes),
+          hosts: lineFeed(this.formModel.hosts),
         })
       );
       this.$message.success("更新成功");

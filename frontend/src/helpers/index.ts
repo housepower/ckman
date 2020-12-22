@@ -5,3 +5,4 @@ export * from './parseObjectProps';
 export * from './stringifyObjectProps';
 export * from './parseDuration';
 export * from './parseTime';
+export * from './lineFeed';
