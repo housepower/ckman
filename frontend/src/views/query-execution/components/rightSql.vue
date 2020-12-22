@@ -20,6 +20,7 @@
     <el-input type="textarea"
               ref="elInput"
               :autosize="{ minRows: 8 }"
+              :disabled="!this.tagsList.length"
               v-model="sqlInput"
               class="width-full" />
     <el-button type="primary"
