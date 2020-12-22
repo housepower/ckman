@@ -31,10 +31,8 @@
           <p class="fs-14 font-bold">Data loader management</p>
         </div>
         <div class="btns flex flex-column width-6">
-          <el-button type="primary"
-                     size="large"
-                     class="mb-20 fs-18"
-                     @click="$router.push({ path: '/loader' })">Data Loader Management</el-button>
+          <router-link to="/loader"
+                       class="el-button mb-20 fs-18 el-button--primary el-button--large">Data Loader Management</router-link>
         </div>
       </div>
     </section>
@@ -64,7 +62,10 @@
           <template>
             <el-link type="primary"
                      underline
-                     @click.prevent="toCluster(row)">Go to cluster</el-link>
+                     @click.prevent="toCluster(row)">
+              <router-link :to="'/clusters/' + row.cluster">Go to cluster</router-link>
+            </el-link>
+
             <i class="fa fa-trash pointer fs-18 ml-15"
                v-tooltip="'Delete'"
                @click="remove(row)" />
@@ -135,7 +136,6 @@ export default {
     toCluster(item) {
       this.$root.clusterBench = item;
       delete this.$root.clusterBench.count;
-      this.$router.push(`/clusters/${item.cluster}`);
     },
     async remove(item) {
       await this.$confirm("Confirm whether to delete ?", "Tip", {

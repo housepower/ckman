@@ -1,10 +1,12 @@
 <template>
   <section class="breadcrum mb-10 flex-vcenter flex-between plr-10">
     <el-breadcrumb separator-class="el-icon-arrow-right">
-      <el-breadcrumb-item :to="{ path: '/' }">
-        <i class="fa fa-home"></i>
+      <el-breadcrumb-item>
+        <router-link :to="{ path: '/' }"><i class="fa fa-home"></i></router-link>
       </el-breadcrumb-item>
-      <el-breadcrumb-item v-for="(item, index) of data" :key="index" :class="{ active: index === data.length - 1 }">{{ item }}</el-breadcrumb-item>
+      <el-breadcrumb-item v-for="(item, index) of data"
+                          :key="index"
+                          :class="{ active: index === data.length - 1 }">{{ item }}</el-breadcrumb-item>
     </el-breadcrumb>
     <div class="slot">
       <slot></slot>
