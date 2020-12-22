@@ -49,6 +49,25 @@ var doc = `{
                 }
             }
         },
+        "/api/logout": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "退出登陆",
+                "summary": "退出登陆",
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"success\",\"data\":nil}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/cluster": {
             "get": {
                 "security": [

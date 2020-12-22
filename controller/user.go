@@ -84,3 +84,19 @@ func (d *UserController) Login(c *gin.Context) {
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), rsp)
 }
+
+// @Summary 退出登陆
+// @Description 退出登陆
+// @version 1.0
+// @Security ApiKeyAuth
+// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
+// @Router /api/logout [put]
+func (d *UserController) Logout(c *gin.Context) {
+	if value, exists := c.Get("token"); exists {
+		token := value.(string)
+		TokenCache.Delete(token)
+		c.Set("token", "")
+	}
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+}

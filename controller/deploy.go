@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/deploy"
+	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 )
@@ -20,26 +21,32 @@ func NewDeployController(config *config.CKManConfig) *DeployController {
 }
 
 func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (int, error) {
+	log.Logger.Infof("start init deploy")
 	if err := d.Init(base, conf); err != nil {
 		return model.INIT_PACKAGE_FAIL, err
 	}
 
+	log.Logger.Infof("start copy packages")
 	if err := d.Prepare(); err != nil {
 		return model.PREPARE_PACKAGE_FAIL, err
 	}
 
+	log.Logger.Infof("start install packages")
 	if err := d.Install(); err != nil {
 		return model.INSTALL_PACKAGE_FAIL, err
 	}
 
+	log.Logger.Infof("start copy config files")
 	if err := d.Config(); err != nil {
 		return model.CONFIG_PACKAGE_FAIL, err
 	}
 
+	log.Logger.Infof("start service")
 	if err := d.Start(); err != nil {
 		return model.START_PACKAGE_FAIL, err
 	}
 
+	log.Logger.Infof("start check service")
 	if err := d.Check(); err != nil {
 		return model.CHECK_PACKAGE_FAIL, err
 	}

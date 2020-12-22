@@ -237,6 +237,17 @@ paths:
           schema:
             type: string
       summary: 登陆
+  /api/logout:
+    put:
+      description: 退出登陆
+      responses:
+        "200":
+          description: '{"code":200,"msg":"success","data":nil}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 退出登陆
   /api/v1/ck/cluster:
     get:
       description: 获取ClickHouse集群

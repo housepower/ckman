@@ -8,8 +8,6 @@ platform: "linux"
 version: "v1.2.3"
 section: "default"
 priority: "extra"
-replaces:
-- ckman
 provides:
 - ckman
 - ckmanpasswd

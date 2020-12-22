@@ -57,8 +57,6 @@ func (server *ApiServer) Start() error {
 	homepage := embedStaticHandler("/frontend/dist/index.html", "text/html;charset=utf-8")
 	r.NoRoute(homepage)
 
-	r.POST("/api/login", userController.Login)
-
 	// http://127.0.0.1:8808/swagger/index.html
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -67,10 +65,13 @@ func (server *ApiServer) Start() error {
 		pprof.Register(r)
 	}
 
-	groupV1 := r.Group("/api/v1")
-	// add authenticate middleware for /api/v1
-	groupV1.Use(ginJWTAuth())
-	groupV1.Use(ginRefreshTokenExpires())
+	groupApi := r.Group("/api")
+	groupApi.POST("/login", userController.Login)
+	// add authenticate middleware for /api
+	groupApi.Use(ginJWTAuth())
+	groupApi.Use(ginRefreshTokenExpires())
+	groupApi.PUT("/logout", userController.Logout)
+	groupV1 := groupApi.Group("/v1")
 	router.InitRouterV1(groupV1, server.config, server.prom, server.signal)
 
 	bind := fmt.Sprintf("%s:%d", server.config.Server.Ip, server.config.Server.Port)
@@ -203,7 +204,9 @@ func ginRefreshTokenExpires() gin.HandlerFunc {
 		c.Next()
 		if value, exists := c.Get("token"); exists {
 			token := value.(string)
-			controller.TokenCache.SetDefault(token, time.Now().Add(time.Second * time.Duration(config.GlobalConfig.Server.SessionTimeout)).Unix())
+			if token != "" {
+				controller.TokenCache.SetDefault(token, time.Now().Add(time.Second * time.Duration(config.GlobalConfig.Server.SessionTimeout)).Unix())
+			}
 		}
 	}
 }
