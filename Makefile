@@ -41,6 +41,7 @@ package: build
 	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package ${PKGFULLDIR_TMP}/template
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
+	@mv ${SHDIR}/rebalancer ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/schemer ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
