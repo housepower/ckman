@@ -12,6 +12,7 @@ provides:
 - ckman
 - ckmanpasswd
 - schemer
+- rebalancer
 maintainer: "Fly Li <Fly@eoitek.com>"
 description: |
   ckman is a tool which used to manage and monitor ClickHouse database
@@ -19,6 +20,7 @@ vendor: "EOI"
 license: "MIT"
 files:
   ./ckman: "/usr/local/bin/ckman"
+  ./rebalancer: "/usr/local/bin/rebalancer"
   ./ckmanpasswd: "/usr/local/bin/ckmanpasswd"
   ./schemer: "/usr/local/bin/schemer"
   ./README.md: "/etc/ckman/package/README.md"
