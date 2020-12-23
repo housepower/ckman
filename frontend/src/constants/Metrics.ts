@@ -1,12 +1,12 @@
 export const Metrics = Object.freeze([
   {
-    title: 'ClickHouse Node KPIs',
+    title: 'ClickHouse Table KPIs',
     metrics: [{
       expect: 'clickhouse.Query',
       metric: 'ClickHouseMetrics_Query',
     }],
   },{
-    title: 'ClickHouse Table KPIs',
+    title: 'ClickHouse Node KPIs',
     metrics: [{
       expect: 'cpu usage',
       metric: '100 * (1 - sum(increase(node_cpu_seconds_total{mode="idle"}[1m])) by (instance) / sum(increase(node_cpu_seconds_total[1m])) by (instance))',
