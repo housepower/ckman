@@ -26,12 +26,10 @@ func SSHConnect(user, password, host string, port int) (*ssh.Client, error) {
 	auth = append(auth, ssh.Password(password))
 
 	clientConfig = &ssh.ClientConfig{
-		User:    user,
-		Auth:    auth,
-		Timeout: 30 * time.Second,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
+		User:            user,
+		Auth:            auth,
+		Timeout:         30 * time.Second,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
 	// connet to ssh

@@ -2,9 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 
 	_ "github.com/ClickHouse/clickhouse-go"
@@ -22,31 +24,74 @@ import (
 // - This query only works for the replicated tables.
 // - If inserting to the partition during FETCH(node2)-ATTACH(node2)-DETACH(node1), you get data loss.
 
+// TODO:
+// - don't move new partitions
+// - [FETCH PARTITION] for replicated tables
+
+type CmdOptions struct {
+	ShowVer    bool
+	ChHosts    string
+	ChAllHosts string
+	ChPort     int
+	ChUser     string
+	ChPassword string
+	ChTables   string
+	ChDataDir  string
+	OsUser     string
+	OsPassword string
+}
+
 var (
-	ckHosts    = []string{"192.168.101.106", "192.168.101.108", "192.168.101.110"}
-	ckAllHosts = []string{"192.168.101.106", "192.168.101.108", "192.168.101.110", "192.168.102.114", "192.168.102.115", "192.168.102.116", "192.168.101.107"}
-	port       = 9000
-	username   = "eoi"
-	password   = "123456"
-	dataDir    = "/data01/clickhouse"
-	table      = "nginx_access_log22"
-	osUser     = "root"
-	osPass     = "Eoi123456!"
-
-	sizeSQLTemplate = `SELECT partition, sum(data_compressed_bytes) AS compressed FROM system.parts WHERE table='%s' AND active=1 GROUP BY partition ORDER BY partition;`
-
-	sshConns map[string]*ssh.Client
-	ckConns  map[string]*sql.DB
-	locks    map[string]*sync.Mutex
+	cmdOps     CmdOptions
+	chHosts    []string
+	chAllHosts []string
+	chTables   []string
+	sshConns   map[string]*ssh.Client
+	ckConns    map[string]*sql.DB
+	locks      map[string]*sync.Mutex
 )
+
+func initCmdOptions() {
+	// 1. Set options to default value.
+	cmdOps = CmdOptions{
+		ShowVer:   false,
+		ChPort:    9000,
+		ChDataDir: "/var/lib",
+	}
+
+	// 2. Replace options with the corresponding env variable if present.
+	common.EnvBoolVar(&cmdOps.ShowVer, "v")
+	common.EnvStringVar(&cmdOps.ChHosts, "ch-hosts")
+	common.EnvStringVar(&cmdOps.ChAllHosts, "ch-all-hosts")
+	common.EnvIntVar(&cmdOps.ChPort, "ch-port")
+	common.EnvStringVar(&cmdOps.ChUser, "ch-user")
+	common.EnvStringVar(&cmdOps.ChPassword, "ch-password")
+	common.EnvStringVar(&cmdOps.ChTables, "ch-tables")
+	common.EnvStringVar(&cmdOps.ChDataDir, "ch-data-dir")
+	common.EnvStringVar(&cmdOps.OsUser, "os-user")
+	common.EnvStringVar(&cmdOps.OsPassword, "os-password")
+
+	// 3. Replace options with the corresponding CLI parameter if present.
+	flag.BoolVar(&cmdOps.ShowVer, "v", cmdOps.ShowVer, "show build version and quit")
+	flag.StringVar(&cmdOps.ChHosts, "ch-hosts", cmdOps.ChHosts, "a list of comma-separated clickhouse host ip address, one host from each shard")
+	flag.StringVar(&cmdOps.ChAllHosts, "ch-all-hosts", cmdOps.ChHosts, "a list of comma-separated clickhouse host ip address, all hosts from all shards")
+	flag.IntVar(&cmdOps.ChPort, "ch-port", cmdOps.ChPort, "clickhouse tcp listen port")
+	flag.StringVar(&cmdOps.ChUser, "ch-user", cmdOps.ChUser, "clickhouse user")
+	flag.StringVar(&cmdOps.ChPassword, "ch-password", cmdOps.ChPassword, "clickhouse password")
+	flag.StringVar(&cmdOps.ChTables, "ch-tables", cmdOps.ChTables, "a list of comma-separated table names")
+	flag.StringVar(&cmdOps.ChDataDir, "ch-data-dir", cmdOps.ChDataDir, "clickhouse data directory")
+	flag.StringVar(&cmdOps.OsUser, "os-user", cmdOps.OsUser, "os user")
+	flag.StringVar(&cmdOps.OsPassword, "os-password", cmdOps.OsPassword, "os password")
+	flag.Parse()
+}
 
 func initConns() (err error) {
 	sshConns = make(map[string]*ssh.Client)
 	ckConns = make(map[string]*sql.DB)
 	locks = make(map[string]*sync.Mutex)
-	for _, host := range ckAllHosts {
+	for _, host := range chAllHosts {
 		var conn *ssh.Client
-		if conn, err = common.SSHConnect(osUser, osPass, host, 22); err != nil {
+		if conn, err = common.SSHConnect(cmdOps.OsUser, cmdOps.OsPassword, host, 22); err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
@@ -54,7 +99,7 @@ func initConns() (err error) {
 		log.Infof("initialized ssh connection to %s", host)
 		var db *sql.DB
 		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-			host, port, "default", username, password)
+			host, cmdOps.ChPort, "default", cmdOps.ChUser, cmdOps.ChPassword)
 		if db, err = sql.Open("clickhouse", dsn); err != nil {
 			err = errors.Wrapf(err, "")
 			return
@@ -63,14 +108,14 @@ func initConns() (err error) {
 		log.Infof("initialized clickhouse connection to %s", host)
 		locks[host] = &sync.Mutex{}
 	}
-	// Validate if one can login from any host to another host, and read the data directory.
-	for _, srcHost := range ckHosts {
-		for _, dstHost := range ckHosts {
+	// Validate if one can login from any host to another host without password, and read the data directory.
+	for _, srcHost := range chHosts {
+		for _, dstHost := range chHosts {
 			if srcHost == dstHost {
 				continue
 			}
 			sshConn := sshConns[srcHost]
-			cmd := fmt.Sprintf("ssh %s ls %s/data/default/%s", dstHost, dataDir, table)
+			cmd := fmt.Sprintf("ssh -o StrictHostKeyChecking=false %s ls %s/clickhouse/data/default", dstHost, cmdOps.ChDataDir)
 			log.Infof("host: %s, command: %s", srcHost, cmd)
 			var out string
 			if out, err = common.SSHRun(sshConn, cmd); err != nil {
@@ -92,12 +137,12 @@ type TblPartitions struct {
 	ToMoveIn   bool              // plan to move some partitions in
 }
 
-func getState() (tbls []*TblPartitions, err error) {
+func getState(table string) (tbls []*TblPartitions, err error) {
 	tbls = make([]*TblPartitions, 0)
-	for _, host := range ckHosts {
+	for _, host := range chHosts {
 		db := ckConns[host]
 		var rows *sql.Rows
-		query := fmt.Sprintf(sizeSQLTemplate, table)
+		query := fmt.Sprintf(`SELECT partition, sum(data_compressed_bytes) AS compressed FROM system.parts WHERE table='%s' AND active=1 GROUP BY partition ORDER BY partition;`, table)
 		log.Infof("host %s: query: %s", host, query)
 		if rows, err = db.Query(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -120,11 +165,11 @@ func getState() (tbls []*TblPartitions, err error) {
 		}
 		tbls = append(tbls, &tbl)
 	}
-	log.Debugf("tbls: %s", pp.Sprint(tbls))
+	log.Debugf("table %s state %s", table, pp.Sprint(tbls))
 	return
 }
 
-func generatePlan(tbls []*TblPartitions) {
+func generatePlan(table string, tbls []*TblPartitions) {
 	for {
 		sort.Slice(tbls, func(i, j int) bool { return tbls[i].TotalSize < tbls[j].TotalSize })
 		numTbls := len(tbls)
@@ -160,10 +205,13 @@ func generatePlan(tbls []*TblPartitions) {
 			break
 		}
 	}
-	log.Infof("plan: %s", pp.Sprint(tbls))
+	for _, tbl := range tbls {
+		tbl.Partitions = nil
+	}
+	log.Infof("table %s plan %s", table, pp.Sprint(tbls))
 }
 
-func executePlan(tbl *TblPartitions) (err error) {
+func executePlan(table string, tbl *TblPartitions) (err error) {
 	if tbl.ToMoveOut == nil {
 		return
 	}
@@ -172,8 +220,8 @@ func executePlan(tbl *TblPartitions) (err error) {
 		srcCkConn := ckConns[tbl.Host]
 		dstCkConn := ckConns[dstHost]
 		lock := locks[dstHost]
-		srcDir := fmt.Sprintf("%s/data/default/%s/detached/", dataDir, table)
-		dstDir := fmt.Sprintf("%s/data/default/%s/detached", dataDir, table)
+		dstDir := fmt.Sprintf("%s/clickhouse/data/default/%s/detached", cmdOps.ChDataDir, table)
+		srcDir := dstDir + "/"
 
 		query := fmt.Sprintf("ALTER TABLE %s DETACH PARTITION '%s'", table, patt)
 		log.Infof("host: %s, query: %s", tbl.Host, query)
@@ -184,7 +232,7 @@ func executePlan(tbl *TblPartitions) (err error) {
 
 		lock.Lock()
 		cmds := []string{
-			fmt.Sprintf("rsync -avp %s %s:%s", srcDir, dstHost, dstDir),
+			fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, srcDir, dstHost, dstDir),
 			fmt.Sprintf("rm -fr %s", srcDir),
 		}
 		for _, cmd := range cmds {
@@ -210,9 +258,9 @@ func executePlan(tbl *TblPartitions) (err error) {
 	return
 }
 
-func clearAllHosts() (err error) {
+func clearAllHosts(table string) (err error) {
 	for host, sshConn := range sshConns {
-		cmd := fmt.Sprintf("rm -fr %s/data/default/%s/detached/", dataDir, table)
+		cmd := fmt.Sprintf("rm -fr %s/clickhouse/data/default/%s/detached/", cmdOps.ChDataDir, table)
 		log.Infof("host: %s, command: %s", host, cmd)
 		var out string
 		if out, err = common.SSHRun(sshConn, cmd); err != nil {
@@ -226,34 +274,51 @@ func clearAllHosts() (err error) {
 
 func main() {
 	var err error
-	var tbls []*TblPartitions
+	initCmdOptions()
+	if len(cmdOps.ChHosts) == 0 {
+		log.Fatalf("need to specify clickhouse hosts, one from each shard")
+	}
+	if len(cmdOps.ChAllHosts) == 0 {
+		log.Fatalf("need to specify clickhouse hosts, all from all shards")
+	}
+	if len(cmdOps.ChTables) == 0 {
+		log.Fatalf("need to specify clickhouse tables")
+	}
+	chHosts = strings.Split(cmdOps.ChHosts, ",")
+	chAllHosts = strings.Split(cmdOps.ChAllHosts, ",")
+	chTables = strings.Split(cmdOps.ChTables, ",")
+
 	if err = initConns(); err != nil {
 		log.Fatalf("got error %+v", err)
 	}
-	if tbls, err = getState(); err != nil {
-		log.Fatalf("got error %+v", err)
-	}
-	generatePlan(tbls)
-	wg := sync.WaitGroup{}
-	wg.Add(len(tbls))
-	var gotError bool
-	for i := 0; i < len(tbls); i++ {
-		go func(tbl *TblPartitions) {
-			if err := executePlan(tbl); err != nil {
-				log.Errorf("host: %s, got error %+v", tbl.Host, err)
-				gotError = true
-			} else {
-				log.Infof("host: %s, rebalance done", tbl.Host)
-			}
-			wg.Done()
-		}(tbls[i])
-	}
-	wg.Wait()
-	if gotError {
-		os.Exit(-1)
-	}
-	if err = clearAllHosts(); err != nil {
-		log.Fatalf("got error %+v", err)
+	for _, table := range chTables {
+		var tbls []*TblPartitions
+		if tbls, err = getState(table); err != nil {
+			log.Fatalf("got error %+v", err)
+		}
+		generatePlan(table, tbls)
+		wg := sync.WaitGroup{}
+		wg.Add(len(tbls))
+		var gotError bool
+		for i := 0; i < len(tbls); i++ {
+			go func(tbl *TblPartitions) {
+				if err := executePlan(table, tbl); err != nil {
+					log.Errorf("host: %s, got error %+v", tbl.Host, err)
+					gotError = true
+				} else {
+					log.Infof("table %s host %s rebalance done", table, tbl.Host)
+				}
+				wg.Done()
+			}(tbls[i])
+		}
+		wg.Wait()
+		if gotError {
+			os.Exit(-1)
+		}
+		if err = clearAllHosts(table); err != nil {
+			log.Fatalf("got error %+v", err)
+		}
+		log.Infof("table %s rebalance done", table)
 	}
 	log.Infof("rebalance done")
 	return
