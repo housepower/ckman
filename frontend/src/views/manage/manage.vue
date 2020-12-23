@@ -124,13 +124,12 @@ export default {
       }));
     },
     isStatusDisable(item) {
-      console.log(item);
       if (
         ["start", "destroy"].includes(lowerFirst(item)) &&
-        this.list.status === "red"
+        this.list.status !== "red"
       )
         return true;
-      if (lowerFirst(item) === "stop" && this.list.status !== "red")
+      if (lowerFirst(item) === "stop" && this.list.status === "red")
         return true;
       return false;
     },
@@ -162,6 +161,10 @@ export default {
     },
     async clusterOptation(type) {
       type = lowerFirst(type);
+      await this.$confirm(`确认要进行 ${ClusterStatus[type]} 操作么`, "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+      });
       $loading.increase();
       let params = {
         clusterName: this.$route.params.id,
