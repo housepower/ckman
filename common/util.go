@@ -2,11 +2,13 @@ package common
 
 import (
 	"fmt"
-	"golang.org/x/crypto/bcrypt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"unicode"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func GetWorkDirectory() string {
@@ -73,4 +75,31 @@ func ComparePassword(hashedPwd string, plainPwd string) bool {
 		return false
 	}
 	return true
+}
+
+func EnvStringVar(value *string, key string) {
+	realKey := strings.ReplaceAll(strings.ToUpper(key), "-", "_")
+	val, found := os.LookupEnv(realKey)
+	if found {
+		*value = val
+	}
+}
+
+func EnvIntVar(value *int, key string) {
+	realKey := strings.ReplaceAll(strings.ToUpper(key), "-", "_")
+	val, found := os.LookupEnv(realKey)
+	if found {
+		valInt, err := strconv.Atoi(val)
+		if err == nil {
+			*value = valInt
+		}
+	}
+}
+
+func EnvBoolVar(value *bool, key string) {
+	realKey := strings.ReplaceAll(strings.ToUpper(key), "-", "_")
+	_, found := os.LookupEnv(realKey)
+	if found {
+		*value = true
+	}
 }

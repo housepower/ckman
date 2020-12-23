@@ -21,6 +21,7 @@ backend:
 	go build -o ckmanpasswd password/password.go
 	go build -o schemer cmd/schemer/schemer.go
 	go build -o rebalancer cmd/rebalancer/rebalancer.go
+	go build -o exporter cmd/exporter/exporter.go
 
 .PHONY: build
 build:

@@ -2,8 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,38 +20,88 @@ import (
 
 // export data of given time range to HDFS
 
+type CmdOptions struct {
+	ShowVer     bool
+	ChHosts     string
+	ChPort      int
+	ChUser      string
+	ChPassword  string
+	ChTables    string
+	TsBegin     string
+	TsEnd       string
+	MaxFileSize int
+	HdfsAddr    string
+	HdfsUser    string
+	HdfsDir     string
+	Parallelism int
+}
+
 var (
-	ckHosts  = []string{"192.168.101.106", "192.168.101.108", "192.168.101.110"}
-	port     = 9000
-	username = "eoi"
-	password = "123456"
-	tables   = map[string]string{"sensor_dt_result_online22": "@time"}
-	tsBegin  = "1970-01-01 00:00:00"
-	tsEnd    = "2020-11-01 00:00:00"
-	tsLayout = "2006-01-02 15:04:05"
-
-	maxFileSize  = 1e10 //10GB
+	cmdOps       CmdOptions
+	chHosts      []string
+	chTables     map[string]string
+	tsBegin      time.Time
+	tsEnd        time.Time
+	hdfsDir      string
 	tryIntervals = []string{"1 year", "1 month", "1 week", "1 day", "4 hour", "1 hour"}
-	hdfsAddr     = "192.168.101.102:8020"
-	hdfsUser     = "root"
-	hdfsDir      = "/user/root"
-
-	// >=4 is able to exhaust HDFS cluster(3 DataNodes with HDDs) write bandwidth
-	parallelExport = 4
-
-	ckConns    map[string]*sql.DB
-	globalPool *common.WorkerPool
-	wg         sync.WaitGroup
-	cntErrors  int32
-	estSize    uint64
+	ckConns      map[string]*sql.DB
+	globalPool   *common.WorkerPool
+	wg           sync.WaitGroup
+	cntErrors    int32
+	estSize      uint64
 )
+
+func initCmdOptions() {
+	// 1. Set options to default value.
+	cmdOps = CmdOptions{
+		ShowVer:     false,
+		ChPort:      9000,
+		TsBegin:     "1970-01-01T00:00:00Z",
+		MaxFileSize: 1e10, //10GB, Parquet files need be small, nearly equal size
+		Parallelism: 4,    // >=4 is able to exhaust HDFS cluster(3 DataNodes with HDDs) write bandwidth 150MB/s
+	}
+
+	// 2. Replace options with the corresponding env variable if present.
+	common.EnvBoolVar(&cmdOps.ShowVer, "v")
+	common.EnvStringVar(&cmdOps.ChHosts, "ch-hosts")
+	common.EnvIntVar(&cmdOps.ChPort, "ch-port")
+	common.EnvStringVar(&cmdOps.ChUser, "ch-user")
+	common.EnvStringVar(&cmdOps.ChPassword, "ch-password")
+	common.EnvStringVar(&cmdOps.ChTables, "ch-tables")
+	common.EnvStringVar(&cmdOps.TsBegin, "ts-begin")
+	common.EnvStringVar(&cmdOps.TsEnd, "ts-end")
+	common.EnvIntVar(&cmdOps.MaxFileSize, "max-file-size")
+	common.EnvStringVar(&cmdOps.HdfsAddr, "hdfs-addr")
+	common.EnvStringVar(&cmdOps.HdfsUser, "hdfs-user")
+	common.EnvStringVar(&cmdOps.HdfsDir, "hdfs-dir")
+
+	// 3. Replace options with the corresponding CLI parameter if present.
+	flag.BoolVar(&cmdOps.ShowVer, "v", cmdOps.ShowVer, "show build version and quit")
+	flag.StringVar(&cmdOps.ChHosts, "ch-hosts", cmdOps.ChHosts, "a list of comma-separated clickhouse host ip address")
+	flag.IntVar(&cmdOps.ChPort, "ch-port", cmdOps.ChPort, "clickhouse tcp listen port")
+	flag.StringVar(&cmdOps.ChUser, "ch-user", cmdOps.ChUser, "clickhouse user")
+	flag.StringVar(&cmdOps.ChPassword, "ch-password", cmdOps.ChPassword, "clickhouse password")
+	flag.StringVar(&cmdOps.ChTables, "ch-tables", cmdOps.ChTables, "a list of comma-separated table:timestamp_column")
+	flag.StringVar(&cmdOps.TsBegin, "ts-begin", cmdOps.TsBegin, "timestamp begin in RFC3339 format, for example 1970-01-01T00:00:00Z")
+	flag.StringVar(&cmdOps.TsEnd, "ts-end", cmdOps.TsEnd, "timestamp end in RFC3339 format")
+	flag.IntVar(&cmdOps.MaxFileSize, "max-file-size", cmdOps.MaxFileSize, "max parquet file size")
+
+	flag.StringVar(&cmdOps.HdfsAddr, "hdfs-addr", cmdOps.HdfsAddr, "hdfs_name_node_ip:port")
+	flag.StringVar(&cmdOps.HdfsUser, "hdfs-user", cmdOps.HdfsUser, "hdfs user")
+	flag.StringVar(&cmdOps.HdfsDir, "hdfs-dir", cmdOps.HdfsDir, "hdfs dir, under which a subdirectory will be created according to the given timestamp range")
+	flag.IntVar(&cmdOps.Parallelism, "parallelism", cmdOps.Parallelism, "how many time slots are allowed to export to HDFS at the same time")
+	flag.Parse()
+}
 
 func initConns() (err error) {
 	ckConns = make(map[string]*sql.DB)
-	for _, host := range ckHosts {
+	for _, host := range chHosts {
+		if len(host) == 0 {
+			continue
+		}
 		var db *sql.DB
 		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-			host, port, "default", username, password)
+			host, cmdOps.ChPort, "default", cmdOps.ChUser, cmdOps.ChPassword)
 		if db, err = sql.Open("clickhouse", dsn); err != nil {
 			err = errors.Wrapf(err, "")
 			return
@@ -56,7 +109,6 @@ func initConns() (err error) {
 		ckConns[host] = db
 		log.Infof("initialized clickhouse connection to %s", host)
 	}
-	globalPool = common.NewWorkerPool(parallelExport, len(ckHosts))
 	return
 }
 
@@ -75,6 +127,10 @@ func selectUint64(host, query string) (res uint64, err error) {
 		return
 	}
 	return
+}
+
+func convToChTs(ts time.Time) string {
+	return ts.Format("2006-01-02 15:04:05")
 }
 
 // https://www.slideshare.net/databricks/the-parquet-format-and-performance-optimization-opportunities
@@ -97,14 +153,14 @@ func getSlots(host, table string) (slots []time.Time, err error) {
 	}
 	sizePerRow = float64(compressed) / float64(rowsCnt)
 
-	maxRowsCnt := uint64(float64(maxFileSize) / sizePerRow)
+	maxRowsCnt := uint64(float64(cmdOps.MaxFileSize) / sizePerRow)
 	slots = make([]time.Time, 0)
 	var slot time.Time
 	db := ckConns[host]
 
-	tsColumn := tables[table]
+	tsColumn := chTables[table]
 	var totalRowsCnt uint64
-	if totalRowsCnt, err = selectUint64(host, fmt.Sprintf("SELECT count() FROM %s WHERE `%s`>='%s' AND `%s`<'%s'", table, tsColumn, tsBegin, tsColumn, tsEnd)); err != nil {
+	if totalRowsCnt, err = selectUint64(host, fmt.Sprintf("SELECT count() FROM %s WHERE `%s`>='%s' AND `%s`<'%s'", table, tsColumn, convToChTs(tsBegin), tsColumn, convToChTs(tsEnd))); err != nil {
 		return
 	}
 	tblEstSize := totalRowsCnt * uint64(sizePerRow)
@@ -115,7 +171,7 @@ func getSlots(host, table string) (slots []time.Time, err error) {
 	for i, interval := range tryIntervals {
 		slots = slots[:0]
 		var rows1 *sql.Rows
-		query1 := fmt.Sprintf(sqlTmpl3, tsColumn, interval, table, tsColumn, tsBegin, tsColumn, tsEnd)
+		query1 := fmt.Sprintf(sqlTmpl3, tsColumn, interval, table, tsColumn, convToChTs(tsBegin), tsColumn, convToChTs(tsEnd))
 		log.Infof("host %s: query: %s", host, query1)
 		if rows1, err = db.Query(query1); err != nil {
 			err = errors.Wrapf(err, "")
@@ -150,8 +206,8 @@ func export(host, table string, slots []time.Time) {
 		if i != len(slots)-1 {
 			slotEnd = slots[i+1]
 		} else {
-			if slotEnd, err = time.Parse(tsLayout, tsEnd); err != nil {
-				panic(fmt.Sprintf("BUG: failed to parse %s, layout %s", tsEnd, tsLayout))
+			if slotEnd, err = time.Parse(time.RFC3339, cmdOps.TsEnd); err != nil {
+				panic(fmt.Sprintf("BUG: failed to parse %s, layout %s", cmdOps.TsEnd, time.RFC3339))
 			}
 		}
 		exportSlot(host, table, i, slotBeg, slotEnd)
@@ -160,16 +216,16 @@ func export(host, table string, slots []time.Time) {
 }
 
 func exportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {
-	tsColumn := tables[table]
+	tsColumn := chTables[table]
 	wg.Add(1)
 	globalPool.Submit(func() {
 		defer wg.Done()
 		hdfsTbl := "hdfs_" + table + "_" + slotBeg.Format("20060102150405")
-		fp := filepath.Join(hdfsDir, table+"_"+host+"_"+slotBeg.Format("20060102150405")+".parquet")
+		fp := filepath.Join(cmdOps.HdfsDir, table+"_"+host+"_"+slotBeg.Format("20060102150405")+".parquet")
 		queries := []string{
 			fmt.Sprintf("DROP TABLE IF EXISTS %s", hdfsTbl),
-			fmt.Sprintf("CREATE TABLE %s AS %s ENGINE=HDFS('hdfs://%s%s', 'Parquet')", hdfsTbl, table, hdfsAddr, fp),
-			fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>='%s' AND `%s`<'%s'", hdfsTbl, table, tsColumn, slotBeg.Format(tsLayout), tsColumn, slotEnd.Format(tsLayout)),
+			fmt.Sprintf("CREATE TABLE %s AS %s ENGINE=HDFS('hdfs://%s%s', 'Parquet')", hdfsTbl, table, cmdOps.HdfsAddr, fp),
+			fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>='%s' AND `%s`<'%s'", hdfsTbl, table, tsColumn, convToChTs(slotBeg), tsColumn, convToChTs(slotEnd)),
 			fmt.Sprintf("DROP TABLE %s", hdfsTbl),
 		}
 		db := ckConns[host]
@@ -193,21 +249,43 @@ func main() {
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
 	})
+	initCmdOptions()
+	if cmdOps.ShowVer {
+		os.Exit(0)
+	}
+	if len(cmdOps.ChHosts) == 0 {
+		log.Fatalf("need to specify clickhouse hosts")
+		os.Exit(0)
+	}
+	if len(cmdOps.ChTables) == 0 {
+		log.Fatalf("need to specify clickhouse tables")
+	}
+
+	chHosts = strings.Split(strings.TrimSpace(cmdOps.ChHosts), ",")
 	if err = initConns(); err != nil {
 		log.Fatalf("got error %+v", err)
 	}
+	chTables = make(map[string]string)
+	for _, tableSpec := range strings.Split(cmdOps.ChTables, ",") {
+		tokens := strings.SplitN(tableSpec, ":", 2)
+		if len(tokens) != 2 {
+			log.Fatalf("failed to parse table spec %s", tableSpec)
+		}
+		chTables[tokens[0]] = tokens[1]
+	}
 
-	var tBeg, tEnd time.Time
-	if tBeg, err = time.Parse(tsLayout, tsBegin); err != nil {
-		panic(fmt.Sprintf("BUG: failed to parse %s, layout %s", tsBegin, tsLayout))
+	if tsBegin, err = time.Parse(time.RFC3339, cmdOps.TsBegin); err != nil {
+		log.Fatalf("failed to parse timestamp %s, layout %s", cmdOps.TsBegin, time.RFC3339)
 	}
-	if tEnd, err = time.Parse(tsLayout, tsEnd); err != nil {
-		panic(fmt.Sprintf("BUG: failed to parse %s, layout %s", tsEnd, tsLayout))
+	if tsEnd, err = time.Parse(time.RFC3339, cmdOps.TsEnd); err != nil {
+		log.Fatalf("failed to parse timestamp %s, layout %s", cmdOps.TsEnd, time.RFC3339)
 	}
-	dir := tBeg.Format("20060102150405") + "_" + tEnd.Format("20060102150405")
-	hdfsDir = filepath.Join(hdfsDir, dir)
+
+	globalPool = common.NewWorkerPool(cmdOps.Parallelism, len(ckConns))
+	dir := tsBegin.Format("20060102150405") + "_" + tsEnd.Format("20060102150405")
+	hdfsDir = filepath.Join(cmdOps.HdfsDir, dir)
 	var hc *hdfs.Client
-	if hc, err = hdfs.New(hdfsAddr); err != nil {
+	if hc, err = hdfs.New(cmdOps.HdfsAddr); err != nil {
 		err = errors.Wrapf(err, "")
 		log.Fatalf("got error %+v", err)
 	}
@@ -221,13 +299,13 @@ func main() {
 	}
 
 	t0 := time.Now()
-	for i := 0; i < len(ckHosts); i++ {
-		host := ckHosts[i]
+	for i := 0; i < len(chHosts); i++ {
+		host := chHosts[i]
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			var slots []time.Time
-			for table := range tables {
+			for table := range chTables {
 				if slots, err = getSlots(host, table); err != nil {
 					log.Fatalf("host %s: got error %+v", host, err)
 				}
