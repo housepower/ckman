@@ -6,7 +6,7 @@ PKGFULLDIR=${SHDIR}/${PKGDIR}
 PKGFULLDIR_TMP=${SHDIR}/${PKGDIR_TMP}
 REVISION=$(shell git log --oneline | head -n1 | cut -f1 -d" ")
 DATE=$(shell date +%y%m%d)
-TIME=$(shell date +%y%m%dT%H:%M:%S)
+TIME=$(shell date --iso-8601=seconds)
 OS=$(shell uname)
 OSLOWER=$(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH=$(shell uname -m)
@@ -19,9 +19,9 @@ backend:
 	@rm -rf ${PKGFULLDIR}
 	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}"
 	go build -o ckmanpasswd password/password.go
-	go build -o schemer cmd/schemer/schemer.go
-	go build -o rebalancer cmd/rebalancer/rebalancer.go
-	go build -o exporter cmd/exporter/exporter.go
+	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o schemer cmd/schemer/schemer.go
+	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o rebalancer cmd/rebalancer/rebalancer.go
+	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o exporter cmd/exporter/exporter.go
 
 .PHONY: build
 build:
@@ -29,9 +29,9 @@ build:
 	make -C frontend build
 	pkger
 	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}"
-	go build -o ckmanpasswd password/password.go
-	go build -o schemer cmd/schemer/schemer.go
-	go build -o rebalancer cmd/rebalancer/rebalancer.go
+	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o schemer cmd/schemer/schemer.go
+	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o rebalancer cmd/rebalancer/rebalancer.go
+	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o exporter cmd/exporter/exporter.go
 
 .PHONY: package
 package: build

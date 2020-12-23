@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -42,13 +43,15 @@ type CmdOptions struct {
 }
 
 var (
-	cmdOps     CmdOptions
-	chHosts    []string
-	chAllHosts []string
-	chTables   []string
-	sshConns   map[string]*ssh.Client
-	ckConns    map[string]*sql.DB
-	locks      map[string]*sync.Mutex
+	cmdOps         CmdOptions
+	GitCommitHash  string
+	BuildTimeStamp string
+	chHosts        []string
+	chAllHosts     []string
+	chTables       []string
+	sshConns       map[string]*ssh.Client
+	ckConns        map[string]*sql.DB
+	locks          map[string]*sync.Mutex
 )
 
 func initCmdOptions() {
@@ -220,7 +223,7 @@ func executePlan(table string, tbl *TblPartitions) (err error) {
 		srcCkConn := ckConns[tbl.Host]
 		dstCkConn := ckConns[dstHost]
 		lock := locks[dstHost]
-		dstDir := fmt.Sprintf("%s/clickhouse/data/default/%s/detached", cmdOps.ChDataDir, table)
+		dstDir := filepath.Join(cmdOps.ChDataDir, fmt.Sprintf("clickhouse/data/default/%s/detached", table))
 		srcDir := dstDir + "/"
 
 		query := fmt.Sprintf("ALTER TABLE %s DETACH PARTITION '%s'", table, patt)
@@ -259,8 +262,9 @@ func executePlan(table string, tbl *TblPartitions) (err error) {
 }
 
 func clearAllHosts(table string) (err error) {
+	dstDir := filepath.Join(cmdOps.ChDataDir, fmt.Sprintf("clickhouse/data/default/%s/detached", table))
 	for host, sshConn := range sshConns {
-		cmd := fmt.Sprintf("rm -fr %s/clickhouse/data/default/%s/detached/", cmdOps.ChDataDir, table)
+		cmd := fmt.Sprintf("rm -fr %s", dstDir)
 		log.Infof("host: %s, command: %s", host, cmd)
 		var out string
 		if out, err = common.SSHRun(sshConn, cmd); err != nil {
@@ -275,6 +279,11 @@ func clearAllHosts(table string) (err error) {
 func main() {
 	var err error
 	initCmdOptions()
+	if cmdOps.ShowVer {
+		fmt.Println("Build Timestamp:", BuildTimeStamp)
+		fmt.Println("Git Commit Hash:", GitCommitHash)
+		os.Exit(0)
+	}
 	if len(cmdOps.ChHosts) == 0 {
 		log.Fatalf("need to specify clickhouse hosts, one from each shard")
 	}
