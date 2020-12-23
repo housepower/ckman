@@ -13,25 +13,27 @@ ARCH=$(shell uname -m)
 TARNAME=${PKGDIR}-${VERSION}-${DATE}-${REVISION}.${OS}.$(ARCH).tar.gz
 VERSION?=trunk
 TAG?=$(shell date +%y%m%d)
+LDFLAGS=-ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}"
 
 .PHONY: backend
 backend:
 	@rm -rf ${PKGFULLDIR}
-	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}"
-	go build -o ckmanpasswd password/password.go
-	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o schemer cmd/schemer/schemer.go
-	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o rebalancer cmd/rebalancer/rebalancer.go
-	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o exporter cmd/exporter/exporter.go
+	go build ${LDFLAGS}
+	go build ${LDFLAGS} -o ckmanpasswd password/password.go
+	go build ${LDFLAGS} -o schemer cmd/schemer/schemer.go
+	go build ${LDFLAGS} -o rebalancer cmd/rebalancer/rebalancer.go
+	go build ${LDFLAGS} -o exporter cmd/exporter/exporter.go
 
 .PHONY: build
 build:
 	@rm -rf ${PKGFULLDIR}
 	make -C frontend build
 	pkger
-	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=ckman-${VERSION}"
-	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o schemer cmd/schemer/schemer.go
-	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o rebalancer cmd/rebalancer/rebalancer.go
-	go build -ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}" -o exporter cmd/exporter/exporter.go
+	go build ${LDFLAGS}
+	go build ${LDFLAGS} -o ckmanpasswd password/password.go
+	go build ${LDFLAGS} -o schemer cmd/schemer/schemer.go
+	go build ${LDFLAGS} -o rebalancer cmd/rebalancer/rebalancer.go
+	go build ${LDFLAGS} -o exporter cmd/exporter/exporter.go
 
 .PHONY: package
 package: build
