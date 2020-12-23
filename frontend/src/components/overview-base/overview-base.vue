@@ -2,24 +2,29 @@
   <main class="settings">
     <breadcrumb :data="breadcrumbInfo"></breadcrumb>
     <section class="container">
-      <div class="title flex flex-vcenter flex-between">
-        <span class="fs-18 font-bold mtb-20">ClickHouse Node KPIs</span>
-        <time-filter v-model="timeFilter"
-                     :refreshDuration.sync="refresh"
-                     @input="timeFilterChange"
-                     @on-refresh="timeFilterRefresh" />
+      <div v-for="(item, index) of chartMetrics"
+           :key="item.title">
+        <div class="title flex flex-vcenter flex-between">
+          <span class="fs-18 font-bold mtb-20">{{ item.title }}</span>
+          <time-filter v-model="timeFilter"
+                       :refreshDuration.sync="refresh"
+                       @input="timeFilterChange"
+                       @on-refresh="timeFilterRefresh"
+                       v-if="index === 0" />
+        </div>
+        <ul class="charts flex flex-wrap">
+          <li class="chart-item mb-50"
+              v-for="(item, index) of item.metrics"
+              :key="index">
+            <p class="mtb-10 fs-16 font-bold">{{ item.expect }}</p>
+            <vue-echarts v-if="item.option"
+                         ref="Charts"
+                         :option="item.option"
+                         @mousemove.native="mousemove('series', $event)" />
+          </li>
+        </ul>
       </div>
-      <ul class="charts flex flex-between flex-wrap">
-        <li class="chart-item mb-50"
-            v-for="(item, index) of chartMetrics"
-            :key="index">
-          <p class="mtb-10 fs-16 font-bold">{{ item.expect }}</p>
-          <vue-echarts v-if="item.option"
-                       ref="Charts"
-                       :option="item.option"
-                       @mousemove.native="mousemove('series', $event)" />
-        </li>
-      </ul>
+
     </section>
   </main>
 </template>
@@ -49,19 +54,24 @@ export default {
     };
   },
   mounted() {
-    this.metrics.forEach(({ expect, metric }) => {
-      this.chartMetrics.push({
-        expect,
-        metric,
-        option: null,
-      });
+    this.chartMetrics = this.metrics.map(({ title, metrics }) => {
+      return {
+        title,
+        metrics: metrics.map((item) => {
+          item["option"] = null;
+          return item;
+        }),
+      };
     });
+    console.log(this.chartMetrics);
     this.fetchData();
   },
   methods: {
     fetchData() {
       this.chartMetrics.forEach((item, index) => {
-        this.fetchChartData(item, index);
+        item.metrics.forEach((metric, index) => {
+          this.fetchChartData(metric, index);
+        });
       });
     },
     async fetchChartData(chart, index) {
@@ -97,6 +107,6 @@ export default {
 <style lang="scss" scoped>
 .chart-item {
   height: 500px;
-  width: 49%;
+  width: 33%;
 }
 </style>
