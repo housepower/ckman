@@ -2,17 +2,18 @@ package controller
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/deploy"
 	_ "gitlab.eoitek.net/EOI/ckman/docs"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
-	"os"
-	"os/exec"
-	"path"
-	"path/filepath"
-	"strings"
 )
 
 const (
@@ -502,35 +503,16 @@ func (ck *ClickHouseController) RebalanceCk(c *gin.Context) {
 	}
 	var conf model.CKManClickHouseConfig
 	conf = con.(model.CKManClickHouseConfig)
-
-	ckService, err := clickhouse.GetCkService(clusterName)
-	if err != nil {
-		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(model.REBALANCE_CK_CLUSTER_FAIL), err.Error())
-		return
-	}
-	infos, err := ckService.QueryInfo(fmt.Sprintf("SELECT DISTINCT name FROM system.tables WHERE (database = '%s') AND (engine LIKE '%%MergeTree%%')", conf.DB))
-	if err != nil {
-		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(model.REBALANCE_CK_CLUSTER_FAIL), err.Error())
-		return
-	}
-
 	hosts := make([]string, len(conf.Shards))
 	for index, shard := range conf.Shards {
 		hosts[index] = shard.Replicas[0].Ip
 	}
-	num := len(infos)-1
-	tables := make([]string, num)
-	for i := 0; i < num; i++ {
-		tables[i] = infos[i+1][0].(string)
-	}
 
 	args = append(args, path.Join(filepath.Dir(os.Args[0]), "rebalancer"))
 	args = append(args, fmt.Sprintf("-ch-hosts=%s", strings.Join(hosts, ",")))
-	args = append(args, fmt.Sprintf("-ch-all-hosts=%s", strings.Join(conf.Hosts, ",")))
 	args = append(args, fmt.Sprintf("-ch-port=%d", conf.Port))
 	args = append(args, fmt.Sprintf("-ch-user=%s", conf.User))
 	args = append(args, fmt.Sprintf("-ch-password=%s", conf.Password))
-	args = append(args, fmt.Sprintf("-ch-tables=%s", strings.Join(tables, ",")))
 	args = append(args, fmt.Sprintf("-ch-data-dir=%s", conf.Path))
 	args = append(args, fmt.Sprintf("-os-user=%s", conf.SshUser))
 	args = append(args, fmt.Sprintf("-os-password=%s", conf.SshPassword))
