@@ -23,6 +23,7 @@ backend:
 	go build ${LDFLAGS} -o schemer cmd/schemer/schemer.go
 	go build ${LDFLAGS} -o rebalancer cmd/rebalancer/rebalancer.go
 	go build ${LDFLAGS} -o exporter cmd/exporter/exporter.go
+	go build ${LDFLAGS} -o purger cmd/purger/purger.go
 
 .PHONY: build
 build:
@@ -34,6 +35,7 @@ build:
 	go build ${LDFLAGS} -o schemer cmd/schemer/schemer.go
 	go build ${LDFLAGS} -o rebalancer cmd/rebalancer/rebalancer.go
 	go build ${LDFLAGS} -o exporter cmd/exporter/exporter.go
+	go build ${LDFLAGS} -o purger cmd/purger/purger.go
 
 .PHONY: package
 package: build

@@ -124,6 +124,9 @@ func main() {
 	var names, statements []string
 	var err error
 	var db *sql.DB
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
 	initCmdOptions()
 	if cmdOps.ShowVer {
 		fmt.Println("Build Timestamp:", BuildTimeStamp)

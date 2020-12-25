@@ -282,22 +282,24 @@ func executePlan(tbl *TblPartitions) (err error) {
 
 			// There could be multiple executions on the same dest node and partition.
 			lock.Lock()
-			dstCkConn := chConns[dstHost]
+			dstChConn := chConns[dstHost]
 			dstQuires := []string{
 				fmt.Sprintf("ALTER TABLE %s FETCH PARTITION '%s' FROM '%s'", tbl.Table, patt, tbl.ZooPath),
 				fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt),
 			}
 			for _, query := range dstQuires {
-				if _, err = dstCkConn.Exec(query); err != nil {
+				log.Infof("host %s: query: %s", dstHost, query)
+				if _, err = dstChConn.Exec(query); err != nil {
 					err = errors.Wrapf(err, "")
 					return
 				}
 			}
 			lock.Unlock()
 
-			srcCkConn := chConns[tbl.Host]
+			srcChConn := chConns[tbl.Host]
 			query := fmt.Sprintf("ALTER TABLE %s DROP PARTITION '%s'", tbl.Table, patt)
-			if _, err = srcCkConn.Exec(query); err != nil {
+			if _, err = srcChConn.Exec(query); err != nil {
+				log.Infof("host %s: query: %s", tbl.Host, query)
 				err = errors.Wrapf(err, "")
 				return
 			}
@@ -350,6 +352,7 @@ func executePlan(tbl *TblPartitions) (err error) {
 		lock.Unlock()
 
 		query = fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION '%s'", tbl.Table, patt)
+		log.Infof("host: %s, query: %s", tbl.Host, query)
 		if _, err = srcCkConn.Exec(query); err != nil {
 			err = errors.Wrapf(err, "")
 			return
@@ -360,6 +363,9 @@ func executePlan(tbl *TblPartitions) (err error) {
 
 func main() {
 	var err error
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
 	initCmdOptions()
 	if cmdOps.ShowVer {
 		fmt.Println("Build Timestamp:", BuildTimeStamp)

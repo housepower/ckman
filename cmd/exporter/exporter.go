@@ -26,6 +26,7 @@ type CmdOptions struct {
 	ChPort      int
 	ChUser      string
 	ChPassword  string
+	ChDatabase string
 	ChTables    string
 	TsBegin     string
 	TsEnd       string
@@ -46,7 +47,7 @@ var (
 	tsEnd          time.Time
 	hdfsDir        string
 	tryIntervals   = []string{"1 year", "1 month", "1 week", "1 day", "4 hour", "1 hour"}
-	ckConns        map[string]*sql.DB
+	chConns        map[string]*sql.DB
 	globalPool     *common.WorkerPool
 	wg             sync.WaitGroup
 	cntErrors      int32
@@ -58,6 +59,7 @@ func initCmdOptions() {
 	cmdOps = CmdOptions{
 		ShowVer:     false,
 		ChPort:      9000,
+		ChDatabase:  "default",
 		TsBegin:     "1970-01-01T00:00:00Z",
 		MaxFileSize: 1e10, //10GB, Parquet files need be small, nearly equal size
 		Parallelism: 4,    // >=4 is capable of saturating HDFS cluster(3 DataNodes with HDDs) write bandwidth 150MB/s
@@ -69,6 +71,7 @@ func initCmdOptions() {
 	common.EnvIntVar(&cmdOps.ChPort, "ch-port")
 	common.EnvStringVar(&cmdOps.ChUser, "ch-user")
 	common.EnvStringVar(&cmdOps.ChPassword, "ch-password")
+	common.EnvStringVar(&cmdOps.ChDatabase, "ch-database")
 	common.EnvStringVar(&cmdOps.ChTables, "ch-tables")
 	common.EnvStringVar(&cmdOps.TsBegin, "ts-begin")
 	common.EnvStringVar(&cmdOps.TsEnd, "ts-end")
@@ -83,6 +86,7 @@ func initCmdOptions() {
 	flag.IntVar(&cmdOps.ChPort, "ch-port", cmdOps.ChPort, "clickhouse tcp listen port")
 	flag.StringVar(&cmdOps.ChUser, "ch-user", cmdOps.ChUser, "clickhouse user")
 	flag.StringVar(&cmdOps.ChPassword, "ch-password", cmdOps.ChPassword, "clickhouse password")
+	flag.StringVar(&cmdOps.ChDatabase, "ch-database", cmdOps.ChDatabase, "clickhouse database")
 	flag.StringVar(&cmdOps.ChTables, "ch-tables", cmdOps.ChTables, "a list of comma-separated table:timestamp_column")
 	flag.StringVar(&cmdOps.TsBegin, "ts-begin", cmdOps.TsBegin, "timestamp begin in ISO8601 format, for example 1970-01-01T00:00:00Z")
 	flag.StringVar(&cmdOps.TsEnd, "ts-end", cmdOps.TsEnd, "timestamp end in ISO8601 format")
@@ -96,26 +100,26 @@ func initCmdOptions() {
 }
 
 func initConns() (err error) {
-	ckConns = make(map[string]*sql.DB)
+	chConns = make(map[string]*sql.DB)
 	for _, host := range chHosts {
 		if len(host) == 0 {
 			continue
 		}
 		var db *sql.DB
 		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-			host, cmdOps.ChPort, "default", cmdOps.ChUser, cmdOps.ChPassword)
+			host, cmdOps.ChPort, cmdOps.ChDatabase, cmdOps.ChUser, cmdOps.ChPassword)
 		if db, err = sql.Open("clickhouse", dsn); err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
-		ckConns[host] = db
+		chConns[host] = db
 		log.Infof("initialized clickhouse connection to %s", host)
 	}
 	return
 }
 
 func selectUint64(host, query string) (res uint64, err error) {
-	db := ckConns[host]
+	db := chConns[host]
 	var rows *sql.Rows
 	log.Infof("host %s: query: %s", host, query)
 	if rows, err = db.Query(query); err != nil {
@@ -150,7 +154,7 @@ func getSlots(host, table string) (slots []time.Time, err error) {
 	if rowsCnt == 0 {
 		return
 	}
-	if compressed, err = selectUint64(host, fmt.Sprintf("SELECT sum(data_compressed_bytes) AS compressed FROM system.parts WHERE database='default' AND table='%s' AND active=1", table)); err != nil {
+	if compressed, err = selectUint64(host, fmt.Sprintf("SELECT sum(data_compressed_bytes) AS compressed FROM system.parts WHERE database='%s' AND table='%s' AND active=1", cmdOps.ChDatabase, table)); err != nil {
 		return
 	}
 	sizePerRow = float64(compressed) / float64(rowsCnt)
@@ -158,7 +162,7 @@ func getSlots(host, table string) (slots []time.Time, err error) {
 	maxRowsCnt := uint64(float64(cmdOps.MaxFileSize) / sizePerRow)
 	slots = make([]time.Time, 0)
 	var slot time.Time
-	db := ckConns[host]
+	db := chConns[host]
 
 	tsColumn := chTables[table]
 	var totalRowsCnt uint64
@@ -230,7 +234,7 @@ func exportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {
 			fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>='%s' AND `%s`<'%s'", hdfsTbl, table, tsColumn, convToChTs(slotBeg), tsColumn, convToChTs(slotEnd)),
 			fmt.Sprintf("DROP TABLE %s", hdfsTbl),
 		}
-		db := ckConns[host]
+		db := chConns[host]
 		for _, query := range queries {
 			if atomic.LoadInt32(&cntErrors) != 0 {
 				return
@@ -285,7 +289,7 @@ func main() {
 		log.Fatalf("failed to parse timestamp %s, layout %s", cmdOps.TsEnd, time.RFC3339)
 	}
 
-	globalPool = common.NewWorkerPool(cmdOps.Parallelism, len(ckConns))
+	globalPool = common.NewWorkerPool(cmdOps.Parallelism, len(chConns))
 	dir := tsBegin.Format("20060102150405") + "_" + tsEnd.Format("20060102150405")
 	hdfsDir = filepath.Join(cmdOps.HdfsDir, dir)
 	var hc *hdfs.Client
