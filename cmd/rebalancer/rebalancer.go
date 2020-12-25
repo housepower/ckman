@@ -45,6 +45,7 @@ var (
 	chRepTables    map[string]map[string]string //table -> host -> zookeeper_path
 	chTables       []string
 	sshConns       map[string]*ssh.Client
+	sshErr         error
 	chConns        map[string]*sql.DB
 	locks          map[string]*sync.Mutex
 	globalPool     *common.WorkerPool
@@ -83,7 +84,7 @@ func initCmdOptions() {
 	flag.Parse()
 }
 
-func initConns() (err error) {
+func initChConns() (err error) {
 	chConns = make(map[string]*sql.DB)
 	locks = make(map[string]*sync.Mutex)
 	for _, host := range chHosts {
@@ -98,34 +99,35 @@ func initConns() (err error) {
 		log.Infof("initialized clickhouse connection to %s", host)
 		locks[host] = &sync.Mutex{}
 	}
+	return
+}
 
-	if cmdOps.OsUser != "" {
-		sshConns = make(map[string]*ssh.Client)
-		for _, host := range chHosts {
-			var conn *ssh.Client
-			if conn, err = common.SSHConnect(cmdOps.OsUser, cmdOps.OsPassword, host, 22); err != nil {
-				err = errors.Wrapf(err, "")
+func initSshConns() (err error) {
+	sshConns = make(map[string]*ssh.Client)
+	for _, host := range chHosts {
+		var conn *ssh.Client
+		if conn, err = common.SSHConnect(cmdOps.OsUser, cmdOps.OsPassword, host, 22); err != nil {
+			err = errors.Wrapf(err, "")
+			return
+		}
+		sshConns[host] = conn
+		log.Infof("initialized ssh connection to %s", host)
+	}
+	// Validate if one can login from any host to another host without password, and read the data directory.
+	for _, srcHost := range chHosts {
+		for _, dstHost := range chHosts {
+			if srcHost == dstHost {
+				continue
+			}
+			sshConn := sshConns[srcHost]
+			cmd := fmt.Sprintf("ssh -o StrictHostKeyChecking=false %s ls %s/clickhouse/data/default", dstHost, cmdOps.ChDataDir)
+			log.Infof("host: %s, command: %s", srcHost, cmd)
+			var out string
+			if out, err = common.SSHRun(sshConn, cmd); err != nil {
+				err = errors.Wrapf(err, "output: %s", out)
 				return
 			}
-			sshConns[host] = conn
-			log.Infof("initialized ssh connection to %s", host)
-		}
-		// Validate if one can login from any host to another host without password, and read the data directory.
-		for _, srcHost := range chHosts {
-			for _, dstHost := range chHosts {
-				if srcHost == dstHost {
-					continue
-				}
-				sshConn := sshConns[srcHost]
-				cmd := fmt.Sprintf("ssh -o StrictHostKeyChecking=false %s ls %s/clickhouse/data/default", dstHost, cmdOps.ChDataDir)
-				log.Infof("host: %s, command: %s", srcHost, cmd)
-				var out string
-				if out, err = common.SSHRun(sshConn, cmd); err != nil {
-					err = errors.Wrapf(err, "output: %s", out)
-					return
-				}
-				log.Debugf("host: %s, output: %s", srcHost, out)
-			}
+			log.Debugf("host: %s, output: %s", srcHost, out)
 		}
 	}
 	return
@@ -302,6 +304,10 @@ func executePlan(tbl *TblPartitions) (err error) {
 		}
 		return
 	}
+	if sshErr != nil {
+		log.Warnf("skip execution for %s due to previous SSH error", tbl.Table)
+		return
+	}
 	for patt, dstHost := range tbl.ToMoveOut {
 		srcSshConn := sshConns[tbl.Host]
 		srcCkConn := chConns[tbl.Host]
@@ -366,7 +372,7 @@ func main() {
 	chHosts = strings.Split(cmdOps.ChHosts, ",")
 
 	globalPool = common.NewWorkerPool(len(chHosts), len(chHosts))
-	if err = initConns(); err != nil {
+	if err = initChConns(); err != nil {
 		log.Fatalf("got error %+v", err)
 	}
 	if err = getTables(); err != nil {
@@ -374,6 +380,15 @@ func main() {
 	}
 	if err = getRepTables(); err != nil {
 		log.Fatalf("got error %+v", err)
+	}
+	for _, table := range chTables {
+		if _, ok := chRepTables[table]; !ok {
+			// initialize SSH connections only if there are some non-replicated tables
+			if sshErr = initSshConns(); sshErr != nil {
+				log.Warnf("failed to init ssh connections, error: %+v", sshErr)
+			}
+			break
+		}
 	}
 	for _, table := range chTables {
 		var tbls []*TblPartitions

@@ -60,7 +60,7 @@ func initCmdOptions() {
 		ChPort:      9000,
 		TsBegin:     "1970-01-01T00:00:00Z",
 		MaxFileSize: 1e10, //10GB, Parquet files need be small, nearly equal size
-		Parallelism: 4,    // >=4 is able to exhaust HDFS cluster(3 DataNodes with HDDs) write bandwidth 150MB/s
+		Parallelism: 4,    // >=4 is capable of saturating HDFS cluster(3 DataNodes with HDDs) write bandwidth 150MB/s
 	}
 
 	// 2. Replace options with the corresponding env variable if present.
