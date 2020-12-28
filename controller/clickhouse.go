@@ -552,7 +552,7 @@ func (ck *ClickHouseController) GetCkCluster(c *gin.Context) {
 
 	globalStatus := model.CkStatusGreen
 	for index, status := range statusList {
-		if status != model.CkStatusGreen {
+		if status.Status != model.CkStatusGreen {
 			for _, shard := range conf.Shards {
 				if conf.Hosts[index] == shard.Replicas[0].Ip {
 					globalStatus = model.CkStatusRed
@@ -567,18 +567,10 @@ func (ck *ClickHouseController) GetCkCluster(c *gin.Context) {
 		}
 	}
 
-	nodes := make([]model.CkClusterNode, len(statusList))
-	for index, status := range statusList {
-		nodes[index] = model.CkClusterNode{
-			Ip:       conf.Hosts[index],
-			HostName: conf.Names[index],
-			Status:   status,
-		}
-	}
 	info := model.CkClusterInfoRsp{
 		Status:  globalStatus,
 		Version: conf.Version,
-		Nodes:   nodes,
+		Nodes:   statusList,
 	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), info)

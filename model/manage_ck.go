@@ -13,9 +13,11 @@ type CkClusterInfoRsp struct {
 }
 
 type CkClusterNode struct {
-	Ip       string `json:"ip"`
-	HostName string `json:"hostname"`
-	Status   string `json:"status"`
+	Ip            string `json:"ip"`
+	HostName      string `json:"hostname"`
+	Status        string `json:"status"`
+	ShardNumber   int    `json:"shardNumber"`
+	ReplicaNumber int    `json:"replicaNumber"`
 }
 
 type AddNodeReq struct {

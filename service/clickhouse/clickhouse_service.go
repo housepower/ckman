@@ -250,25 +250,36 @@ func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseCon
 	return nil
 }
 
-func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []string {
-	statusList := make([]string, len(conf.Hosts))
+func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode {
+	index := 0
+	statusList := make([]model.CkClusterNode, len(conf.Hosts))
 
-	for index, host := range conf.Hosts {
-		tmp := &model.CKManClickHouseConfig{
-			Hosts:    []string{host},
-			Port:     conf.Port,
-			Cluster:  conf.Cluster,
-			User:     conf.User,
-			Password: conf.Password,
+	for i, shard := range conf.Shards {
+		for j, replica := range shard.Replicas {
+			tmp := &model.CKManClickHouseConfig{
+				Hosts:    []string{replica.Ip},
+				Port:     conf.Port,
+				Cluster:  conf.Cluster,
+				User:     conf.User,
+				Password: conf.Password,
+			}
+			status := model.CkClusterNode{
+				Ip:            replica.Ip,
+				HostName:      replica.HostName,
+				ShardNumber:   i + 1,
+				ReplicaNumber: j + 1,
+			}
+			service := NewCkService(tmp)
+			if err := service.InitCkService(); err != nil {
+				status.Status = model.CkStatusRed
+			} else {
+				status.Status = model.CkStatusGreen
+			}
+			service.Stop()
+			statusList[index] = status
+			index++
 		}
 
-		service := NewCkService(tmp)
-		if err := service.InitCkService(); err != nil {
-			statusList[index] = model.CkStatusRed
-		} else {
-			statusList[index] = model.CkStatusGreen
-		}
-		service.Stop()
 	}
 
 	return statusList
