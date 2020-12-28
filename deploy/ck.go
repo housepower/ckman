@@ -215,6 +215,7 @@ func (d *CKDeploy) Install() error {
 	cmds := make([]string, 0)
 	cmds = append(cmds, fmt.Sprintf("cd %s", TmpWorkDirectory))
 	cmds = append(cmds, fmt.Sprintf("rpm --force -ivh %s %s %s", d.Packages[0], d.Packages[1], d.Packages[2]))
+	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("mkdir -p %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
 
