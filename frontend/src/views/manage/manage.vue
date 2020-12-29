@@ -60,6 +60,14 @@
                            show-overflow-tooltip
                            label="Node Name"
                            align="center" />
+          <el-table-column prop="shardNumber"
+                           show-overflow-tooltip
+                           label="shard number"
+                           align="center" />
+          <el-table-column prop="replicaNumber"
+                           show-overflow-tooltip
+                           label="replica number"
+                           align="center" />
           <el-table-column label="Actions"
                            #default="{ row }"
                            align="center">
@@ -75,7 +83,7 @@
   </main>
 </template>
 <script>
-import { upperFirst, lowerFirst } from "lodash-es";
+import { upperFirst, lowerFirst, cloneDeep, head, last } from "lodash-es";
 import AddNode from "./modal/addNode";
 import { $modal, $loading } from "@/services";
 import { ClusterStatus, ClusterTypeStatus } from "@/constants";
@@ -133,6 +141,15 @@ export default {
         return true;
       return false;
     },
+    numberRange() {
+      let { nodes } = this.list;
+      nodes = nodes.sort((a, b) => a.shardNumber - b.shardNumber);
+      const range =
+        nodes.length === 0
+          ? [1, 1]
+          : [head(nodes).shardNumber, last(nodes).shardNumber + 1];
+      return range;
+    },
     async addNode() {
       await $modal({
         component: AddNode,
@@ -141,6 +158,9 @@ export default {
           width: 600,
           cancelText: "Cancel",
           okText: "Save",
+        },
+        data: {
+          numberRange: this.numberRange(),
         },
       });
       this.$message.success("node节点添加成功");

@@ -10,8 +10,10 @@
       </el-form-item>
       <el-form-item label="Node Node Shard:"
                     prop="shard">
-        <el-input v-model="formModel.shard"
-                  class="width-350" />
+        <el-input-number v-model="formModel.shard"
+                         :step="1"
+                         :min="numberRange[0]"
+                         :max="numberRange[1]"></el-input-number>
       </el-form-item>
     </el-form>
   </section>
@@ -19,11 +21,12 @@
 <script>
 import { ClusterApi } from "@/apis";
 export default {
+  props: ["numberRange"],
   data() {
     return {
       formModel: {
         ip: "",
-        shard: "",
+        shard: 1,
       },
     };
   },

@@ -16,7 +16,7 @@
           <li class="chart-item mb-50"
               v-for="(item, index) of item.metrics"
               :key="index">
-            <p class="mtb-10 fs-16 font-bold">{{ item.expect }}</p>
+            <p class="mtb-10 fs-16 font-bold expect">{{ item.expect }}</p>
             <vue-echarts v-if="item.option"
                          ref="Charts"
                          :option="item.option"
@@ -108,5 +108,10 @@ export default {
 .chart-item {
   height: 500px;
   width: 33%;
+
+  .expect {
+    height: 36px;
+    overflow: hidden;
+  }
 }
 </style>
