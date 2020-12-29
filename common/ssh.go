@@ -110,6 +110,34 @@ func SFTPUpload(sftpClient *sftp.Client, localFilePath, remoteDir string) error 
 	return nil
 }
 
+func SFTPDownload(sftpClient *sftp.Client, remoteFilePath, localDir string) error {
+	var remoteFileName = path.Base(remoteFilePath)
+	dstFile, err := os.Create(path.Join(localDir, remoteFileName))
+	if err != nil {
+		err = errors.Wrapf(err, "")
+		return err
+	}
+	defer dstFile.Close()
+
+	srcFile, err := sftpClient.Open(remoteFilePath)
+	if err != nil {
+		err = errors.Wrapf(err, "")
+		return err
+	}
+	defer srcFile.Close()
+
+	buf := make([]byte, 1024*1024)
+	for {
+		n, _ := srcFile.Read(buf)
+		if n == 0 {
+			break
+		}
+		dstFile.Write(buf[0:n])
+	}
+
+	return nil
+}
+
 func SSHRun(client *ssh.Client, shell string) (result string, err error) {
 	var session *ssh.Session
 	var buf []byte
@@ -137,6 +165,22 @@ func ScpFiles(files []string, path, user, password, ip string) error {
 
 	for _, file := range files {
 		err = SFTPUpload(sftpClient, file, path)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ScpDownloadFiles(files []string, path, user, password, ip string) error {
+	sftpClient, err := SFTPConnect(user, password, ip, 22)
+	if err != nil {
+		return err
+	}
+	defer sftpClient.Close()
+
+	for _, file := range files {
+		err = SFTPDownload(sftpClient, file, path)
 		if err != nil {
 			return err
 		}

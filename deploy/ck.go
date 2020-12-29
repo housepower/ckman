@@ -182,6 +182,10 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 		return fmt.Errorf("host name are the same")
 	}
 
+	if err := ensureHosts(d); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -248,6 +252,9 @@ func (d *CKDeploy) Uninstall() error {
 	for _, pack := range d.Packages {
 		cmds = append(cmds, fmt.Sprintf("rpm -e %s", pack))
 	}
+	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
+	cmds = append(cmds, "rm -rf /etc/clickhouse-server")
+	cmds = append(cmds, "rm -rf /etc/clickhouse-client")
 
 	for _, host := range d.Hosts {
 		err := func() error {
@@ -924,6 +931,38 @@ func updateMetrikaconfig(user, password, host, clusterName string, port int, par
 	}
 	if err := common.ScpFiles([]string{tmplFile}, confFile, user, password, host); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func ensureHosts(d *CKDeploy) error {
+	addresses := make([]string, 0)
+	hosts := make([]string, 0)
+	tmplFile := path.Join(config.GetWorkDirectory(), "package", "hosts")
+
+	for _, shard := range d.Conf.Shards {
+		for _, replica := range shard.Replicas {
+			addresses = append(addresses, replica.Ip)
+			hosts = append(hosts, replica.HostName)
+		}
+	}
+
+	for _, host := range d.Hosts {
+		if err := common.ScpDownloadFiles([]string{"/etc/hosts"}, path.Join(config.GetWorkDirectory(), "package"), d.User, d.Password, host); err != nil {
+			return err
+		}
+		h, err := common.NewHosts(tmplFile, tmplFile)
+		if err != nil {
+			return err
+		}
+		if err := common.AddHosts(h, addresses, hosts); err != nil {
+			return err
+		}
+		common.Save(h)
+		if err := common.ScpFiles([]string{tmplFile}, "/etc/hosts", d.User, d.Password, host); err != nil {
+			return err
+		}
 	}
 
 	return nil

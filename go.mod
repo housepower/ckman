@@ -25,6 +25,7 @@ require (
 	github.com/spf13/cobra v1.1.0
 	github.com/swaggo/gin-swagger v1.2.0
 	github.com/swaggo/swag v1.6.8
+	github.com/txn2/txeh v1.3.0
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
