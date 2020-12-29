@@ -217,31 +217,38 @@ func (d *CKDeploy) Prepare() error {
 
 func (d *CKDeploy) Install() error {
 	cmds := make([]string, 0)
+	cmds = append(cmds, "systemctl stop clickhouse-server")
 	cmds = append(cmds, fmt.Sprintf("cd %s", TmpWorkDirectory))
 	cmds = append(cmds, fmt.Sprintf("rpm --force -ivh %s %s %s", d.Packages[0], d.Packages[1], d.Packages[2]))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("mkdir -p %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
 
+	var wg sync.WaitGroup
+	wg.Add(len(d.Hosts))
+	ch := make(chan error, len(d.Hosts))
 	for _, host := range d.Hosts {
-		err := func() error {
+		go func(host string, ch chan error) {
+			defer wg.Done()
 			client, err := common.SSHConnect(d.User, d.Password, host, 22)
 			if err != nil {
-				return err
+				ch <- err
+				return
 			}
 			defer client.Close()
 
 			cmd := strings.Join(cmds, " && ")
 			if output, err := common.SSHRun(client, cmd); err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
-				return err
+				ch <- err
+				return
 			}
-
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
+		}(host, ch)
+	}
+	wg.Wait()
+	close(ch)
+	for err := range ch {
+		return err
 	}
 
 	return nil
@@ -960,7 +967,7 @@ func ensureHosts(d *CKDeploy) error {
 			return err
 		}
 		common.Save(h)
-		if err := common.ScpFiles([]string{tmplFile}, "/etc/hosts", d.User, d.Password, host); err != nil {
+		if err := common.ScpFiles([]string{tmplFile}, "/etc/", d.User, d.Password, host); err != nil {
 			return err
 		}
 	}
