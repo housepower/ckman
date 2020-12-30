@@ -15,6 +15,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *pr
 	deployController := controller.NewDeployController(config)
 	metricController := controller.NewMetricController(config, prom)
 	configController := controller.NewConfigController(signal)
+	zkController := controller.NewZookeeperController()
 
 	groupV1.POST("/ck/cluster", ckController.ImportCk)
 	groupV1.PUT("/ck/cluster", ckController.UpdateCk)
@@ -33,6 +34,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *pr
 	groupV1.GET(fmt.Sprintf("/ck/get/:%s", controller.ClickHouseClusterPath), ckController.GetCkCluster)
 	groupV1.POST(fmt.Sprintf("/ck/node/:%s", controller.ClickHouseClusterPath), ckController.AddNode)
 	groupV1.DELETE(fmt.Sprintf("/ck/node/:%s", controller.ClickHouseClusterPath), ckController.DeleteNode)
+	groupV1.GET(fmt.Sprintf("/zk/status/:%s", controller.ClickHouseClusterPath), zkController.GetStatus)
 	groupV1.POST("/package", packageController.Upload)
 	groupV1.GET("/package", packageController.List)
 	groupV1.DELETE("/package", packageController.Delete)
