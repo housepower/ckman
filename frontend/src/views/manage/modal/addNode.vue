@@ -8,7 +8,7 @@
         <el-input v-model="formModel.ip"
                   class="width-350" />
       </el-form-item>
-      <el-form-item label="Node Node Shard:"
+      <el-form-item label="Node Shard:"
                     prop="shard">
         <el-input-number v-model="formModel.shard"
                          :step="1"
