@@ -48,7 +48,7 @@ export default {
       data.forEach((item) => {
         this.list.push({
           version: item,
-          files: `clickhouse-client-${item}.noarch.rpm,clickhouse-common-static-${item}.x86_64.rpm,clickhouse-server-${item}.noarch.rpm`,
+          files: `clickhouse-client-${item}-2.noarch.rpm,clickhouse-common-static-${item}-2.x86_64.rpm,clickhouse-server-${item}-2.noarch.rpm`,
         });
       });
     },
