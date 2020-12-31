@@ -26,7 +26,7 @@
     <transition name="el-fade-in-linear"
                 appear>
       <footer class="flex-center width-full"
-              v-show="$route.params.id || $route.meta === 'loader'">
+              v-show="$route.params.id">
         <div class="flex-center list-content width-1000">
           <router-link class="flex flex-1 flex-center height-full pointer list-item"
                        :to="{ path: item.path }"
