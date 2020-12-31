@@ -45,6 +45,8 @@ package: build
 	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/rebalancer ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/schemer ${PKGFULLDIR_TMP}/bin
+	@mv ${SHDIR}/exporter ${PKGFULLDIR_TMP}/bin
+	@mv ${SHDIR}/purger ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/config.xml ${PKGFULLDIR_TMP}/template
