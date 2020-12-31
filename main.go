@@ -2,17 +2,20 @@ package main
 
 import (
 	"fmt"
+	"github.com/patrickmn/go-cache"
 	"github.com/spf13/cobra"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/server"
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
+	"gitlab.eoitek.net/EOI/ckman/service/zookeeper"
 	"gopkg.in/sevlyar/go-daemon.v0"
 	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 const (
@@ -69,6 +72,7 @@ func main() {
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
 
 	signalCh := make(chan os.Signal, 1)
+	zookeeper.ZkServiceCache = cache.New(time.Hour, time.Minute)
 	// create prometheus service
 	prom := prometheus.NewPrometheusService(&config.GlobalConfig.Prometheus)
 

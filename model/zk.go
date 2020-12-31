@@ -9,3 +9,13 @@ type ZkStatusRsp struct {
 	ApproximateDataSize float64 `json:"approximate_data_size"`
 	ZnodeCount          float64 `json:"znode_count"`
 }
+
+type ZkReplicatedTableStatusRsp struct {
+	Header [][]string                `json:"header"`
+	Tables []ZkReplicatedTableStatus `json:"tables"`
+}
+
+type ZkReplicatedTableStatus struct {
+	Name   string     `json:"name"`
+	Values [][]string `json:"values"`
+}

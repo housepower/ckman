@@ -43,6 +43,7 @@ var MsgFlags = map[int]string{
 	DELETE_CK_CLUSTER_NODE_FAIL: "删除ClickHouse集群节点失败",
 	UPDATE_CONFIG_FAIL:          "更新配置失败",
 	GET_ZK_STATUS_FAIL:          "获取Zookeeper状态失败",
+	GET_ZK_TABLE_STATUS_FAIL:    "获取复制表状态失败",
 
 	UNKNOWN: "unknown",
 }

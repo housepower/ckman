@@ -849,6 +849,35 @@
                 }
             }
         },
+        "/api/v1/zk/replicated_table/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "从Zookeeper中获取复制表状态",
+                "summary": "从Zookeeper中获取复制表状态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":[{\"host\":\"192.168.102.116\",\"version\":\"3.6.2\",\"server_state\":\"follower\",\"peer_state\":\"following - broadcast\",\"avg_latency\":0.4929,\"approximate_data_size\":141979,\"znode_count\":926}]}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/zk/status/{clusterName}": {
             "get": {
                 "security": [

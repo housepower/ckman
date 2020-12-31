@@ -753,6 +753,24 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 上传安装包
+  /api/v1/zk/replicated_table/{clusterName}:
+    get:
+      description: 从Zookeeper中获取复制表状态
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"ok","data":[{"host":"192.168.102.116","version":"3.6.2","server_state":"follower","peer_state":"following - broadcast","avg_latency":0.4929,"approximate_data_size":141979,"znode_count":926}]}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 从Zookeeper中获取复制表状态
   /api/v1/zk/status/{clusterName}:
     get:
       description: 获取Zookeeper集群状态
