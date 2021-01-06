@@ -577,6 +577,24 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 修改表
+  /api/v1/ck/table_metric/{clusterName}:
+    get:
+      description: 获取ClickHouse中MergeTree表的指标
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200,"msg":"ok","data":{"sensor_dt_result_online":{"columns":22,"rows":1381742496,"parts":192,"space":54967700946,"completedQueries":5,"failedQueries":0,"queryCost":{"middle":130,"secondaryMax":160.76,"max":162}}}}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取ClickHouse中MergeTree表的指标
   /api/v1/ck/upgrade/{clusterName}:
     put:
       description: 升级ClickHouse集群

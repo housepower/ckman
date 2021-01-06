@@ -25,6 +25,11 @@ const (
 	ClickHouseClustersFile           string = "clusters.json"
 	ClickHouseDefaultPort            int    = 9000
 	ClickHouseDefaultZkPort          int    = 2181
+	ClickHouseServiceTimeout         int    = 3600
+	ClickHouseQueryStart             string = "QueryStart"
+	ClickHouseQueryFinish            string = "QueryFinish"
+	ClickHouseQueryExStart           string = "ExceptionBeforeStart"
+	ClickHouseQueryExProcessing      string = "ExceptionWhileProcessing"
 )
 
 var CkClusters sync.Map
@@ -37,7 +42,7 @@ type CkService struct {
 
 type ClusterService struct {
 	Service *CkService
-	Time    int64
+	Timeout int64
 }
 
 func CkConfigFillDefault(config *model.CKManClickHouseConfig) {
@@ -167,24 +172,68 @@ func GetCkService(clusterName string) (*CkService, error) {
 	cluster, ok := CkServices.Load(clusterName)
 	if ok {
 		clusterService := cluster.(*ClusterService)
-		return clusterService.Service, nil
-	} else {
-		conf, ok := CkClusters.Load(clusterName)
-		if ok {
-			ckConfig := conf.(model.CKManClickHouseConfig)
-			service := NewCkService(&ckConfig)
-			if err := service.InitCkService(); err != nil {
-				return nil, err
-			}
-			clusterService := &ClusterService{
-				Service: service,
-				Time:    time.Now().Unix(),
-			}
-			CkServices.Store(clusterName, clusterService)
-			return service, nil
+		if time.Now().Unix() < clusterService.Timeout {
+			return clusterService.Service, nil
 		} else {
-			return nil, fmt.Errorf("can't find cluster %s service", clusterName)
+			// Fixme, Service maybe in use
+			clusterService.Service.Stop()
 		}
+	}
+
+	conf, ok := CkClusters.Load(clusterName)
+	if ok {
+		ckConfig := conf.(model.CKManClickHouseConfig)
+		service := NewCkService(&ckConfig)
+		if err := service.InitCkService(); err != nil {
+			return nil, err
+		}
+		clusterService := &ClusterService{
+			Service: service,
+			Timeout: time.Now().Add(time.Second * time.Duration(ClickHouseServiceTimeout)).Unix(),
+		}
+		CkServices.Store(clusterName, clusterService)
+		return service, nil
+	} else {
+		return nil, fmt.Errorf("can't find cluster %s service", clusterName)
+	}
+}
+
+func GetCkNodeService(clusterName string, node string) (*CkService, error) {
+	key := clusterName + node
+	cluster, ok := CkServices.Load(key)
+	if ok {
+		clusterService := cluster.(*ClusterService)
+		if time.Now().Unix() < clusterService.Timeout {
+			return clusterService.Service, nil
+		} else {
+			// Fixme, Service maybe in use
+			clusterService.Service.Stop()
+		}
+	}
+
+	conf, ok := CkClusters.Load(clusterName)
+	if ok {
+		ckConfig := conf.(model.CKManClickHouseConfig)
+		tmp := &model.CKManClickHouseConfig{
+			Hosts:    []string{node},
+			Port:     ckConfig.Port,
+			Cluster:  ckConfig.Cluster,
+			DB:       ckConfig.DB,
+			User:     ckConfig.User,
+			Password: ckConfig.Password,
+		}
+		service := NewCkService(tmp)
+		if err := service.InitCkService(); err != nil {
+			return nil, err
+		}
+		clusterService := &ClusterService{
+			Service: service,
+			Timeout: time.Now().Add(time.Second * time.Duration(ClickHouseServiceTimeout)).Unix(),
+		}
+		CkServices.Store(key, clusterService)
+		return service, nil
+	} else {
+		return nil, fmt.Errorf("can't find cluster %s service", key)
 	}
 }
 
@@ -557,4 +606,102 @@ func getCreateReplicaObjects(db *sql.DB, srcHost string) (names, statements []st
 	names = append(names1, names2...)
 	statements = append(statements1, statements2...)
 	return
+}
+
+func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkTableMetrics, error) {
+	metrics := make(map[string]*model.CkTableMetrics)
+
+	for _, host := range conf.Hosts {
+		service, err := GetCkNodeService(conf.Cluster, host)
+		if err != nil {
+			return nil, err
+		}
+
+		// get table names
+		query := fmt.Sprintf("SELECT DISTINCT name FROM system.tables WHERE (database = '%s') AND (engine LIKE '%%MergeTree%%')",
+			service.Config.DB)
+		value, err := service.QueryInfo(query)
+		if err != nil {
+			return nil, err
+		}
+		for i := 1; i < len(value); i++ {
+			tableName := value[i][0].(string)
+			if _, ok := metrics[tableName]; !ok {
+				metric := &model.CkTableMetrics{}
+				metrics[tableName] = metric
+			}
+		}
+
+		// get columns
+		query = fmt.Sprintf("SELECT table, count() AS columns FROM system.columns WHERE database = '%s' GROUP BY table",
+			service.Config.DB)
+		value, err = service.QueryInfo(query)
+		if err != nil {
+			return nil, err
+		}
+		for i := 1; i < len(value); i++ {
+			tableName := value[i][0].(string)
+			if metric, ok := metrics[tableName]; ok {
+				metric.Columns = value[i][1].(uint64)
+			}
+		}
+
+		// get bytes, parts, rows
+		query = fmt.Sprintf("SELECT table, sum(bytes_on_disk) AS bytes, count() AS parts, sum(rows) AS rows FROM system.parts WHERE (active = 1) AND (database = '%s') GROUP BY table",
+			service.Config.DB)
+		value, err = service.QueryInfo(query)
+		if err != nil {
+			return nil, err
+		}
+		for i := 1; i < len(value); i++ {
+			tableName := value[i][0].(string)
+			if metric, ok := metrics[tableName]; ok {
+				metric.Space += value[i][1].(uint64)
+				metric.Parts += value[i][2].(uint64)
+				metric.Rows += value[i][3].(uint64)
+			}
+		}
+
+		// get success, failed counts
+		query = fmt.Sprintf("SELECT (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name, type, count() AS counts from system.query_log where tbl_name != '' AND is_initial_query=1 AND event_time >= subtractDays(now(), 1) group by tbl_name, type")
+		value, err = service.QueryInfo(query)
+		if err != nil {
+			return nil, err
+		}
+		for i := 1; i < len(value); i++ {
+			tableName := value[i][0].(string)
+			if metric, ok := metrics[tableName]; ok {
+				types := value[i][1].(string)
+				if types == ClickHouseQueryFinish {
+					metric.CompletedQueries += value[i][2].(uint64)
+				} else if types == ClickHouseQueryExStart || types == ClickHouseQueryExProcessing {
+					metric.FailedQueries += value[i][2].(uint64)
+				}
+			}
+		}
+
+		// get query duration
+		query = fmt.Sprintf("SELECT (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name, quantiles(0.5, 0.99, 1.0)(query_duration_ms) AS duration from system.query_log where tbl_name != '' AND type = 2 AND is_initial_query=1 AND event_time >= subtractDays(now(), 7) group by tbl_name")
+		value, err = service.QueryInfo(query)
+		if err != nil {
+			return nil, err
+		}
+		for i := 1; i < len(value); i++ {
+			tableName := value[i][0].(string)
+			if metric, ok := metrics[tableName]; ok {
+				durations := value[i][1].([]float64)
+				if durations[0] > metric.QueryCost.Middle {
+					metric.QueryCost.Middle = durations[0]
+				}
+				if durations[1] > metric.QueryCost.SecondaryMax {
+					metric.QueryCost.SecondaryMax = durations[1]
+				}
+				if durations[2] > metric.QueryCost.Max {
+					metric.QueryCost.Max = durations[2]
+				}
+			}
+		}
+	}
+
+	return metrics, nil
 }

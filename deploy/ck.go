@@ -217,7 +217,6 @@ func (d *CKDeploy) Prepare() error {
 
 func (d *CKDeploy) Install() error {
 	cmds := make([]string, 0)
-	cmds = append(cmds, "systemctl stop clickhouse-server")
 	cmds = append(cmds, fmt.Sprintf("cd %s", TmpWorkDirectory))
 	cmds = append(cmds, fmt.Sprintf("rpm --force -ivh %s %s %s", d.Packages[0], d.Packages[1], d.Packages[2]))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
@@ -237,6 +236,7 @@ func (d *CKDeploy) Install() error {
 			}
 			defer client.Close()
 
+			common.SSHRun(client, "systemctl stop clickhouse-server")
 			cmd := strings.Join(cmds, " && ")
 			if output, err := common.SSHRun(client, cmd); err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)

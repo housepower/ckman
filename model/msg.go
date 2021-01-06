@@ -41,6 +41,7 @@ var MsgFlags = map[int]string{
 	GET_CK_CLUSTER_INFO_FAIL:    "获取ClickHouse集群信息失败",
 	ADD_CK_CLUSTER_NODE_FAIL:    "添加ClickHouse集群节点失败",
 	DELETE_CK_CLUSTER_NODE_FAIL: "删除ClickHouse集群节点失败",
+	GET_CK_TABLE_METRIC_FAIL:    "获取ClickHouse表的指标失败",
 	UPDATE_CONFIG_FAIL:          "更新配置失败",
 	GET_ZK_STATUS_FAIL:          "获取Zookeeper状态失败",
 	GET_ZK_TABLE_STATUS_FAIL:    "获取复制表状态失败",

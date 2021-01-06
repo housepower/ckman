@@ -669,3 +669,31 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
+
+// @Summary 获取ClickHouse中MergeTree表的指标
+// @Description 获取ClickHouse中MergeTree表的指标
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Success 200 {string} json "{"code":200,"msg":"ok","data":{"sensor_dt_result_online":{"columns":22,"rows":1381742496,"parts":192,"space":54967700946,"completedQueries":5,"failedQueries":0,"queryCost":{"middle":130,"secondaryMax":160.76,"max":162}}}}"
+// @Router /api/v1/ck/table_metric/{clusterName} [get]
+func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
+	var conf model.CKManClickHouseConfig
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, model.GetMsg(model.GET_CK_TABLE_METRIC_FAIL),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	conf = con.(model.CKManClickHouseConfig)
+	metrics, err := clickhouse.GetCkTableMetrics(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, model.GetMsg(model.GET_CK_TABLE_METRIC_FAIL), err.Error())
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), metrics)
+}

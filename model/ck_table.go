@@ -82,3 +82,19 @@ type CkTableAttribute struct {
 	CodecExpression   string `json:"codecExpression"`
 	TTLExpression     string `json:"ttlExpression"`
 }
+
+type CkTableMetrics struct {
+	Columns          uint64      `json:"columns"`
+	Rows             uint64      `json:"rows"`
+	Parts            uint64      `json:"parts"`
+	Space            uint64      `json:"space"`
+	CompletedQueries uint64      `json:"completedQueries"`
+	FailedQueries    uint64      `json:"failedQueries"`
+	QueryCost        CkTableCost `json:"queryCost"`
+}
+
+type CkTableCost struct {
+	Middle       float64 `json:"middle"`
+	SecondaryMax float64 `json:"secondaryMax"`
+	Max          float64 `json:"max"`
+}

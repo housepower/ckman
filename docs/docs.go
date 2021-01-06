@@ -587,6 +587,35 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/table_metric/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取ClickHouse中MergeTree表的指标",
+                "summary": "获取ClickHouse中MergeTree表的指标",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":{\"sensor_dt_result_online\":{\"columns\":22,\"rows\":1381742496,\"parts\":192,\"space\":54967700946,\"completedQueries\":5,\"failedQueries\":0,\"queryCost\":{\"middle\":130,\"secondaryMax\":160.76,\"max\":162}}}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/upgrade/{clusterName}": {
             "put": {
                 "security": [
