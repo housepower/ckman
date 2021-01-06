@@ -95,7 +95,7 @@ func getZkStatus(host string, port int) ([]byte, error) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":[{"host":"192.168.102.116","version":"3.6.2","server_state":"follower","peer_state":"following - broadcast","avg_latency":0.4929,"approximate_data_size":141979,"znode_count":926}]}"
+// @Success 200 {string} json "{"code":200,"msg":"ok","data":{"header":[["vm101106","vm101108"],["vm102114","vm101110"],["vm102116","vm102115"]],"tables":[{"name":"sensor_dt_result_online","values":[["l1846","f1846"],["l1845","f1845"],["l1846","f1846"]]}]}}"
 // @Router /api/v1/zk/replicated_table/{clusterName} [get]
 func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
