@@ -1,0 +1,14 @@
+# This Dockerfile is used for build a docker container to run clickhouse node  which in centos-7, Just for ckman project.
+# You can run command like: "docker build -f Dockerfile.test -t ckman-clickhouse:centos-7 ."
+# the offical image is eoitek/ckman-clickhouse:centos-7, You can pull it from dockerhub.
+
+FROM centos:7
+
+WORKDIR /var/
+RUN yum -y update && yum install -y openssh* \
+    && yum install -y epel-release && yum install -y jq \
+    && yum install -y initscripts.x86_64 \
+    &&  echo '123456' |passwd --stdin root
+
+ENTRYPOINT /usr/sbin/init
+CMD ["systemctl", "start", "sshd"]

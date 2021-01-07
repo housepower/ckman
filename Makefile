@@ -57,11 +57,17 @@ package: build
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}
 	@echo "create ${TARNAME} from ${PKGDIR}"
 	@tar -czf ${TARNAME} ${PKGDIR}
+	@rm pkged.go
+	@rm -rf ${PKGFULLDIR}
 
 .PHONY: docker-build
 docker-build:
 	rm -rf ${PKGDIR}-*.tar.gz
-	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct amd64/golang:1.15.3 make package VERSION=${VERSION}
+	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct eoitek/ckman-build:go-1.15.3 make package VERSION=${VERSION}
+
+.PHONY: docker-sh
+docker-sh:
+	docker run --rm  -it -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct eoitek/ckman-build:go-1.15.3 bash
 
 .PHONY: rpm
 rpm: build
@@ -70,3 +76,18 @@ rpm: build
 .PHONY: deb
 deb: build
 	nfpm pkg --packager deb --target .
+
+
+.PHONY: test-ci
+test-ci:docker-build
+	@rm -rf /tmp/ckman
+	@tar -xzf ${PKGDIR}-*.Linux.x86_64.tar.gz -C /tmp
+	@cp -r ./tests /tmp/ckman
+	@cp go.test.sh /tmp/ckman/bin
+	@docker-compose stop
+	@docker-compose up -d
+	@docker run --rm -itd --network ckman_default --privileged=true --name ckman -p8808:8808 -w /tmp/ckman -v /tmp/ckman:/tmp/ckman eoitek/ckman-clickhouse:centos-7
+	@bash ./docker_env.sh
+	@docker exec -it ckman /tmp/ckman/bin/go.test.sh
+	@docker stop ckman
+	@docker-compose down -v

@@ -19,7 +19,7 @@ log:
 
 prometheus:
   hosts:
-    - 192.168.101.105:19090
+    - 127.0.0.1:19090
   # second
   timeout: 10
 

@@ -628,6 +628,9 @@ func DestroyCkCluster(conf *model.CKManClickHouseConfig) error {
 			Password: conf.SshPassword,
 			Packages: packages,
 		},
+		Conf: &model.CkDeployConfig{
+			Path:conf.Path,
+		},
 	}
 	if err := deploy.Stop(); err != nil {
 		return err

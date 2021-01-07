@@ -1,0 +1,24 @@
+<yandex>
+  <zookeeper-servers>
+    <node index="1">
+      <host>{DOCKER_ZOOKEEPER_HOST}</host>
+      <port>2181</port>
+    </node>
+  </zookeeper-servers>
+  <clickhouse_remote_servers>
+    <test>
+      <shard>
+        <internal_replication>true</internal_replication>
+        <replica>
+          <host>{DOCKER_CLICKHOUSE_HOST}</host>
+          <port>9000</port>
+        </replica>
+      </shard>
+    </test>
+  </clickhouse_remote_servers>
+  <macros>
+    <cluster>test</cluster>
+    <shard>1</shard>
+    <replica>{DOCKER_CLICKHOUSE_HOST}</replica>
+  </macros>
+</yandex>
