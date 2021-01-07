@@ -286,6 +286,42 @@
                 }
             }
         },
+        "/api/v1/ck/open_sessions/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取ClickHouse正在执行的查询",
+                "summary": "获取ClickHouse正在执行的查询",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "10",
+                        "description": "sessions limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":[{\"startTime\":1609997894,\"queryDuration\":1,\"query\":\"SELECT DISTINCT name FROM system.tables\",\"user\":\"eoi\",\"queryId\":\"62dce71d-9294-4e47-9d9b-cf298f73233d\",\"address\":\"192.168.21.73\",\"threads\":2}]}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/query/{clusterName}": {
             "get": {
                 "security": [
@@ -345,6 +381,42 @@
                 "responses": {
                     "200": {
                         "description": "{\"code\":200,\"msg\":\"success\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/slow_sessions/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取ClickHouse慢查询",
+                "summary": "获取ClickHouse慢查询",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "10",
+                        "description": "sessions limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":[{\"startTime\":1609986493,\"queryDuration\":145,\"query\":\"select * from dist_sensor_dt_result_online limit 10000\",\"user\":\"default\",\"queryId\":\"8aa3de08-92c4-4102-a83d-2f5d88569dab\",\"address\":\"::1\",\"threads\":2}]}",
                         "schema": {
                             "type": "string"
                         }

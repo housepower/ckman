@@ -45,6 +45,8 @@ var MsgFlags = map[int]string{
 	UPDATE_CONFIG_FAIL:          "更新配置失败",
 	GET_ZK_STATUS_FAIL:          "获取Zookeeper状态失败",
 	GET_ZK_TABLE_STATUS_FAIL:    "获取复制表状态失败",
+	GET_CK_OPEN_SESSIONS_FAIL:   "获取ClickHouse进行中的查询失败",
+	GET_CK_SLOW_SESSIONS_FAIL:   "获取ClickHouse慢查询失败",
 
 	UNKNOWN: "unknown",
 }

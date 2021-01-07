@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +18,8 @@ import (
 )
 
 const (
-	ClickHouseClusterPath string = "clusterName"
+	ClickHouseClusterPath  string = "clusterName"
+	ClickHouseSessionLimit int    = 10
 )
 
 type ClickHouseController struct {
@@ -696,4 +698,72 @@ func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
 	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), metrics)
+}
+
+// @Summary 获取ClickHouse正在执行的查询
+// @Description 获取ClickHouse正在执行的查询
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param limit query string false "sessions limit" default(10)
+// @Success 200 {string} json "{"code":200,"msg":"ok","data":[{"startTime":1609997894,"queryDuration":1,"query":"SELECT DISTINCT name FROM system.tables","user":"eoi","queryId":"62dce71d-9294-4e47-9d9b-cf298f73233d","address":"192.168.21.73","threads":2}]}"
+// @Router /api/v1/ck/open_sessions/{clusterName} [get]
+func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
+	var conf model.CKManClickHouseConfig
+	clusterName := c.Param(ClickHouseClusterPath)
+	limit := ClickHouseSessionLimit
+	limitStr := c.Query("limit")
+	if limitStr != "" {
+		limit, _ = strconv.Atoi(limitStr)
+	}
+
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(model.GET_CK_OPEN_SESSIONS_FAIL),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	conf = con.(model.CKManClickHouseConfig)
+	sessions, err := clickhouse.GetCkOpenSessions(&conf, limit)
+	if err != nil {
+		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(model.GET_CK_OPEN_SESSIONS_FAIL), err.Error())
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), sessions)
+}
+
+// @Summary 获取ClickHouse慢查询
+// @Description 获取ClickHouse慢查询
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param limit query string false "sessions limit" default(10)
+// @Success 200 {string} json "{"code":200,"msg":"ok","data":[{"startTime":1609986493,"queryDuration":145,"query":"select * from dist_sensor_dt_result_online limit 10000","user":"default","queryId":"8aa3de08-92c4-4102-a83d-2f5d88569dab","address":"::1","threads":2}]}"
+// @Router /api/v1/ck/slow_sessions/{clusterName} [get]
+func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
+	var conf model.CKManClickHouseConfig
+	clusterName := c.Param(ClickHouseClusterPath)
+	limit := ClickHouseSessionLimit
+	limitStr := c.Query("limit")
+	if limitStr != "" {
+		limit, _ = strconv.Atoi(limitStr)
+	}
+
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL, model.GetMsg(model.GET_CK_SLOW_SESSIONS_FAIL),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	conf = con.(model.CKManClickHouseConfig)
+	sessions, err := clickhouse.GetCkSlowSessions(&conf, limit)
+	if err != nil {
+		model.WrapMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL, model.GetMsg(model.GET_CK_SLOW_SESSIONS_FAIL), err.Error())
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), sessions)
 }

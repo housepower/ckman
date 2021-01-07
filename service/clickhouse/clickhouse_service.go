@@ -10,8 +10,10 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -704,4 +706,62 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 	}
 
 	return metrics, nil
+}
+
+func getHostSessions(service *CkService, query string) ([]*model.CkSessionInfo, error) {
+	list := make([]*model.CkSessionInfo, 0)
+
+	value, err := service.QueryInfo(query)
+	if err != nil {
+		return nil, err
+	}
+	for i := 1; i < len(value); i++ {
+		session := new(model.CkSessionInfo)
+		session.StartTime = value[i][0].(time.Time).Unix()
+		session.QueryDuration = value[i][1].(uint64)
+		session.Query = value[i][2].(string)
+		session.User = value[i][3].(string)
+		session.QueryId = value[i][4].(string)
+		session.Address = value[i][5].(net.IP).String()
+		session.Threads = len(value[i][6].([]uint64))
+		list = append(list, session)
+	}
+
+	return list, nil
+}
+
+func getCkSessions(conf *model.CKManClickHouseConfig, limit int, query string) ([]*model.CkSessionInfo, error) {
+	list := make([]*model.CkSessionInfo, 0)
+
+	for _, host := range conf.Hosts {
+		service, err := GetCkNodeService(conf.Cluster, host)
+		if err != nil {
+			return nil, err
+		}
+
+		sessions, err := getHostSessions(service, query)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, sessions...)
+	}
+
+	sort.Sort(model.SessionList(list))
+	if len(list) <= limit {
+		return list, nil
+	} else {
+		return list[:limit], nil
+	}
+}
+
+func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.CkSessionInfo, error) {
+	query := fmt.Sprintf("select subtractSeconds(now(), elapsed) AS query_start_time, toUInt64(elapsed*1000) AS query_duration_ms,  query, initial_user, initial_query_id, initial_address, thread_ids, (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name from system.processes WHERE tbl_name != '' AND tbl_name != 'processes' AND tbl_name != 'query_log' ORDER BY query_duration_ms DESC limit %d", limit)
+
+	return getCkSessions(conf, limit, query)
+}
+
+func GetCkSlowSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.CkSessionInfo, error) {
+	query := fmt.Sprintf("SELECT query_start_time, query_duration_ms, query, initial_user, initial_query_id, initial_address, thread_ids, (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name from system.query_log WHERE tbl_name != '' AND tbl_name != 'query_log' AND tbl_name != 'processes' AND type=2 AND is_initial_query=1 AND query_start_time >= subtractDays(now(), 7) ORDER BY query_duration_ms DESC limit %d", limit)
+
+	return getCkSessions(conf, limit, query)
 }
