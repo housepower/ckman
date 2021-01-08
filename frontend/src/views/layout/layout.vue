@@ -10,7 +10,7 @@
                   class="fs-16 ml-5 user" />
           </div>
           <el-dropdown-menu slot="dropdown">
-            <el-dropdown-item>Login out</el-dropdown-item>
+            <el-dropdown-item @click.native="loginOut">Login out</el-dropdown-item>
           </el-dropdown-menu>
         </el-dropdown>
         <router-link to="/setting">
@@ -56,6 +56,13 @@ export default {
   methods: {
     handleMenuClick(e) {
       console.log(e);
+    },
+    loginOut() {
+      localStorage.removeItem("user");
+      this.$message.success("成功登出");
+      setTimeout(() => {
+        this.$router.push({ path: "/login" });
+      }, 1000);
     },
   },
   watch: {
