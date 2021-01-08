@@ -2,38 +2,54 @@
   <main class="settings">
     <breadcrumb :data="['Clusters', $route.params.id, 'session']"></breadcrumb>
     <section class="container">
-      <div class="total flex flex-between pb-10 flex-vcenter">
-        <div class="left flex-column flex-center ml-30">
+      <div class="total flex flex-end pb-10 flex-vcenter">
+        <!-- <div class="left flex-column flex-center ml-30">
           <span class="fs-28 font-bold">36</span>
           <span class="fs-18 font-bold">Total Open Sessions</span>
-        </div>
+        </div> -->
         <div class="right">
           <time-filter :refreshDuration.sync="refresh"
                        @on-refresh="timeFilterRefresh" />
         </div>
       </div>
-      <div class="tables mt-50">
+      <div class="tables">
         <h3 class="mb-10">Open Sessions</h3>
-        <session-table :list="list" />
+        <session-table :list="openList" />
         <h3 class="mb-10 mt-50">Slow Sessions</h3>
-        <session-table :list="list" />
-      </div>
+        <session-table :list="closeList" />
       </div>
     </section>
   </main>
 </template>
 <script>
 import SessionTable from "./component/sessionTable";
+import { SessionApi } from "@/apis";
 export default {
   data() {
     return {
-      refresh: "30s",
-      list: [],
+      refresh: null,
+      openList: [],
+      closeList: [],
     };
   },
-  mounted() {},
+  mounted() {
+    this.fetchData();
+  },
   methods: {
-    timeFilterRefresh() {},
+    async fetchData() {
+      const id = this.$route.params.id;
+      const {
+        data: { data: openList },
+      } = await SessionApi.open(id);
+      const {
+        data: { data: closeList },
+      } = await SessionApi.close(id);
+      this.openList = openList;
+      this.closeList = closeList;
+    },
+    timeFilterRefresh() {
+      this.fetchData();
+    },
   },
   components: { SessionTable },
 };
@@ -41,6 +57,6 @@ export default {
 
 <style lang="scss" scoped>
 .total {
-  border-bottom: 1px solid #eaeef4;
+  // border-bottom: 1px solid #eaeef4;
 }
 </style>

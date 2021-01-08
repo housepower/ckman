@@ -20,7 +20,7 @@
     </header>
 
     <main class="plr-20 pt-10"
-          style="padding-bottom: 65px">
+          style="padding-bottom: 85px">
       <router-view />
     </main>
     <transition name="el-fade-in-linear"
@@ -61,7 +61,6 @@ export default {
   watch: {
     $route: {
       handler: function (route, prevRoute) {
-        console.log(route);
         this.menus = route.meta === "loader" ? LoaderMenus : Menus;
       },
       immediate: true,

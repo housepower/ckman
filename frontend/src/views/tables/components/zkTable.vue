@@ -45,12 +45,12 @@ export default {
   },
   methods: {
     async fetchData() {
-      this.cols = [""];
-      this.keys = [""];
-      this.tableData = [];
       const {
         data: { data },
       } = await TablesApi.zkStatus(this.$route.params.id);
+      this.cols = [""];
+      this.keys = [""];
+      this.tableData = [];
       data.forEach((item) => {
         this.cols.push(item.host);
         this.keys = pull(Object.keys(item), "host");
