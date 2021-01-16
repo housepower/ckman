@@ -24,8 +24,8 @@ type CmdOptions struct {
 	ChPassword string
 	ChDatabase string
 	ChTables   string
-	TsBegin    string
-	TsEnd      string
+	DtBegin    string
+	DtEnd      string
 	PartitionBy  string
 }
 
@@ -35,8 +35,6 @@ var (
 	BuildTimeStamp string
 	chHosts        []string
 	chTables       []string
-	tsBegin        time.Time
-	tsEnd          time.Time
 	chConns        map[string]*sql.DB
 	cntErrors      int32
 )
@@ -47,9 +45,8 @@ func initCmdOptions() {
 		ShowVer:    false,
 		ChPort:     9000,
 		ChDatabase: "default",
-		TsBegin:    "1970-01-01T00:00:00Z",
-		TsEnd:      "1970-01-01T00:00:00Z",
-		PartitionBy:  "day",
+		DtBegin:    "1970-01-01",
+		DtEnd:      "1970-01-01",
 	}
 
 	// 2. Replace options with the corresponding env variable if present.
@@ -60,8 +57,8 @@ func initCmdOptions() {
 	common.EnvStringVar(&cmdOps.ChPassword, "ch-password")
 	common.EnvStringVar(&cmdOps.ChDatabase, "ch-database")
 	common.EnvStringVar(&cmdOps.ChTables, "ch-tables")
-	common.EnvStringVar(&cmdOps.TsBegin, "ts-begin")
-	common.EnvStringVar(&cmdOps.TsEnd, "ts-end")
+	common.EnvStringVar(&cmdOps.DtBegin, "dt-begin")
+	common.EnvStringVar(&cmdOps.DtEnd, "dt-end")
 
 	// 3. Replace options with the corresponding CLI parameter if present.
 	flag.BoolVar(&cmdOps.ShowVer, "v", cmdOps.ShowVer, "show build version and quit")
@@ -71,9 +68,8 @@ func initCmdOptions() {
 	flag.StringVar(&cmdOps.ChPassword, "ch-password", cmdOps.ChPassword, "clickhouse password")
 	flag.StringVar(&cmdOps.ChDatabase, "ch-database", cmdOps.ChDatabase, "clickhouse database")
 	flag.StringVar(&cmdOps.ChTables, "ch-tables", cmdOps.ChTables, "a list of comma-separated table")
-	flag.StringVar(&cmdOps.TsBegin, "ts-begin", cmdOps.TsBegin, "timestamp begin in ISO8601 format, for example 1970-01-01T00:00:00Z")
-	flag.StringVar(&cmdOps.TsEnd, "ts-end", cmdOps.TsEnd, "timestamp end in ISO8601 format")
-	flag.StringVar(&cmdOps.PartitionBy, "partition-by", cmdOps.PartitionBy, `"month", or "day"`)
+	flag.StringVar(&cmdOps.DtBegin, "dt-begin", cmdOps.DtBegin, "timestamp begin in ISO8601 format, for example 1970-01-01")
+	flag.StringVar(&cmdOps.DtEnd, "dt-end", cmdOps.DtEnd, "timestamp end in ISO8601 format")
 	flag.Parse()
 }
 
@@ -96,18 +92,94 @@ func initConns() (err error) {
 	return
 }
 
-func tsIsTruncated(ts time.Time, duration string) bool{
-	return (duration=="day" && ts.Hour()==0 && ts.Minute()==0 && ts.Second()==0 && ts.Nanosecond()==0) || (duration=="month" && ts.Day()==1 && ts.Hour()==0 && ts.Minute()==0 && ts.Second()==0 && ts.Nanosecond()==0)
+func convToChDate(ts time.Time) string {
+	return ts.Format("2006-01-02")
 }
 
-func convToChTs(ts time.Time) string {
-	return ts.Format("2006-01-02 15:04:05")
-}
+// purgeTable purges specified time range
+func purgeTable(table string) (err error) {
+	var dateExpr []string
+	// ensure the table is partitioned by a Date/DateTime column
+	for _, host := range chHosts {
+		db := chConns[host]
+		var rows *sql.Rows
+		query := fmt.Sprintf("SELECT count(), max(max_date)!='1970-01-01', max(toDate(max_time))!='1970-01-01' FROM system.parts WHERE database='%s' AND table='%s'", cmdOps.ChDatabase, table);
+		log.Infof("host %s: query: %s", host, query)
+		if rows, err = db.Query(query); err != nil {
+			err = errors.Wrapf(err, "")
+			return
+		}
+		defer rows.Close()
+		rows.Next()
+		var i1, i2, i3 int
+		if err = rows.Scan(&i1, &i2, &i3); err != nil {
+			err = errors.Wrapf(err, "")
+			return
+		}
+		if i1==0 {
+			continue
+		} else if i2==0 && i3==0 {
+			err = errors.Errorf("table %s is not partitioned by a Date/DateTime column", table)
+			return
+		} else if i2==1 {
+			dateExpr = []string{"min_date", "max_date"}
+		} else {
+			dateExpr = []string{"toDate(min_time)", "toDate(max_time)"}
+		}
+		break
+	}
+	if len(dateExpr)!=2 {
+		log.Infof("table %s doesn't exist, or is empty", table)
+		return
+	}
 
-func purge(tsBegin, tsEnd time.Time) (err error) {
-	for _, table := range chTables {
-		for _, host := range chHosts {
-			if err = purgeTableHost(tsBegin, tsEnd, table, host); err != nil {
+	// ensure no partition runs across the time range boundary
+	for _, host := range chHosts {
+		db := chConns[host]
+		var rows *sql.Rows
+		query := fmt.Sprintf("SELECT partition FROM (SELECT partition, countIf(%s>='%s' AND %s<'%s') AS c1, countIf(%s<'%s' OR %s>='%s') AS c2 FROM system.parts WHERE database='%s' AND table='%s' GROUP BY partition HAVING c1!=0 AND c2!=0)", dateExpr[0], cmdOps.DtBegin, dateExpr[1], cmdOps.DtEnd, dateExpr[0], cmdOps.DtBegin, dateExpr[1], cmdOps.DtEnd, cmdOps.ChDatabase, table);
+		log.Infof("host %s: query: %s", host, query)
+		if rows, err = db.Query(query); err != nil {
+			err = errors.Wrapf(err, "")
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var patt string
+			if err = rows.Scan(&patt); err != nil {
+				err = errors.Wrapf(err, "")
+				return
+			}
+			err = errors.Errorf("table %s partition %s runs across the time range boundary", table, patt)
+			return
+		}
+	}
+
+	// purge partitions
+	for _, host := range chHosts {
+		db := chConns[host]
+		var rows *sql.Rows
+		query := fmt.Sprintf("SELECT DISTINCT partition FROM system.parts WHERE database='%s' AND table='%s' AND %s>='%s' AND %s<'%s' ORDER BY partition;", cmdOps.ChDatabase, table, dateExpr[0], cmdOps.DtBegin, dateExpr[1], cmdOps.DtEnd)
+		log.Infof("host %s: query: %s", host, query)
+		if rows, err = db.Query(query); err != nil {
+			err = errors.Wrapf(err, "")
+			return
+		}
+		defer rows.Close()
+		var partitions []string
+		for rows.Next() {
+			var patt string
+			if err = rows.Scan(&patt); err != nil {
+				err = errors.Wrapf(err, "")
+				return
+			}
+			partitions = append(partitions, patt)
+		}
+		for _, patt := range partitions {
+			query := fmt.Sprintf("ALTER TABLE %s DROP PARTITION '%s'", table, patt)
+			log.Infof("host %s: query: %s", host, query)
+			if _, err = db.Exec(query); err != nil {
+				err = errors.Wrapf(err, "")
 				return
 			}
 		}
@@ -115,30 +187,10 @@ func purge(tsBegin, tsEnd time.Time) (err error) {
 	return
 }
 
-func purgeTableHost(tsBegin, tsEnd time.Time, table, host string) (err error) {
-	db := chConns[host]
-	var rows *sql.Rows
-	query := fmt.Sprintf("SELECT DISTINCT partition FROM system.parts WHERE database='%s' AND table='%s' AND min_time>='%s' AND max_time<'%s' ORDER BY partition;", cmdOps.ChDatabase, table, convToChTs(tsBegin), convToChTs(tsEnd))
-	log.Infof("host %s: query: %s", host, query)
-	if rows, err = db.Query(query); err != nil {
-		err = errors.Wrapf(err, "")
-		return
-	}
-	defer rows.Close()
-	var partitions []string
-	for rows.Next() {
-		var patt string
-		if err = rows.Scan(&patt); err != nil {
-			err = errors.Wrapf(err, "")
-			return
-		}
-		partitions = append(partitions, patt)
-	}
-	for _, patt := range partitions {
-		query := fmt.Sprintf("ALTER TABLE %s DROP PARTITION '%s'", table, patt)
-		log.Infof("host %s: query: %s", host, query)
-		if _, err = db.Exec(query); err != nil {
-			err = errors.Wrapf(err, "")
+
+func purge() (err error) {
+	for _, table := range chTables {
+		if err = purgeTable(table); err != nil {
 			return
 		}
 	}
@@ -170,17 +222,7 @@ func main() {
 	}
 	chTables = strings.Split(cmdOps.ChTables, ",")
 
-	if tsBegin, err = time.Parse(time.RFC3339, cmdOps.TsBegin); err != nil {
-		log.Fatalf("failed to parse timestamp %s, layout %s", cmdOps.TsBegin, time.RFC3339)
-	}
-	if tsEnd, err = time.Parse(time.RFC3339, cmdOps.TsEnd); err != nil {
-		log.Fatalf("failed to parse timestamp %s, layout %s", cmdOps.TsEnd, time.RFC3339)
-	}
-	if !tsIsTruncated(tsBegin, cmdOps.PartitionBy) || !tsIsTruncated(tsEnd, cmdOps.PartitionBy) {
-		log.Fatalf("tsBegin or tsEnd is not truncated to %s", cmdOps.PartitionBy)
-		return
-	}
-	if err = purge(tsBegin, tsEnd); err != nil {
+	if err = purge(); err != nil {
 		log.Fatalf("got error %+v", err)
 	}
 	log.Infof("purge done")
