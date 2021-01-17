@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	_ "github.com/ClickHouse/clickhouse-go"
 	"github.com/pkg/errors"
@@ -17,16 +16,16 @@ import (
 // purge data of given time range
 
 type CmdOptions struct {
-	ShowVer    bool
-	ChHosts    string
-	ChPort     int
-	ChUser     string
-	ChPassword string
-	ChDatabase string
-	ChTables   string
-	DtBegin    string
-	DtEnd      string
-	PartitionBy  string
+	ShowVer     bool
+	ChHosts     string
+	ChPort      int
+	ChUser      string
+	ChPassword  string
+	ChDatabase  string
+	ChTables    string
+	DtBegin     string
+	DtEnd       string
+	PartitionBy string
 }
 
 var (
@@ -92,10 +91,6 @@ func initConns() (err error) {
 	return
 }
 
-func convToChDate(ts time.Time) string {
-	return ts.Format("2006-01-02")
-}
-
 // purgeTable purges specified time range
 func purgeTable(table string) (err error) {
 	var dateExpr []string
@@ -103,7 +98,7 @@ func purgeTable(table string) (err error) {
 	for _, host := range chHosts {
 		db := chConns[host]
 		var rows *sql.Rows
-		query := fmt.Sprintf("SELECT count(), max(max_date)!='1970-01-01', max(toDate(max_time))!='1970-01-01' FROM system.parts WHERE database='%s' AND table='%s'", cmdOps.ChDatabase, table);
+		query := fmt.Sprintf("SELECT count(), max(max_date)!='1970-01-01', max(toDate(max_time))!='1970-01-01' FROM system.parts WHERE database='%s' AND table='%s'", cmdOps.ChDatabase, table)
 		log.Infof("host %s: query: %s", host, query)
 		if rows, err = db.Query(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -116,19 +111,19 @@ func purgeTable(table string) (err error) {
 			err = errors.Wrapf(err, "")
 			return
 		}
-		if i1==0 {
+		if i1 == 0 {
 			continue
-		} else if i2==0 && i3==0 {
+		} else if i2 == 0 && i3 == 0 {
 			err = errors.Errorf("table %s is not partitioned by a Date/DateTime column", table)
 			return
-		} else if i2==1 {
+		} else if i2 == 1 {
 			dateExpr = []string{"min_date", "max_date"}
 		} else {
 			dateExpr = []string{"toDate(min_time)", "toDate(max_time)"}
 		}
 		break
 	}
-	if len(dateExpr)!=2 {
+	if len(dateExpr) != 2 {
 		log.Infof("table %s doesn't exist, or is empty", table)
 		return
 	}
@@ -137,7 +132,7 @@ func purgeTable(table string) (err error) {
 	for _, host := range chHosts {
 		db := chConns[host]
 		var rows *sql.Rows
-		query := fmt.Sprintf("SELECT partition FROM (SELECT partition, countIf(%s>='%s' AND %s<'%s') AS c1, countIf(%s<'%s' OR %s>='%s') AS c2 FROM system.parts WHERE database='%s' AND table='%s' GROUP BY partition HAVING c1!=0 AND c2!=0)", dateExpr[0], cmdOps.DtBegin, dateExpr[1], cmdOps.DtEnd, dateExpr[0], cmdOps.DtBegin, dateExpr[1], cmdOps.DtEnd, cmdOps.ChDatabase, table);
+		query := fmt.Sprintf("SELECT partition FROM (SELECT partition, countIf(%s>='%s' AND %s<'%s') AS c1, countIf(%s<'%s' OR %s>='%s') AS c2 FROM system.parts WHERE database='%s' AND table='%s' GROUP BY partition HAVING c1!=0 AND c2!=0)", dateExpr[0], cmdOps.DtBegin, dateExpr[1], cmdOps.DtEnd, dateExpr[0], cmdOps.DtBegin, dateExpr[1], cmdOps.DtEnd, cmdOps.ChDatabase, table)
 		log.Infof("host %s: query: %s", host, query)
 		if rows, err = db.Query(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -186,7 +181,6 @@ func purgeTable(table string) (err error) {
 	}
 	return
 }
-
 
 func purge() (err error) {
 	for _, table := range chTables {

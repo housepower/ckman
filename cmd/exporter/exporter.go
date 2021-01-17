@@ -26,10 +26,10 @@ type CmdOptions struct {
 	ChPort      int
 	ChUser      string
 	ChPassword  string
-	ChDatabase string
+	ChDatabase  string
 	ChTables    string
-	TsBegin     string
-	TsEnd       string
+	DtBegin     string
+	DtEnd       string
 	MaxFileSize int
 	HdfsAddr    string
 	HdfsUser    string
@@ -42,16 +42,18 @@ var (
 	GitCommitHash  string
 	BuildTimeStamp string
 	chHosts        []string
-	chTables       map[string]string
-	tsBegin        time.Time
-	tsEnd          time.Time
+	chTables       []string
 	hdfsDir        string
-	tryIntervals   = []string{"1 year", "1 month", "1 week", "1 day", "4 hour", "1 hour"}
-	chConns        map[string]*sql.DB
-	globalPool     *common.WorkerPool
-	wg             sync.WaitGroup
-	cntErrors      int32
-	estSize        uint64
+
+	tryDateIntervals     = []string{"1 year", "1 month", "1 week", "1 day"}
+	tryDateTimeIntervals = []string{"1 year", "1 month", "1 week", "1 day", "4 hour", "1 hour"}
+
+	chConns    map[string]*sql.DB
+	pattInfo   map[string][]string // table -> Date/DateTime column, type
+	globalPool *common.WorkerPool
+	wg         sync.WaitGroup
+	cntErrors  int32
+	estSize    uint64
 )
 
 func initCmdOptions() {
@@ -60,7 +62,7 @@ func initCmdOptions() {
 		ShowVer:     false,
 		ChPort:      9000,
 		ChDatabase:  "default",
-		TsBegin:     "1970-01-01T00:00:00Z",
+		DtBegin:     "1970-01-01",
 		MaxFileSize: 1e10, //10GB, Parquet files need be small, nearly equal size
 		Parallelism: 4,    // >=4 is capable of saturating HDFS cluster(3 DataNodes with HDDs) write bandwidth 150MB/s
 	}
@@ -73,8 +75,8 @@ func initCmdOptions() {
 	common.EnvStringVar(&cmdOps.ChPassword, "ch-password")
 	common.EnvStringVar(&cmdOps.ChDatabase, "ch-database")
 	common.EnvStringVar(&cmdOps.ChTables, "ch-tables")
-	common.EnvStringVar(&cmdOps.TsBegin, "ts-begin")
-	common.EnvStringVar(&cmdOps.TsEnd, "ts-end")
+	common.EnvStringVar(&cmdOps.DtBegin, "dt-begin")
+	common.EnvStringVar(&cmdOps.DtEnd, "dt-end")
 	common.EnvIntVar(&cmdOps.MaxFileSize, "max-file-size")
 	common.EnvStringVar(&cmdOps.HdfsAddr, "hdfs-addr")
 	common.EnvStringVar(&cmdOps.HdfsUser, "hdfs-user")
@@ -87,9 +89,9 @@ func initCmdOptions() {
 	flag.StringVar(&cmdOps.ChUser, "ch-user", cmdOps.ChUser, "clickhouse user")
 	flag.StringVar(&cmdOps.ChPassword, "ch-password", cmdOps.ChPassword, "clickhouse password")
 	flag.StringVar(&cmdOps.ChDatabase, "ch-database", cmdOps.ChDatabase, "clickhouse database")
-	flag.StringVar(&cmdOps.ChTables, "ch-tables", cmdOps.ChTables, "a list of comma-separated table:timestamp_column")
-	flag.StringVar(&cmdOps.TsBegin, "ts-begin", cmdOps.TsBegin, "timestamp begin(inclusive) in ISO8601 format, for example 1970-01-01T00:00:00Z")
-	flag.StringVar(&cmdOps.TsEnd, "ts-end", cmdOps.TsEnd, "timestamp end(exclusive) in ISO8601 format")
+	flag.StringVar(&cmdOps.ChTables, "ch-tables", cmdOps.ChTables, "a list of comma-separated table")
+	flag.StringVar(&cmdOps.DtBegin, "dt-begin", cmdOps.DtBegin, "date begin(inclusive) in ISO8601 format, for example 1970-01-01")
+	flag.StringVar(&cmdOps.DtEnd, "dt-end", cmdOps.DtEnd, "date end(exclusive) in ISO8601 format")
 	flag.IntVar(&cmdOps.MaxFileSize, "max-file-size", cmdOps.MaxFileSize, "max parquet file size")
 
 	flag.StringVar(&cmdOps.HdfsAddr, "hdfs-addr", cmdOps.HdfsAddr, "hdfs_name_node_ip:port")
@@ -135,8 +137,51 @@ func selectUint64(host, query string) (res uint64, err error) {
 	return
 }
 
-func convToChTs(ts time.Time) string {
-	return ts.Format("2006-01-02 15:04:05")
+func getSortingInfo() (err error) {
+	pattInfo = make(map[string][]string)
+	for _, table := range chTables {
+		var name, typ string
+		for _, host := range chHosts {
+			db := chConns[host]
+			var rows *sql.Rows
+			query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type IN ('Date', 'DateTime')", cmdOps.ChDatabase, table)
+			log.Infof("host %s: query: %s", host, query)
+			if rows, err = db.Query(query); err != nil {
+				err = errors.Wrapf(err, "")
+				return
+			}
+			defer rows.Close()
+			for rows.Next() {
+				if name != "" {
+					err = errors.Errorf("table %s has multiple Date/DateTime columns in sorting key", table)
+					return
+				}
+				if err = rows.Scan(&name, &typ); err != nil {
+					err = errors.Wrapf(err, "")
+					return
+				}
+				pattInfo[table] = []string{name, typ}
+			}
+			if name != "" {
+				break
+			}
+		}
+	}
+	return
+}
+
+func formatDate(dt, typ string) string {
+	if typ == "DateTime" {
+		return fmt.Sprintf("toDateTime('%s')", dt)
+	}
+	return fmt.Sprintf("'%s'", dt)
+}
+
+func formatTimestamp(ts time.Time, typ string) string {
+	if typ == "DateTime" {
+		return fmt.Sprintf("'%s'", ts.Format("2006-01-02"))
+	}
+	return fmt.Sprintf("'%s'", ts.Format("2006-01-02 15:04:05"))
 }
 
 // https://www.slideshare.net/databricks/the-parquet-format-and-performance-optimization-opportunities
@@ -164,20 +209,27 @@ func getSlots(host, table string) (slots []time.Time, err error) {
 	var slot time.Time
 	db := chConns[host]
 
-	tsColumn := chTables[table]
+	colName := pattInfo[table][0]
+	colType := pattInfo[table][1]
 	var totalRowsCnt uint64
-	if totalRowsCnt, err = selectUint64(host, fmt.Sprintf("SELECT count() FROM %s WHERE `%s`>='%s' AND `%s`<'%s'", table, tsColumn, convToChTs(tsBegin), tsColumn, convToChTs(tsEnd))); err != nil {
+	if totalRowsCnt, err = selectUint64(host, fmt.Sprintf("SELECT count() FROM %s WHERE `%s`>=%s AND `%s`<%s", table, colName, formatDate(cmdOps.DtBegin, colType), colName, formatDate(cmdOps.DtEnd, colType))); err != nil {
 		return
 	}
 	tblEstSize := totalRowsCnt * uint64(sizePerRow)
 	log.Infof("host %s: totol rows to export: %d, estimated size (in bytes): %d", host, totalRowsCnt, tblEstSize)
 	atomic.AddUint64(&estSize, tblEstSize)
 
-	sqlTmpl3 := "SELECT toStartOfInterval(`%s`, INTERVAL %s) AS slot, count() FROM %s WHERE `%s`>='%s' AND `%s`<'%s' GROUP BY slot ORDER BY slot"
+	sqlTmpl3 := "SELECT toStartOfInterval(`%s`, INTERVAL %s) AS slot, count() FROM %s WHERE `%s`>=%s AND `%s`<%s GROUP BY slot ORDER BY slot"
+	var tryIntervals []string
+	if colType == "Date" {
+		tryIntervals = tryDateIntervals
+	} else {
+		tryIntervals = tryDateTimeIntervals
+	}
 	for i, interval := range tryIntervals {
 		slots = slots[:0]
 		var rows1 *sql.Rows
-		query1 := fmt.Sprintf(sqlTmpl3, tsColumn, interval, table, tsColumn, convToChTs(tsBegin), tsColumn, convToChTs(tsEnd))
+		query1 := fmt.Sprintf(sqlTmpl3, colName, interval, table, formatDate(cmdOps.DtBegin, colType), colName, formatDate(cmdOps.DtEnd, colType))
 		log.Infof("host %s: query: %s", host, query1)
 		if rows1, err = db.Query(query1); err != nil {
 			err = errors.Wrapf(err, "")
@@ -212,8 +264,8 @@ func export(host, table string, slots []time.Time) {
 		if i != len(slots)-1 {
 			slotEnd = slots[i+1]
 		} else {
-			if slotEnd, err = time.Parse(time.RFC3339, cmdOps.TsEnd); err != nil {
-				panic(fmt.Sprintf("BUG: failed to parse %s, layout %s", cmdOps.TsEnd, time.RFC3339))
+			if slotEnd, err = time.Parse(time.RFC3339, cmdOps.DtEnd); err != nil {
+				panic(fmt.Sprintf("BUG: failed to parse %s, layout %s", cmdOps.DtEnd, time.RFC3339))
 			}
 		}
 		exportSlot(host, table, i, slotBeg, slotEnd)
@@ -222,7 +274,8 @@ func export(host, table string, slots []time.Time) {
 }
 
 func exportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {
-	tsColumn := chTables[table]
+	colName := pattInfo[table][0]
+	colType := pattInfo[table][1]
 	wg.Add(1)
 	globalPool.Submit(func() {
 		defer wg.Done()
@@ -231,7 +284,7 @@ func exportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {
 		queries := []string{
 			fmt.Sprintf("DROP TABLE IF EXISTS %s", hdfsTbl),
 			fmt.Sprintf("CREATE TABLE %s AS %s ENGINE=HDFS('hdfs://%s%s', 'Parquet')", hdfsTbl, table, cmdOps.HdfsAddr, fp),
-			fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>='%s' AND `%s`<'%s'", hdfsTbl, table, tsColumn, convToChTs(slotBeg), tsColumn, convToChTs(slotEnd)),
+			fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>=%s AND `%s`<%s", hdfsTbl, table, colName, formatTimestamp(slotBeg, colType), colName, formatTimestamp(slotEnd, colType)),
 			fmt.Sprintf("DROP TABLE %s", hdfsTbl),
 		}
 		db := chConns[host]
@@ -273,24 +326,13 @@ func main() {
 	if err = initConns(); err != nil {
 		log.Fatalf("got error %+v", err)
 	}
-	chTables = make(map[string]string)
-	for _, tableSpec := range strings.Split(cmdOps.ChTables, ",") {
-		tokens := strings.SplitN(tableSpec, ":", 2)
-		if len(tokens) != 2 {
-			log.Fatalf("failed to parse table spec %s", tableSpec)
-		}
-		chTables[tokens[0]] = tokens[1]
-	}
 
-	if tsBegin, err = time.Parse(time.RFC3339, cmdOps.TsBegin); err != nil {
-		log.Fatalf("failed to parse timestamp %s, layout %s", cmdOps.TsBegin, time.RFC3339)
-	}
-	if tsEnd, err = time.Parse(time.RFC3339, cmdOps.TsEnd); err != nil {
-		log.Fatalf("failed to parse timestamp %s, layout %s", cmdOps.TsEnd, time.RFC3339)
+	if err = getSortingInfo(); err != nil {
+		log.Fatalf("got error %+v", err)
 	}
 
 	globalPool = common.NewWorkerPool(cmdOps.Parallelism, len(chConns))
-	dir := tsBegin.Format("20060102150405") + "_" + tsEnd.Format("20060102150405")
+	dir := cmdOps.DtBegin + "_" + cmdOps.DtEnd
 	hdfsDir = filepath.Join(cmdOps.HdfsDir, dir)
 	var hc *hdfs.Client
 	if hc, err = hdfs.New(cmdOps.HdfsAddr); err != nil {
@@ -313,7 +355,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			var slots []time.Time
-			for table := range chTables {
+			for _, table := range chTables {
 				if slots, err = getSlots(host, table); err != nil {
 					log.Fatalf("host %s: got error %+v", host, err)
 				}
