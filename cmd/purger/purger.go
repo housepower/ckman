@@ -68,8 +68,8 @@ func initCmdOptions() {
 	flag.StringVar(&cmdOps.ChPassword, "ch-password", cmdOps.ChPassword, "clickhouse password")
 	flag.StringVar(&cmdOps.ChDatabase, "ch-database", cmdOps.ChDatabase, "clickhouse database")
 	flag.StringVar(&cmdOps.ChTables, "ch-tables", cmdOps.ChTables, "a list of comma-separated table")
-	flag.StringVar(&cmdOps.DtBegin, "dt-begin", cmdOps.DtBegin, "timestamp begin in ISO8601 format, for example 1970-01-01")
-	flag.StringVar(&cmdOps.DtEnd, "dt-end", cmdOps.DtEnd, "timestamp end in ISO8601 format")
+	flag.StringVar(&cmdOps.DtBegin, "dt-begin", cmdOps.DtBegin, "date begin(inclusive) in ISO8601 format, for example 1970-01-01")
+	flag.StringVar(&cmdOps.DtEnd, "dt-end", cmdOps.DtEnd, "date end(exclusive) in ISO8601 format")
 	flag.Parse()
 }
 
