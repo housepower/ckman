@@ -64,7 +64,9 @@ func initCmdOptions() {
 		ChDatabase:  "default",
 		DtBegin:     "1970-01-01",
 		MaxFileSize: 1e10, //10GB, Parquet files need be small, nearly equal size
-		Parallelism: 4,    // >=4 is capable of saturating HDFS cluster(3 DataNodes with HDDs) write bandwidth 150MB/s
+		HdfsUser:    "root",
+		HdfsDir:     "",
+		Parallelism: 4, // >=4 is capable of saturating HDFS cluster(3 DataNodes with HDDs) write bandwidth 150MB/s
 	}
 
 	// 2. Replace options with the corresponding env variable if present.
@@ -94,11 +96,16 @@ func initCmdOptions() {
 	flag.StringVar(&cmdOps.DtEnd, "dt-end", cmdOps.DtEnd, "date end(exclusive) in ISO8601 format")
 	flag.IntVar(&cmdOps.MaxFileSize, "max-file-size", cmdOps.MaxFileSize, "max parquet file size")
 
-	flag.StringVar(&cmdOps.HdfsAddr, "hdfs-addr", cmdOps.HdfsAddr, "hdfs_name_node_ip:port")
+	flag.StringVar(&cmdOps.HdfsAddr, "hdfs-addr", cmdOps.HdfsAddr, "hdfs_name_node_active_ip:port")
 	flag.StringVar(&cmdOps.HdfsUser, "hdfs-user", cmdOps.HdfsUser, "hdfs user")
-	flag.StringVar(&cmdOps.HdfsDir, "hdfs-dir", cmdOps.HdfsDir, "hdfs dir, under which a subdirectory will be created according to the given timestamp range")
+	flag.StringVar(&cmdOps.HdfsDir, "hdfs-dir", cmdOps.HdfsDir, "hdfs dir, under which a subdirectory will be created according to the given timestamp range, defaults to /user/<hdfs-user>")
 	flag.IntVar(&cmdOps.Parallelism, "parallelism", cmdOps.Parallelism, "how many time slots are allowed to export to HDFS at the same time")
 	flag.Parse()
+
+	// 4. Normalization
+	if cmdOps.HdfsDir == "" || cmdOps.HdfsDir == "." {
+		cmdOps.HdfsDir = fmt.Sprintf("/user/%s", cmdOps.HdfsUser)
+	}
 }
 
 func initConns() (err error) {
@@ -334,8 +341,12 @@ func main() {
 	globalPool = common.NewWorkerPool(cmdOps.Parallelism, len(chConns))
 	dir := cmdOps.DtBegin + "_" + cmdOps.DtEnd
 	hdfsDir = filepath.Join(cmdOps.HdfsDir, dir)
+	ops := hdfs.ClientOptions{
+		Addresses: []string{cmdOps.HdfsAddr},
+		User:      cmdOps.HdfsUser,
+	}
 	var hc *hdfs.Client
-	if hc, err = hdfs.New(cmdOps.HdfsAddr); err != nil {
+	if hc, err = hdfs.NewClient(ops); err != nil {
 		err = errors.Wrapf(err, "")
 		log.Fatalf("got error %+v", err)
 	}
@@ -347,6 +358,7 @@ func main() {
 		err = errors.Wrapf(err, "")
 		log.Fatalf("got error %+v", err)
 	}
+	log.Infof("cleared hdfs directory %s", hdfsDir)
 
 	t0 := time.Now()
 	for i := 0; i < len(chHosts); i++ {
