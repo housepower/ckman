@@ -1241,6 +1241,10 @@ var doc = `{
                     "type": "string",
                     "example": "default"
                 },
+                "distinct": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "fields": {
                     "type": "array",
                     "items": {

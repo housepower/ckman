@@ -6,6 +6,7 @@ type CreateCkTableReq struct {
 	Fields    []CkTableNameType `json:"fields"`
 	Order     []string          `json:"order" example:"_timestamp"`
 	Partition CkTablePartition  `json:"partition"`
+	Distinct  bool              `json:"distinct" example:"true"`
 }
 
 type CkTableNameType struct {
@@ -25,8 +26,10 @@ const (
 	CkTablePartitionPolicyDay int = iota
 	CkTablePartitionPolicyWeek
 	CkTablePartitionPolicyMonth
-	ClickHouseDefaultEngine        string = "ReplacingMergeTree"
-	ClickHouseReplicaDefaultEngine string = "ReplicatedReplacingMergeTree"
+	ClickHouseDefaultEngine          string = "MergeTree"
+	ClickHouseDefaultReplicaEngine   string = "ReplicatedMergeTree"
+	ClickHouseReplacingEngine        string = "ReplacingMergeTree"
+	ClickHouseReplicaReplacingEngine string = "ReplicatedReplacingMergeTree"
 )
 
 type CreateCkTableParams struct {

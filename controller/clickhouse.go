@@ -175,9 +175,17 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	params.Order = req.Order
 	params.Partition = req.Partition
 	if ckService.Config.IsReplica {
-		params.Engine = model.ClickHouseReplicaDefaultEngine
+		if req.Distinct {
+			params.Engine = model.ClickHouseReplicaReplacingEngine
+		} else {
+			params.Engine = model.ClickHouseDefaultReplicaEngine
+		}
 	} else {
-		params.Engine = model.ClickHouseDefaultEngine
+		if req.Distinct {
+			params.Engine = model.ClickHouseReplacingEngine
+		} else {
+			params.Engine = model.ClickHouseDefaultEngine
+		}
 	}
 	if params.DB == "" {
 		params.DB = ckService.Config.DB

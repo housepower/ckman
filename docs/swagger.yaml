@@ -153,6 +153,9 @@ definitions:
       database:
         example: default
         type: string
+      distinct:
+        example: true
+        type: boolean
       fields:
         items:
           $ref: '#/definitions/model.CkTableNameType'

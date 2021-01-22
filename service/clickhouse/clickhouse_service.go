@@ -361,7 +361,7 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	create := fmt.Sprintf(`CREATE TABLE %s.%s ON CLUSTER %s (%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)`,
 		params.DB, params.Name, params.Cluster, strings.Join(columns, ","), params.Engine,
 		partition, strings.Join(params.Order, ","))
-	if params.Engine == model.ClickHouseReplicaDefaultEngine {
+	if params.Engine == model.ClickHouseDefaultReplicaEngine || params.Engine == model.ClickHouseReplicaReplacingEngine {
 		create = fmt.Sprintf(`CREATE TABLE %s.%s ON CLUSTER %s (%s) ENGINE = %s('/clickhouse/tables/{cluster}/{shard}/%s', '{replica}') PARTITION BY %s ORDER BY (%s)`,
 			params.DB, params.Name, params.Cluster, strings.Join(columns, ","), params.Engine, params.Name,
 			partition, strings.Join(params.Order, ","))
