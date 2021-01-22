@@ -16,10 +16,12 @@ type CKManConfig struct {
 	Server     CKManServerConfig
 	Log        CKManLogConfig
 	Prometheus CKManPrometheusConfig
+	Nacos      CKManNacosConfig
 }
 
 type CKManServerConfig struct {
 	Id             int
+	Bind           string
 	Ip             string
 	Port           int
 	Https          bool
@@ -46,8 +48,17 @@ type CKManPprofConfig struct {
 	Port    int
 }
 
+type CKManNacosConfig struct {
+	Enabled   bool
+	Hosts     []string
+	Port      uint64
+	UserName  string `yaml:"user_name"`
+	Password  string
+	Namespace string
+}
+
 func fillDefault(c *CKManConfig) {
-	c.Server.Ip = "0.0.0.0"
+	c.Server.Bind = "0.0.0.0"
 	c.Server.Port = 8808
 	c.Server.SessionTimeout = 3600
 	c.Server.Pprof = true

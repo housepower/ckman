@@ -8,6 +8,7 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/server"
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
+	"gitlab.eoitek.net/EOI/ckman/service/nacos"
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
 	"gitlab.eoitek.net/EOI/ckman/service/zookeeper"
 	"gopkg.in/sevlyar/go-daemon.v0"
@@ -72,12 +73,21 @@ func main() {
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
 
 	signalCh := make(chan os.Signal, 1)
+	nacosClient, err := nacos.InitNacosClient(&config.GlobalConfig.Nacos, LogFilePath, nacos.NacosDefaultGroupName)
+	if err != nil {
+		log.Logger.Fatalf("Failed to init nacos client, %v", err)
+	}
+	err = nacosClient.Start(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
+	if err != nil {
+		log.Logger.Fatalf("Failed to start nacos client, %v", err)
+	}
+
 	zookeeper.ZkServiceCache = cache.New(time.Hour, time.Minute)
 	// create prometheus service
 	prom := prometheus.NewPrometheusService(&config.GlobalConfig.Prometheus)
 
 	// parse brokers file
-	err := clickhouse.UnmarshalClusters()
+	err = clickhouse.UnmarshalClusters()
 	if err != nil {
 		log.Logger.Fatalf("parse brokers file fail: %v", err)
 	}
@@ -87,7 +97,7 @@ func main() {
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}
-	log.Logger.Infof("start http server %s:%d success", config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
+	log.Logger.Infof("start http server %s:%d success", config.GlobalConfig.Server.Bind, config.GlobalConfig.Server.Port)
 
 	//block here, waiting for terminal signal
 	handleSignal(signalCh, svr)
