@@ -21,6 +21,7 @@ import (
 const (
 	DefaultPackageDirectory string = "package"
 	FormPackageFieldName    string = "package"
+	InitialByClusterPeer    string = "is_initial_by_cluster_peer"
 )
 
 type PackageController struct {
@@ -50,27 +51,22 @@ func (p *PackageController) Upload(c *gin.Context) {
 	}
 
 	reqFromPeer := false
-	requestIP := c.ClientIP()
-	for _, peer := range p.config.Server.Peers {
-		if strings.Compare(requestIP, peer) == 0 {
-			reqFromPeer = true
-			break
-		}
+	ret := c.GetHeader(InitialByClusterPeer)
+	if ret == "true" {
+		reqFromPeer = true
 	}
-
-	// 防止相互传，进入死循环
 	if !reqFromPeer {
-		for _, peer := range p.config.Server.Peers {
+		for _, peer := range config.GetClusterPeers() {
 			peerUrl := ""
 			if p.config.Server.Https {
-				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package", peer, p.config.Server.Port)
+				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package", peer.Ip, peer.Port)
 				err = UploadFileByURL(peerUrl, localFile)
 				if err != nil {
 					model.WrapMsg(c, model.UPLOAD_PEER_PACKAGE_FAIL, model.GetMsg(model.UPLOAD_PEER_PACKAGE_FAIL), err.Error())
 					return
 				}
 			} else {
-				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package", peer, p.config.Server.Port)
+				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package", peer.Ip, peer.Port)
 				err = UploadFileByURL(peerUrl, localFile)
 				if err != nil {
 					model.WrapMsg(c, model.UPLOAD_PEER_PACKAGE_FAIL, model.GetMsg(model.UPLOAD_PEER_PACKAGE_FAIL), err.Error())
@@ -138,6 +134,7 @@ func UploadFileByURL(url string, localFile string) error {
 		return err
 	}
 	request.Header.Add("Content-Type", writer.FormDataContentType())
+	request.Header.Add(InitialByClusterPeer, "true")
 
 	client := &http.Client{}
 	response, err := client.Do(request)
@@ -254,27 +251,23 @@ func (p *PackageController) Delete(c *gin.Context) {
 	}
 
 	reqFromPeer := false
-	requestIP := c.ClientIP()
-	for _, peer := range p.config.Server.Peers {
-		if strings.Compare(requestIP, peer) == 0 {
-			reqFromPeer = true
-			break
-		}
+	ret := c.GetHeader(InitialByClusterPeer)
+	if ret == "true" {
+		reqFromPeer = true
 	}
 
-	// 防止循环删除
 	if !reqFromPeer {
-		for _, peer := range p.config.Server.Peers {
+		for _, peer := range config.GetClusterPeers() {
 			peerUrl := ""
 			if p.config.Server.Https {
-				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package?packageVersion=%s", peer, p.config.Server.Port, packageVersion)
+				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package?packageVersion=%s", peer.Ip, peer.Port, packageVersion)
 				err := DeleteFileByURL(peerUrl)
 				if err != nil {
 					model.WrapMsg(c, model.DELETE_PEER_PACKAGE_FAIL, model.GetMsg(model.DELETE_PEER_PACKAGE_FAIL), err.Error())
 					return
 				}
 			} else {
-				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package?packageVersion=%s", peer, p.config.Server.Port, packageVersion)
+				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package?packageVersion=%s", peer.Ip, peer.Port, packageVersion)
 				err := DeleteFileByURL(peerUrl)
 				if err != nil {
 					model.WrapMsg(c, model.DELETE_PEER_PACKAGE_FAIL, model.GetMsg(model.DELETE_PEER_PACKAGE_FAIL), err.Error())
@@ -292,6 +285,7 @@ func DeleteFileByURL(url string) error {
 	if err != nil {
 		return err
 	}
+	request.Header.Add(InitialByClusterPeer, "true")
 
 	client := &http.Client{}
 	response, err := client.Do(request)

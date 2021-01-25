@@ -5,11 +5,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v2"
 )
 
 var GlobalConfig CKManConfig
+var ClusterNodes []ClusterNode = nil
+var ClusterMutex sync.RWMutex
+
+type ClusterNode struct {
+	Ip   string `json:"ip"`
+	Port int    `json:"port"`
+}
 
 type CKManConfig struct {
 	ConfigFile string `yaml:"-"`
@@ -26,7 +34,6 @@ type CKManServerConfig struct {
 	Port           int
 	Https          bool
 	Pprof          bool
-	Peers          []string
 	SessionTimeout int `yaml:"session_timeout"`
 }
 
@@ -117,4 +124,16 @@ func GetWorkDirectory() string {
 	}
 
 	return strings.Replace(filepath.Dir(dir), "\\", "/", -1)
+}
+
+func GetClusterPeers() []ClusterNode {
+	list := make([]ClusterNode, 0)
+
+	for index, node := range ClusterNodes {
+		if GlobalConfig.Server.Ip != node.Ip && GlobalConfig.Server.Port != node.Port {
+			list = append(list, ClusterNodes[index])
+		}
+	}
+
+	return list
 }

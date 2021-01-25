@@ -35,7 +35,6 @@ func (cf *ConfigController) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	config.GlobalConfig.Server.Peers = req.Peers
 	config.GlobalConfig.Prometheus.Hosts = req.Prometheus
 
 	if err := config.MarshConfigFile(); err != nil {
@@ -56,7 +55,6 @@ func (cf *ConfigController) UpdateConfig(c *gin.Context) {
 func (cf *ConfigController) GetConfig(c *gin.Context) {
 	var req model.UpdateConfigReq
 
-	req.Peers = config.GlobalConfig.Server.Peers
 	req.Prometheus = config.GlobalConfig.Prometheus.Hosts
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), req)

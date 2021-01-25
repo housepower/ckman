@@ -9,6 +9,7 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 	"gitlab.eoitek.net/EOI/ckman/config"
+	"gitlab.eoitek.net/EOI/ckman/log"
 	"path/filepath"
 )
 
@@ -137,7 +138,12 @@ func (c *NacosClient) Start(ipHttp string, portHttp int) error {
 		return nil
 	}
 
-	_, err := c.RegisterInstance(ipHttp, portHttp, nil)
+	err := c.Subscribe()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.RegisterInstance(ipHttp, portHttp, nil)
 	if err != nil {
 		return err
 	}
@@ -155,6 +161,60 @@ func (c *NacosClient) Stop(ip string, port int) error {
 		return err
 	}
 
+	err = c.Unsubscribe()
+	if err != nil {
+		return err
+	}
+
 	c.Naming = nil
 	return nil
+}
+
+func (c *NacosClient) Subscribe() error {
+	if c.Naming != nil {
+		// SelectInstances only return the instances of healthy=${HealthyOnly},enable=true and weight>0
+		return c.Naming.Subscribe(&vo.SubscribeParam{
+			ServiceName:       c.ServiceName,
+			GroupName:         c.GroupName, // default value is DEFAULT_GROUP
+			SubscribeCallback: c.SubscribeCallback,
+		})
+	} else {
+		return fmt.Errorf("naming client is nil")
+	}
+}
+
+func (c *NacosClient) SubscribeCallback(services []model.SubscribeService, err error) {
+	log.Logger.Infof("service %s group %s changed", c.ServiceName, c.GroupName)
+	instances, err := c.GetAllInstances()
+	if err != nil {
+		log.Logger.Errorf("get instances fail: %v", err)
+		return
+	}
+
+	// 获取集群里的所有cell节点
+	config.ClusterMutex.Lock()
+	defer config.ClusterMutex.Unlock()
+	config.ClusterNodes = make([]config.ClusterNode, 0)
+	for _, instance := range instances {
+		node := config.ClusterNode{
+			Ip:   instance.Ip,
+			Port: int(instance.Port),
+		}
+		config.ClusterNodes = append(config.ClusterNodes, node)
+	}
+
+	log.Logger.Infof("nacos instances %v", config.ClusterNodes)
+}
+
+func (c *NacosClient) Unsubscribe() error {
+	if c.Naming != nil {
+		// SelectInstances only return the instances of healthy=${HealthyOnly},enable=true and weight>0
+		return c.Naming.Unsubscribe(&vo.SubscribeParam{
+			ServiceName:       c.ServiceName,
+			GroupName:         c.GroupName, // default value is DEFAULT_GROUP
+			SubscribeCallback: c.SubscribeCallback,
+		})
+	} else {
+		return fmt.Errorf("naming client is nil")
+	}
 }
