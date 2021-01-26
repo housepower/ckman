@@ -165,6 +165,14 @@ func ginLoggerToFile() gin.HandlerFunc {
 
 func ginJWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// use private token to authenticate, it support HA and never timeout
+		// it has higher priority than jwt
+		auth := c.Request.Header.Get("Authorization")
+		if config.GlobalConfig.Server.Token != "" && auth == config.GlobalConfig.Server.Token {
+			return
+		}
+
+		// jwt
 		token := c.Request.Header.Get("token")
 		if token == "" {
 			model.WrapMsg(c, model.JWT_TOKEN_NONE, model.GetMsg(model.JWT_TOKEN_NONE), nil)

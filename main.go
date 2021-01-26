@@ -77,7 +77,7 @@ func main() {
 	if err != nil {
 		log.Logger.Fatalf("Failed to init nacos client, %v", err)
 	}
-	err = nacosClient.Start(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
+	err = nacosClient.Start(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port, config.GlobalConfig.Server.Token)
 	if err != nil {
 		log.Logger.Fatalf("Failed to start nacos client, %v", err)
 	}

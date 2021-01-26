@@ -133,7 +133,7 @@ func (c *NacosClient) GetAllInstances() ([]model.Instance, error) {
 	}
 }
 
-func (c *NacosClient) Start(ipHttp string, portHttp int) error {
+func (c *NacosClient) Start(ipHttp string, portHttp int, token string) error {
 	if !c.Enabled {
 		return nil
 	}
@@ -143,7 +143,13 @@ func (c *NacosClient) Start(ipHttp string, portHttp int) error {
 		return err
 	}
 
-	_, err = c.RegisterInstance(ipHttp, portHttp, nil)
+	var metadata map[string]string
+	if token != "" {
+		metadata = map[string]string{
+			"token": token,
+		}
+	}
+	_, err = c.RegisterInstance(ipHttp, portHttp, metadata)
 	if err != nil {
 		return err
 	}
