@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/patrickmn/go-cache"
+	"gitlab.eoitek.net/EOI/ckman/service/nacos"
 	"io"
 	"net/http"
 	"os"
@@ -26,17 +27,19 @@ import (
 )
 
 type ApiServer struct {
-	config *config.CKManConfig
-	prom   *prometheus.PrometheusService
-	svr    *http.Server
-	signal chan os.Signal
+	config      *config.CKManConfig
+	prom        *prometheus.PrometheusService
+	nacosClient *nacos.NacosClient
+	svr         *http.Server
+	signal      chan os.Signal
 }
 
-func NewApiServer(config *config.CKManConfig, prom *prometheus.PrometheusService, signal chan os.Signal) *ApiServer {
+func NewApiServer(config *config.CKManConfig, prom *prometheus.PrometheusService, signal chan os.Signal, nacosClient *nacos.NacosClient) *ApiServer {
 	server := &ApiServer{}
 	server.config = config
 	server.prom = prom
 	server.signal = signal
+	server.nacosClient = nacosClient
 	return server
 }
 
@@ -72,7 +75,7 @@ func (server *ApiServer) Start() error {
 	groupApi.Use(ginRefreshTokenExpires())
 	groupApi.PUT("/logout", userController.Logout)
 	groupV1 := groupApi.Group("/v1")
-	router.InitRouterV1(groupV1, server.config, server.prom, server.signal)
+	router.InitRouterV1(groupV1, server.config, server.prom, server.signal, server.nacosClient)
 
 	bind := fmt.Sprintf("%s:%d", server.config.Server.Bind, server.config.Server.Port)
 	server.svr = &http.Server{

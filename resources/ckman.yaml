@@ -7,7 +7,7 @@ server:
   https: false
   pprof: true
   session_timeout: 3600
-  token: wIjoiMTcyLjE2LjEyOC4yMTQifQOPQ3FhNkZSIVkA3WWCJF
+  #token:
 
 log:
   level: INFO

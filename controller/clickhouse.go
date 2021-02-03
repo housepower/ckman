@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"gitlab.eoitek.net/EOI/ckman/service/nacos"
 	"os"
 	"os/exec"
 	"path"
@@ -23,10 +24,13 @@ const (
 )
 
 type ClickHouseController struct {
+	nacosClient *nacos.NacosClient
 }
 
-func NewClickHouseController() *ClickHouseController {
-	ck := &ClickHouseController{}
+func NewClickHouseController(nacosClient *nacos.NacosClient) *ClickHouseController {
+	ck := &ClickHouseController{
+		nacosClient,
+	}
 	return ck
 }
 
@@ -63,8 +67,19 @@ func (ck *ClickHouseController) ImportCk(c *gin.Context) {
 
 	conf.Mode = model.CkClusterImport
 	clickhouse.CkConfigFillDefault(&conf)
+	data, err := ck.nacosClient.GetConfig()
+	if err != nil {
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	}
 	clickhouse.CkClusters.Store(req.Cluster, conf)
-	clickhouse.MarshalClusters()
+	clickhouse.AddCkClusterConfigVersion()
+	buf, _ := clickhouse.MarshalClusters()
+	clickhouse.WriteClusterConfigFile(buf)
+	ck.nacosClient.PublishConfig(string(buf))
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
@@ -102,9 +117,20 @@ func (ck *ClickHouseController) UpdateCk(c *gin.Context) {
 	}
 
 	clickhouse.CkConfigFillDefault(&conf)
+	data, err := ck.nacosClient.GetConfig()
+	if err != nil {
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	}
 	clickhouse.CkClusters.Store(req.Cluster, conf)
 	clickhouse.CkServices.Delete(req.Cluster)
-	clickhouse.MarshalClusters()
+	clickhouse.AddCkClusterConfigVersion()
+	buf, _ := clickhouse.MarshalClusters()
+	clickhouse.WriteClusterConfigFile(buf)
+	ck.nacosClient.PublishConfig(string(buf))
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
@@ -119,9 +145,20 @@ func (ck *ClickHouseController) UpdateCk(c *gin.Context) {
 func (ck *ClickHouseController) DeleteCk(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
+	data, err := ck.nacosClient.GetConfig()
+	if err != nil {
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	}
 	clickhouse.CkClusters.Delete(clusterName)
 	clickhouse.CkServices.Delete(clusterName)
-	clickhouse.MarshalClusters()
+	clickhouse.AddCkClusterConfigVersion()
+	buf, _ := clickhouse.MarshalClusters()
+	clickhouse.WriteClusterConfigFile(buf)
+	ck.nacosClient.PublishConfig(string(buf))
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
@@ -378,8 +415,19 @@ func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
 	}
 
 	conf.Version = packageVersion
+	data, err := ck.nacosClient.GetConfig()
+	if err != nil {
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	}
 	clickhouse.CkClusters.Store(clusterName, conf)
-	clickhouse.MarshalClusters()
+	clickhouse.AddCkClusterConfigVersion()
+	buf, _ := clickhouse.MarshalClusters()
+	clickhouse.WriteClusterConfigFile(buf)
+	ck.nacosClient.PublishConfig(string(buf))
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
@@ -488,7 +536,20 @@ func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
 		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(model.DESTROY_CK_CLUSTER_FAIL), err.Error())
 		return
 	}
+
+	data, err := ck.nacosClient.GetConfig()
+	if err != nil {
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	}
 	clickhouse.CkClusters.Delete(clusterName)
+	clickhouse.AddCkClusterConfigVersion()
+	buf, _ := clickhouse.MarshalClusters()
+	clickhouse.WriteClusterConfigFile(buf)
+	ck.nacosClient.PublishConfig(string(buf))
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
@@ -638,9 +699,20 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 		return
 	}
 
+	data, err := ck.nacosClient.GetConfig()
+	if err != nil {
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	}
 	clickhouse.CkClusters.Store(clusterName, conf)
 	clickhouse.CkServices.Delete(clusterName)
-	clickhouse.MarshalClusters()
+	clickhouse.AddCkClusterConfigVersion()
+	buf, _ := clickhouse.MarshalClusters()
+	clickhouse.WriteClusterConfigFile(buf)
+	ck.nacosClient.PublishConfig(string(buf))
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
@@ -673,9 +745,20 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 		return
 	}
 
+	data, err := ck.nacosClient.GetConfig()
+	if err != nil {
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	}
 	clickhouse.CkClusters.Store(clusterName, conf)
 	clickhouse.CkServices.Delete(clusterName)
-	clickhouse.MarshalClusters()
+	clickhouse.AddCkClusterConfigVersion()
+	buf, _ := clickhouse.MarshalClusters()
+	clickhouse.WriteClusterConfigFile(buf)
+	ck.nacosClient.PublishConfig(string(buf))
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }

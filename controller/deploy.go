@@ -8,16 +8,19 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
+	"gitlab.eoitek.net/EOI/ckman/service/nacos"
 )
 
 type DeployController struct {
 	config *config.CKManConfig
+	nacosClient *nacos.NacosClient
 }
 
-func NewDeployController(config *config.CKManConfig) *DeployController {
-	ck := &DeployController{}
-	ck.config = config
-	return ck
+func NewDeployController(config *config.CKManConfig, nacosClient *nacos.NacosClient) *DeployController {
+	deploy := &DeployController{}
+	deploy.config = config
+	deploy.nacosClient = nacosClient
+	return deploy
 }
 
 func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (int, error) {
@@ -98,8 +101,19 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 	conf := convertCkConfig(&req)
 	conf.Mode = model.CkClusterDeploy
+	data, err := d.nacosClient.GetConfig()
+	if err != nil {
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	}
 	clickhouse.CkClusters.Store(req.ClickHouse.ClusterName, conf)
-	clickhouse.MarshalClusters()
+	clickhouse.AddCkClusterConfigVersion()
+	buf, _ := clickhouse.MarshalClusters()
+	clickhouse.WriteClusterConfigFile(buf)
+	d.nacosClient.PublishConfig(string(buf))
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
 }
 

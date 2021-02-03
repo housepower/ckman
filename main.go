@@ -73,6 +73,12 @@ func main() {
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
 
 	signalCh := make(chan os.Signal, 1)
+	// parse brokers file
+	err := clickhouse.ParseCkClusterConfigFile()
+	if err != nil {
+		log.Logger.Fatalf("parse brokers file fail: %v", err)
+	}
+
 	nacosClient, err := nacos.InitNacosClient(&config.GlobalConfig.Nacos, LogFilePath, nacos.NacosDefaultGroupName)
 	if err != nil {
 		log.Logger.Fatalf("Failed to init nacos client, %v", err)
@@ -86,14 +92,8 @@ func main() {
 	// create prometheus service
 	prom := prometheus.NewPrometheusService(&config.GlobalConfig.Prometheus)
 
-	// parse brokers file
-	err = clickhouse.UnmarshalClusters()
-	if err != nil {
-		log.Logger.Fatalf("parse brokers file fail: %v", err)
-	}
-
 	// start http server
-	svr := server.NewApiServer(&config.GlobalConfig, prom, signalCh)
+	svr := server.NewApiServer(&config.GlobalConfig, prom, signalCh, nacosClient)
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}

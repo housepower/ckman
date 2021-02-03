@@ -10,16 +10,19 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/vo"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/log"
+	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
 	"path/filepath"
 )
 
 var NacosServiceName = "ckman"
 var NacosDefaultGroupName = "DEFAULT_GROUP"
+var NacosDefaultDataId = "data_id"
 
 type NacosClient struct {
 	Enabled     bool
 	ServiceName string
 	GroupName   string
+	DataId      string
 	Naming      naming_client.INamingClient
 	Config      config_client.IConfigClient
 }
@@ -60,26 +63,34 @@ func InitNacosClient(config *config.CKManNacosConfig, log string, group string) 
 		}
 
 		// Create naming client for service discovery
-		namingClient, err := clients.CreateNamingClient(map[string]interface{}{
-			"serverConfigs": serverConfigs,
-			"clientConfig":  clientConfig,
-		})
+		namingClient, err := clients.NewNamingClient(
+			vo.NacosClientParam{
+				ClientConfig:  &clientConfig,
+				ServerConfigs: serverConfigs,
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
 
-		//Create config client for dynamic configuration
-		//configClient, err := clients.CreateConfigClient(map[string]interface{}{
-		//	"serverConfigs": serverConfigs,
-		//	"clientConfig":  clientConfig,
-		//}
+		// Create config client for dynamic configuration
+		configClient, err := clients.NewConfigClient(
+			vo.NacosClientParam{
+				ClientConfig:  &clientConfig,
+				ServerConfigs: serverConfigs,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
 
 		return &NacosClient{
 			Enabled:     true,
 			ServiceName: NacosServiceName,
 			GroupName:   group,
+			DataId:      NacosDefaultDataId,
 			Naming:      namingClient,
-			Config:      nil,
+			Config:      configClient,
 		}, nil
 	}
 
@@ -143,6 +154,11 @@ func (c *NacosClient) Start(ipHttp string, portHttp int, token string) error {
 		return err
 	}
 
+	err = c.ListenConfig()
+	if err != nil {
+		return err
+	}
+
 	var metadata map[string]string
 	if token != "" {
 		metadata = map[string]string{
@@ -172,8 +188,70 @@ func (c *NacosClient) Stop(ip string, port int) error {
 		return err
 	}
 
+	if c.Config != nil {
+		err = c.Config.CancelListenConfig(vo.ConfigParam{
+			DataId: c.DataId,
+			Group:  c.GroupName,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	c.Naming = nil
+	c.Config = nil
 	return nil
+}
+
+func (c *NacosClient) PublishConfig(content string) error {
+	if c.Config != nil {
+		_, err := c.Config.PublishConfig(vo.ConfigParam{
+			DataId:  c.DataId,
+			Group:   c.GroupName,
+			Content: content,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *NacosClient) GetConfig() (string, error) {
+	if c.Config != nil {
+		content, err := c.Config.GetConfig(vo.ConfigParam{
+			DataId: c.DataId,
+			Group:  c.GroupName})
+		if err != nil && err.Error() != "config not found" {
+			return "", err
+		} else {
+			return content, nil
+		}
+	}
+
+	return "", nil
+}
+
+func (c *NacosClient) ListenConfig() error {
+	if c.Config != nil {
+		err := c.Config.ListenConfig(vo.ConfigParam{
+			DataId:   c.DataId,
+			Group:    c.GroupName,
+			OnChange: ListenConfigCallback,
+		})
+		return err
+	}
+
+	return nil
+}
+
+func ListenConfigCallback(namespace, group, dataId, data string) {
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+		buf, _ := clickhouse.MarshalClusters()
+		clickhouse.WriteClusterConfigFile(buf)
+	}
 }
 
 func (c *NacosClient) Subscribe() error {

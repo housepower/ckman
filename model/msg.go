@@ -47,6 +47,7 @@ var MsgFlags = map[int]string{
 	GET_ZK_TABLE_STATUS_FAIL:    "获取复制表状态失败",
 	GET_CK_OPEN_SESSIONS_FAIL:   "获取ClickHouse进行中的查询失败",
 	GET_CK_SLOW_SESSIONS_FAIL:   "获取ClickHouse慢查询失败",
+	GET_NACOS_CONFIG_FAIL:       "获取Nacos配置失败",
 
 	UNKNOWN: "unknown",
 }

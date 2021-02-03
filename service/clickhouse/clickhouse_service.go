@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/MakeNowJust/heredoc"
+	"github.com/mitchellh/mapstructure"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
@@ -32,6 +33,7 @@ const (
 	ClickHouseQueryFinish            string = "QueryFinish"
 	ClickHouseQueryExStart           string = "ExceptionBeforeStart"
 	ClickHouseQueryExProcessing      string = "ExceptionWhileProcessing"
+	ClickHouseConfigVersionKey       string = "ck_cluster_config_version"
 )
 
 var CkClusters sync.Map
@@ -112,45 +114,137 @@ func (ck *CkService) InitCkService() error {
 	return nil
 }
 
-func UnmarshalClusters() error {
+func ReadClusterConfigFile() ([]byte, error) {
 	localFile := path.Join(config.GetWorkDirectory(), "conf", ClickHouseClustersFile)
 
 	_, err := os.Stat(localFile)
 	if err != nil {
 		// file does not exist
-		return nil
+		return nil, nil
 	}
 
 	data, err := ioutil.ReadFile(localFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	clustersMap := make(map[string]model.CKManClickHouseConfig)
-	err = json.Unmarshal(data, &clustersMap)
+	return data, nil
+}
+
+func UnmarshalClusters(data []byte) (map[string]interface{}, error) {
+	if data == nil || len(data) == 0 {
+		return nil, nil
+	}
+
+	clustersMap := make(map[string]interface{})
+	err := json.Unmarshal(data, &clustersMap)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for key, value := range clustersMap {
-		CkClusters.Store(key, value)
+	return clustersMap, nil
+}
+
+func MergeCkClusterConfig(src map[string]interface{}) error {
+	if src == nil {
+		return nil
+	}
+
+	srcVersion, ok := src[ClickHouseConfigVersionKey]
+	if !ok {
+		return fmt.Errorf("can't find source version")
+	}
+	dstVersion, ok := CkClusters.Load(ClickHouseConfigVersionKey)
+	if !ok {
+		return fmt.Errorf("can't find version")
+	}
+
+	if int(srcVersion.(float64)) <= dstVersion.(int) {
+		return nil
+	}
+
+	// delete old CkClusters config
+	CkClusters.Range(func(k, v interface{}) bool {
+		CkClusters.Delete(k)
+		return true
+	})
+
+	// merge new CkClusters config
+	for key, value := range src {
+		v, ok := value.(map[string]interface{})
+		if ok {
+			var conf model.CKManClickHouseConfig
+			mapstructure.Decode(v, &conf)
+			CkClusters.Store(key, conf)
+		} else {
+			CkClusters.Store(key, int(value.(float64)))
+		}
 	}
 
 	return nil
 }
 
-func MarshalClusters() error {
-	clustersMap := make(map[string]model.CKManClickHouseConfig)
+func AddCkClusterConfigVersion() {
+	version, ok := CkClusters.Load(ClickHouseConfigVersionKey)
+	if !ok {
+		CkClusters.Store(ClickHouseConfigVersionKey, 0)
+	}
+
+	CkClusters.Store(ClickHouseConfigVersionKey, version.(int) + 1)
+}
+
+func UpdateLocalCkClusterConfig(data []byte) error {
+	ck, err := UnmarshalClusters(data)
+	if err != nil {
+		return err
+	}
+
+	return MergeCkClusterConfig(ck)
+}
+
+func ParseCkClusterConfigFile() error {
+	data, err := ReadClusterConfigFile()
+	if err != nil {
+		return err
+	}
+
+	if data != nil {
+		CkClusters.Store(ClickHouseConfigVersionKey, -1)
+		err := UpdateLocalCkClusterConfig(data)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, ok := CkClusters.Load(ClickHouseConfigVersionKey)
+	if !ok {
+		CkClusters.Store(ClickHouseConfigVersionKey, 0)
+	}
+
+	return err
+}
+
+func MarshalClusters() ([]byte, error) {
+	clustersMap := make(map[string]interface{})
 	CkClusters.Range(func(k, v interface{}) bool {
-		clustersMap[k.(string)] = v.(model.CKManClickHouseConfig)
+		if _, ok := v.(model.CKManClickHouseConfig); ok {
+			clustersMap[k.(string)] = v.(model.CKManClickHouseConfig)
+		} else {
+			clustersMap[k.(string)] = v.(int)
+		}
+
 		return true
 	})
 
 	data, err := json.Marshal(clustersMap)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	return data, nil
+}
+
+func WriteClusterConfigFile(data []byte) error {
 	localFile := path.Join(config.GetWorkDirectory(), "conf", ClickHouseClustersFile)
 	localFd, err := os.OpenFile(localFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
@@ -168,6 +262,15 @@ func MarshalClusters() error {
 	}
 
 	return nil
+}
+
+func UpdateCkClusterConfigFile() error {
+	data, err := MarshalClusters()
+	if err != nil {
+		return err
+	}
+
+	return WriteClusterConfigFile(data)
 }
 
 func GetCkService(clusterName string) (*CkService, error) {

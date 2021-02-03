@@ -5,14 +5,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/controller"
+	"gitlab.eoitek.net/EOI/ckman/service/nacos"
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
 	"os"
 )
 
-func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *prometheus.PrometheusService, signal chan os.Signal) {
-	ckController := controller.NewClickHouseController()
+func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *prometheus.PrometheusService,
+				signal chan os.Signal, nacosClient *nacos.NacosClient) {
+	ckController := controller.NewClickHouseController(nacosClient)
 	packageController := controller.NewPackageController(config)
-	deployController := controller.NewDeployController(config)
+	deployController := controller.NewDeployController(config, nacosClient)
 	metricController := controller.NewMetricController(config, prom)
 	configController := controller.NewConfigController(signal)
 	zkController := controller.NewZookeeperController()

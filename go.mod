@@ -17,6 +17,7 @@ require (
 	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/markbates/pkger v0.17.1
+	github.com/mitchellh/mapstructure v1.1.2
 	github.com/nacos-group/nacos-sdk-go v1.0.5
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
