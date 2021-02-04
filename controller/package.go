@@ -34,19 +34,19 @@ func NewPackageController(config *config.CKManConfig) *PackageController {
 	return ck
 }
 
-// @Summary 上传安装包
-// @Description 上传安装包
+// @Summary Upload package
+// @Description Upload package
 // @version 1.0
 // @Security ApiKeyAuth
 // @accept multipart/form-data
-// @Param package formData file true "安装包"
-// @Failure 200 {string} json "{"code":5004,"msg":"上传安装包失败","data":""}"
+// @Param package formData file true "package"
+// @Failure 200 {string} json "{"code":5004,"msg":"upload local package failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/package [post]
 func (p *PackageController) Upload(c *gin.Context) {
 	localFile, err := ParserFormData(c.Request)
 	if err != nil {
-		model.WrapMsg(c, model.UPLOAD_LOCAL_PACKAGE_FAIL, model.GetMsg(model.UPLOAD_LOCAL_PACKAGE_FAIL), err.Error())
+		model.WrapMsg(c, model.UPLOAD_LOCAL_PACKAGE_FAIL, model.GetMsg(c, model.UPLOAD_LOCAL_PACKAGE_FAIL), err.Error())
 		return
 	}
 
@@ -62,21 +62,21 @@ func (p *PackageController) Upload(c *gin.Context) {
 				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package", peer.Ip, peer.Port)
 				err = UploadFileByURL(peerUrl, localFile)
 				if err != nil {
-					model.WrapMsg(c, model.UPLOAD_PEER_PACKAGE_FAIL, model.GetMsg(model.UPLOAD_PEER_PACKAGE_FAIL), err.Error())
+					model.WrapMsg(c, model.UPLOAD_PEER_PACKAGE_FAIL, model.GetMsg(c, model.UPLOAD_PEER_PACKAGE_FAIL), err.Error())
 					return
 				}
 			} else {
 				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package", peer.Ip, peer.Port)
 				err = UploadFileByURL(peerUrl, localFile)
 				if err != nil {
-					model.WrapMsg(c, model.UPLOAD_PEER_PACKAGE_FAIL, model.GetMsg(model.UPLOAD_PEER_PACKAGE_FAIL), err.Error())
+					model.WrapMsg(c, model.UPLOAD_PEER_PACKAGE_FAIL, model.GetMsg(c, model.UPLOAD_PEER_PACKAGE_FAIL), err.Error())
 					return
 				}
 			}
 		}
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
 func ParserFormData(request *http.Request) (string, error) {
@@ -150,22 +150,22 @@ func UploadFileByURL(url string, localFile string) error {
 	return nil
 }
 
-// @Summary 获取安装包列表
-// @Description 获取安装包列表
+// @Summary Get package list
+// @Description Get package list
 // @version 1.0
 // @Security ApiKeyAuth
-// @Failure 200 {string} json "{"code":5005,"msg":"获取安装包列表失败","data":""}"
+// @Failure 200 {string} json "{"code":5005,"msg":"get package list failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":["20.8.5.45"]}"
 // @Router /api/v1/package [get]
 func (p *PackageController) List(c *gin.Context) {
 	files, err := GetAllFiles(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory))
 	if err != nil {
-		model.WrapMsg(c, model.LIST_PACKAGE_FAIL, model.GetMsg(model.LIST_PACKAGE_FAIL), err.Error())
+		model.WrapMsg(c, model.LIST_PACKAGE_FAIL, model.GetMsg(c, model.LIST_PACKAGE_FAIL), err.Error())
 		return
 	}
 
 	versions := GetAllVersions(files)
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), versions)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), versions)
 }
 
 func GetAllFiles(dirPth string) ([]string, error) {
@@ -227,12 +227,12 @@ func GetAllVersions(files []string) []string {
 	return versions
 }
 
-// @Summary 删除包
-// @Description 删除包
+// @Summary Delete package
+// @Description Delete package
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param packageVersion query string true "package version" default(20.8.5.45)
-// @Failure 200 {string} json "{"code":5002,"msg":"删除ClickHouse表失败","data":""}"
+// @Failure 200 {string} json "{"code":5002,"msg":"delete local package failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/package [delete]
 func (p *PackageController) Delete(c *gin.Context) {
@@ -245,7 +245,7 @@ func (p *PackageController) Delete(c *gin.Context) {
 
 	for _, packageName := range packages {
 		if err := os.Remove(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory, packageName)); err != nil {
-			model.WrapMsg(c, model.DELETE_LOCAL_PACKAGE_FAIL, model.GetMsg(model.DELETE_LOCAL_PACKAGE_FAIL), err.Error())
+			model.WrapMsg(c, model.DELETE_LOCAL_PACKAGE_FAIL, model.GetMsg(c, model.DELETE_LOCAL_PACKAGE_FAIL), err.Error())
 			return
 		}
 	}
@@ -263,21 +263,21 @@ func (p *PackageController) Delete(c *gin.Context) {
 				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package?packageVersion=%s", peer.Ip, peer.Port, packageVersion)
 				err := DeleteFileByURL(peerUrl)
 				if err != nil {
-					model.WrapMsg(c, model.DELETE_PEER_PACKAGE_FAIL, model.GetMsg(model.DELETE_PEER_PACKAGE_FAIL), err.Error())
+					model.WrapMsg(c, model.DELETE_PEER_PACKAGE_FAIL, model.GetMsg(c, model.DELETE_PEER_PACKAGE_FAIL), err.Error())
 					return
 				}
 			} else {
 				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package?packageVersion=%s", peer.Ip, peer.Port, packageVersion)
 				err := DeleteFileByURL(peerUrl)
 				if err != nil {
-					model.WrapMsg(c, model.DELETE_PEER_PACKAGE_FAIL, model.GetMsg(model.DELETE_PEER_PACKAGE_FAIL), err.Error())
+					model.WrapMsg(c, model.DELETE_PEER_PACKAGE_FAIL, model.GetMsg(c, model.DELETE_PEER_PACKAGE_FAIL), err.Error())
 					return
 				}
 			}
 		}
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
 func DeleteFileByURL(url string) error {

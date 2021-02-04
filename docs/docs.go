@@ -26,8 +26,8 @@ var doc = `{
     "paths": {
         "/api/login": {
             "post": {
-                "description": "登陆",
-                "summary": "登陆",
+                "description": "Login",
+                "summary": "Login",
                 "parameters": [
                     {
                         "description": "request body",
@@ -56,8 +56,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "退出登陆",
-                "summary": "退出登陆",
+                "description": "Logout",
+                "summary": "Logout",
                 "responses": {
                     "200": {
                         "description": "{\"code\":200,\"msg\":\"success\",\"data\":nil}",
@@ -75,8 +75,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "获取ClickHouse集群",
-                "summary": "获取ClickHouse集群",
+                "description": "Get ClickHouse cluster",
+                "summary": "Get ClickHouse cluster",
                 "responses": {
                     "200": {
                         "description": "{\"code\":200,\"msg\":\"ok\",\"data\":{\"test\":{\"hosts\":[\"192.168.101.105\"],\"port\":9000,\"user\":\"eoi\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.101.102\"],\"zkPort\":2181,\"isReplica\":false}}}",
@@ -92,8 +92,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "更新ClickHouse集群",
-                "summary": "更新ClickHouse集群",
+                "description": "Update ClickHouse cluster",
+                "summary": "Update ClickHouse cluster",
                 "parameters": [
                     {
                         "description": "request body",
@@ -120,8 +120,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "导入ClickHouse集群",
-                "summary": "导入ClickHouse集群",
+                "description": "Import ClickHouse cluster",
+                "summary": "Import ClickHouse cluster",
                 "parameters": [
                     {
                         "description": "request body",
@@ -150,8 +150,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "删除ClickHouse集群",
-                "summary": "删除ClickHouse集群",
+                "description": "Delete ClickHouse cluster",
+                "summary": "Delete ClickHouse cluster",
                 "parameters": [
                     {
                         "type": "string",
@@ -179,8 +179,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "销毁ClickHouse集群",
-                "summary": "销毁ClickHouse集群",
+                "description": "Destroy ClickHouse cluster",
+                "summary": "Destroy ClickHouse cluster",
                 "parameters": [
                     {
                         "type": "string",
@@ -208,8 +208,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "获取ClickHouse集群信息",
-                "summary": "获取ClickHouse集群信息",
+                "description": "Get ClickHouse cluster info",
+                "summary": "Get ClickHouse cluster info",
                 "parameters": [
                     {
                         "type": "string",
@@ -237,8 +237,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "添加ClickHouse集群节点",
-                "summary": "添加ClickHouse集群节点",
+                "description": "Add ClickHouse node",
+                "summary": "Add ClickHouse node",
                 "parameters": [
                     {
                         "type": "string",
@@ -273,8 +273,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "删除ClickHouse集群节点",
-                "summary": "删除ClickHouse集群节点",
+                "description": "Delete ClickHouse node",
+                "summary": "Delete ClickHouse node",
                 "parameters": [
                     {
                         "type": "string",
@@ -310,8 +310,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "获取ClickHouse正在执行的查询",
-                "summary": "获取ClickHouse正在执行的查询",
+                "description": "Get open sessions",
+                "summary": "Get open sessions",
                 "parameters": [
                     {
                         "type": "string",
@@ -346,8 +346,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "执行query命令",
-                "summary": "执行query命令",
+                "description": "Query Info",
+                "summary": "Query Info",
                 "parameters": [
                     {
                         "type": "string",
@@ -383,8 +383,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "均衡ClickHouse集群",
-                "summary": "均衡ClickHouse集群",
+                "description": "Rebanlance ClickHouse cluster",
+                "summary": "Rebanlance ClickHouse cluster",
                 "parameters": [
                     {
                         "type": "string",
@@ -412,8 +412,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "获取ClickHouse慢查询",
-                "summary": "获取ClickHouse慢查询",
+                "description": "Get slow sessions",
+                "summary": "Get slow sessions",
                 "parameters": [
                     {
                         "type": "string",
@@ -448,8 +448,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "启动ClickHouse集群",
-                "summary": "启动ClickHouse集群",
+                "description": "Start ClickHouse cluster",
+                "summary": "Start ClickHouse cluster",
                 "parameters": [
                     {
                         "type": "string",
@@ -477,8 +477,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "停止ClickHouse集群",
-                "summary": "停止ClickHouse集群",
+                "description": "Stop ClickHouse cluster",
+                "summary": "Stop ClickHouse cluster",
                 "parameters": [
                     {
                         "type": "string",
@@ -506,8 +506,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "描述表",
-                "summary": "描述表",
+                "description": "Describe Table",
+                "summary": "Describe Table",
                 "parameters": [
                     {
                         "type": "string",
@@ -549,8 +549,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "修改表",
-                "summary": "修改表",
+                "description": "Alter Table",
+                "summary": "Alter Table",
                 "parameters": [
                     {
                         "type": "string",
@@ -585,8 +585,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "创建表",
-                "summary": "创建表",
+                "description": "Create Table",
+                "summary": "Create Table",
                 "parameters": [
                     {
                         "type": "string",
@@ -621,8 +621,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "删除表",
-                "summary": "删除表",
+                "description": "Delete Table",
+                "summary": "Delete Table",
                 "parameters": [
                     {
                         "type": "string",
@@ -666,8 +666,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "获取ClickHouse中MergeTree表的指标",
-                "summary": "获取ClickHouse中MergeTree表的指标",
+                "description": "Get metrics of MergeTree in ClickHouse",
+                "summary": "Get metrics of MergeTree in ClickHouse",
                 "parameters": [
                     {
                         "type": "string",
@@ -695,8 +695,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "升级ClickHouse集群",
-                "summary": "升级ClickHouse集群",
+                "description": "Upgrade ClickHouse cluster",
+                "summary": "Upgrade ClickHouse cluster",
                 "parameters": [
                     {
                         "type": "string",
@@ -732,8 +732,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "获取配置",
-                "summary": "获取配置",
+                "description": "Get Config",
+                "summary": "Get Config",
                 "responses": {
                     "200": {
                         "description": "{\"code\":200,\"msg\":\"ok\",\"data\":{\"peers\":null,\"prometheus\":[\"192.168.101.105:19090\"],\"alertManagers\":null}}",
@@ -749,8 +749,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "更新配置",
-                "summary": "更新配置",
+                "description": "Update Config",
+                "summary": "Update Config",
                 "parameters": [
                     {
                         "description": "request body",
@@ -779,8 +779,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "部署clickhouse",
-                "summary": "部署clickhouse",
+                "description": "Deploy clickhouse",
+                "summary": "Deploy clickhouse",
                 "parameters": [
                     {
                         "description": "request body",
@@ -809,8 +809,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "查询指标",
-                "summary": "查询指标",
+                "description": "Query",
+                "summary": "Query",
                 "parameters": [
                     {
                         "type": "string",
@@ -846,8 +846,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "查询指标范围",
-                "summary": "查询指标范围",
+                "description": "Query Range",
+                "summary": "Query Range",
                 "parameters": [
                     {
                         "type": "string",
@@ -899,8 +899,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "获取安装包列表",
-                "summary": "获取安装包列表",
+                "description": "Get package list",
+                "summary": "Get package list",
                 "responses": {
                     "200": {
                         "description": "{\"code\":200,\"msg\":\"ok\",\"data\":[\"20.8.5.45\"]}",
@@ -916,15 +916,15 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "上传安装包",
+                "description": "Upload package",
                 "consumes": [
                     "multipart/form-data"
                 ],
-                "summary": "上传安装包",
+                "summary": "Upload package",
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "安装包",
+                        "description": "package",
                         "name": "package",
                         "in": "formData",
                         "required": true
@@ -945,8 +945,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "删除包",
-                "summary": "删除包",
+                "description": "Delete package",
+                "summary": "Delete package",
                 "parameters": [
                     {
                         "type": "string",
@@ -974,8 +974,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "从Zookeeper中获取复制表状态",
-                "summary": "从Zookeeper中获取复制表状态",
+                "description": "Get replicated table in Zookeeper status",
+                "summary": "Get replicated table in  Zookeeper status",
                 "parameters": [
                     {
                         "type": "string",
@@ -1003,8 +1003,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "获取Zookeeper集群状态",
-                "summary": "获取Zookeeper集群状态",
+                "description": "Get Zookeeper cluster status",
+                "summary": "Get Zookeeper cluster status",
                 "parameters": [
                     {
                         "type": "string",

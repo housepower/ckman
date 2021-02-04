@@ -34,13 +34,13 @@ func NewClickHouseController(nacosClient *nacos.NacosClient) *ClickHouseControll
 	return ck
 }
 
-// @Summary 导入ClickHouse集群
-// @Description 导入ClickHouse集群
+// @Summary Import ClickHouse cluster
+// @Description Import ClickHouse cluster
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param req body model.CkImportConfig true "request body"
-// @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
-// @Failure 200 {string} json "{"code":5042,"msg":"导入ClickHouse集群失败","data":""}"
+// @Failure 200 {string} json "{"code":400,"msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":5042,"msg":"import ClickHouse cluster failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
 // @Router /api/v1/ck/cluster [post]
 func (ck *ClickHouseController) ImportCk(c *gin.Context) {
@@ -48,20 +48,20 @@ func (ck *ClickHouseController) ImportCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
 		return
 	}
 
 	_, ok := clickhouse.CkClusters.Load(req.Cluster)
 	if ok {
-		model.WrapMsg(c, model.IMPORT_CK_CLUSTER_FAIL, model.GetMsg(model.IMPORT_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.IMPORT_CK_CLUSTER_FAIL, model.GetMsg(c, model.IMPORT_CK_CLUSTER_FAIL),
 			fmt.Sprintf("cluster %s already exist", req.Cluster))
 		return
 	}
 
 	err := clickhouse.GetCkClusterConfig(req, &conf)
 	if err != nil {
-		model.WrapMsg(c, model.IMPORT_CK_CLUSTER_FAIL, model.GetMsg(model.IMPORT_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.IMPORT_CK_CLUSTER_FAIL, model.GetMsg(c, model.IMPORT_CK_CLUSTER_FAIL), err.Error())
 		return
 	}
 
@@ -69,7 +69,7 @@ func (ck *ClickHouseController) ImportCk(c *gin.Context) {
 	clickhouse.CkConfigFillDefault(&conf)
 	data, err := ck.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
 		return
 	}
 	if data != "" {
@@ -81,16 +81,16 @@ func (ck *ClickHouseController) ImportCk(c *gin.Context) {
 	clickhouse.WriteClusterConfigFile(buf)
 	ck.nacosClient.PublishConfig(string(buf))
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 更新ClickHouse集群
-// @Description 更新ClickHouse集群
+// @Summary Update ClickHouse cluster
+// @Description Update ClickHouse cluster
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param req body model.CkImportConfig true "request body"
-// @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
-// @Failure 200 {string} json "{"code":5043,"msg":"更新ClickHouse集群失败","data":""}"
+// @Failure 200 {string} json "{"code":400,"msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":5043,"msg":"update ClickHouse cluster failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
 // @Router /api/v1/ck/cluster [put]
 func (ck *ClickHouseController) UpdateCk(c *gin.Context) {
@@ -98,13 +98,13 @@ func (ck *ClickHouseController) UpdateCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
 		return
 	}
 
 	con, ok := clickhouse.CkClusters.Load(req.Cluster)
 	if !ok {
-		model.WrapMsg(c, model.UPDATE_CK_CLUSTER_FAIL, model.GetMsg(model.UPDATE_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.UPDATE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPDATE_CK_CLUSTER_FAIL),
 			fmt.Sprintf("cluster %s does not exist", req.Cluster))
 		return
 	}
@@ -112,14 +112,14 @@ func (ck *ClickHouseController) UpdateCk(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	err := clickhouse.GetCkClusterConfig(req, &conf)
 	if err != nil {
-		model.WrapMsg(c, model.UPDATE_CK_CLUSTER_FAIL, model.GetMsg(model.UPDATE_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.UPDATE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPDATE_CK_CLUSTER_FAIL), err.Error())
 		return
 	}
 
 	clickhouse.CkConfigFillDefault(&conf)
 	data, err := ck.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
 		return
 	}
 	if data != "" {
@@ -132,11 +132,11 @@ func (ck *ClickHouseController) UpdateCk(c *gin.Context) {
 	clickhouse.WriteClusterConfigFile(buf)
 	ck.nacosClient.PublishConfig(string(buf))
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 删除ClickHouse集群
-// @Description 删除ClickHouse集群
+// @Summary Delete ClickHouse cluster
+// @Description Delete ClickHouse cluster
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
@@ -147,7 +147,7 @@ func (ck *ClickHouseController) DeleteCk(c *gin.Context) {
 
 	data, err := ck.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
 		return
 	}
 	if data != "" {
@@ -160,11 +160,11 @@ func (ck *ClickHouseController) DeleteCk(c *gin.Context) {
 	clickhouse.WriteClusterConfigFile(buf)
 	ck.nacosClient.PublishConfig(string(buf))
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 获取ClickHouse集群
-// @Description 获取ClickHouse集群
+// @Summary Get ClickHouse cluster
+// @Description Get ClickHouse cluster
 // @version 1.0
 // @Security ApiKeyAuth
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":{"test":{"hosts":["192.168.101.105"],"port":9000,"user":"eoi","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.101.102"],"zkPort":2181,"isReplica":false}}}"
@@ -176,17 +176,17 @@ func (ck *ClickHouseController) GetCk(c *gin.Context) {
 		return true
 	})
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), clustersMap)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), clustersMap)
 }
 
-// @Summary 创建表
-// @Description 创建表
+// @Summary Create Table
+// @Description Create Table
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param req body model.CreateCkTableReq true "request body"
-// @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
-// @Failure 200 {string} json "{"code":5001,"msg":"创建ClickHouse表失败","data":""}"
+// @Failure 200 {string} json "{"code":400,"msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":5001,"msg":"create ClickHouse table failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
 // @Router /api/v1/ck/table/{clusterName} [post]
 func (ck *ClickHouseController) CreateTable(c *gin.Context) {
@@ -194,14 +194,14 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	var params model.CreateCkTableParams
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
 		return
 	}
 
 	clusterName := c.Param(ClickHouseClusterPath)
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(model.CREAT_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(c, model.CREAT_CK_TABLE_FAIL), err.Error())
 		return
 	}
 
@@ -229,22 +229,22 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	}
 
 	if err := ckService.CreateTable(&params); err != nil {
-		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(model.CREAT_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(c, model.CREAT_CK_TABLE_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 修改表
-// @Description 修改表
+// @Summary Alter Table
+// @Description Alter Table
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param req body model.AlterCkTableReq true "request body"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
-// @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
-// @Failure 200 {string} json "{"code":5003,"msg":"更改ClickHouse表失败","data":""}"
+// @Failure 200 {string} json "{"code":400,"msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":5003,"msg":"alter ClickHouse table failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
 // @Router /api/v1/ck/table/{clusterName} [put]
 func (ck *ClickHouseController) AlterTable(c *gin.Context) {
@@ -252,14 +252,14 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 	var params model.AlterCkTableParams
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
 		return
 	}
 
 	clusterName := c.Param(ClickHouseClusterPath)
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, model.GetMsg(model.ALTER_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, model.GetMsg(c, model.ALTER_CK_TABLE_FAIL), err.Error())
 		return
 	}
 
@@ -274,21 +274,21 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 	}
 
 	if err := ckService.AlterTable(&params); err != nil {
-		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, model.GetMsg(model.ALTER_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, model.GetMsg(c, model.ALTER_CK_TABLE_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 删除表
-// @Description 删除表
+// @Summary Delete Table
+// @Description Delete Table
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param database query string true "database name" default(default)
 // @Param tableName query string true "table name" default(test_table)
-// @Failure 200 {string} json "{"code":5002,"msg":"删除ClickHouse表失败","data":""}"
+// @Failure 200 {string} json "{"code":5002,"msg":"delete ClickHouse table failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
 // @Router /api/v1/ck/table/{clusterName} [delete]
 func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
@@ -297,7 +297,7 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(model.DELETE_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(c, model.DELETE_CK_TABLE_FAIL), err.Error())
 		return
 	}
 
@@ -309,21 +309,21 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 	}
 
 	if err := ckService.DeleteTable(&params); err != nil {
-		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(model.DELETE_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(c, model.DELETE_CK_TABLE_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 描述表
-// @Description 描述表
+// @Summary Describe Table
+// @Description Describe Table
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param database query string true "database name" default(default)
 // @Param tableName query string true "table name" default(test_table)
-// @Failure 200 {string} json "{"code":5040,"msg":"描述ClickHouse表失败","data":""}"
+// @Failure 200 {string} json "{"code":5040,"msg":"describe ClickHouse table failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":[{"name":"_timestamp","type":"DateTime","defaultType":"","defaultExpression":"","comment":"","codecExpression":"","ttlExpression":""}]}"
 // @Router /api/v1/ck/table/{clusterName} [get]
 func (ck *ClickHouseController) DescTable(c *gin.Context) {
@@ -332,7 +332,7 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.DESC_CK_TABLE_FAIL, model.GetMsg(model.DESC_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.DESC_CK_TABLE_FAIL, model.GetMsg(c, model.DESC_CK_TABLE_FAIL), err.Error())
 		return
 	}
 
@@ -344,20 +344,20 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 
 	atts, err := ckService.DescTable(&params)
 	if err != nil {
-		model.WrapMsg(c, model.DESC_CK_TABLE_FAIL, model.GetMsg(model.DESC_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.DESC_CK_TABLE_FAIL, model.GetMsg(c, model.DESC_CK_TABLE_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), atts)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), atts)
 }
 
-// @Summary 执行query命令
-// @Description 执行query命令
+// @Summary Query Info
+// @Description Query Info
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param query query string true "sql" default(show databases)
-// @Failure 200 {string} json "{"code":5042,"msg":"查询ClickHouse失败","data":""}"
+// @Failure 200 {string} json "{"code":5042,"msg":"query ClickHouse failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":[["name"],["default"],["system"]]}"
 // @Router /api/v1/ck/query/{clusterName} [get]
 func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
@@ -366,26 +366,26 @@ func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.QUERY_CK_FAIL, model.GetMsg(model.QUERY_CK_FAIL), err.Error())
+		model.WrapMsg(c, model.QUERY_CK_FAIL, model.GetMsg(c, model.QUERY_CK_FAIL), err.Error())
 		return
 	}
 
 	data, err := ckService.QueryInfo(query)
 	if err != nil {
-		model.WrapMsg(c, model.QUERY_CK_FAIL, model.GetMsg(model.QUERY_CK_FAIL), err.Error())
+		model.WrapMsg(c, model.QUERY_CK_FAIL, model.GetMsg(c, model.QUERY_CK_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), data)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), data)
 }
 
-// @Summary 升级ClickHouse集群
-// @Description 升级ClickHouse集群
+// @Summary Upgrade ClickHouse cluster
+// @Description Upgrade ClickHouse cluster
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param packageVersion query string true "package version" default(20.8.5.45)
-// @Failure 200 {string} json "{"code":5060,"msg":"升级ClickHouse集群失败","data":""}"
+// @Failure 200 {string} json "{"code":5060,"msg":"upgrade ClickHouse cluster failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/ck/upgrade/{clusterName} [put]
 func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
@@ -395,14 +395,14 @@ func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(model.UPGRADE_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPGRADE_CK_CLUSTER_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
 	conf = con.(model.CKManClickHouseConfig)
 	if conf.SshUser == "" || conf.SshPassword == "" {
-		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(model.UPGRADE_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPGRADE_CK_CLUSTER_FAIL),
 			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
 		return
 	}
@@ -410,14 +410,14 @@ func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
 	clickhouse.CkServices.Delete(clusterName)
 	err := deploy.UpgradeCkCluster(&conf, packageVersion)
 	if err != nil {
-		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(model.UPGRADE_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPGRADE_CK_CLUSTER_FAIL), err.Error())
 		return
 	}
 
 	conf.Version = packageVersion
 	data, err := ck.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
 		return
 	}
 	if data != "" {
@@ -429,15 +429,15 @@ func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
 	clickhouse.WriteClusterConfigFile(buf)
 	ck.nacosClient.PublishConfig(string(buf))
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 启动ClickHouse集群
-// @Description 启动ClickHouse集群
+// @Summary Start ClickHouse cluster
+// @Description Start ClickHouse cluster
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"code":5061,"msg":"启动ClickHouse服务失败","data":""}"
+// @Failure 200 {string} json "{"code":5061,"msg":"start ClickHouse cluster failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/ck/start/{clusterName} [put]
 func (ck *ClickHouseController) StartCk(c *gin.Context) {
@@ -446,14 +446,14 @@ func (ck *ClickHouseController) StartCk(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(model.START_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(c, model.START_CK_CLUSTER_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
 	conf = con.(model.CKManClickHouseConfig)
 	if conf.SshUser == "" || conf.SshPassword == "" {
-		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(model.START_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(c, model.START_CK_CLUSTER_FAIL),
 			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
 		return
 	}
@@ -461,19 +461,19 @@ func (ck *ClickHouseController) StartCk(c *gin.Context) {
 	clickhouse.CkServices.Delete(clusterName)
 	err := deploy.StartCkCluster(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(model.START_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(c, model.START_CK_CLUSTER_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 停止ClickHouse集群
-// @Description 停止ClickHouse集群
+// @Summary Stop ClickHouse cluster
+// @Description Stop ClickHouse cluster
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"code":5062,"msg":"停止ClickHouse集群失败","data":""}"
+// @Failure 200 {string} json "{"code":5062,"msg":"stop ClickHouse cluster failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/ck/stop/{clusterName} [put]
 func (ck *ClickHouseController) StopCk(c *gin.Context) {
@@ -482,14 +482,14 @@ func (ck *ClickHouseController) StopCk(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(model.STOP_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
 	conf = con.(model.CKManClickHouseConfig)
 	if conf.SshUser == "" || conf.SshPassword == "" {
-		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(model.STOP_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL),
 			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
 		return
 	}
@@ -497,19 +497,19 @@ func (ck *ClickHouseController) StopCk(c *gin.Context) {
 	clickhouse.CkServices.Delete(clusterName)
 	err := deploy.StopCkCluster(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(model.STOP_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 销毁ClickHouse集群
-// @Description 销毁ClickHouse集群
+// @Summary Destroy ClickHouse cluster
+// @Description Destroy ClickHouse cluster
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"code":5063,"msg":"销毁ClickHouse集群失败","data":""}"
+// @Failure 200 {string} json "{"code":5063,"msg":"destroy ClickHouse cluster failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/ck/destroy/{clusterName} [put]
 func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
@@ -518,14 +518,14 @@ func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(model.DESTROY_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(c, model.DESTROY_CK_CLUSTER_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
 	conf = con.(model.CKManClickHouseConfig)
 	if conf.SshUser == "" || conf.SshPassword == "" {
-		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(model.DESTROY_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(c, model.DESTROY_CK_CLUSTER_FAIL),
 			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
 		return
 	}
@@ -533,13 +533,13 @@ func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
 	clickhouse.CkServices.Delete(clusterName)
 	err := deploy.DestroyCkCluster(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(model.DESTROY_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(c, model.DESTROY_CK_CLUSTER_FAIL), err.Error())
 		return
 	}
 
 	data, err := ck.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
 		return
 	}
 	if data != "" {
@@ -551,15 +551,15 @@ func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
 	clickhouse.WriteClusterConfigFile(buf)
 	ck.nacosClient.PublishConfig(string(buf))
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 均衡ClickHouse集群
-// @Description 均衡ClickHouse集群
+// @Summary Rebanlance ClickHouse cluster
+// @Description Rebanlance ClickHouse cluster
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"code":5064,"msg":"均衡ClickHouse集群失败","data":""}"
+// @Failure 200 {string} json "{"code":5064,"msg":"rebanlance ClickHouse cluster failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/ck/rebalance/{clusterName} [put]
 func (ck *ClickHouseController) RebalanceCk(c *gin.Context) {
@@ -568,7 +568,7 @@ func (ck *ClickHouseController) RebalanceCk(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(model.REBALANCE_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -592,19 +592,19 @@ func (ck *ClickHouseController) RebalanceCk(c *gin.Context) {
 	log.Logger.Infof("run %s", cmd)
 	exe := exec.Command("/bin/sh", "-c", cmd)
 	if err := exe.Start(); err != nil {
-		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(model.REBALANCE_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 获取ClickHouse集群信息
-// @Description 获取ClickHouse集群信息
+// @Summary Get ClickHouse cluster info
+// @Description Get ClickHouse cluster info
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"code":5065,"msg":"获取ClickHouse集群信息失败","data":""}"
+// @Failure 200 {string} json "{"code":5065,"msg":"get ClickHouse cluster information failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":{"status":"green","version":"20.8.5.45","nodes":[{"ip":"192.168.101.105","hostname":"vm101105","status":"green"}]}}"
 // @Router /api/v1/ck/get/{clusterName} [get]
 func (ck *ClickHouseController) GetCkCluster(c *gin.Context) {
@@ -613,7 +613,7 @@ func (ck *ClickHouseController) GetCkCluster(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, model.GetMsg(model.GET_CK_CLUSTER_INFO_FAIL),
+		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, model.GetMsg(c, model.GET_CK_CLUSTER_INFO_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -644,16 +644,16 @@ func (ck *ClickHouseController) GetCkCluster(c *gin.Context) {
 		Nodes:   statusList,
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), info)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), info)
 }
 
-// @Summary 添加ClickHouse集群节点
-// @Description 添加ClickHouse集群节点
+// @Summary Add ClickHouse node
+// @Description Add ClickHouse node
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param req body model.AddNodeReq true "request body"
-// @Failure 200 {string} json "{"code":5066,"msg":"添加ClickHouse集群节点失败","data":""}"
+// @Failure 200 {string} json "{"code":5066,"msg":"add ClickHouse node failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/ck/node/{clusterName} [post]
 func (ck *ClickHouseController) AddNode(c *gin.Context) {
@@ -662,13 +662,13 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
 		return
 	}
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(model.ADD_CK_CLUSTER_NODE_FAIL),
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -676,7 +676,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	err := deploy.AddCkClusterNode(&conf, &req)
 	if err != nil {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
 		return
 	}
 
@@ -690,18 +690,18 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 
 	service := clickhouse.NewCkService(tmp)
 	if err := service.InitCkService(); err != nil {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
 		return
 	}
 	defer service.Stop()
 	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
 		return
 	}
 
 	data, err := ck.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
 		return
 	}
 	if data != "" {
@@ -714,16 +714,16 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	clickhouse.WriteClusterConfigFile(buf)
 	ck.nacosClient.PublishConfig(string(buf))
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 删除ClickHouse集群节点
-// @Description 删除ClickHouse集群节点
+// @Summary Delete ClickHouse node
+// @Description Delete ClickHouse node
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param ip query string true "node ip address" default(192.168.101.105)
-// @Failure 200 {string} json "{"code":5067,"msg":"删除ClickHouse集群节点失败","data":""}"
+// @Failure 200 {string} json "{"code":5067,"msg":"delete ClickHouse node failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/ck/node/{clusterName} [delete]
 func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
@@ -733,7 +733,7 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, model.GetMsg(model.DELETE_CK_CLUSTER_NODE_FAIL),
+		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -741,13 +741,13 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	err := deploy.DeleteCkClusterNode(&conf, ip)
 	if err != nil {
-		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, model.GetMsg(model.DELETE_CK_CLUSTER_NODE_FAIL), err.Error())
+		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL), err.Error())
 		return
 	}
 
 	data, err := ck.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
 		return
 	}
 	if data != "" {
@@ -760,11 +760,11 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 	clickhouse.WriteClusterConfigFile(buf)
 	ck.nacosClient.PublishConfig(string(buf))
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
-// @Summary 获取ClickHouse中MergeTree表的指标
-// @Description 获取ClickHouse中MergeTree表的指标
+// @Summary Get metrics of MergeTree in ClickHouse
+// @Description Get metrics of MergeTree in ClickHouse
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
@@ -776,7 +776,7 @@ func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, model.GetMsg(model.GET_CK_TABLE_METRIC_FAIL),
+		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, model.GetMsg(c, model.GET_CK_TABLE_METRIC_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -784,15 +784,15 @@ func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	metrics, err := clickhouse.GetCkTableMetrics(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, model.GetMsg(model.GET_CK_TABLE_METRIC_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, model.GetMsg(c, model.GET_CK_TABLE_METRIC_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), metrics)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), metrics)
 }
 
-// @Summary 获取ClickHouse正在执行的查询
-// @Description 获取ClickHouse正在执行的查询
+// @Summary Get open sessions
+// @Description Get open sessions
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
@@ -810,7 +810,7 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(model.GET_CK_OPEN_SESSIONS_FAIL),
+		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -818,15 +818,15 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	sessions, err := clickhouse.GetCkOpenSessions(&conf, limit)
 	if err != nil {
-		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(model.GET_CK_OPEN_SESSIONS_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), sessions)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), sessions)
 }
 
-// @Summary 获取ClickHouse慢查询
-// @Description 获取ClickHouse慢查询
+// @Summary Get slow sessions
+// @Description Get slow sessions
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
@@ -844,7 +844,7 @@ func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL, model.GetMsg(model.GET_CK_SLOW_SESSIONS_FAIL),
+		model.WrapMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -852,9 +852,9 @@ func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	sessions, err := clickhouse.GetCkSlowSessions(&conf, limit)
 	if err != nil {
-		model.WrapMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL, model.GetMsg(model.GET_CK_SLOW_SESSIONS_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL), err.Error())
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), sessions)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), sessions)
 }

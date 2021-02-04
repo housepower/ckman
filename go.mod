@@ -11,6 +11,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.6.3
+	github.com/go-openapi/spec v0.20.2 // indirect
 	github.com/go-zookeeper/zk v1.0.2
 	github.com/json-iterator/go v1.1.9
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
@@ -27,12 +28,14 @@ require (
 	github.com/sirupsen/logrus v1.2.0
 	github.com/spf13/cobra v1.1.0
 	github.com/swaggo/gin-swagger v1.2.0
-	github.com/swaggo/swag v1.6.8
+	github.com/swaggo/swag v1.7.0
 	github.com/txn2/txeh v1.3.0
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
+	golang.org/x/tools v0.1.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/sevlyar/go-daemon.v0 v0.1.5
-	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v2 v2.4.0
 )

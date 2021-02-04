@@ -57,18 +57,18 @@ func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (
 	return model.SUCCESS, nil
 }
 
-// @Summary 部署clickhouse
-// @Description 部署clickhouse
+// @Summary Deploy clickhouse
+// @Description Deploy clickhouse
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param req body model.DeployCkReq true "request body"
-// @Failure 200 {string} json "{"code":400,"msg":"请求参数错误","data":""}"
-// @Failure 200 {string} json "{"code":5011,"msg":"初始化组件失败","data":""}"
-// @Failure 200 {string} json "{"code":5012,"msg":"准备组件失败","data":""}"
-// @Failure 200 {string} json "{"code":5013,"msg":"安装组件失败","data":""}"
-// @Failure 200 {string} json "{"code":5014,"msg":"配置组件失败","data":""}"
-// @Failure 200 {string} json "{"code":5015,"msg":"启动组件失败","data":""}"
-// @Failure 200 {string} json "{"code":5016,"msg":"检查组件启动状态失败","data":""}"
+// @Failure 200 {string} json "{"code":400,"msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":5011,"msg":"init package failed","data":""}"
+// @Failure 200 {string} json "{"code":5012,"msg":"prepare package failed","data":""}"
+// @Failure 200 {string} json "{"code":5013,"msg":"install package failed","data":""}"
+// @Failure 200 {string} json "{"code":5014,"msg":"config package failed","data":""}"
+// @Failure 200 {string} json "{"code":5015,"msg":"start package failed","data":""}"
+// @Failure 200 {string} json "{"code":5016,"msg":"check package failed","data":""}"
 // @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
 // @Router /api/v1/deploy/ck [post]
 func (d *DeployController) DeployCk(c *gin.Context) {
@@ -77,7 +77,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	packages := make([]string, 3)
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
 		return
 	}
 
@@ -95,7 +95,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 	code, err := DeployPackage(ckDeploy, base, &req.ClickHouse)
 	if err != nil {
-		model.WrapMsg(c, code, model.GetMsg(code), err.Error())
+		model.WrapMsg(c, code, model.GetMsg(c, code), err.Error())
 		return
 	}
 
@@ -103,7 +103,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	conf.Mode = model.CkClusterDeploy
 	data, err := d.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
 		return
 	}
 	if data != "" {
@@ -114,7 +114,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	buf, _ := clickhouse.MarshalClusters()
 	clickhouse.WriteClusterConfigFile(buf)
 	d.nacosClient.PublishConfig(string(buf))
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
 func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {

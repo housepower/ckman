@@ -226,7 +226,7 @@ info:
 paths:
   /api/login:
     post:
-      description: 登陆
+      description: Login
       parameters:
       - description: request body
         in: body
@@ -239,10 +239,10 @@ paths:
           description: '{"code":200,"msg":"ok","data":{"username":"ckman","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"}}'
           schema:
             type: string
-      summary: 登陆
+      summary: Login
   /api/logout:
     put:
-      description: 退出登陆
+      description: Logout
       responses:
         "200":
           description: '{"code":200,"msg":"success","data":nil}'
@@ -250,10 +250,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 退出登陆
+      summary: Logout
   /api/v1/ck/cluster:
     get:
-      description: 获取ClickHouse集群
+      description: Get ClickHouse cluster
       responses:
         "200":
           description: '{"code":200,"msg":"ok","data":{"test":{"hosts":["192.168.101.105"],"port":9000,"user":"eoi","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.101.102"],"zkPort":2181,"isReplica":false}}}'
@@ -261,9 +261,9 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 获取ClickHouse集群
+      summary: Get ClickHouse cluster
     post:
-      description: 导入ClickHouse集群
+      description: Import ClickHouse cluster
       parameters:
       - description: request body
         in: body
@@ -278,9 +278,9 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 导入ClickHouse集群
+      summary: Import ClickHouse cluster
     put:
-      description: 更新ClickHouse集群
+      description: Update ClickHouse cluster
       parameters:
       - description: request body
         in: body
@@ -295,10 +295,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 更新ClickHouse集群
+      summary: Update ClickHouse cluster
   /api/v1/ck/cluster/{clusterName}:
     delete:
-      description: 删除ClickHouse集群
+      description: Delete ClickHouse cluster
       parameters:
       - default: test
         description: cluster name
@@ -313,10 +313,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 删除ClickHouse集群
+      summary: Delete ClickHouse cluster
   /api/v1/ck/destroy/{clusterName}:
     put:
-      description: 销毁ClickHouse集群
+      description: Destroy ClickHouse cluster
       parameters:
       - default: test
         description: cluster name
@@ -331,10 +331,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 销毁ClickHouse集群
+      summary: Destroy ClickHouse cluster
   /api/v1/ck/get/{clusterName}:
     get:
-      description: 获取ClickHouse集群信息
+      description: Get ClickHouse cluster info
       parameters:
       - default: test
         description: cluster name
@@ -349,10 +349,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 获取ClickHouse集群信息
+      summary: Get ClickHouse cluster info
   /api/v1/ck/node/{clusterName}:
     delete:
-      description: 删除ClickHouse集群节点
+      description: Delete ClickHouse node
       parameters:
       - default: test
         description: cluster name
@@ -373,9 +373,9 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 删除ClickHouse集群节点
+      summary: Delete ClickHouse node
     post:
-      description: 添加ClickHouse集群节点
+      description: Add ClickHouse node
       parameters:
       - default: test
         description: cluster name
@@ -396,10 +396,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 添加ClickHouse集群节点
+      summary: Add ClickHouse node
   /api/v1/ck/open_sessions/{clusterName}:
     get:
-      description: 获取ClickHouse正在执行的查询
+      description: Get open sessions
       parameters:
       - default: test
         description: cluster name
@@ -414,15 +414,16 @@ paths:
         type: string
       responses:
         "200":
-          description: '{"code":200,"msg":"ok","data":[{"startTime":1609997894,"queryDuration":1,"query":"SELECT DISTINCT name FROM system.tables","user":"eoi","queryId":"62dce71d-9294-4e47-9d9b-cf298f73233d","address":"192.168.21.73","threads":2}]}'
+          description: '{"code":200,"msg":"ok","data":[{"startTime":1609997894,"queryDuration":1,"query":"SELECT
+            DISTINCT name FROM system.tables","user":"eoi","queryId":"62dce71d-9294-4e47-9d9b-cf298f73233d","address":"192.168.21.73","threads":2}]}'
           schema:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 获取ClickHouse正在执行的查询
+      summary: Get open sessions
   /api/v1/ck/query/{clusterName}:
     get:
-      description: 执行query命令
+      description: Query Info
       parameters:
       - default: test
         description: cluster name
@@ -443,10 +444,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 执行query命令
+      summary: Query Info
   /api/v1/ck/rebalance/{clusterName}:
     put:
-      description: 均衡ClickHouse集群
+      description: Rebanlance ClickHouse cluster
       parameters:
       - default: test
         description: cluster name
@@ -461,10 +462,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 均衡ClickHouse集群
+      summary: Rebanlance ClickHouse cluster
   /api/v1/ck/slow_sessions/{clusterName}:
     get:
-      description: 获取ClickHouse慢查询
+      description: Get slow sessions
       parameters:
       - default: test
         description: cluster name
@@ -479,15 +480,16 @@ paths:
         type: string
       responses:
         "200":
-          description: '{"code":200,"msg":"ok","data":[{"startTime":1609986493,"queryDuration":145,"query":"select * from dist_sensor_dt_result_online limit 10000","user":"default","queryId":"8aa3de08-92c4-4102-a83d-2f5d88569dab","address":"::1","threads":2}]}'
+          description: '{"code":200,"msg":"ok","data":[{"startTime":1609986493,"queryDuration":145,"query":"select
+            * from dist_sensor_dt_result_online limit 10000","user":"default","queryId":"8aa3de08-92c4-4102-a83d-2f5d88569dab","address":"::1","threads":2}]}'
           schema:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 获取ClickHouse慢查询
+      summary: Get slow sessions
   /api/v1/ck/start/{clusterName}:
     put:
-      description: 启动ClickHouse集群
+      description: Start ClickHouse cluster
       parameters:
       - default: test
         description: cluster name
@@ -502,10 +504,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 启动ClickHouse集群
+      summary: Start ClickHouse cluster
   /api/v1/ck/stop/{clusterName}:
     put:
-      description: 停止ClickHouse集群
+      description: Stop ClickHouse cluster
       parameters:
       - default: test
         description: cluster name
@@ -520,10 +522,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 停止ClickHouse集群
+      summary: Stop ClickHouse cluster
   /api/v1/ck/table/{clusterName}:
     delete:
-      description: 删除表
+      description: Delete Table
       parameters:
       - default: test
         description: cluster name
@@ -550,9 +552,9 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 删除表
+      summary: Delete Table
     get:
-      description: 描述表
+      description: Describe Table
       parameters:
       - default: test
         description: cluster name
@@ -579,9 +581,9 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 描述表
+      summary: Describe Table
     post:
-      description: 创建表
+      description: Create Table
       parameters:
       - default: test
         description: cluster name
@@ -602,9 +604,9 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 创建表
+      summary: Create Table
     put:
-      description: 修改表
+      description: Alter Table
       parameters:
       - default: test
         description: cluster name
@@ -625,10 +627,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 修改表
+      summary: Alter Table
   /api/v1/ck/table_metric/{clusterName}:
     get:
-      description: 获取ClickHouse中MergeTree表的指标
+      description: Get metrics of MergeTree in ClickHouse
       parameters:
       - default: test
         description: cluster name
@@ -643,10 +645,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 获取ClickHouse中MergeTree表的指标
+      summary: Get metrics of MergeTree in ClickHouse
   /api/v1/ck/upgrade/{clusterName}:
     put:
-      description: 升级ClickHouse集群
+      description: Upgrade ClickHouse cluster
       parameters:
       - default: test
         description: cluster name
@@ -667,10 +669,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 升级ClickHouse集群
+      summary: Upgrade ClickHouse cluster
   /api/v1/config:
     get:
-      description: 获取配置
+      description: Get Config
       responses:
         "200":
           description: '{"code":200,"msg":"ok","data":{"peers":null,"prometheus":["192.168.101.105:19090"],"alertManagers":null}}'
@@ -678,9 +680,9 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 获取配置
+      summary: Get Config
     put:
-      description: 更新配置
+      description: Update Config
       parameters:
       - description: request body
         in: body
@@ -695,10 +697,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 更新配置
+      summary: Update Config
   /api/v1/deploy/ck:
     post:
-      description: 部署clickhouse
+      description: Deploy clickhouse
       parameters:
       - description: request body
         in: body
@@ -713,10 +715,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 部署clickhouse
+      summary: Deploy clickhouse
   /api/v1/metric/query:
     get:
-      description: 查询指标
+      description: Query
       parameters:
       - default: ClickHouseMetrics_Read
         description: metric name
@@ -737,10 +739,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 查询指标
+      summary: Query
   /api/v1/metric/query_range:
     get:
-      description: 查询指标范围
+      description: Query Range
       parameters:
       - default: ClickHouseMetrics_Read
         description: metric name
@@ -773,10 +775,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 查询指标范围
+      summary: Query Range
   /api/v1/package:
     delete:
-      description: 删除包
+      description: Delete package
       parameters:
       - default: 20.8.5.45
         description: package version
@@ -791,9 +793,9 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 删除包
+      summary: Delete package
     get:
-      description: 获取安装包列表
+      description: Get package list
       responses:
         "200":
           description: '{"code":200,"msg":"ok","data":["20.8.5.45"]}'
@@ -801,13 +803,13 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 获取安装包列表
+      summary: Get package list
     post:
       consumes:
       - multipart/form-data
-      description: 上传安装包
+      description: Upload package
       parameters:
-      - description: 安装包
+      - description: package
         in: formData
         name: package
         required: true
@@ -819,10 +821,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 上传安装包
+      summary: Upload package
   /api/v1/zk/replicated_table/{clusterName}:
     get:
-      description: 从Zookeeper中获取复制表状态
+      description: Get replicated table in Zookeeper status
       parameters:
       - default: test
         description: cluster name
@@ -837,10 +839,10 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 从Zookeeper中获取复制表状态
+      summary: Get replicated table in  Zookeeper status
   /api/v1/zk/status/{clusterName}:
     get:
-      description: 获取Zookeeper集群状态
+      description: Get Zookeeper cluster status
       parameters:
       - default: test
         description: cluster name
@@ -850,12 +852,13 @@ paths:
         type: string
       responses:
         "200":
-          description: '{"code":200,"msg":"ok","data":[{"host":"192.168.102.116","version":"3.6.2","server_state":"follower","peer_state":"following - broadcast","avg_latency":0.4929,"approximate_data_size":141979,"znode_count":926}]}'
+          description: '{"code":200,"msg":"ok","data":[{"host":"192.168.102.116","version":"3.6.2","server_state":"follower","peer_state":"following
+            - broadcast","avg_latency":0.4929,"approximate_data_size":141979,"znode_count":926}]}'
           schema:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: 获取Zookeeper集群状态
+      summary: Get Zookeeper cluster status
 securityDefinitions:
   ApiKeyAuth:
     in: header

@@ -26,8 +26,8 @@ func NewZookeeperController() *ZookeeperController {
 	return ck
 }
 
-// @Summary 获取Zookeeper集群状态
-// @Description 获取Zookeeper集群状态
+// @Summary Get Zookeeper cluster status
+// @Description Get Zookeeper cluster status
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
@@ -39,7 +39,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_ZK_STATUS_FAIL, model.GetMsg(model.GET_ZK_STATUS_FAIL),
+		model.WrapMsg(c, model.GET_ZK_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_STATUS_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -52,7 +52,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 		}
 		body, err := getZkStatus(node, ZkStatusDefaultPort)
 		if err != nil {
-			model.WrapMsg(c, model.GET_ZK_STATUS_FAIL, model.GetMsg(model.GET_ZK_STATUS_FAIL),
+			model.WrapMsg(c, model.GET_ZK_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_STATUS_FAIL),
 				fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
 			return
 		}
@@ -61,7 +61,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 		zkList[index] = tmp
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS), zkList)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), zkList)
 }
 
 func getZkStatus(host string, port int) ([]byte, error) {
@@ -90,8 +90,8 @@ func getZkStatus(host string, port int) ([]byte, error) {
 	return body, nil
 }
 
-// @Summary 从Zookeeper中获取复制表状态
-// @Description 从Zookeeper中获取复制表状态
+// @Summary Get replicated table in  Zookeeper status
+// @Description Get replicated table in Zookeeper status
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
@@ -103,7 +103,7 @@ func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, model.GetMsg(model.GET_ZK_TABLE_STATUS_FAIL),
+		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_TABLE_STATUS_FAIL),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -111,14 +111,14 @@ func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 
 	zkService, err := zookeeper.GetZkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, model.GetMsg(model.GET_ZK_TABLE_STATUS_FAIL),
+		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_TABLE_STATUS_FAIL),
 			fmt.Sprintf("get zookeeper service fail: %v", err))
 		return
 	}
 
 	tables, err := zkService.GetReplicatedTableStatus(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, model.GetMsg(model.GET_ZK_TABLE_STATUS_FAIL), err)
+		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_TABLE_STATUS_FAIL), err)
 		return
 	}
 
@@ -135,5 +135,5 @@ func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 		Tables: tables,
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(model.SUCCESS),resp)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS),resp)
 }

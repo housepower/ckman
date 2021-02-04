@@ -178,7 +178,7 @@ func ginJWTAuth() gin.HandlerFunc {
 		// jwt
 		token := c.Request.Header.Get("token")
 		if token == "" {
-			model.WrapMsg(c, model.JWT_TOKEN_NONE, model.GetMsg(model.JWT_TOKEN_NONE), nil)
+			model.WrapMsg(c, model.JWT_TOKEN_NONE, model.GetMsg(c, model.JWT_TOKEN_NONE), nil)
 			c.Abort()
 			return
 		}
@@ -186,21 +186,21 @@ func ginJWTAuth() gin.HandlerFunc {
 		j := common.NewJWT()
 		claims, code := j.ParserToken(token)
 		if code != model.SUCCESS {
-			model.WrapMsg(c, code, model.GetMsg(code), nil)
+			model.WrapMsg(c, code, model.GetMsg(c, code), nil)
 			c.Abort()
 			return
 		}
 
 		// Verify Expires
 		if _, ok := controller.TokenCache.Get(token); !ok {
-			model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, model.GetMsg(model.JWT_TOKEN_EXPIRED), nil)
+			model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, model.GetMsg(c, model.JWT_TOKEN_EXPIRED), nil)
 			c.Abort()
 			return
 		}
 
 		// Verify client ip
 		if claims.ClientIP != c.ClientIP() {
-			model.WrapMsg(c, model.JWT_TOKEN_IP_MISMATCH, model.GetMsg(model.JWT_TOKEN_IP_MISMATCH), nil)
+			model.WrapMsg(c, model.JWT_TOKEN_IP_MISMATCH, model.GetMsg(c, model.JWT_TOKEN_IP_MISMATCH), nil)
 			c.Abort()
 			return
 		}

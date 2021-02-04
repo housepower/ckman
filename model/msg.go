@@ -1,6 +1,11 @@
 package model
 
-var MsgFlags = map[int]string{
+import (
+	"github.com/gin-gonic/gin"
+	"strings"
+)
+
+var MsgFlags_zh = map[int]string{
 	SUCCESS:                     "ok",
 	ERROR:                       "fail",
 	INVALID_PARAMS:              "请求参数错误",
@@ -52,7 +57,65 @@ var MsgFlags = map[int]string{
 	UNKNOWN: "unknown",
 }
 
-func GetMsg(code int) string {
+var MsgFlags_en = map[int]string{
+	SUCCESS:                     "ok",
+	ERROR:                       "fail",
+	INVALID_PARAMS:              "invalid params",
+	CREAT_CK_TABLE_FAIL:         "create ClickHouse table failed",
+	DELETE_CK_TABLE_FAIL:        "delete ClickHouse table failed",
+	ALTER_CK_TABLE_FAIL:         "alter ClickHouse table failed",
+	UPLOAD_LOCAL_PACKAGE_FAIL:   "upload local package failed",
+	UPLOAD_PEER_PACKAGE_FAIL:    "upload peer package failed",
+	DELETE_LOCAL_PACKAGE_FAIL:   "delete local package failed",
+	DELETE_PEER_PACKAGE_FAIL:    "delete peer package failed",
+	LIST_PACKAGE_FAIL:           "get package list failed",
+	INIT_PACKAGE_FAIL:           "init package failed",
+	PREPARE_PACKAGE_FAIL:        "prepare package failed",
+	INSTALL_PACKAGE_FAIL:        "install package failed",
+	CONFIG_PACKAGE_FAIL:         "config package failed",
+	START_PACKAGE_FAIL:          "start package fialed",
+	CHECK_PACKAGE_FAIL:          "check package failed",
+	JWT_TOKEN_EXPIRED:           "token has expired",
+	JWT_TOKEN_INVALID:           "invalid token",
+	JWT_TOKEN_NONE:              "request did not carry a token",
+	JWT_TOKEN_IP_MISMATCH:       "Ip mismatched",
+	USER_VERIFY_FAIL:            "user verify failed",
+	GET_USER_PASSWORD_FAIL:      "get user and password failed",
+	PASSWORD_VERIFY_FAIL:        "password verify failed",
+	CREAT_TOKEN_FAIL:            "create token failed",
+	DESC_CK_TABLE_FAIL:          "describe ClickHouse table failed",
+	QUERY_METRIC_FAIL:           "get query metric failed",
+	QUERY_RANGE_METRIC_FAIL:     "get range-metric failed",
+	QUERY_CK_FAIL:               "query ClickHouse failed",
+	CONNECT_CK_CLUSTER_FAIL:     "connect ClickHouse cluster failed",
+	IMPORT_CK_CLUSTER_FAIL:      "import ClickHouse cluster failed",
+	UPDATE_CK_CLUSTER_FAIL:      "update ClickHouse cluster failed",
+	UPGRADE_CK_CLUSTER_FAIL:     "upgrade ClickHouse cluster failed",
+	START_CK_CLUSTER_FAIL:       "start ClickHouse cluster failed",
+	STOP_CK_CLUSTER_FAIL:        "stop ClickHouse cluster failed",
+	DESTROY_CK_CLUSTER_FAIL:     "destroy ClickHouse cluster failed",
+	REBALANCE_CK_CLUSTER_FAIL:   "rebalance ClickHouse cluster failed",
+	GET_CK_CLUSTER_INFO_FAIL:    "get ClickHouse cluster information failed",
+	ADD_CK_CLUSTER_NODE_FAIL:    "add ClickHouse node failed",
+	DELETE_CK_CLUSTER_NODE_FAIL: "delete ClickHouse node failed",
+	GET_CK_TABLE_METRIC_FAIL:    "get metric of ClickHouse table failed",
+	UPDATE_CONFIG_FAIL:          "update config failed",
+	GET_ZK_STATUS_FAIL:          "get Zookeeper status failed",
+	GET_ZK_TABLE_STATUS_FAIL:    "get Zookeeper table status failed",
+	GET_CK_OPEN_SESSIONS_FAIL:   "get open sessions failed",
+	GET_CK_SLOW_SESSIONS_FAIL:   "get slow sessions failed",
+
+	UNKNOWN: "unknown",
+}
+
+func GetMsg(c *gin.Context, code int) string {
+	lang := c.Request.Header.Get("Accept-Language")
+	MsgFlags := make(map[int]string)
+	if  strings.Contains(lang, "zh") {
+		MsgFlags = MsgFlags_zh
+	} else {
+		MsgFlags = MsgFlags_en
+	}
 	msg, ok := MsgFlags[code]
 	if ok {
 		return msg
