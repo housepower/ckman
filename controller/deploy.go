@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/deploy"
@@ -12,7 +13,7 @@ import (
 )
 
 type DeployController struct {
-	config *config.CKManConfig
+	config      *config.CKManConfig
 	nacosClient *nacos.NacosClient
 }
 
@@ -55,6 +56,30 @@ func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (
 	}
 
 	return model.SUCCESS, nil
+}
+
+func (d *DeployController) syncDownClusters(c *gin.Context) (err error) {
+	data, err := d.nacosClient.GetConfig()
+	if err != nil {
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	}
+	return
+}
+
+func (d *DeployController) syncUpClusters(c *gin.Context) (err error) {
+	clickhouse.AddCkClusterConfigVersion()
+	buf, _ := clickhouse.MarshalClusters()
+	clickhouse.WriteClusterConfigFile(buf)
+	err = d.nacosClient.PublishConfig(string(buf))
+	if err != nil {
+		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, model.GetMsg(c, model.PUB_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	return
 }
 
 // @Summary Deploy clickhouse
@@ -101,19 +126,13 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 	conf := convertCkConfig(&req)
 	conf.Mode = model.CkClusterDeploy
-	data, err := d.nacosClient.GetConfig()
-	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+	if err = d.syncDownClusters(c); err != nil {
 		return
 	}
-	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
-	}
 	clickhouse.CkClusters.Store(req.ClickHouse.ClusterName, conf)
-	clickhouse.AddCkClusterConfigVersion()
-	buf, _ := clickhouse.MarshalClusters()
-	clickhouse.WriteClusterConfigFile(buf)
-	d.nacosClient.PublishConfig(string(buf))
+	if err = d.syncDownClusters(c); err != nil {
+		return
+	}
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 

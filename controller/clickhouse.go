@@ -2,13 +2,14 @@ package controller
 
 import (
 	"fmt"
-	"gitlab.eoitek.net/EOI/ckman/service/nacos"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"gitlab.eoitek.net/EOI/ckman/service/nacos"
 
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/deploy"
@@ -32,6 +33,30 @@ func NewClickHouseController(nacosClient *nacos.NacosClient) *ClickHouseControll
 		nacosClient,
 	}
 	return ck
+}
+
+func (ck *ClickHouseController) syncDownClusters(c *gin.Context) (err error) {
+	data, err := ck.nacosClient.GetConfig()
+	if err != nil {
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	if data != "" {
+		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	}
+	return
+}
+
+func (ck *ClickHouseController) syncUpClusters(c *gin.Context) (err error) {
+	clickhouse.AddCkClusterConfigVersion()
+	buf, _ := clickhouse.MarshalClusters()
+	clickhouse.WriteClusterConfigFile(buf)
+	err = ck.nacosClient.PublishConfig(string(buf))
+	if err != nil {
+		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, model.GetMsg(c, model.PUB_NACOS_CONFIG_FAIL), err.Error())
+		return
+	}
+	return
 }
 
 // @Summary Import ClickHouse cluster
@@ -67,70 +92,13 @@ func (ck *ClickHouseController) ImportCk(c *gin.Context) {
 
 	conf.Mode = model.CkClusterImport
 	clickhouse.CkConfigFillDefault(&conf)
-	data, err := ck.nacosClient.GetConfig()
-	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+	if err = ck.syncDownClusters(c); err != nil {
 		return
-	}
-	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
 	}
 	clickhouse.CkClusters.Store(req.Cluster, conf)
-	clickhouse.AddCkClusterConfigVersion()
-	buf, _ := clickhouse.MarshalClusters()
-	clickhouse.WriteClusterConfigFile(buf)
-	ck.nacosClient.PublishConfig(string(buf))
-
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
-}
-
-// @Summary Update ClickHouse cluster
-// @Description Update ClickHouse cluster
-// @version 1.0
-// @Security ApiKeyAuth
-// @Param req body model.CkImportConfig true "request body"
-// @Failure 200 {string} json "{"code":400,"msg":"invalid params","data":""}"
-// @Failure 200 {string} json "{"code":5043,"msg":"update ClickHouse cluster failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
-// @Router /api/v1/ck/cluster [put]
-func (ck *ClickHouseController) UpdateCk(c *gin.Context) {
-	var req model.CkImportConfig
-	var conf model.CKManClickHouseConfig
-
-	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+	if err = ck.syncUpClusters(c); err != nil {
 		return
 	}
-
-	con, ok := clickhouse.CkClusters.Load(req.Cluster)
-	if !ok {
-		model.WrapMsg(c, model.UPDATE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPDATE_CK_CLUSTER_FAIL),
-			fmt.Sprintf("cluster %s does not exist", req.Cluster))
-		return
-	}
-
-	conf = con.(model.CKManClickHouseConfig)
-	err := clickhouse.GetCkClusterConfig(req, &conf)
-	if err != nil {
-		model.WrapMsg(c, model.UPDATE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPDATE_CK_CLUSTER_FAIL), err.Error())
-		return
-	}
-
-	clickhouse.CkConfigFillDefault(&conf)
-	data, err := ck.nacosClient.GetConfig()
-	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
-		return
-	}
-	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
-	}
-	clickhouse.CkClusters.Store(req.Cluster, conf)
-	clickhouse.CkServices.Delete(req.Cluster)
-	clickhouse.AddCkClusterConfigVersion()
-	buf, _ := clickhouse.MarshalClusters()
-	clickhouse.WriteClusterConfigFile(buf)
-	ck.nacosClient.PublishConfig(string(buf))
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
@@ -143,22 +111,17 @@ func (ck *ClickHouseController) UpdateCk(c *gin.Context) {
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
 // @Router /api/v1/ck/cluster/{clusterName} [delete]
 func (ck *ClickHouseController) DeleteCk(c *gin.Context) {
+	var err error
 	clusterName := c.Param(ClickHouseClusterPath)
 
-	data, err := ck.nacosClient.GetConfig()
-	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+	if err = ck.syncDownClusters(c); err != nil {
 		return
-	}
-	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
 	}
 	clickhouse.CkClusters.Delete(clusterName)
 	clickhouse.CkServices.Delete(clusterName)
-	clickhouse.AddCkClusterConfigVersion()
-	buf, _ := clickhouse.MarshalClusters()
-	clickhouse.WriteClusterConfigFile(buf)
-	ck.nacosClient.PublishConfig(string(buf))
+	if err = ck.syncUpClusters(c); err != nil {
+		return
+	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
@@ -170,9 +133,16 @@ func (ck *ClickHouseController) DeleteCk(c *gin.Context) {
 // @Success 200 {string} json "{"code":200,"msg":"ok","data":{"test":{"hosts":["192.168.101.105"],"port":9000,"user":"eoi","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.101.102"],"zkPort":2181,"isReplica":false}}}"
 // @Router /api/v1/ck/cluster [get]
 func (ck *ClickHouseController) GetCk(c *gin.Context) {
+	var err error
+	if err = ck.syncDownClusters(c); err != nil {
+		return
+	}
 	clustersMap := make(map[string]model.CKManClickHouseConfig)
 	clickhouse.CkClusters.Range(func(k, v interface{}) bool {
-		clustersMap[k.(string)] = v.(model.CKManClickHouseConfig)
+		switch clus := v.(type) {
+		case model.CKManClickHouseConfig:
+			clustersMap[k.(string)] = clus
+		}
 		return true
 	})
 
@@ -415,19 +385,13 @@ func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
 	}
 
 	conf.Version = packageVersion
-	data, err := ck.nacosClient.GetConfig()
-	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+	if err = ck.syncDownClusters(c); err != nil {
 		return
 	}
-	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
-	}
 	clickhouse.CkClusters.Store(clusterName, conf)
-	clickhouse.AddCkClusterConfigVersion()
-	buf, _ := clickhouse.MarshalClusters()
-	clickhouse.WriteClusterConfigFile(buf)
-	ck.nacosClient.PublishConfig(string(buf))
+	if err = ck.syncUpClusters(c); err != nil {
+		return
+	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
@@ -699,20 +663,14 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 		return
 	}
 
-	data, err := ck.nacosClient.GetConfig()
-	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+	if err = ck.syncDownClusters(c); err != nil {
 		return
-	}
-	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
 	}
 	clickhouse.CkClusters.Store(clusterName, conf)
 	clickhouse.CkServices.Delete(clusterName)
-	clickhouse.AddCkClusterConfigVersion()
-	buf, _ := clickhouse.MarshalClusters()
-	clickhouse.WriteClusterConfigFile(buf)
-	ck.nacosClient.PublishConfig(string(buf))
+	if err = ck.syncUpClusters(c); err != nil {
+		return
+	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
@@ -745,20 +703,14 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 		return
 	}
 
-	data, err := ck.nacosClient.GetConfig()
-	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+	if err = ck.syncDownClusters(c); err != nil {
 		return
-	}
-	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
 	}
 	clickhouse.CkClusters.Store(clusterName, conf)
 	clickhouse.CkServices.Delete(clusterName)
-	clickhouse.AddCkClusterConfigVersion()
-	buf, _ := clickhouse.MarshalClusters()
-	clickhouse.WriteClusterConfigFile(buf)
-	ck.nacosClient.PublishConfig(string(buf))
+	if err = ck.syncUpClusters(c); err != nil {
+		return
+	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }

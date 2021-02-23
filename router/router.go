@@ -2,16 +2,17 @@ package router
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/gin-gonic/gin"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/controller"
 	"gitlab.eoitek.net/EOI/ckman/service/nacos"
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
-	"os"
 )
 
 func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *prometheus.PrometheusService,
-				signal chan os.Signal, nacosClient *nacos.NacosClient) {
+	signal chan os.Signal, nacosClient *nacos.NacosClient) {
 	ckController := controller.NewClickHouseController(nacosClient)
 	packageController := controller.NewPackageController(config)
 	deployController := controller.NewDeployController(config, nacosClient)
@@ -20,7 +21,6 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *pr
 	zkController := controller.NewZookeeperController()
 
 	groupV1.POST("/ck/cluster", ckController.ImportCk)
-	groupV1.PUT("/ck/cluster", ckController.UpdateCk)
 	groupV1.GET("/ck/cluster", ckController.GetCk)
 	groupV1.DELETE(fmt.Sprintf("/ck/cluster/:%s", controller.ClickHouseClusterPath), ckController.DeleteCk)
 	groupV1.POST(fmt.Sprintf("/ck/table/:%s", controller.ClickHouseClusterPath), ckController.CreateTable)
