@@ -5,7 +5,7 @@
 name: "ckman"
 arch: "amd64"
 platform: "linux"
-version: "v1.2.3"
+version: "v1.2.4"
 section: "default"
 priority: "extra"
 provides:
@@ -13,23 +13,40 @@ provides:
 - ckmanpasswd
 - schemer
 - rebalancer
-maintainer: "Fly Li <Fly@eoitek.com>"
+maintainer: "Zhichang Yu <yuzhichang@gmail.com>"
 description: |
   ckman is a tool which used to manage and monitor ClickHouse database
 vendor: "EOI"
 license: "MIT"
-files:
-  ./ckman: "/usr/local/bin/ckman"
-  ./rebalancer: "/usr/local/bin/rebalancer"
-  ./ckmanpasswd: "/usr/local/bin/ckmanpasswd"
-  ./schemer: "/usr/local/bin/schemer"
-  ./README.md: "/etc/ckman/package/README.md"
-config_files:
-  ./resources/config.xml: "/etc/ckman/template/config.xml"
-  ./resources/users.xml: "/etc/ckman/template/users.xml"
-  ./resources/ckman.yaml: "/etc/ckman/conf/ckman.yaml"
-  ./resources/password: "/etc/ckman/conf/password"
-  ./resources/ckman.service: "/etc/systemd/system/ckman.service"
-symlinks:
-  /sbin/ckman: "/usr/local/bin/ckman"
-  /etc/systemd/system/multi-user.target.wants/ckman.service: "/etc/systemd/system/ckman.service"
+contents:
+  - src: ./ckman
+    dst: /usr/local/bin/ckman
+  - src: ./rebalancer
+    dst: /usr/local/bin/rebalancer
+  - src: ./ckmanpasswd
+    dst: /usr/local/bin/ckmanpasswd
+  - src: ./schemer
+    dst: /usr/local/bin/schemer
+  - src: ./README.md
+    dst: /etc/ckman/package/README.md
+  - src: ./resources/config.xml
+    dst: /etc/ckman/template/config.xml
+    type: config
+  - src: ./resources/users.xml
+    dst: /etc/ckman/template/users.xml
+    type: config
+  - src: ./resources/ckman.yaml
+    dst: /etc/ckman/conf/ckman.yaml
+    type: config
+  - src: ./resources/password
+    dst: /etc/ckman/conf/password
+    type: config
+  - src: ./resources/ckman.service
+    dst: /etc/systemd/system/ckman.service
+    type: config
+  - src: /usr/local/bin/ckman
+    dst: /sbin/ckman
+    type: symlink
+  - src: /etc/systemd/system/ckman.service
+    dst: /etc/systemd/system/multi-user.target.wants/ckman.service
+    type: symlink
