@@ -2,6 +2,13 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"os"
+	"os/exec"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/patrickmn/go-cache"
 	"github.com/spf13/cobra"
 	"gitlab.eoitek.net/EOI/ckman/config"
@@ -12,11 +19,6 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
 	"gitlab.eoitek.net/EOI/ckman/service/zookeeper"
 	"gopkg.in/sevlyar/go-daemon.v0"
-	"os"
-	"os/exec"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 const (
@@ -72,6 +74,7 @@ func main() {
 	log.Logger.Infof("build time: %v", BuildTimeStamp)
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
 
+	selfIP := GetOutboundIP().String()
 	signalCh := make(chan os.Signal, 1)
 	// parse brokers file
 	err := clickhouse.ParseCkClusterConfigFile()
@@ -83,7 +86,7 @@ func main() {
 	if err != nil {
 		log.Logger.Fatalf("Failed to init nacos client, %v", err)
 	}
-	err = nacosClient.Start(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port, config.GlobalConfig.Server.Token)
+	err = nacosClient.Start(selfIP, config.GlobalConfig.Server.Port, config.GlobalConfig.Server.Token)
 	if err != nil {
 		log.Logger.Fatalf("Failed to start nacos client, %v", err)
 	}
@@ -97,7 +100,7 @@ func main() {
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}
-	log.Logger.Infof("start http server %s:%d success", config.GlobalConfig.Server.Bind, config.GlobalConfig.Server.Port)
+	log.Logger.Infof("start http server %s:%d success", selfIP, config.GlobalConfig.Server.Port)
 
 	//block here, waiting for terminal signal
 	handleSignal(signalCh, svr)
@@ -172,4 +175,16 @@ func InitCmd() {
 	rootCmd.AddCommand(VersionCmd)
 
 	rootCmd.Execute()
+}
+
+// GetOutboundIP get preferred outbound ip of this machine
+//https://stackoverflow.com/questions/23558425/how-do-i-get-the-local-ip-address-in-go
+func GetOutboundIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Logger.Fatal(err)
+	}
+	defer conn.Close()
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP
 }

@@ -66,7 +66,6 @@ type CKManNacosConfig struct {
 }
 
 func fillDefault(c *CKManConfig) {
-	c.Server.Bind = "0.0.0.0"
 	c.Server.Port = 8808
 	c.Server.SessionTimeout = 3600
 	c.Server.Pprof = true

@@ -3,12 +3,13 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/patrickmn/go-cache"
-	"gitlab.eoitek.net/EOI/ckman/service/nacos"
 	"io"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/patrickmn/go-cache"
+	"gitlab.eoitek.net/EOI/ckman/service/nacos"
 
 	static "github.com/choidamdam/gin-static-pkger"
 	"github.com/gin-contrib/pprof"
@@ -77,7 +78,7 @@ func (server *ApiServer) Start() error {
 	groupV1 := groupApi.Group("/v1")
 	router.InitRouterV1(groupV1, server.config, server.prom, server.signal, server.nacosClient)
 
-	bind := fmt.Sprintf("%s:%d", server.config.Server.Bind, server.config.Server.Port)
+	bind := fmt.Sprintf(":%d", server.config.Server.Port)
 	server.svr = &http.Server{
 		Addr:         bind,
 		WriteTimeout: time.Second * 300,
@@ -216,7 +217,7 @@ func ginRefreshTokenExpires() gin.HandlerFunc {
 		if value, exists := c.Get("token"); exists {
 			token := value.(string)
 			if token != "" {
-				controller.TokenCache.SetDefault(token, time.Now().Add(time.Second * time.Duration(config.GlobalConfig.Server.SessionTimeout)).Unix())
+				controller.TokenCache.SetDefault(token, time.Now().Add(time.Second*time.Duration(config.GlobalConfig.Server.SessionTimeout)).Unix())
 			}
 		}
 	}
