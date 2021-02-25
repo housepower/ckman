@@ -82,7 +82,7 @@ func main() {
 		log.Logger.Fatalf("parse brokers file fail: %v", err)
 	}
 
-	nacosClient, err := nacos.InitNacosClient(&config.GlobalConfig.Nacos, LogFilePath, nacos.NacosDefaultGroupName)
+	nacosClient, err := nacos.InitNacosClient(&config.GlobalConfig.Nacos, LogFilePath)
 	if err != nil {
 		log.Logger.Fatalf("Failed to init nacos client, %v", err)
 	}

@@ -1,8 +1,5 @@
 server:
   id: 1
-  bind: 0.0.0.0
-  # this ip will used to register nacos service
-  ip: 127.0.0.1
   port: 8808
   https: false
   pprof: true
@@ -31,3 +28,5 @@ nacos:
   user_name: nacos
   password: 0192023A7BBD73250516F069DF18B500
   #namespace:
+  #group:
+  #data_id:

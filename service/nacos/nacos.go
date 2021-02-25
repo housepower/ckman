@@ -2,6 +2,8 @@ package nacos
 
 import (
 	"fmt"
+	"path/filepath"
+
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
@@ -11,12 +13,7 @@ import (
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
-	"path/filepath"
 )
-
-var NacosServiceName = "ckman"
-var NacosDefaultGroupName = "DEFAULT_GROUP"
-var NacosDefaultDataId = "data_id"
 
 type NacosClient struct {
 	Enabled     bool
@@ -27,7 +24,7 @@ type NacosClient struct {
 	Config      config_client.IConfigClient
 }
 
-func InitNacosClient(config *config.CKManNacosConfig, log string, group string) (*NacosClient, error) {
+func InitNacosClient(config *config.CKManNacosConfig, log string) (*NacosClient, error) {
 	if config == nil {
 		return nil, fmt.Errorf("nacos config is invalid")
 	}
@@ -86,9 +83,9 @@ func InitNacosClient(config *config.CKManNacosConfig, log string, group string) 
 
 		return &NacosClient{
 			Enabled:     true,
-			ServiceName: NacosServiceName,
-			GroupName:   group,
-			DataId:      NacosDefaultDataId,
+			ServiceName: config.DataID,
+			GroupName:   config.Group,
+			DataId:      config.DataID,
 			Naming:      namingClient,
 			Config:      configClient,
 		}, nil

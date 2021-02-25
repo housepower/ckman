@@ -63,6 +63,8 @@ type CKManNacosConfig struct {
 	UserName  string `yaml:"user_name"`
 	Password  string
 	Namespace string
+	Group     string
+	DataID    string `yaml:"data_id"`
 }
 
 func fillDefault(c *CKManConfig) {
@@ -74,6 +76,8 @@ func fillDefault(c *CKManConfig) {
 	c.Log.MaxSize = 10
 	c.Log.MaxAge = 10
 	c.Prometheus.Timeout = 10
+	c.Nacos.Group = "DEFAULT_GROUP"
+	c.Nacos.DataID = "ckman"
 }
 
 func ParseConfigFile(path string) error {
