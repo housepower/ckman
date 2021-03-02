@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/MakeNowJust/heredoc"
-	"github.com/mitchellh/mapstructure"
 	"gitlab.eoitek.net/EOI/ckman/config"
 	"gitlab.eoitek.net/EOI/ckman/log"
 	"gitlab.eoitek.net/EOI/ckman/model"
@@ -174,7 +173,8 @@ func MergeCkClusterConfig(src map[string]interface{}) error {
 		v, ok := value.(map[string]interface{})
 		if ok {
 			var conf model.CKManClickHouseConfig
-			mapstructure.Decode(v, &conf)
+			jsonStr,_ := json.Marshal(v)
+			_ = json.Unmarshal(jsonStr, &conf)
 			CkClusters.Store(key, conf)
 		} else {
 			CkClusters.Store(key, int(value.(float64)))
