@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Rebalance the whole cluster. It queries every shard to get partitions size, caculates a plan, for each selected partition, detach from source node, rsync to dest node and attach it.
+// Rebalance the whole cluster. It queries every shard to get partitions size, calculates a plan, for each selected partition, detach from source node, rsync to dest node and attach it.
 // https://clickhouse.tech/docs/en/sql-reference/statements/alter/#synchronicity-of-alter-queries
 
 // [FETCH PARTITION](https://clickhouse.tech/docs/en/sql-reference/statements/alter/partition/#alter_fetch-partition) drawbacks:
@@ -182,7 +182,7 @@ func getTables() (err error) {
 	return
 }
 
-// TblPartitions is partitions status of a host. A host never move out and move in at the same ieration.
+// TblPartitions is partitions status of a host. A host never move out and move in at the same iteration.
 type TblPartitions struct {
 	Table      string
 	Host       string
@@ -198,7 +198,7 @@ func getState(table string) (tbls []*TblPartitions, err error) {
 	for _, host := range chHosts {
 		db := chConns[host]
 		var rows *sql.Rows
-		// Skip the newest partition on each host since into which there could by ongoing insertons.
+		// Skip the newest partition on each host since into which there could by ongoing insertions.
 		query := fmt.Sprintf(`WITH (SELECT argMax(partition, modification_time) FROM system.parts WHERE database='%s' AND table='%s') AS latest_partition SELECT partition, sum(data_compressed_bytes) AS compressed FROM system.parts WHERE database='%s' AND table='%s' AND active=1 AND partition!=latest_partition GROUP BY partition ORDER BY partition;`, cmdOps.ChDatabase, table, cmdOps.ChDatabase, table)
 		log.Infof("host %s: query: %s", host, query)
 		if rows, err = db.Query(query); err != nil {
