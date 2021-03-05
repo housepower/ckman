@@ -180,7 +180,7 @@ bin/start
       "vm10141",
       "vm10142",
       "zhanglei01"
-    ],  
+    ],
     "port": 9000,	 #ck节点的端口
     "user": "eoi",   #ck用户
     "password": "123456",   #ck密码
@@ -257,7 +257,7 @@ bin/start
 
 ### 创建集群
 
-点击主页的` Create a ClixkHouse Cluster`，就会进入创建集群的界面：
+点击主页的` Create a ClickHouse Cluster`，就会进入创建集群的界面：
 
 ![image-20210301134556560](img/image-20210301134556560.png)
 
@@ -285,7 +285,7 @@ bin/start
 
 ### 导入集群
 
-点击主页的 `Import a ClixkHouse Cluster`按钮，会进去导入集群界面。
+点击主页的 `Import a ClickHouse Cluster`按钮，会进去导入集群界面。
 
 ![image-20210301142116336](img/image-20210301142116336.png)
 
@@ -482,7 +482,7 @@ scrape_configs:
 
 ![image-20210301151624044](img/image-20210301151624044.png)
 
->   注意： 
+>   注意：
 >
 >   该工具只能查询，不能进行`mutation`的相关操作。
 >
@@ -490,7 +490,7 @@ scrape_configs:
 
 ## Settings
 
->   
+>
 
 ### ckman设置
 
@@ -515,7 +515,7 @@ scrape_configs:
 如：
 
 ```bash
-exporter --ch-hosts=192.168.101.40,192.168.101.42 --ch-user=eoi --ch-password=123456 --ch-tables=dbtest,tbtesttype --hdfs-addr=localhost:50070 --hdfs-dir=/data 
+exporter --ch-hosts=192.168.101.40,192.168.101.42 --ch-user=eoi --ch-password=123456 --ch-tables=dbtest,tbtesttype --hdfs-addr=localhost:50070 --hdfs-dir=/data
 ```
 
 参数说明：
@@ -551,7 +551,7 @@ exporter --ch-hosts=192.168.101.40,192.168.101.42 --ch-user=eoi --ch-password=12
 
 删除指定时间范围的数据。直接`drop` 分区数据。
 
-如： 
+如：
 
 ```bash
 purger --ch-hosts=192.168.101.40,192.168.101.42 --ch-port=9000 --ch-user=eoi --ch_password=123456 --ch-database=default --ch-tables=dbtest --dt-begin=2021-02-01 --dt-end=2021-02-28
@@ -629,7 +629,7 @@ schemer --src-host=192.168.101.40 --dst-host=192.168.21.73 --ch-port=9000 --ch-u
 >       -   数据存放目录
 >   -   os-user
 >       -   节点主机用户名(需要有root权限)
->   -   os-password 
+>   -   os-password
 >       -   节点主机密码
 
 # 扩展API
@@ -714,7 +714,7 @@ GET  http://192.168.31.55:8808/api/v1/ck/table/test?tableName=tbtest&database=de
 
 >   METHOD:  PUT
 >
->   URL:            /api/v1/ck/table/{clusterName} 
+>   URL:            /api/v1/ck/table/{clusterName}
 
 使用`ALTER`语句完成分布式表的更新。
 
@@ -752,7 +752,7 @@ PUT /api/v1/ck/table/test
 
 >   METHOD:  POST
 >
->   URL:            /api/v1/ck/table/{clusterName} 
+>   URL:            /api/v1/ck/table/{clusterName}
 
 创建表默认使用的是`MergeTree`引擎，如果指定了`distinct`为`false`，表示支持去重，使用的引擎为`ReplacingMergeTree`。
 
@@ -762,7 +762,7 @@ POST /api/v1/ck/table/test
 	"name": "t1",		#要创建的表名
     "database": "default",  #数据库
     "fields":[{			#字段信息
-        "name":"id",	
+        "name":"id",
         "type":"Int32"
     },{
         "name":"birth",
@@ -792,7 +792,7 @@ POST /api/v1/ck/table/test
 
 >    METHOD:  DELETE
 >
->   URL:            /api/v1/ck/table/{clusterName} 
+>   URL:            /api/v1/ck/table/{clusterName}
 
 操作和描述表类似，通过`tableName`指定表名，`database`指定数据库名。
 
