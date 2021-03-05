@@ -5,10 +5,10 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/controller"
-	"gitlab.eoitek.net/EOI/ckman/service/nacos"
-	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/controller"
+	"github.com/housepower/ckman/service/nacos"
+	"github.com/housepower/ckman/service/prometheus"
 )
 
 func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *prometheus.PrometheusService,

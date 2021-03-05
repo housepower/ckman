@@ -2,7 +2,7 @@ package model
 
 import (
 	"github.com/gin-gonic/gin"
-	"gitlab.eoitek.net/EOI/ckman/log"
+	"github.com/housepower/ckman/log"
 	"net/http"
 )
 

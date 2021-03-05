@@ -9,14 +9,14 @@ import (
 	"strconv"
 	"strings"
 
-	"gitlab.eoitek.net/EOI/ckman/service/nacos"
+	"github.com/housepower/ckman/service/nacos"
 
 	"github.com/gin-gonic/gin"
-	"gitlab.eoitek.net/EOI/ckman/deploy"
-	_ "gitlab.eoitek.net/EOI/ckman/docs"
-	"gitlab.eoitek.net/EOI/ckman/log"
-	"gitlab.eoitek.net/EOI/ckman/model"
-	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
+	"github.com/housepower/ckman/deploy"
+	_ "github.com/housepower/ckman/docs"
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/service/clickhouse"
 )
 
 const (

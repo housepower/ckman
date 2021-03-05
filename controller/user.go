@@ -9,9 +9,9 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/patrickmn/go-cache"
-	"gitlab.eoitek.net/EOI/ckman/common"
-	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/model"
+	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/model"
 )
 
 var TokenCache *cache.Cache

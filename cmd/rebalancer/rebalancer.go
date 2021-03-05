@@ -14,7 +14,7 @@ import (
 	"github.com/k0kubun/pp"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"gitlab.eoitek.net/EOI/ckman/common"
+	"github.com/housepower/ckman/common"
 	"golang.org/x/crypto/ssh"
 )
 

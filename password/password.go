@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/md5"
 	"fmt"
-	"gitlab.eoitek.net/EOI/ckman/common"
+	"github.com/housepower/ckman/common"
 	"golang.org/x/crypto/ssh/terminal"
 	"os"
 	"path"

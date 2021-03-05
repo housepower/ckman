@@ -2,9 +2,9 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
-	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/model"
-	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/service/prometheus"
 	"strconv"
 )
 

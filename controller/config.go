@@ -2,8 +2,8 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
-	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/model"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/model"
 	"os"
 	"syscall"
 )

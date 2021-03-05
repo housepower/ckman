@@ -10,7 +10,7 @@ import (
 	_ "github.com/ClickHouse/clickhouse-go"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"gitlab.eoitek.net/EOI/ckman/common"
+	"github.com/housepower/ckman/common"
 )
 
 // purge data of given time range

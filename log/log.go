@@ -1,7 +1,7 @@
 package log
 
 import (
-	"gitlab.eoitek.net/EOI/ckman/config"
+	"github.com/housepower/ckman/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"

@@ -11,13 +11,13 @@ import (
 
 	"github.com/patrickmn/go-cache"
 	"github.com/spf13/cobra"
-	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/log"
-	"gitlab.eoitek.net/EOI/ckman/server"
-	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
-	"gitlab.eoitek.net/EOI/ckman/service/nacos"
-	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
-	"gitlab.eoitek.net/EOI/ckman/service/zookeeper"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/server"
+	"github.com/housepower/ckman/service/clickhouse"
+	"github.com/housepower/ckman/service/nacos"
+	"github.com/housepower/ckman/service/prometheus"
+	"github.com/housepower/ckman/service/zookeeper"
 	"gopkg.in/sevlyar/go-daemon.v0"
 )
 

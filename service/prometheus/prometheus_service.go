@@ -6,8 +6,8 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	m "github.com/prometheus/common/model"
-	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/model"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/model"
 	"time"
 )
 
@@ -41,7 +41,7 @@ func (p *PrometheusService) QueryMetric(params *model.MetricQueryReq) (m.Value, 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(p.config.Timeout)*time.Second)
 	defer cancel()
 
-	result, err := v1api.Query(ctx, params.Metric, time.Unix(params.Time, 0))
+	result, _, err := v1api.Query(ctx, params.Metric, time.Unix(params.Time, 0))
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (p *PrometheusService) QueryRangeMetric(params *model.MetricQueryRangeReq) 
 		End:   time.Unix(params.End, 0),
 		Step:  time.Duration(params.Step) * time.Second,
 	}
-	result, err := v1api.QueryRange(ctx, params.Metric, r)
+	result, _, err := v1api.QueryRange(ctx, params.Metric, r)
 	if err != nil {
 		return nil, err
 	}

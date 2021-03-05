@@ -15,7 +15,7 @@ import (
 	"github.com/colinmarc/hdfs/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"gitlab.eoitek.net/EOI/ckman/common"
+	"github.com/housepower/ckman/common"
 )
 
 // export data of given time range to HDFS

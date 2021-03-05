@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/patrickmn/go-cache"
-	"gitlab.eoitek.net/EOI/ckman/service/nacos"
+	"github.com/housepower/ckman/service/nacos"
 
 	static "github.com/choidamdam/gin-static-pkger"
 	"github.com/gin-contrib/pprof"
@@ -17,14 +17,14 @@ import (
 	"github.com/markbates/pkger"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
-	"gitlab.eoitek.net/EOI/ckman/common"
-	"gitlab.eoitek.net/EOI/ckman/config"
-	"gitlab.eoitek.net/EOI/ckman/controller"
-	_ "gitlab.eoitek.net/EOI/ckman/docs"
-	"gitlab.eoitek.net/EOI/ckman/log"
-	"gitlab.eoitek.net/EOI/ckman/model"
-	"gitlab.eoitek.net/EOI/ckman/router"
-	"gitlab.eoitek.net/EOI/ckman/service/prometheus"
+	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/controller"
+	_ "github.com/housepower/ckman/docs"
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/router"
+	"github.com/housepower/ckman/service/prometheus"
 )
 
 type ApiServer struct {

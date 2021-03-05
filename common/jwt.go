@@ -2,7 +2,7 @@ package common
 
 import (
 	"github.com/dgrijalva/jwt-go"
-	"gitlab.eoitek.net/EOI/ckman/model"
+	"github.com/housepower/ckman/model"
 )
 
 var (

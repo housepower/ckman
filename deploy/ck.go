@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"gitlab.eoitek.net/EOI/ckman/config"
+	"github.com/housepower/ckman/config"
 	"io/ioutil"
 	"os"
 	"path"
@@ -14,10 +14,10 @@ import (
 	"text/template"
 	"time"
 
-	"gitlab.eoitek.net/EOI/ckman/common"
-	"gitlab.eoitek.net/EOI/ckman/log"
-	"gitlab.eoitek.net/EOI/ckman/model"
-	"gitlab.eoitek.net/EOI/ckman/service/clickhouse"
+	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/service/clickhouse"
 )
 
 const (
