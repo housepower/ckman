@@ -1,6 +1,100 @@
 # ckman介绍
 
-`ckman`（`ClickHouse Manager`）是一款管理`ClickHouse`的工具。它主要用来管理`ClickHouse`集群、节点以及数据监控，致力于服务`ClickHouse`分布式的操作以及管理。同时提供简单的数据查询窗口。
+`ClickHouse`作为`OLAP`场景特别优秀的数据库解决方案，写入速度快，查询性能强，尤其是聚合查询能力特别出色，已在腾讯、哔哩哔哩、快手等公司得到有效实践。与此同时，`ClickHouse`在集群部署时配置复杂，流程繁琐也困扰着广大使用者。在此背景之下，`ckman`应运而生。
+
+`ckman`（`ClickHouse Manager`）是由擎创信息科技公司自主研发的一款管理`ClickHouse`的工具。它主要用来管理`ClickHouse`集群、节点以及数据监控等，致力于服务`ClickHouse`分布式的操作以及管理。同时提供简单的数据查询窗口。
+
+通过网页端的可视化界面，`ckman`可以非常便捷的完成集群的导入、部署、节点的增删以及性能指标的监控等功能，可以大大简化集群部署的操作流程，从而起到事半功倍的效果。
+
+如今，这款工具已经在`github`上开源啦！有想要体验的同学可以移步 https://github.com/housepower/ckman，欢迎`star`和贡献代码。
+
+
+
+# ckman架构
+
+![image-20210305173254562](img/image-20210305173254562.png)
+
+ckman支持多中心部署，使用nacos进行配置同步，可以对多个集群进行管理，在集群的每个节点下，如果配置node_exporter，则可以对对应的节点进行指标监控。node_exporter的数据传给prometheus，然后在前端展示。
+
+# ckman编译
+
+## Linux & MacOS下编译
+
+### 编译环境配置
+
+1.  安装Node.js
+
+由于ckman将前端代码静态嵌入到了server中，因此需要安装Node.js以编译前端代码：
+
+MacOS上安装Node.js:
+
+```bash
+brew install node
+```
+
+Linux下安装Node.js:
+
+```bash
+yum install -y nodejs
+```
+
+安装完成后，在frontend目录下执行：
+
+```
+cd frontend
+sudo rm -rf node_modules package-lock.json && npm install
+```
+
+2.  安装pkger
+
+```bash
+go get github.com/markbates/pkger/cmd/pkger
+```
+
+3.  安装 nfpm2.2.4:
+
+nfpm是一款用来打包rpm的工具，如果不打算做成rpm包，可以不安装。
+
+由于nfpm新版本配置文件和旧版本差别很大，建议安装指定的2.2.4版本。
+
+```
+wget -q https://github.com/goreleaser/nfpm/releases/download/v2.2.4/nfpm_2.2.4_Linux_x86_64.tar.gz
+tar -xzvf nfpm_2.2.4_Linux_x86_64.tar.gz
+cp nfpm /usr/local/bin
+```
+
+### 编译命令
+
+Linux和MacOS下编译命令都是一样的：
+
+```bash
+make package VERSION=1.2.5   
+```
+
+以上命令会编译成打包成一个tar.gz安装包，该安装包解压即可用。
+
+### rpm编译
+
+```bash
+make rpm
+```
+
+## Docker编译
+
+鉴于编译环境的诸多依赖，配置起来可能比较麻烦，因此也提供了docker编译的方式，直接运行下面的命令即可：
+
+```bash
+make docker-build VERSION=1.2.5
+```
+
+如果想利用docker编译rpm版本，可以先进入docker环境，再编译：
+
+```bash
+make docker-sh
+make rpm
+```
+
+
 
 # ckman安装部署
 
@@ -13,7 +107,7 @@
 `rpm`安装直接使用命令安装即可：
 
 ```bash
-rpm -ivh ckman-1.2.3.x86_64.rpm
+rpm -ivh ckman-1.2.5.x86_64.rpm
 ```
 
 安装完成后，在`/etc/ckman`目录下，会生成工作目录（日志和配置文件等都在该目录下）。
@@ -282,6 +376,8 @@ bin/start
 >   -   `SSH Password`: `ssh`登录`ck`节点的密码
 
 通过此种方式安装部署成功的集群的`mode`就是`deploy`，可以对其进行删、改、`rebanlance`、启停、升级以及节点的增删等操作。
+
+***需要注意的是：当前版本的ckman仅支持在centos7以上的系统部署ck。***
 
 ### 导入集群
 
@@ -805,4 +901,10 @@ DELETE  http://192.168.31.55:8808/api/v1/ck/table/test?tableName=t1&database=def
 通过以上操作就能删除掉表`t1`。删除时先删`dist_`开头的分布式表，再删表`t1`。
 
 >   注意：表必须在集群的各个节点存在且不能是dist_开头的分布式表。如果该本地表虽然在集群中各节点存在，但没有根据该本地表创建过分布式表，删除依然会报错。这一点需要注意。
+
+
+
+# 结语
+
+千里之行，始于足下。`ckman`的功能目前还只是初版，肯定还存着着诸多不足和可以改进的地方，希望大家多提意见，共同提升`ckman`的使用体验。
 
