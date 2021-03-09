@@ -25,6 +25,7 @@ require (
 	github.com/prometheus/common v0.18.0
 	github.com/sirupsen/logrus v1.8.0
 	github.com/spf13/cobra v1.1.3
+	github.com/stretchr/testify v1.6.1
 	github.com/swaggo/gin-swagger v1.3.0
 	github.com/swaggo/swag v1.7.0
 	github.com/txn2/txeh v1.3.0

@@ -8,17 +8,17 @@
             <i class="fa fa-database"></i>
             <span class="inline-block ml-10 font-bold">Provision</span>
           </p>
-          <p class="fs-14 font-bold">Create or import a ClickHouse Cluter</p>
+          <p class="fs-14 font-bold">Create or import a ClickHouse Cluster</p>
         </div>
         <div class="btns flex flex-column width-6">
           <el-button type="primary"
                      size="large"
                      class="mb-20 fs-18"
-                     @click="importCk(1)">Create a ClickHouse Cluter</el-button>
+                     @click="importCk(1)">Create a ClickHouse Cluster</el-button>
           <el-button type="primary"
                      size="large"
                      class="fs-18"
-                     @click="importCk(0)">Import a ClickHouse Cluter</el-button>
+                     @click="importCk(0)">Import a ClickHouse Cluster</el-button>
         </div>
       </div>
       <div class="flex-1">

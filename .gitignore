@@ -8,3 +8,8 @@ vendor/*
 coverage.out
 coverage-all.out
 cscope.*
+ckmanpasswd
+exporter
+purger
+rebalancer
+schemer

@@ -13,7 +13,7 @@ ARCH=$(shell uname -m)
 TARNAME=${PKGDIR}-${VERSION}-${DATE}-${REVISION}.${OS}.$(ARCH).tar.gz
 VERSION?=trunk
 TAG?=$(shell date +%y%m%d)
-LDFLAGS=-ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION}"
+LDFLAGS=-ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=${VERSION}"
 
 .PHONY: backend
 backend:
@@ -71,12 +71,15 @@ docker-sh:
 
 .PHONY: rpm
 rpm: build
-	nfpm pkg --packager rpm --target .
+	@sed "s/trunk/${VERSION}/g" nfpm.yaml > nfpm_${VERSION}.yaml
+	nfpm -f nfpm_${VERSION}.yaml pkg --packager rpm --target .
+	@rm nfpm_${VERSION}.yaml
 
 .PHONY: deb
 deb: build
-	nfpm pkg --packager deb --target .
-
+	@sed "s/trunk/${VERSION}/g" nfpm.yaml > nfpm_${VERSION}.yaml
+	nfpm -f nfpm_${VERSION}.yaml pkg --packager deb --target .
+	@rm nfpm_${VERSION}.yaml
 
 .PHONY: test-ci
 test-ci:docker-build
