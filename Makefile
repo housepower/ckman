@@ -29,6 +29,7 @@ backend:
 build:
 	@rm -rf ${PKGFULLDIR}
 	make -C frontend build
+	go get  github.com/markbates/pkger/cmd/pkger
 	pkger
 	go build ${LDFLAGS}
 	go build ${LDFLAGS} -o ckmanpasswd password/password.go
