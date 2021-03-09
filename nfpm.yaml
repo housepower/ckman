@@ -5,7 +5,7 @@
 name: "ckman"
 arch: "amd64"
 platform: "linux"
-version: "v1.2.5"
+version: "trunk"
 section: "default"
 priority: "extra"
 provides:
