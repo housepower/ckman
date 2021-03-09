@@ -4,7 +4,7 @@ server:
   https: false
   pprof: true
   session_timeout: 3600
-  #token:
+  #public_key:
 
 log:
   level: INFO
@@ -16,14 +16,14 @@ log:
 
 prometheus:
   hosts:
-    - 127.0.0.1:19090
+    - 127.0.0.1:9090
   # second
   timeout: 10
 
 nacos:
   enabled: true
   hosts:
-    - 192.168.32.25
+    - 127.0.0.1
   port: 8848
   user_name: nacos
   password: 0192023A7BBD73250516F069DF18B500

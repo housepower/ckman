@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -169,10 +170,31 @@ func ginLoggerToFile() gin.HandlerFunc {
 
 func ginJWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// use private token to authenticate, it support HA and never timeout
+		// intercept token from unified portal
 		// it has higher priority than jwt
-		auth := c.Request.Header.Get("Authorization")
-		if config.GlobalConfig.Server.Token != "" && auth == config.GlobalConfig.Server.Token {
+		uEnc := c.Request.Header.Get("userToken")
+		if uEnc != ""{
+			//request from unified portal
+			var rsaEncrypt common.RSAEncryption
+			decode,err := rsaEncrypt.Decode([]byte(uEnc), config.GlobalConfig.Server.PublicKey)
+			if err != nil{
+				model.WrapMsg(c, model.JWT_TOKEN_INVALID, model.GetMsg(c, model.JWT_TOKEN_INVALID), nil)
+				c.Abort()
+				return
+			}
+
+			var userToken common.UserTokenModel
+			err = json.Unmarshal(decode, &userToken)
+			if err != nil{
+				model.WrapMsg(c, model.JWT_TOKEN_INVALID, model.GetMsg(c, model.JWT_TOKEN_INVALID), nil)
+				c.Abort()
+				return
+			}
+			if (time.Now().UnixNano()/1e6 - userToken.Timestamp > userToken.Duration*1000){
+				model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, model.GetMsg(c, model.JWT_TOKEN_EXPIRED), nil)
+				c.Abort()
+				return
+			}
 			return
 		}
 

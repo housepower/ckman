@@ -35,7 +35,7 @@ type CKManServerConfig struct {
 	Https          bool
 	Pprof          bool
 	SessionTimeout int `yaml:"session_timeout"`
-	Token          string
+	PublicKey      string `yaml:"public_key"`
 }
 
 type CKManLogConfig struct {
