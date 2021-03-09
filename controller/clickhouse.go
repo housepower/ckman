@@ -359,9 +359,16 @@ func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 // @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
 // @Router /api/v1/ck/upgrade/{clusterName} [put]
 func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
+	var req model.CkUpgradeCk
 	var conf model.CKManClickHouseConfig
 	clusterName := c.Param(ClickHouseClusterPath)
-	packageVersion := c.Query("packageVersion")
+
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		return
+	}
+
+	packageVersion := req.PackageVersion
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {

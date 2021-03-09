@@ -101,3 +101,7 @@ type CkTableCost struct {
 	SecondaryMax float64 `json:"secondaryMax"`
 	Max          float64 `json:"max"`
 }
+
+type CkUpgradeCk struct {
+	PackageVersion string `json:"packageVersion"`
+}
