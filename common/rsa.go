@@ -24,25 +24,23 @@ const (
 )
 
 type UserTokenModel struct {
-	Duration int64
+	Duration           int64
 	RandomPaddingValue string
-	UserId  int64
-	Timestamp int64
+	UserId             int64
+	Timestamp          int64
 }
 
-type RSAEncryption struct {}
+type RSAEncryption struct{}
 
-
-func (encry RSAEncryption)GenPublicKey(publicKey string)[]byte{
+func (encry RSAEncryption) GenPublicKey(publicKey string) []byte {
 	return []byte(fmt.Sprintf("%s%s%s", AUTHENTICATION_PUB_KEY_PREFIX, publicKey, AUTHENTICATION_PUB_KEY_SUFFIX))
 }
 
-func (encry RSAEncryption)GenPrivateKey(privateKey string)[]byte{
-	return  []byte(fmt.Sprintf("%s%s%s", AUTHENTICATION_PRI_KEY_PREFIX, privateKey, AUTHENTICATION_PRI_KEY_SUFFIX))
+func (encry RSAEncryption) GenPrivateKey(privateKey string) []byte {
+	return []byte(fmt.Sprintf("%s%s%s", AUTHENTICATION_PRI_KEY_PREFIX, privateKey, AUTHENTICATION_PRI_KEY_SUFFIX))
 }
 
-
-func (encry RSAEncryption)GetPublicKey(publicKey string)(*rsa.PublicKey, error){
+func (encry RSAEncryption) GetPublicKey(publicKey string) (*rsa.PublicKey, error) {
 	// decode public key
 
 	block, _ := pem.Decode(encry.GenPublicKey(publicKey))
@@ -57,7 +55,7 @@ func (encry RSAEncryption)GetPublicKey(publicKey string)(*rsa.PublicKey, error){
 	return pub.(*rsa.PublicKey), err
 }
 
-func (encry RSAEncryption)GetPrivateKey(privateKey string)(*rsa.PrivateKey, error){
+func (encry RSAEncryption) GetPrivateKey(privateKey string) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(encry.GenPrivateKey(privateKey))
 	if block == nil {
 		return nil, errors.New("get private key error")
@@ -73,9 +71,9 @@ func (encry RSAEncryption)GetPrivateKey(privateKey string)(*rsa.PrivateKey, erro
 	return pri2.(*rsa.PrivateKey), nil
 }
 
-func (encry RSAEncryption)Decode(encode []byte, publicKey string)([]byte, error){
+func (encry RSAEncryption) Decode(encode []byte, publicKey string) ([]byte, error) {
 	databs, _ := base64.StdEncoding.DecodeString(string(encode))
-	pubkey,_ := encry.GetPublicKey(publicKey)
+	pubkey, _ := encry.GetPublicKey(publicKey)
 	if pubkey == nil {
 		return []byte(""), errors.New("Please set the public key in advance\n")
 	}
@@ -88,8 +86,8 @@ func (encry RSAEncryption)Decode(encode []byte, publicKey string)([]byte, error)
 }
 
 //ckman do not need encode token
-func (encry RSAEncryption)Encode(decode []byte, privateKey string)([]byte, error){
-	prikey,_ := encry.GetPrivateKey(privateKey)
+func (encry RSAEncryption) Encode(decode []byte, privateKey string) ([]byte, error) {
+	prikey, _ := encry.GetPrivateKey(privateKey)
 	if prikey == nil {
 		return []byte(""), errors.New("Please set the private key in advance\n")
 	}
@@ -98,6 +96,6 @@ func (encry RSAEncryption)Encode(decode []byte, privateKey string)([]byte, error
 	if err != nil {
 		return []byte(""), err
 	}
-	rsadata,err := ioutil.ReadAll(output)
+	rsadata, err := ioutil.ReadAll(output)
 	return []byte(base64.StdEncoding.EncodeToString(rsadata)), nil
 }

@@ -53,6 +53,8 @@ var MsgFlags_zh = map[int]string{
 	GET_CK_OPEN_SESSIONS_FAIL:   "获取ClickHouse进行中的查询失败",
 	GET_CK_SLOW_SESSIONS_FAIL:   "获取ClickHouse慢查询失败",
 	GET_NACOS_CONFIG_FAIL:       "获取Nacos配置失败",
+	PUB_NACOS_CONFIG_FAIL:       "上传Nacos配置失败",
+	DEPLOY_USER_RETAIN_ERROR:    "部署集群时ClickHouse用户不能为default",
 
 	UNKNOWN: "unknown",
 }
@@ -104,6 +106,9 @@ var MsgFlags_en = map[int]string{
 	GET_ZK_TABLE_STATUS_FAIL:    "get Zookeeper table status failed",
 	GET_CK_OPEN_SESSIONS_FAIL:   "get open sessions failed",
 	GET_CK_SLOW_SESSIONS_FAIL:   "get slow sessions failed",
+	GET_NACOS_CONFIG_FAIL:       "get nacos config failed",
+	PUB_NACOS_CONFIG_FAIL:       "publish nacos config failed",
+	DEPLOY_USER_RETAIN_ERROR:    "ClickHouse user cannot be default when deploy cluster",
 
 	UNKNOWN: "unknown",
 }
@@ -111,7 +116,7 @@ var MsgFlags_en = map[int]string{
 func GetMsg(c *gin.Context, code int) string {
 	lang := c.Request.Header.Get("Accept-Language")
 	MsgFlags := make(map[int]string)
-	if  strings.Contains(lang, "zh") {
+	if strings.Contains(lang, "zh") {
 		MsgFlags = MsgFlags_zh
 	} else {
 		MsgFlags = MsgFlags_en

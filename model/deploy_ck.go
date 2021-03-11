@@ -9,6 +9,7 @@ const (
 	CkCommonPackageSuffix string = "2.x86_64.rpm"
 	CkServerPackagePrefix string = "clickhouse-server"
 	CkServerPackageSuffix string = "2.noarch.rpm"
+	ClickHouseRetainUser  string = "default"
 )
 
 type DeployCkReq struct {

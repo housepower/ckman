@@ -13,3 +13,4 @@ exporter
 purger
 rebalancer
 schemer
+pkged.go

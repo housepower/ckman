@@ -106,6 +106,11 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		return
 	}
 
+	if req.ClickHouse.User == model.ClickHouseRetainUser {
+		model.WrapMsg(c, model.DEPLOY_USER_RETAIN_ERROR, model.GetMsg(c, model.DEPLOY_USER_RETAIN_ERROR), nil)
+		return
+	}
+
 	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, req.ClickHouse.PackageVersion, model.CkCommonPackageSuffix)
 	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, req.ClickHouse.PackageVersion, model.CkServerPackageSuffix)
 	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, req.ClickHouse.PackageVersion, model.CkClientPackageSuffix)
