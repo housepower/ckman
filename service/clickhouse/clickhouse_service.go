@@ -11,6 +11,7 @@ import (
 	"github.com/housepower/ckman/model"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
 	"path"
 	"sort"
@@ -85,7 +86,7 @@ func (ck *CkService) InitCkService() error {
 	}
 
 	dataSourceName := fmt.Sprintf("tcp://%s:%d?service=%s&username=%s&password=%s",
-		ck.Config.Hosts[0], ck.Config.Port, ck.Config.DB, ck.Config.User, ck.Config.Password)
+		ck.Config.Hosts[0], ck.Config.Port, url.QueryEscape(ck.Config.DB), url.QueryEscape(ck.Config.User), url.QueryEscape(ck.Config.Password))
 	if len(ck.Config.Hosts) > 1 {
 		otherHosts := make([]string, 0)
 		for _, host := range ck.Config.Hosts[1:] {
