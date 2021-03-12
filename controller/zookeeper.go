@@ -12,10 +12,6 @@ import (
 	"strings"
 )
 
-const (
-	ZkStatusDefaultPort int = 8080
-)
-
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type ZookeeperController struct {
@@ -50,7 +46,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 		tmp := model.ZkStatusRsp{
 			Host: node,
 		}
-		body, err := getZkStatus(node, ZkStatusDefaultPort)
+		body, err := getZkStatus(node, conf.ZkStatusPort)
 		if err != nil {
 			model.WrapMsg(c, model.GET_ZK_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_STATUS_FAIL),
 				fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))

@@ -499,9 +499,11 @@ scrape_configs:
 
 #### **ZooKeeper KPIs**
 
+`zookeeper`监控使用的是`zookeeper-3.5.0`版本新增的特性，通过暴露的`8080`端口监控`mntr`指标信息，因此，如果想要看到zookeeper的监控指标，需要保证当前使用的`zookeeper`版本大于等于`3.5.0`。
+
 | 指标                              | 说明                 |
 | --------------------------------- | -------------------- |
-| `znode_count`                     | znode数              |
+| `znode_count`                     | `znode`数            |
 | `leader_uptime`                   | `leader`存活时间     |
 | `stale_sessions_expired`          | 过期的会话           |
 | `jvm_gc_collection_seconds_count` | `jvm` `gc`的次数     |
