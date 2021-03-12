@@ -29,6 +29,7 @@ const (
 	ClickHouseDefaultPort            int    = 9000
 	ClickHouseDefaultZkPort          int    = 2181
 	ClickHouseServiceTimeout         int    = 3600
+	ZkStatusDefaultPort              int    = 8080
 	ClickHouseQueryStart             string = "QueryStart"
 	ClickHouseQueryFinish            string = "QueryFinish"
 	ClickHouseQueryExStart           string = "ExceptionBeforeStart"
@@ -58,6 +59,9 @@ func CkConfigFillDefault(config *model.CKManClickHouseConfig) {
 	}
 	if config.ZkPort == 0 {
 		config.ZkPort = ClickHouseDefaultZkPort
+	}
+	if config.ZkStatusPort == 0 {
+		config.ZkStatusPort = ZkStatusDefaultPort
 	}
 }
 
@@ -174,7 +178,7 @@ func MergeCkClusterConfig(src map[string]interface{}) error {
 		v, ok := value.(map[string]interface{})
 		if ok {
 			var conf model.CKManClickHouseConfig
-			jsonStr,_ := json.Marshal(v)
+			jsonStr, _ := json.Marshal(v)
 			_ = json.Unmarshal(jsonStr, &conf)
 			CkClusters.Store(key, conf)
 		} else {
@@ -191,7 +195,7 @@ func AddCkClusterConfigVersion() {
 		CkClusters.Store(ClickHouseConfigVersionKey, 0)
 	}
 
-	CkClusters.Store(ClickHouseConfigVersionKey, version.(int) + 1)
+	CkClusters.Store(ClickHouseConfigVersionKey, version.(int)+1)
 }
 
 func UpdateLocalCkClusterConfig(data []byte) error {

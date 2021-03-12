@@ -25,6 +25,7 @@ type CkDeployConfig struct {
 	Password       string    `json:"password" example:"123456"`
 	ZkNodes        []string  `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
 	ZkPort         int       `json:"zkPort" example:"2181"`
+	ZkStatusPort   int       `json:"zkStatusPort" example:"8080"`
 	ClusterName    string    `json:"clusterName" example:"test"`
 	Shards         []CkShard `json:"shards"`
 	PackageVersion string    `json:"packageVersion" example:"20.8.5.45"`
@@ -41,30 +42,32 @@ type CkReplica struct {
 }
 
 type CkImportConfig struct {
-	Hosts    []string `json:"hosts" example:"192.168.101.105,192.168.101.107"`
-	Port     int      `json:"port" example:"9000"`
-	User     string   `json:"user" example:"ck"`
-	Password string   `json:"password" example:"123456"`
-	Cluster  string   `json:"cluster" example:"test"`
-	ZkNodes  []string `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
-	ZkPort   int      `json:"zkPort" example:"2181"`
+	Hosts        []string `json:"hosts" example:"192.168.101.105,192.168.101.107"`
+	Port         int      `json:"port" example:"9000"`
+	User         string   `json:"user" example:"ck"`
+	Password     string   `json:"password" example:"123456"`
+	Cluster      string   `json:"cluster" example:"test"`
+	ZkNodes      []string `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
+	ZkPort       int      `json:"zkPort" example:"2181"`
+	ZkStatusPort int      `json:"zkStatusPort" example:"8080"`
 }
 
 type CKManClickHouseConfig struct {
-	Mode        string    `json:"mode"`
-	Hosts       []string  `json:"hosts"`
-	Names       []string  `json:"names"`
-	Port        int       `json:"port"`
-	User        string    `json:"user"`
-	Password    string    `json:"password"`
-	DB          string    `json:"database"`
-	Cluster     string    `json:"cluster"`
-	ZkNodes     []string  `json:"zkNodes"`
-	ZkPort      int       `json:"zkPort"`
-	IsReplica   bool      `json:"isReplica"`
-	Version     string    `json:"version"`
-	SshUser     string    `json:"sshUser"`
-	SshPassword string    `json:"sshPassword"`
-	Shards      []CkShard `json:"shards"`
-	Path        string    `json:"path"`
+	Mode         string    `json:"mode"`
+	Hosts        []string  `json:"hosts"`
+	Names        []string  `json:"names"`
+	Port         int       `json:"port"`
+	User         string    `json:"user"`
+	Password     string    `json:"password"`
+	DB           string    `json:"database"`
+	Cluster      string    `json:"cluster"`
+	ZkNodes      []string  `json:"zkNodes"`
+	ZkPort       int       `json:"zkPort"`
+	ZkStatusPort int       `json:"zkStatusPort"`
+	IsReplica    bool      `json:"isReplica"`
+	Version      string    `json:"version"`
+	SshUser      string    `json:"sshUser"`
+	SshPassword  string    `json:"sshPassword"`
+	Shards       []CkShard `json:"shards"`
+	Path         string    `json:"path"`
 }
