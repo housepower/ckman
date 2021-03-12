@@ -1,20 +1,21 @@
-# This Dockerfile is used for build a docker container to build ckman project which in Linux.
-# You can run command like: "docker build -t ckman-build:go-1.16 ."
-# the offical image is eoitek/ckman-build:go-1.16, You can pull it from dockerhub.
+FROM debian:stable-slim
 
-FROM amd64/golang:1.16
+RUN mkdir -p /etc/ckman && cd /etc/ckman && \
+    mkdir bin run logs conf package template
+ADD ./ckman /etc/ckman/bin/ckman
+ADD ./purger /etc/ckman/bin/purger
+ADD ./exporter /etc/ckman/bin/exporter
+ADD ./rebalancer /etc/ckman/bin/rebalancer
+ADD ./schemer /etc/ckman/bin/schemer
+ADD ./ckmanpasswd /etc/ckman/bin/ckmanpasswd
+ADD ./README.md /etc/ckman/package/README.md
+ADD ./resources/config.xml /etc/ckman/template/config.xml
+ADD ./resources/users.xml /etc/ckman/template/users.xml
+ADD ./resources/ckman.yaml /etc/ckman/conf
+ADD ./resources/password /etc/ckman/conf/password
 
-WORKDIR /var/
-RUN apt-get update && apt-get install -y jq \
-    && wget -q https://nodejs.org/download/release/v14.15.3/node-v14.15.3-linux-x64.tar.gz \
-    && tar -xzf node-v14.15.3-linux-x64.tar.gz -C /usr/local/ \
-    && ln -s /usr/local/node-v14.15.3-linux-x64/bin/node /usr/local/bin \
-    && ln -s /usr/local/node-v14.15.3-linux-x64/bin/npm /usr/local/bin \
-    && wget -q https://github.com/goreleaser/nfpm/releases/download/v2.2.4/nfpm_2.2.4_Linux_x86_64.tar.gz \
-    && tar -xzvf nfpm_2.2.4_Linux_x86_64.tar.gz \
-    && cp nfpm /usr/local/bin \
-    && export GOPROXY=https://goproxy.io \
-    && go get github.com/markbates/pkger/cmd/pkger
+# nacos enabled
+RUN sed -i 's/enabled: true/enabled: false/g' /etc/ckman/conf/ckman.yaml
+WORKDIR /etc/ckman
+ENTRYPOINT ["bin/ckman"]
 
-COPY frontend/package.json .
-RUN npm install
