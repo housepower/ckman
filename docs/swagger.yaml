@@ -67,6 +67,9 @@ definitions:
       zkPort:
         example: 2181
         type: integer
+      zkStatusPort:
+        example: 8080
+        type: integer
     type: object
   model.CkImportConfig:
     properties:
@@ -99,6 +102,9 @@ definitions:
         type: array
       zkPort:
         example: 2181
+        type: integer
+      zkStatusPort:
+        example: 8080
         type: integer
     type: object
   model.CkReplica:
@@ -279,23 +285,6 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Import ClickHouse cluster
-    put:
-      description: Update ClickHouse cluster
-      parameters:
-      - description: request body
-        in: body
-        name: req
-        required: true
-        schema:
-          $ref: '#/definitions/model.CkImportConfig'
-      responses:
-        "200":
-          description: '{"code":200,"msg":"ok","data":null}'
-          schema:
-            type: string
-      security:
-      - ApiKeyAuth: []
-      summary: Update ClickHouse cluster
   /api/v1/ck/cluster/{clusterName}:
     delete:
       description: Delete ClickHouse cluster

@@ -8,6 +8,7 @@
         "password": "123456",
         "zkNodes": {DOCKER_ZOOKEEPER_HOSTS},
         "zkPort": 2181,
+        "zkStatusPort": 8080,
         "clustername": "test",
         "shards": [{
             "replicas":[
