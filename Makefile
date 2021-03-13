@@ -83,7 +83,7 @@ deb: build
 	@rm nfpm_${VERSION}.yaml
 
 .PHONY: test-ci
-test-ci:docker-build
+test-ci:package
 	@rm -rf /tmp/ckman
 	@tar -xzf ${PKGDIR}-*.Linux.x86_64.tar.gz -C /tmp
 	@cp -r ./tests /tmp/ckman
@@ -95,3 +95,10 @@ test-ci:docker-build
 	@docker exec -it ckman /tmp/ckman/bin/go.test.sh
 	@docker stop ckman
 	@docker-compose down -v
+
+.PHONY: docker-image
+docker-image:
+	docker build -t ckman:${VERSION} .
+	docker tag ckman:${VERSION} quay.io/housepower/ckman:${VERSION}
+	docker tag ckman:${VERSION} quay.io/housepower/ckman:latest
+	docker rmi ckman:${VERSION}
