@@ -71,6 +71,12 @@
         <el-input v-model="formModel.zkPort"
                   class="width-350" />
       </el-form-item>
+      <el-form-item label="ZK Status Port:"
+                    prop="zkStatusPort"
+                    required>
+        <el-input v-model="formModel.zkStatusPort"
+                  class="width-350" />
+      </el-form-item>
       <el-form-item label="Data path:"
                     prop="path"
                     v-if="type"
@@ -134,6 +140,7 @@ export default {
         isReplica: false,
         port: 9000,
         zkPort: 2181,
+        zkStatusPort:8080,
         path: "",
       },
     };
@@ -168,6 +175,7 @@ export default {
         isReplica,
         port,
         zkPort,
+        zkStatusPort,
         path,
       } = this.formModel;
       if (!this.type) {
@@ -179,6 +187,7 @@ export default {
           password,
           zkNodes: lineFeed(zkNodes),
           zkPort: +zkPort,
+          zkStatusPort: +zkStatusPort,
         });
       } else {
         console.log(lineFeed(hosts));
@@ -194,6 +203,7 @@ export default {
             user,
             zkNodes: lineFeed(zkNodes),
             zkPort: +zkPort,
+            zkStatusPort: +zkStatusPort,
           },
           hosts: lineFeed(hosts),
           password: sshPassword,

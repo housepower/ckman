@@ -86,34 +86,6 @@ var doc = `{
                     }
                 }
             },
-            "put": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Update ClickHouse cluster",
-                "summary": "Update ClickHouse cluster",
-                "parameters": [
-                    {
-                        "description": "request body",
-                        "name": "req",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.CkImportConfig"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":200,\"msg\":\"ok\",\"data\":null}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
             "post": {
                 "security": [
                     {
@@ -1121,6 +1093,10 @@ var doc = `{
                 "zkPort": {
                     "type": "integer",
                     "example": 2181
+                },
+                "zkStatusPort": {
+                    "type": "integer",
+                    "example": 8080
                 }
             }
         },
@@ -1167,6 +1143,10 @@ var doc = `{
                 "zkPort": {
                     "type": "integer",
                     "example": 2181
+                },
+                "zkStatusPort": {
+                    "type": "integer",
+                    "example": 8080
                 }
             }
         },

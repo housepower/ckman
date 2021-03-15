@@ -356,6 +356,7 @@ func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseCon
 	conf.Password = req.Password
 	conf.ZkNodes = req.ZkNodes
 	conf.ZkPort = req.ZkPort
+	conf.ZkStatusPort = req.ZkStatusPort
 
 	service := NewCkService(conf)
 	if err := service.InitCkService(); err != nil {
