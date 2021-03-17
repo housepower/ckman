@@ -16,19 +16,22 @@
         <span class="fs-18 font-bold mb-15 inline-block">Upgrade Cluster</span>
         <div class="">
           <span class="fs-14 font-bold">ClickHouse Version: {{ list.version }}</span>
-          <span class="fs-14 font-bold ml-50">Upgrade to:</span>
+          <span v-if="mode === 'deploy'" class="fs-14 font-bold ml-50">Upgrade to:</span>
           <el-select v-model="packageVersion"
+                     v-if="mode === 'deploy'"
                      size="small"
                      clearable
                      filterable
                      class="ml-10 mr-50">
             <el-option v-for="item in versionOptions"
+                       v-if="mode === 'deploy'"
                        :key="item.value"
                        :label="item.label"
                        :value="item.value">
             </el-option>
           </el-select>
           <el-button type="primary"
+                     v-if="mode === 'deploy'"
                      size="mini"
                      class="fs-16"
                      :disabled="!packageVersion"
@@ -44,6 +47,7 @@
                     clearable
                     class="width-300"></el-input>
           <el-button type="primary"
+                     v-if="mode === 'deploy'"
                      size="mini"
                      class="fs-16"
                      @click="addNode">Add Node</el-button>
@@ -69,6 +73,7 @@
                            label="replica number"
                            align="center" />
           <el-table-column label="Actions"
+                           v-if="mode === 'deploy'"
                            #default="{ row }"
                            align="center">
             <template>
@@ -91,6 +96,7 @@ import { ClusterApi, PackageApi } from "@/apis";
 export default {
   data() {
     return {
+      mode: "",
       versionOptions: [
         {
           value: "",
@@ -111,6 +117,7 @@ export default {
     this.clusterStatus = Object.keys(ClusterStatus)
       .filter((item) => item !== "upgrade")
       .map((v) => upperFirst(v));
+    this.fetchModeData();
     this.fetchVersionData();
     this.fetchData();
   },
@@ -131,7 +138,19 @@ export default {
         disabled: item === this.list.version,
       }));
     },
+    async fetchModeData() {
+      const {
+        data: { data },
+      } = await ClusterApi.getCluster();
+      Object.entries(data).forEach(([name, item]) => {
+        if (item.cluster === this.$route.params.id)
+          this.mode = item.mode;
+      });
+      console.log("mode:", this.mode)
+    },
     isStatusDisable(item) {
+      if ( this.mode === "import")
+        return true;
       if (
         ["start", "destroy"].includes(lowerFirst(item)) &&
         this.list.status !== "red"
