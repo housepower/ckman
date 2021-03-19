@@ -28,6 +28,8 @@ import (
 	"github.com/housepower/ckman/service/prometheus"
 )
 
+const ENV_CKMAN_SWAGGER string = "ENV_CKMAN_SWAGGER"
+
 type ApiServer struct {
 	config      *config.CKManConfig
 	prom        *prometheus.PrometheusService
@@ -62,8 +64,13 @@ func (server *ApiServer) Start() error {
 	homepage := embedStaticHandler("/frontend/dist/index.html", "text/html;charset=utf-8")
 	r.NoRoute(homepage)
 
+	if !server.config.Server.SwaggerEnable {
+		_ = os.Setenv(ENV_CKMAN_SWAGGER, "disabled")
+	} else {
+		_ = os.Unsetenv(ENV_CKMAN_SWAGGER)
+	}
 	// http://127.0.0.1:8808/swagger/index.html
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.GET("/swagger/*any", ginSwagger.DisablingWrapHandler(swaggerFiles.Handler, ENV_CKMAN_SWAGGER))
 
 	// http://127.0.0.1:8808/debug/pprof/
 	if server.config.Server.Pprof {
