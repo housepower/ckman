@@ -43,9 +43,9 @@ export default {
     async fetchData() {
       this.list = [];
       const {
-        data: { data },
+        data: { entity },
       } = await PackageApi.getList();
-      data.forEach((item) => {
+      entity.forEach((item) => {
         this.list.push({
           version: item,
           files: `clickhouse-client-${item}-2.noarch.rpm,clickhouse-common-static-${item}-2.x86_64.rpm,clickhouse-server-${item}-2.noarch.rpm`,

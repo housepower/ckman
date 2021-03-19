@@ -55,10 +55,10 @@ export default {
   methods: {
     async fetchData() {
       const {
-        data: { data },
+        data: { entity },
       } = await PackageApi.getConfig();
-      Object.keys(data).forEach((key) => {
-        this.formModel[key] = data[key] ? data[key].join(",") : "";
+      Object.keys(entity).forEach((key) => {
+        this.formModel[key] = entity[key] ? entity[key].join(",") : "";
       });
     },
     async saveConfig() {

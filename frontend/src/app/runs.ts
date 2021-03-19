@@ -7,9 +7,9 @@ import { InvalidTokenCode } from '@/constants';
 axios.interceptors.response.use((value: AxiosResponse) => {
   if (value.config.url.startsWith(`/api`)) {
     if(value.data) {
-      if(value.data.code) {
-        if(+value.data.code !== 200) {
-          if(+value.data.code === 401 || InvalidTokenCode.includes(+value.data.code)) {
+      if(value.data.retCode) {
+        if(+value.data.retCode !== 200) {
+          if(+value.data.retCode === 401 || InvalidTokenCode.includes(+value.data.retCode)) {
             if($router.currentRoute.name !== 'Login') {
               setTimeout(() => {
                 $router.push({

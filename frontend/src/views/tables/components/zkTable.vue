@@ -46,12 +46,12 @@ export default {
   methods: {
     async fetchData() {
       const {
-        data: { data },
+        data: { entity },
       } = await TablesApi.zkStatus(this.$route.params.id);
       this.cols = [""];
       this.keys = [""];
       this.tableData = [];
-      data.forEach((item) => {
+      entity.forEach((item) => {
         this.cols.push(item.host);
         this.keys = pull(Object.keys(item), "host");
       });
@@ -59,7 +59,7 @@ export default {
         let tableItem = {
           [key]: {},
         };
-        data.forEach((item) => {
+        entity.forEach((item) => {
           tableItem[key][item["host"]] = item[key];
           this.tableData.push(tableItem);
         });

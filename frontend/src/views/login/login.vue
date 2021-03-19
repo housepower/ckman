@@ -62,13 +62,13 @@ export default {
     async login() {
       await this.$refs.Form.validate();
       const {
-        data: { data },
+        data: { entity },
       } = await LoginApi.login({
         password: md5(this.info.pass),
         username: this.info.user,
       });
-      localStorage.setItem("user", JSON.stringify(data));
-      this.$root.userInfo = data;
+      localStorage.setItem("user", JSON.stringify(entity));
+      this.$root.userInfo = entity;
       this.$router.push({ path: this.redirect });
     },
   },

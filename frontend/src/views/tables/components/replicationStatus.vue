@@ -51,7 +51,7 @@ export default {
     async fetchData() {
       const {
         data: {
-          data: { header = [], tables = [] },
+          entity: { header = [], tables = [] },
         },
       } = await TablesApi.replicationStatus(this.$route.params.id);
       this.cols = [{ prop: "", label: "" }];

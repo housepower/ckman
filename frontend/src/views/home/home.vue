@@ -95,9 +95,9 @@ export default {
     async fetchData() {
       this.list = [];
       const {
-        data: { data },
+        data: { entity },
       } = await ClusterApi.getCluster();
-      Object.entries(data).forEach(([name, item]) => {
+      Object.entries(entity).forEach(([name, item]) => {
         item.count = item.hosts.length;
         item.hosts = item.hosts.join(",");
         item.zkNodes = item.zkNodes.join(",");
@@ -106,9 +106,9 @@ export default {
     },
     async fetchVersionData() {
       const {
-        data: { data },
+        data: { entity },
       } = await PackageApi.getList();
-      this.versionOptions = data.map((item) => ({
+      this.versionOptions = entity.map((item) => ({
         value: item,
         label: item,
       }));
