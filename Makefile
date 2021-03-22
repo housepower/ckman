@@ -102,3 +102,12 @@ docker-image:
 	docker tag ckman:${VERSION} quay.io/housepower/ckman:${VERSION}
 	docker tag ckman:${VERSION} quay.io/housepower/ckman:latest
 	docker rmi ckman:${VERSION}
+
+.PHONY: release
+release:
+	make build VERSION=${VERSION}
+	make docker-image VERSION=${VERSION}
+	make rpm VERSION=${VERSION}
+	make package VERSION=${VERSION}
+	docker push quay.io/housepower/ckman:${VERSION}
+	docker push quay.io/housepower/ckman:latest

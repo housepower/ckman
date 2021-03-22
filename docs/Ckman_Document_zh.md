@@ -151,6 +151,18 @@ bin/start
 
 ![image-20210305134653422](img/image-20210305134653422.png)
 
+## docker启动
+
+从v1.2.7版本开始，ckman支持从docker镜像启动。启动命令如下所示：
+
+```bash
+docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/housepower/ckman:latest
+```
+
+但是需要注意的是，搭建promethues和nacos并不属于ckman程序自身的范畴，因此，从容器启动ckman默认是关闭nacos的，且前台Overview监控不会正常显示。
+
+如果想自己配置nacos和prometheus，可以进入容器自行配置。
+
 ## ckman配置文件
 
 `ckman`的配置文件在`ckman` 的工作目录下的`conf/ckman.yml`。
@@ -368,8 +380,10 @@ bin/start
 >       -   如果没有开启副本，则有几个节点就有几个`shard`
 >   -   `Zookeeper Node List`: `zk`列表
 >   -   `ZooKeeper Port`: `zk`端口，默认是`2181`
+>   -   `ZK Status Port`: `zookeeper`指标监控的端口，默认`8080` 
+>       -   该功能是zookeeper v3.5.0以上版本开始支持的，如果zk版本太旧，无法从界面看到zk的指标
 >   -   `Data path`: `ck`节点数据存放的路径
->   -   `Cluster Username`: `ck`的用户名，注意：default用户作为保留用户，此处不能填default。
+>   -   `Cluster Username`: `ck`的用户名，注意：`default`用户作为保留用户，此处不能填`default`。
 >   -   `Cluster Password`: `ck`的密码
 >   -   `SSH Username`: `ssh`登录`ck`节点的用户名
 >       -   该用户必须具有`root`权限或是`root`本身，否则部署无法成功，一般都是`root`。
@@ -396,6 +410,8 @@ bin/start
 >   `Zookeeper Node List`: `zk`节点列表
 >
 >   `ZooKeeper Port`: `zk`端口，默认为`2181`
+>
+>   `ZK Status Port`: `zookeeper`指标监控的端口，默认`8080` 
 >
 >   `Cluster Username`: `ck`的用户名
 >
