@@ -124,15 +124,15 @@ export default {
   methods: {
     async fetchData() {
       const {
-        data: { data },
+        data: { entity },
       } = await ClusterApi.getClusterInfo(this.$route.params.id);
-      this.list = data;
+      this.list = entity;
     },
     async fetchVersionData() {
       const {
-        data: { data },
+        data: { entity },
       } = await PackageApi.getList();
-      this.versionOptions = data.map((item) => ({
+      this.versionOptions = entity.map((item) => ({
         value: item,
         label: item,
         disabled: item === this.list.version,
@@ -140,9 +140,9 @@ export default {
     },
     async fetchModeData() {
       const {
-        data: { data },
+        data: { entity },
       } = await ClusterApi.getCluster();
-      Object.entries(data).forEach(([name, item]) => {
+      Object.entries(entity).forEach(([name, item]) => {
         if (item.cluster === this.$route.params.id)
           this.mode = item.mode;
       });

@@ -7,9 +7,9 @@ import (
 )
 
 type ResponseBody struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Code int         `json:"retCode"`
+	Msg  string      `json:"retMsg"`
+	Data interface{} `json:"entity"`
 }
 
 func WrapMsg(c *gin.Context, code int, msg string, data interface{}) error {

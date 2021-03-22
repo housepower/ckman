@@ -34,7 +34,8 @@ type CKManServerConfig struct {
 	Port           int
 	Https          bool
 	Pprof          bool
-	SessionTimeout int `yaml:"session_timeout"`
+	SessionTimeout int    `yaml:"session_timeout"`
+	SwaggerEnable  bool   `yaml:"swagger_enable"`
 	PublicKey      string `yaml:"public_key"`
 }
 
@@ -71,6 +72,7 @@ func fillDefault(c *CKManConfig) {
 	c.Server.Port = 8808
 	c.Server.SessionTimeout = 3600
 	c.Server.Pprof = true
+	c.Server.SwaggerEnable = false
 	c.Log.Level = "INFO"
 	c.Log.MaxCount = 5
 	c.Log.MaxSize = 10

@@ -65,9 +65,9 @@ export default {
   methods: {
     async fetchData() {
       const {
-        data: { data },
+        data: { entity },
       } = await TablesApi.tableMetrics(this.$route.params.id);
-      Object.entries(data).forEach(([key, values]) => {
+      Object.entries(entity).forEach(([key, values]) => {
         const {
           columns,
           rows,

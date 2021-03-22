@@ -78,14 +78,14 @@ export default {
       const { duration, min, max } = convertTimeBounds(this.timeFilter);
       const step = Math.floor(+duration / 360 / 1000);
       const {
-        data: { data },
+        data: { entity },
       } = await MetricApi.queryRangeMetric({
         metric: chart.metric,
         start: Math.floor(min / 1000),
         end: Math.floor(max / 1000),
         step,
       });
-      this.$set(chart, "option", chartOption(data, min, max));
+      this.$set(chart, "option", chartOption(entity, min, max));
       this.$nextTick(() => {
         this.$refs.Charts[index] && this.$refs.Charts[index].refreshChart();
         const chartInstances = this.$refs.Charts.map((item) => item.chart);

@@ -85,15 +85,15 @@ export default {
     async query() {
       this.tableData = [];
       const {
-        data: { data },
+        data: { entity },
       } = await SqlQuery.query({
         clusterName: this.$route.params.id,
         query: `${this.sqlInput}`,
       });
-      if (data.length) {
-        this.columns = data[0];
-        data.splice(0, 1);
-        Object.values(data).map((item, index) => {
+      if (entity.length) {
+        this.columns = entity[0];
+        entity.splice(0, 1);
+        Object.values(entity).map((item, index) => {
           let dataItem = {};
           item.forEach((v, i) => {
             dataItem[this.columns[i]] = v;

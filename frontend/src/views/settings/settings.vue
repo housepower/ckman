@@ -61,9 +61,9 @@ export default {
       const clusterName = this.$route.params.id;
       if (isNull(this.$root.clusterBench)) {
         const {
-          data: { data },
+          data: { entity },
         } = await ClusterApi.getCluster();
-        this.formModel = data[`${clusterName}`];
+        this.formModel = entity[`${clusterName}`];
       } else {
         this.formModel = this.$root.clusterBench;
       }
