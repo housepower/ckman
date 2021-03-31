@@ -8,37 +8,24 @@ axios.interceptors.response.use((value: AxiosResponse) => {
   if (value.config.url.startsWith(`/api`)) {
     if(value.data) {
       if(value.data.retCode) {
-        if(+value.data.retCode !== 200) {
-          if(+value.data.retCode === 401 || InvalidTokenCode.includes(+value.data.retCode)) {
-            if($router.currentRoute.name !== 'Login') {
-              setTimeout(() => {
-                $router.push({
-                  path: '/login',
-                  query: { redirect: $router.currentRoute.fullPath },
-                });
-              }, 1500);
-            }
+        if (InvalidTokenCode.includes(+value.data.retCode)) {
+          if ($router.currentRoute.name !== 'Login') {
+            setTimeout(() => {
+              $router.push({
+                path: '/login',
+                query: {redirect: $router.currentRoute.fullPath},
+              });
+            }, 1500);
           }
-          return Promise.reject({
-            config: value.config,
-            code: value.status,
-            request: value.request,
-            response: value,
-            isAxiosError: true,
-          });
         }
-      } else {
-        if (value.data.retCode !== '0000') {
-          return Promise.reject({
-            config: value.config,
-            code: value.status,
-            request: value.request,
-            response: value,
-            isAxiosError: true,
-          });
-        }
+        return Promise.reject({
+          config: value.config,
+          code: value.status,
+          request: value.request,
+          response: value,
+          isAxiosError: true,
+        });
       }
-
     }
   }
   return value;

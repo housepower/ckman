@@ -7,7 +7,6 @@ import (
 
 var MsgFlags_zh = map[int]string{
 	SUCCESS:                     "ok",
-	ERROR:                       "fail",
 	INVALID_PARAMS:              "请求参数错误",
 	CREAT_CK_TABLE_FAIL:         "创建ClickHouse表失败",
 	DELETE_CK_TABLE_FAIL:        "删除ClickHouse表失败",
@@ -61,7 +60,6 @@ var MsgFlags_zh = map[int]string{
 
 var MsgFlags_en = map[int]string{
 	SUCCESS:                     "ok",
-	ERROR:                       "fail",
 	INVALID_PARAMS:              "invalid params",
 	CREAT_CK_TABLE_FAIL:         "create ClickHouse table failed",
 	DELETE_CK_TABLE_FAIL:        "delete ClickHouse table failed",

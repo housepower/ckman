@@ -36,14 +36,14 @@ func (m *MetricController) Query(c *gin.Context) {
 	params.Metric = c.Query("metric")
 	time, err := strconv.ParseInt(c.Query("time"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 	params.Time = time
 
 	value, err := m.promService.QueryMetric(&params)
 	if err != nil {
-		model.WrapMsg(c, model.QUERY_METRIC_FAIL, model.GetMsg(c, model.QUERY_METRIC_FAIL), err.Error())
+		model.WrapMsg(c, model.QUERY_METRIC_FAIL, model.GetMsg(c, model.QUERY_METRIC_FAIL), err)
 		return
 	}
 
@@ -68,17 +68,17 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 	params.Metric = c.Query("metric")
 	start, err := strconv.ParseInt(c.Query("start"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 	end, err := strconv.ParseInt(c.Query("end"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 	step, err := strconv.ParseInt(c.Query("step"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 	params.Start = start
@@ -87,7 +87,7 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 
 	value, err := m.promService.QueryRangeMetric(&params)
 	if err != nil {
-		model.WrapMsg(c, model.QUERY_RANGE_METRIC_FAIL, model.GetMsg(c, model.QUERY_RANGE_METRIC_FAIL), err.Error())
+		model.WrapMsg(c, model.QUERY_RANGE_METRIC_FAIL, model.GetMsg(c, model.QUERY_RANGE_METRIC_FAIL), err)
 		return
 	}
 

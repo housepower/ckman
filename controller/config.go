@@ -31,14 +31,14 @@ func (cf *ConfigController) UpdateConfig(c *gin.Context) {
 	var req model.UpdateConfigReq
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 
 	config.GlobalConfig.Prometheus.Hosts = req.Prometheus
 
 	if err := config.MarshConfigFile(); err != nil {
-		model.WrapMsg(c, model.UPDATE_CONFIG_FAIL, model.GetMsg(c, model.UPDATE_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.UPDATE_CONFIG_FAIL, model.GetMsg(c, model.UPDATE_CONFIG_FAIL), err)
 		return
 	}
 
