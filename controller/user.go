@@ -40,7 +40,7 @@ func (d *UserController) Login(c *gin.Context) {
 	var req model.LoginReq
 	c.Request.Header.Get("")
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 
@@ -52,7 +52,7 @@ func (d *UserController) Login(c *gin.Context) {
 	passwordFile := path.Join(filepath.Dir(d.config.ConfigFile), "password")
 	data, err := ioutil.ReadFile(passwordFile)
 	if err != nil {
-		model.WrapMsg(c, model.GET_USER_PASSWORD_FAIL, model.GetMsg(c, model.GET_USER_PASSWORD_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_USER_PASSWORD_FAIL, model.GetMsg(c, model.GET_USER_PASSWORD_FAIL), err)
 		return
 	}
 
@@ -72,7 +72,7 @@ func (d *UserController) Login(c *gin.Context) {
 	}
 	token, err := j.CreateToken(claims)
 	if err != nil {
-		model.WrapMsg(c, model.CREAT_TOKEN_FAIL, model.GetMsg(c, model.CREAT_TOKEN_FAIL), err.Error())
+		model.WrapMsg(c, model.CREAT_TOKEN_FAIL, model.GetMsg(c, model.CREAT_TOKEN_FAIL), err)
 		return
 	}
 

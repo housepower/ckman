@@ -38,7 +38,7 @@ func NewClickHouseController(nacosClient *nacos.NacosClient) *ClickHouseControll
 func (ck *ClickHouseController) syncDownClusters(c *gin.Context) (err error) {
 	data, err := ck.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err)
 		return
 	}
 	if data != "" {
@@ -53,7 +53,7 @@ func (ck *ClickHouseController) syncUpClusters(c *gin.Context) (err error) {
 	clickhouse.WriteClusterConfigFile(buf)
 	err = ck.nacosClient.PublishConfig(string(buf))
 	if err != nil {
-		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, model.GetMsg(c, model.PUB_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, model.GetMsg(c, model.PUB_NACOS_CONFIG_FAIL), err)
 		return
 	}
 	return
@@ -73,7 +73,7 @@ func (ck *ClickHouseController) ImportCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 
@@ -86,7 +86,7 @@ func (ck *ClickHouseController) ImportCk(c *gin.Context) {
 
 	err := clickhouse.GetCkClusterConfig(req, &conf)
 	if err != nil {
-		model.WrapMsg(c, model.IMPORT_CK_CLUSTER_FAIL, model.GetMsg(c, model.IMPORT_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.IMPORT_CK_CLUSTER_FAIL, model.GetMsg(c, model.IMPORT_CK_CLUSTER_FAIL), err)
 		return
 	}
 
@@ -164,14 +164,14 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	var params model.CreateCkTableParams
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 
 	clusterName := c.Param(ClickHouseClusterPath)
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(c, model.CREAT_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(c, model.CREAT_CK_TABLE_FAIL), err)
 		return
 	}
 
@@ -199,7 +199,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	}
 
 	if err := ckService.CreateTable(&params); err != nil {
-		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(c, model.CREAT_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(c, model.CREAT_CK_TABLE_FAIL), err)
 		return
 	}
 
@@ -222,14 +222,14 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 	var params model.AlterCkTableParams
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 
 	clusterName := c.Param(ClickHouseClusterPath)
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, model.GetMsg(c, model.ALTER_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, model.GetMsg(c, model.ALTER_CK_TABLE_FAIL), err)
 		return
 	}
 
@@ -244,7 +244,7 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 	}
 
 	if err := ckService.AlterTable(&params); err != nil {
-		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, model.GetMsg(c, model.ALTER_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, model.GetMsg(c, model.ALTER_CK_TABLE_FAIL), err)
 		return
 	}
 
@@ -267,7 +267,7 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(c, model.DELETE_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(c, model.DELETE_CK_TABLE_FAIL), err)
 		return
 	}
 
@@ -279,7 +279,7 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 	}
 
 	if err := ckService.DeleteTable(&params); err != nil {
-		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(c, model.DELETE_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(c, model.DELETE_CK_TABLE_FAIL), err)
 		return
 	}
 
@@ -302,7 +302,7 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.DESC_CK_TABLE_FAIL, model.GetMsg(c, model.DESC_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.DESC_CK_TABLE_FAIL, model.GetMsg(c, model.DESC_CK_TABLE_FAIL), err)
 		return
 	}
 
@@ -314,7 +314,7 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 
 	atts, err := ckService.DescTable(&params)
 	if err != nil {
-		model.WrapMsg(c, model.DESC_CK_TABLE_FAIL, model.GetMsg(c, model.DESC_CK_TABLE_FAIL), err.Error())
+		model.WrapMsg(c, model.DESC_CK_TABLE_FAIL, model.GetMsg(c, model.DESC_CK_TABLE_FAIL), err)
 		return
 	}
 
@@ -336,13 +336,13 @@ func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.QUERY_CK_FAIL, model.GetMsg(c, model.QUERY_CK_FAIL), err.Error())
+		model.WrapMsg(c, model.QUERY_CK_FAIL, model.GetMsg(c, model.QUERY_CK_FAIL), err)
 		return
 	}
 
 	data, err := ckService.QueryInfo(query)
 	if err != nil {
-		model.WrapMsg(c, model.QUERY_CK_FAIL, model.GetMsg(c, model.QUERY_CK_FAIL), err.Error())
+		model.WrapMsg(c, model.QUERY_CK_FAIL, model.GetMsg(c, model.QUERY_CK_FAIL), err)
 		return
 	}
 
@@ -364,7 +364,7 @@ func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 
@@ -387,7 +387,7 @@ func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
 	clickhouse.CkServices.Delete(clusterName)
 	err := deploy.UpgradeCkCluster(&conf, packageVersion)
 	if err != nil {
-		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPGRADE_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPGRADE_CK_CLUSTER_FAIL), err)
 		return
 	}
 
@@ -432,7 +432,7 @@ func (ck *ClickHouseController) StartCk(c *gin.Context) {
 	clickhouse.CkServices.Delete(clusterName)
 	err := deploy.StartCkCluster(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(c, model.START_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(c, model.START_CK_CLUSTER_FAIL), err)
 		return
 	}
 
@@ -468,7 +468,7 @@ func (ck *ClickHouseController) StopCk(c *gin.Context) {
 	clickhouse.CkServices.Delete(clusterName)
 	err := deploy.StopCkCluster(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL), err)
 		return
 	}
 
@@ -504,13 +504,13 @@ func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
 	clickhouse.CkServices.Delete(clusterName)
 	err := deploy.DestroyCkCluster(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(c, model.DESTROY_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(c, model.DESTROY_CK_CLUSTER_FAIL), err)
 		return
 	}
 
 	data, err := ck.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err)
 		return
 	}
 	if data != "" {
@@ -563,7 +563,7 @@ func (ck *ClickHouseController) RebalanceCk(c *gin.Context) {
 	log.Logger.Infof("run %s", cmd)
 	exe := exec.Command("/bin/sh", "-c", cmd)
 	if err := exe.Start(); err != nil {
-		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err.Error())
+		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
 		return
 	}
 
@@ -633,7 +633,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 
@@ -647,7 +647,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	err := deploy.AddCkClusterNode(&conf, &req)
 	if err != nil {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err)
 		return
 	}
 
@@ -661,12 +661,12 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 
 	service := clickhouse.NewCkService(tmp)
 	if err := service.InitCkService(); err != nil {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err)
 		return
 	}
 	defer service.Stop()
 	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err.Error())
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err)
 		return
 	}
 
@@ -706,7 +706,7 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	err := deploy.DeleteCkClusterNode(&conf, ip)
 	if err != nil {
-		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL), err.Error())
+		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL), err)
 		return
 	}
 
@@ -743,7 +743,7 @@ func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	metrics, err := clickhouse.GetCkTableMetrics(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, model.GetMsg(c, model.GET_CK_TABLE_METRIC_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, model.GetMsg(c, model.GET_CK_TABLE_METRIC_FAIL), err)
 		return
 	}
 
@@ -777,7 +777,7 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	sessions, err := clickhouse.GetCkOpenSessions(&conf, limit)
 	if err != nil {
-		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL), err)
 		return
 	}
 
@@ -811,7 +811,7 @@ func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 	sessions, err := clickhouse.GetCkSlowSessions(&conf, limit)
 	if err != nil {
-		model.WrapMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL), err)
 		return
 	}
 

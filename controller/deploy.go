@@ -61,7 +61,7 @@ func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (
 func (d *DeployController) syncDownClusters(c *gin.Context) (err error) {
 	data, err := d.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err)
 		return
 	}
 	if data != "" {
@@ -76,7 +76,7 @@ func (d *DeployController) syncUpClusters(c *gin.Context) (err error) {
 	clickhouse.WriteClusterConfigFile(buf)
 	err = d.nacosClient.PublishConfig(string(buf))
 	if err != nil {
-		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, model.GetMsg(c, model.PUB_NACOS_CONFIG_FAIL), err.Error())
+		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, model.GetMsg(c, model.PUB_NACOS_CONFIG_FAIL), err)
 		return
 	}
 	return
@@ -102,7 +102,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	packages := make([]string, 3)
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err.Error())
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 
@@ -125,7 +125,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 	code, err := DeployPackage(ckDeploy, base, &req.ClickHouse)
 	if err != nil {
-		model.WrapMsg(c, code, model.GetMsg(c, code), err.Error())
+		model.WrapMsg(c, code, model.GetMsg(c, code), err)
 		return
 	}
 

@@ -1,9 +1,8 @@
 package model
 
 const (
-	SUCCESS                     = 200
-	ERROR                       = 500
-	INVALID_PARAMS              = 400
+	SUCCESS                     = 0
+	INVALID_PARAMS              = 5000
 	CREAT_CK_TABLE_FAIL         = 5001
 	DELETE_CK_TABLE_FAIL        = 5002
 	ALTER_CK_TABLE_FAIL         = 5003

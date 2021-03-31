@@ -1,25 +1,34 @@
 package model
 
 import (
+	"github.com/ClickHouse/clickhouse-go"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/log"
 	"net/http"
 )
 
 type ResponseBody struct {
-	Code int         `json:"retCode"`
-	Msg  string      `json:"retMsg"`
-	Data interface{} `json:"entity"`
+	RetCode int         `json:"retCode"`
+	RetMsg  string      `json:"retMsg"`
+	Entity  interface{} `json:"entity"`
 }
 
-func WrapMsg(c *gin.Context, code int, msg string, data interface{}) error {
+func WrapMsg(c *gin.Context, retCode int, retMsg string, entity interface{}) error {
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "application/json; charset=utf-8")
 
+	if _, ok := entity.(error); ok {
+		if exception, ok := entity.(*clickhouse.Exception); ok {
+			retCode = int(exception.Code)
+			retMsg = exception.Message
+		}
+		entity = entity.(error).Error()
+	}
+
 	resp := ResponseBody{
-		Code: code,
-		Msg:  msg,
-		Data: data,
+		RetCode: retCode,
+		RetMsg:  retMsg,
+		Entity:  entity,
 	}
 	jsonBytes, err := json.Marshal(resp)
 	if err != nil {
@@ -33,8 +42,8 @@ func WrapMsg(c *gin.Context, code int, msg string, data interface{}) error {
 		return err
 	}
 
-	if code != SUCCESS {
-		log.Logger.Errorf("%s %s return %d, %v", c.Request.Method, c.Request.RequestURI, code, data)
+	if retCode != SUCCESS {
+		log.Logger.Errorf("%s %s return %d, %v", c.Request.Method, c.Request.RequestURI, retCode, entity)
 	}
 
 	return nil
