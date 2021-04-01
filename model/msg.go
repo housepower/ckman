@@ -54,6 +54,8 @@ var MsgFlags_zh = map[int]string{
 	GET_NACOS_CONFIG_FAIL:       "获取Nacos配置失败",
 	PUB_NACOS_CONFIG_FAIL:       "上传Nacos配置失败",
 	DEPLOY_USER_RETAIN_ERROR:    "部署集群时ClickHouse用户不能为default",
+	PING_CK_CLUSTER_FAIL:        "ClickHouse集群节点无法连接",
+	CLUSTER_NOT_EXIST:           "集群不存在",
 
 	UNKNOWN: "unknown",
 }
@@ -107,8 +109,9 @@ var MsgFlags_en = map[int]string{
 	GET_NACOS_CONFIG_FAIL:       "get nacos config failed",
 	PUB_NACOS_CONFIG_FAIL:       "publish nacos config failed",
 	DEPLOY_USER_RETAIN_ERROR:    "ClickHouse user cannot be default when deploy cluster",
-
-	UNKNOWN: "unknown",
+	PING_CK_CLUSTER_FAIL:        "ClickHouse cluster can't ping all nodes successfully",
+	CLUSTER_NOT_EXIST:           "Cluster does not exist",
+	UNKNOWN:                     "unknown",
 }
 
 func GetMsg(c *gin.Context, code int) string {

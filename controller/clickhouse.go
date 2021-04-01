@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/housepower/ckman/service/nacos"
 
+	_ "github.com/ClickHouse/clickhouse-go"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/deploy"
 	_ "github.com/housepower/ckman/docs"
@@ -64,9 +67,9 @@ func (ck *ClickHouseController) syncUpClusters(c *gin.Context) (err error) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param req body model.CkImportConfig true "request body"
-// @Failure 200 {string} json "{"code":400,"msg":"invalid params","data":""}"
-// @Failure 200 {string} json "{"code":5042,"msg":"import ClickHouse cluster failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
+// @Failure 200 {string} json "{"retCode":5000,"retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":5042,"retMsg":"import ClickHouse cluster failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/cluster [post]
 func (ck *ClickHouseController) ImportCk(c *gin.Context) {
 	var req model.CkImportConfig
@@ -108,7 +111,7 @@ func (ck *ClickHouseController) ImportCk(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/cluster/{clusterName} [delete]
 func (ck *ClickHouseController) DeleteCk(c *gin.Context) {
 	var err error
@@ -130,7 +133,7 @@ func (ck *ClickHouseController) DeleteCk(c *gin.Context) {
 // @Description Get ClickHouse cluster
 // @version 1.0
 // @Security ApiKeyAuth
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":{"test":{"hosts":["192.168.101.105"],"port":9000,"user":"eoi","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.101.102"],"zkPort":2181,"isReplica":false}}}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok", "entity":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}"
 // @Router /api/v1/ck/cluster [get]
 func (ck *ClickHouseController) GetCk(c *gin.Context) {
 	var err error
@@ -155,9 +158,9 @@ func (ck *ClickHouseController) GetCk(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param req body model.CreateCkTableReq true "request body"
-// @Failure 200 {string} json "{"code":400,"msg":"invalid params","data":""}"
-// @Failure 200 {string} json "{"code":5001,"msg":"create ClickHouse table failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
+// @Failure 200 {string} json "{"retCode":5000,"retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":5001,"retMsg":"create ClickHouse table failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/table/{clusterName} [post]
 func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	var req model.CreateCkTableReq
@@ -212,10 +215,10 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param req body model.AlterCkTableReq true "request body"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
-// @Failure 200 {string} json "{"code":400,"msg":"invalid params","data":""}"
-// @Failure 200 {string} json "{"code":5003,"msg":"alter ClickHouse table failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":5000,"retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":5003,"retMsg":"alter ClickHouse table failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/table/{clusterName} [put]
 func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 	var req model.AlterCkTableReq
@@ -258,8 +261,8 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 // @Param clusterName path string true "cluster name" default(test)
 // @Param database query string true "database name" default(default)
 // @Param tableName query string true "table name" default(test_table)
-// @Failure 200 {string} json "{"code":5002,"msg":"delete ClickHouse table failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":null}"
+// @Failure 200 {string} json "{"retCode":5002,"retMsg":"delete ClickHouse table failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/table/{clusterName} [delete]
 func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 	var params model.DeleteCkTableParams
@@ -293,8 +296,8 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 // @Param clusterName path string true "cluster name" default(test)
 // @Param database query string true "database name" default(default)
 // @Param tableName query string true "table name" default(test_table)
-// @Failure 200 {string} json "{"code":5040,"msg":"describe ClickHouse table failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":[{"name":"_timestamp","type":"DateTime","defaultType":"","defaultExpression":"","comment":"","codecExpression":"","ttlExpression":""}]}"
+// @Failure 200 {string} json "{"retCode":5040,"retMsg":"describe ClickHouse table failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":[{"name":"_timestamp","type":"DateTime","defaultType":"","defaultExpression":"","comment":"","codecExpression":"","ttlExpression":""}]}"
 // @Router /api/v1/ck/table/{clusterName} [get]
 func (ck *ClickHouseController) DescTable(c *gin.Context) {
 	var params model.DescCkTableParams
@@ -327,8 +330,8 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param query query string true "sql" default(show databases)
-// @Failure 200 {string} json "{"code":5042,"msg":"query ClickHouse failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":[["name"],["default"],["system"]]}"
+// @Failure 200 {string} json "{"retCode":5042,"retMsg":"query ClickHouse failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":[["name"],["default"],["system"]]}"
 // @Router /api/v1/ck/query/{clusterName} [get]
 func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -355,8 +358,8 @@ func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param packageVersion query string true "package version" default(20.8.5.45)
-// @Failure 200 {string} json "{"code":5060,"msg":"upgrade ClickHouse cluster failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Failure 200 {string} json "{"retCode":5060,"retMsg":"upgrade ClickHouse cluster failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
 // @Router /api/v1/ck/upgrade/{clusterName} [put]
 func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
 	var req model.CkUpgradeCk
@@ -372,7 +375,7 @@ func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPGRADE_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -408,8 +411,8 @@ func (ck *ClickHouseController) UpgradeCk(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"code":5061,"msg":"start ClickHouse cluster failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Failure 200 {string} json "{"retCode":5061,"retMsg":"start ClickHouse cluster failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
 // @Router /api/v1/ck/start/{clusterName} [put]
 func (ck *ClickHouseController) StartCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
@@ -417,7 +420,7 @@ func (ck *ClickHouseController) StartCk(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(c, model.START_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -444,8 +447,8 @@ func (ck *ClickHouseController) StartCk(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"code":5062,"msg":"stop ClickHouse cluster failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Failure 200 {string} json "{"retCode":5062,"retMsg":"stop ClickHouse cluster failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
 // @Router /api/v1/ck/stop/{clusterName} [put]
 func (ck *ClickHouseController) StopCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
@@ -453,7 +456,7 @@ func (ck *ClickHouseController) StopCk(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -480,8 +483,8 @@ func (ck *ClickHouseController) StopCk(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"code":5063,"msg":"destroy ClickHouse cluster failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Failure 200 {string} json "{"retCode":5063,"retMsg":"destroy ClickHouse cluster failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
 // @Router /api/v1/ck/destroy/{clusterName} [put]
 func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
@@ -489,7 +492,7 @@ func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(c, model.DESTROY_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -530,8 +533,8 @@ func (ck *ClickHouseController) DestroyCk(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"code":5064,"msg":"rebanlance ClickHouse cluster failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Failure 200 {string} json "{"retCode":5064,"retMsg":"rebanlance ClickHouse cluster failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
 // @Router /api/v1/ck/rebalance/{clusterName} [put]
 func (ck *ClickHouseController) RebalanceCk(c *gin.Context) {
 	args := make([]string, 0)
@@ -539,7 +542,7 @@ func (ck *ClickHouseController) RebalanceCk(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -575,8 +578,8 @@ func (ck *ClickHouseController) RebalanceCk(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"code":5065,"msg":"get ClickHouse cluster information failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":{"status":"green","version":"20.8.5.45","nodes":[{"ip":"192.168.101.105","hostname":"vm101105","status":"green"}]}}"
+// @Failure 200 {string} json "{"retCode":5065,"retMsg":"get ClickHouse cluster information failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}}"
 // @Router /api/v1/ck/get/{clusterName} [get]
 func (ck *ClickHouseController) GetCkCluster(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
@@ -584,7 +587,7 @@ func (ck *ClickHouseController) GetCkCluster(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, model.GetMsg(c, model.GET_CK_CLUSTER_INFO_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -624,8 +627,8 @@ func (ck *ClickHouseController) GetCkCluster(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param req body model.AddNodeReq true "request body"
-// @Failure 200 {string} json "{"code":5066,"msg":"add ClickHouse node failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Failure 200 {string} json "{"retCode":5066,"retMsg":"add ClickHouse node failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
 // @Router /api/v1/ck/node/{clusterName} [post]
 func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	var req model.AddNodeReq
@@ -639,7 +642,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -688,8 +691,8 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param ip query string true "node ip address" default(192.168.101.105)
-// @Failure 200 {string} json "{"code":5067,"msg":"delete ClickHouse node failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"success","data":null}"
+// @Failure 200 {string} json "{"retCode":5067,"retMsg":"delete ClickHouse node failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
 // @Router /api/v1/ck/node/{clusterName} [delete]
 func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
@@ -698,7 +701,7 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -727,7 +730,7 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":{"sensor_dt_result_online":{"columns":22,"rows":1381742496,"parts":192,"space":54967700946,"completedQueries":5,"failedQueries":0,"queryCost":{"middle":130,"secondaryMax":160.76,"max":162}}}}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":{"sensor_dt_result_online":{"columns":22,"rows":1381742496,"parts":192,"space":54967700946,"completedQueries":5,"failedQueries":0,"queryCost":{"middle":130,"secondaryMax":160.76,"max":162}}}}"
 // @Router /api/v1/ck/table_metric/{clusterName} [get]
 func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
@@ -735,7 +738,7 @@ func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, model.GetMsg(c, model.GET_CK_TABLE_METRIC_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -756,7 +759,7 @@ func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param limit query string false "sessions limit" default(10)
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":[{"startTime":1609997894,"queryDuration":1,"query":"SELECT DISTINCT name FROM system.tables","user":"eoi","queryId":"62dce71d-9294-4e47-9d9b-cf298f73233d","address":"192.168.21.73","threads":2}]}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":[{"startTime":1609997894,"queryDuration":1,"query":"SELECT DISTINCT name FROM system.tables","user":"eoi","queryId":"62dce71d-9294-4e47-9d9b-cf298f73233d","address":"192.168.21.73","threads":2}]}"
 // @Router /api/v1/ck/open_sessions/{clusterName} [get]
 func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
@@ -769,7 +772,7 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -790,7 +793,7 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Param limit query string false "sessions limit" default(10)
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":[{"startTime":1609986493,"queryDuration":145,"query":"select * from dist_sensor_dt_result_online limit 10000","user":"default","queryId":"8aa3de08-92c4-4102-a83d-2f5d88569dab","address":"::1","threads":2}]}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":[{"startTime":1609986493,"queryDuration":145,"query":"select * from dist_sensor_dt_result_online limit 10000","user":"default","queryId":"8aa3de08-92c4-4102-a83d-2f5d88569dab","address":"::1","threads":2}]}"
 // @Router /api/v1/ck/slow_sessions/{clusterName} [get]
 func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
@@ -803,7 +806,7 @@ func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -816,4 +819,62 @@ func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), sessions)
+}
+
+// @Summary Ping cluster
+// @Description check clickhousr server in cluster wether useful
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":5021, "retMsg":"ClickHouse cluster can't ping all nodes successfully", "entity":[]}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":""}"
+// @Router /api/v1/ck/ping/{clusterName} [POST]
+func (ck *ClickHouseController) PingCluster(c *gin.Context) {
+	var req model.PingClusterReq
+	var rsp model.PingClusterRsp
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		rsp.Message = err.Error()
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), rsp)
+		return
+	}
+
+	var conf model.CKManClickHouseConfig
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		rsp.Message = fmt.Sprintf("cluster %s does not exist", clusterName)
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST), rsp)
+		return
+	}
+	conf = con.(model.CKManClickHouseConfig)
+
+	if len(conf.Hosts) == 0 {
+		rsp.Message = "can't find any host"
+		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), rsp)
+		return
+	}
+	for _, host := range conf.Hosts{
+		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
+			host, conf.Port, url.QueryEscape(req.Database), url.QueryEscape(req.User), url.QueryEscape(req.Password))
+		connect, err := sql.Open("clickhouse", dsn)
+		if err != nil {
+			rsp.FailList = append(rsp.FailList, host)
+			rsp.Message = err.Error()
+			log.Logger.Error("%s: %v", dsn, err)
+			continue
+		}
+		if err = connect.Ping(); err != nil {
+			rsp.FailList = append(rsp.FailList, host)
+			rsp.Message = err.Error()
+			log.Logger.Error("%s: %v", dsn, err)
+			continue
+		}
+	}
+	if len(rsp.FailList) > 0 {
+		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), rsp)
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }

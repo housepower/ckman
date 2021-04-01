@@ -155,7 +155,7 @@ func ginLoggerToFile() gin.HandlerFunc {
 		// Request IP
 		clientIP := c.ClientIP()
 		// Log format
-		if statusCode == model.SUCCESS {
+		if statusCode == 200 {
 			log.Logger.Infof("| %3d | %13v | %15s | %s | %s",
 				statusCode,
 				latencyTime,
