@@ -30,11 +30,11 @@ func NewUserController(config *config.CKManConfig) *UserController {
 // @Description Login
 // @version 1.0
 // @Param req body model.LoginReq true "request body"
-// @Failure 200 {string} json "{"code":400,"msg":"invalid params","data":""}"
-// @Failure 200 {string} json "{"code":5030,"msg":"user verify failed","data":""}"
-// @Failure 200 {string} json "{"code":5031,"msg":"get user and password failed","data":""}"
-// @Failure 200 {string} json "{"code":5032,"msg":"password verify failed","data":""}"
-// @Success 200 {string} json "{"code":200,"msg":"ok","data":{"username":"ckman","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"}}"
+// @Failure 200 {string} json "{"retCode":5000,"retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":5030,"retMsg":"user verify failed","entity":""}"
+// @Failure 200 {string} json "{"retCode":5031,"retMsg":"get user and password failed","entity":""}"
+// @Failure 200 {string} json "{"retCode":5032,"retMsg":"password verify failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":{"username":"ckman","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"}}"
 // @Router /api/login [post]
 func (d *UserController) Login(c *gin.Context) {
 	var req model.LoginReq
@@ -89,7 +89,7 @@ func (d *UserController) Login(c *gin.Context) {
 // @Description Logout
 // @version 1.0
 // @Security ApiKeyAuth
-// @Success 200 {string} json "{"code":200,"msg":"success","data":nil}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":nil}"
 // @Router /api/logout [put]
 func (d *UserController) Logout(c *gin.Context) {
 	if value, exists := c.Get("token"); exists {
