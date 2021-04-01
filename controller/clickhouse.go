@@ -3,6 +3,7 @@ package controller
 import (
 	"database/sql"
 	"fmt"
+	"github.com/housepower/ckman/business"
 	"net/url"
 	"os"
 	"os/exec"
@@ -825,10 +826,11 @@ func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 // @Description check clickhousr server in cluster wether useful
 // @version 1.0
 // @Security ApiKeyAuth
+// @Param req body model.PingClusterReq true "request body"
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"retCode":5021, "retMsg":"ClickHouse cluster can't ping all nodes successfully", "entity":[]}"
+// @Failure 200 {string} json "{"retCode":5201, "retMsg":"ClickHouse cluster can't ping all nodes successfully", "entity":[]}"
 // @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":""}"
-// @Router /api/v1/ck/ping/{clusterName} [POST]
+// @Router /api/v1/ck/ping/{clusterName} [post]
 func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 	var req model.PingClusterReq
 	var rsp model.PingClusterRsp
@@ -876,5 +878,58 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 		return
 	}
 
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
+}
+
+// @Summary Purger Tables Range
+// @Description purger table
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param req body model.PurgerTableReq true "request body"
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":5203, "retMsg":"purger tables range failed", "entity":"error"}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":""}"
+// @Router /api/v1/ck/purge_tables/{clusterName} [post]
+func (ck *ClickHouseController) PurgeTables(c *gin.Context) {
+	var req model.PurgerTableReq
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		return
+	}
+
+	var conf model.CKManClickHouseConfig
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+	conf = con.(model.CKManClickHouseConfig)
+
+	if len(conf.Hosts) == 0 {
+		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL),
+			fmt.Errorf("can't find any host"))
+		return
+	}
+
+	var chHosts []string
+	for _, shard := range conf.Shards{
+		chHosts = append(chHosts, shard.Replicas[0].Ip)
+	}
+	p := business.NewPurgerRange(chHosts, conf.Port, conf.User, conf.Password, req.Database, req.Begin, req.End)
+	err := p.InitConns()
+	if err != nil {
+		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL), err)
+		return
+	}
+	for _, table := range req.Tables{
+		err := p.PurgeTable(table)
+		if err != nil {
+			model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL), err)
+			return
+		}
+	}
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }

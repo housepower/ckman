@@ -305,6 +305,53 @@
                 "summary": "Ping cluster",
                 "parameters": [
                     {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.PingClusterReq"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/purge_tables/{clusterName}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "purger table",
+                "summary": "Purger Tables Range",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.PurgerTableReq"
+                        }
+                    },
+                    {
                         "type": "string",
                         "default": "test",
                         "description": "cluster name",
@@ -1296,6 +1343,51 @@
                 "username": {
                     "type": "string",
                     "example": "ckman"
+                }
+            }
+        },
+        "model.PingClusterReq": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string",
+                    "example": "default"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "user": {
+                    "type": "string",
+                    "example": "ck"
+                }
+            }
+        },
+        "model.PurgerTableReq": {
+            "type": "object",
+            "properties": {
+                "begin": {
+                    "type": "string",
+                    "example": "2021-01-01"
+                },
+                "database": {
+                    "type": "string",
+                    "example": "default"
+                },
+                "end": {
+                    "type": "string",
+                    "example": "2021-04-01"
+                },
+                "tables": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "t1",
+                        "t2",
+                        "t3"
+                    ]
                 }
             }
         },

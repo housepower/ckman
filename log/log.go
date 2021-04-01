@@ -20,6 +20,16 @@ func InitLogger(path string, config *config.CKManLogConfig) {
 	Logger = logger.Sugar()
 }
 
+func InitLoggerConsole(){
+	cfg := zap.NewProductionConfig()
+	cfg.Encoding = "console"
+	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	cfg.OutputPaths = []string{"stdout"}
+	logger, _ := cfg.Build()
+	Logger = logger.Sugar()
+}
+
 func getEncoder() zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
