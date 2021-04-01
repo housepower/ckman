@@ -35,7 +35,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_ZK_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_STATUS_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -99,7 +99,7 @@ func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_TABLE_STATUS_FAIL),
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
