@@ -31,6 +31,7 @@ build:
 	make -C frontend build
 	go get  github.com/markbates/pkger/cmd/pkger
 	pkger
+	swag init
 	go build ${LDFLAGS}
 	go build ${LDFLAGS} -o ckmanpasswd password/password.go
 	go build ${LDFLAGS} -o schemer cmd/schemer/schemer.go

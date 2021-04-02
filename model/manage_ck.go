@@ -35,3 +35,10 @@ type PingClusterRsp struct {
 	Message  string   `json:"message"`
 	FailList []string `json:"failList"`
 }
+
+type PurgerTableReq struct {
+	Database string		`json:"database" example:"default"`
+	Tables   []string	`json:"tables" example:"t1,t2,t3"`
+	Begin    string		`json:"begin" example:"2021-01-01"`
+	End      string		`json:"end" example:"2021-04-01"`
+}

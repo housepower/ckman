@@ -56,6 +56,7 @@ var MsgFlags_zh = map[int]string{
 	DEPLOY_USER_RETAIN_ERROR:    "部署集群时ClickHouse用户不能为default",
 	PING_CK_CLUSTER_FAIL:        "ClickHouse集群节点无法连接",
 	CLUSTER_NOT_EXIST:           "集群不存在",
+	PURGER_TABLES_FAIL:          "删除指定时间范围内数据失败",
 
 	UNKNOWN: "unknown",
 }
@@ -111,6 +112,7 @@ var MsgFlags_en = map[int]string{
 	DEPLOY_USER_RETAIN_ERROR:    "ClickHouse user cannot be default when deploy cluster",
 	PING_CK_CLUSTER_FAIL:        "ClickHouse cluster can't ping all nodes successfully",
 	CLUSTER_NOT_EXIST:           "Cluster does not exist",
+	PURGER_TABLES_FAIL:          "purger tables range failed",
 	UNKNOWN:                     "unknown",
 }
 

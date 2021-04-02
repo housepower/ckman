@@ -204,6 +204,38 @@ definitions:
         example: ckman
         type: string
     type: object
+  model.PingClusterReq:
+    properties:
+      database:
+        example: default
+        type: string
+      password:
+        example: "123456"
+        type: string
+      user:
+        example: ck
+        type: string
+    type: object
+  model.PurgerTableReq:
+    properties:
+      begin:
+        example: "2021-01-01"
+        type: string
+      database:
+        example: default
+        type: string
+      end:
+        example: "2021-04-01"
+        type: string
+      tables:
+        example:
+        - t1
+        - t2
+        - t3
+        items:
+          type: string
+        type: array
+    type: object
   model.UpdateConfigReq:
     properties:
       alertManagers:
@@ -414,6 +446,12 @@ paths:
     post:
       description: check clickhousr server in cluster wether useful
       parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.PingClusterReq'
       - default: test
         description: cluster name
         in: path
@@ -428,6 +466,30 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Ping cluster
+  /api/v1/ck/purge_tables/{clusterName}:
+    post:
+      description: purger table
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.PurgerTableReq'
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":0,"retMsg":"ok","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Purger Tables Range
   /api/v1/ck/query/{clusterName}:
     get:
       description: Query Info
