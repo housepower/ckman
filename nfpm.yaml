@@ -13,6 +13,8 @@ provides:
 - ckmanpasswd
 - schemer
 - rebalancer
+- purger
+- exporter
 maintainer: "Zhichang Yu <yuzhichang@gmail.com>"
 description: |
   ckman is a tool which used to manage and monitor ClickHouse database
@@ -27,6 +29,10 @@ contents:
     dst: /usr/local/bin/ckmanpasswd
   - src: ./schemer
     dst: /usr/local/bin/schemer
+  - src: ./purger
+    dst: /usr/local/bin/purger
+  - src: ./exporter
+    dst: /usr/local/bin/exporter
   - src: ./README.md
     dst: /etc/ckman/package/README.md
   - src: ./resources/config.xml

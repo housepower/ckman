@@ -933,3 +933,78 @@ func (ck *ClickHouseController) PurgeTables(c *gin.Context) {
 	}
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
+
+// @Summary Archive Tables to HDFS
+// @Description archive tables to hdfs
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param req body model.ArchiveTableReq true "request body"
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":5204, "retMsg":"archive to hdfs failed", "entity":"error"}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":""}"
+// @Router /api/v1/ck/archive/{clusterName} [post]
+func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
+	var req model.ArchiveTableReq
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		return
+	}
+
+
+
+	var conf model.CKManClickHouseConfig
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+	conf = con.(model.CKManClickHouseConfig)
+
+	if len(conf.Hosts) == 0 {
+		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL),
+			fmt.Errorf("can't find any host"))
+		return
+	}
+
+	var chHosts []string
+	for _, shard := range conf.Shards{
+		chHosts = append(chHosts, shard.Replicas[0].Ip)
+	}
+	archive := &business.ArchiveHDFS{
+		Hosts:       chHosts,
+		Port:        conf.Port,
+		User:        conf.User,
+		Password:    conf.Password,
+		Database:    req.Database,
+		Tables:      req.Tables,
+		Begin:       req.Begin,
+		End:         req.End,
+		MaxFileSize: req.MaxFileSize,
+		HdfsAddr:    req.HdfsAddr,
+		HdfsUser:    req.HdfsUser,
+		HdfsDir:     req.HdfsDir,
+		Parallelism: req.Parallelism,
+		Conns:       make(map[string]*sql.DB),
+	}
+
+	archive.FillArchiveDefault()
+	if err := archive.InitConns(); err != nil {
+		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+	}
+
+	if err := archive.GetSortingInfo(); err != nil {
+		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+	}
+
+	if err := archive.ClearHDFS(); err != nil {
+		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+	}
+
+	if err := archive.ExportToHDFS(); err != nil {
+		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+	}
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
+}

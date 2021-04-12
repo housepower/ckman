@@ -32,6 +32,41 @@ definitions:
         example: test_table
         type: string
     type: object
+  model.ArchiveTableReq:
+    properties:
+      begin:
+        example: "2021-01-01"
+        type: string
+      database:
+        example: default
+        type: string
+      end:
+        example: "2021-04-01"
+        type: string
+      hdfsaddr:
+        example: localhost:8020
+        type: string
+      hdfsdir:
+        example: /data01
+        type: string
+      hdfsuser:
+        example: hdfs
+        type: string
+      maxfilesize:
+        example: 10000000000
+        type: integer
+      parallelism:
+        example: 4
+        type: integer
+      tables:
+        example:
+        - t1
+        - t2
+        - t3
+        items:
+          type: string
+        type: array
+    type: object
   model.CkDeployConfig:
     properties:
       ckTcpPort:
@@ -289,6 +324,30 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Logout
+  /api/v1/ck/archive/{clusterName}:
+    post:
+      description: archive tables to hdfs
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.ArchiveTableReq'
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":0,"retMsg":"ok","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Archive Tables to HDFS
   /api/v1/ck/cluster:
     get:
       description: Get ClickHouse cluster
