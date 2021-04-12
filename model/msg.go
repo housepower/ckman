@@ -57,6 +57,7 @@ var MsgFlags_zh = map[int]string{
 	PING_CK_CLUSTER_FAIL:        "ClickHouse集群节点无法连接",
 	CLUSTER_NOT_EXIST:           "集群不存在",
 	PURGER_TABLES_FAIL:          "删除指定时间范围内数据失败",
+	ARCHIVE_TO_HDFS_FAIL:        "归档到HDFS失败",
 
 	UNKNOWN: "unknown",
 }
@@ -113,6 +114,7 @@ var MsgFlags_en = map[int]string{
 	PING_CK_CLUSTER_FAIL:        "ClickHouse cluster can't ping all nodes successfully",
 	CLUSTER_NOT_EXIST:           "Cluster does not exist",
 	PURGER_TABLES_FAIL:          "purger tables range failed",
+	ARCHIVE_TO_HDFS_FAIL:        "archive to hdfs failed",
 	UNKNOWN:                     "unknown",
 }
 

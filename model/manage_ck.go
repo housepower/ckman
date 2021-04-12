@@ -37,8 +37,20 @@ type PingClusterRsp struct {
 }
 
 type PurgerTableReq struct {
-	Database string		`json:"database" example:"default"`
-	Tables   []string	`json:"tables" example:"t1,t2,t3"`
-	Begin    string		`json:"begin" example:"2021-01-01"`
-	End      string		`json:"end" example:"2021-04-01"`
+	Database string   `json:"database" example:"default"`
+	Tables   []string `json:"tables" example:"t1,t2,t3"`
+	Begin    string   `json:"begin" example:"2021-01-01"`
+	End      string   `json:"end" example:"2021-04-01"`
+}
+
+type ArchiveTableReq struct {
+	Database    string   `json:"database" example:"default"`
+	Tables      []string `json:"tables" example:"t1,t2,t3"`
+	Begin       string   `json:"begin" example:"2021-01-01"`
+	End         string   `json:"end" example:"2021-04-01"`
+	MaxFileSize int      `json:"maxfilesize" example:"10000000000"`
+	HdfsAddr    string   `json:"hdfsaddr" example:"localhost:8020"`
+	HdfsUser    string   `json:"hdfsuser" example:"hdfs"`
+	HdfsDir     string   `json:"hdfsdir" example:"/data01"`
+	Parallelism int      `json:"parallelism" example:"4"`
 }

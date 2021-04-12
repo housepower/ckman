@@ -68,6 +68,44 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/archive/{clusterName}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "archive tables to hdfs",
+                "summary": "Archive Tables to HDFS",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ArchiveTableReq"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/cluster": {
             "get": {
                 "security": [
@@ -1119,6 +1157,54 @@ var doc = `{
                 "name": {
                     "type": "string",
                     "example": "test_table"
+                }
+            }
+        },
+        "model.ArchiveTableReq": {
+            "type": "object",
+            "properties": {
+                "begin": {
+                    "type": "string",
+                    "example": "2021-01-01"
+                },
+                "database": {
+                    "type": "string",
+                    "example": "default"
+                },
+                "end": {
+                    "type": "string",
+                    "example": "2021-04-01"
+                },
+                "hdfsaddr": {
+                    "type": "string",
+                    "example": "localhost:8020"
+                },
+                "hdfsdir": {
+                    "type": "string",
+                    "example": "/data01"
+                },
+                "hdfsuser": {
+                    "type": "string",
+                    "example": "hdfs"
+                },
+                "maxfilesize": {
+                    "type": "integer",
+                    "example": 10000000000
+                },
+                "parallelism": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "tables": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "t1",
+                        "t2",
+                        "t3"
+                    ]
                 }
             }
         },
