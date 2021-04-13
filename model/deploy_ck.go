@@ -30,6 +30,7 @@ type CkDeployConfig struct {
 	Shards         []CkShard `json:"shards"`
 	PackageVersion string    `json:"packageVersion" example:"20.8.5.45"`
 	CkTcpPort      int       `json:"ckTcpPort" example:"9000"`
+	CkHttpPort     int       `json:"ckHttpPort" example:"8123"`
 }
 
 type CkShard struct {
