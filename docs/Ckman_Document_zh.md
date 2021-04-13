@@ -51,7 +51,13 @@ sudo rm -rf node_modules package-lock.json && npm install
 go get github.com/markbates/pkger/cmd/pkger
 ```
 
-3.  安装 nfpm2.2.4:
+3.  安装swag
+
+```bash
+go get -u github.com/swaggo/swag/cmd/swag
+```
+
+4.  安装 nfpm2.2.4:
 
 nfpm是一款用来打包rpm的工具，如果不打算做成rpm包，可以不安装。
 
