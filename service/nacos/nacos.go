@@ -1,18 +1,18 @@
 package nacos
 
 import (
-	"fmt"
 	"path/filepath"
 
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/model"
 	"github.com/nacos-group/nacos-sdk-go/vo"
-	"github.com/housepower/ckman/config"
-	"github.com/housepower/ckman/log"
-	"github.com/housepower/ckman/service/clickhouse"
+	"github.com/pkg/errors"
 )
 
 type NacosClient struct {
@@ -26,7 +26,7 @@ type NacosClient struct {
 
 func InitNacosClient(config *config.CKManNacosConfig, log string) (*NacosClient, error) {
 	if config == nil {
-		return nil, fmt.Errorf("nacos config is invalid")
+		return nil, errors.Errorf("nacos config is invalid")
 	}
 
 	logDir, err := filepath.Abs(filepath.Dir(log))
@@ -110,7 +110,7 @@ func (c *NacosClient) RegisterInstance(ip string, port int, metadata map[string]
 			GroupName:   c.GroupName, // default value is DEFAULT_GROUP
 		})
 	} else {
-		return false, fmt.Errorf("naming client is nil")
+		return false, errors.Errorf("naming client is nil")
 	}
 }
 
@@ -124,7 +124,7 @@ func (c *NacosClient) DeregisterInstance(ip string, port int) (bool, error) {
 			GroupName:   c.GroupName, // default value is DEFAULT_GROUP
 		})
 	} else {
-		return false, fmt.Errorf("naming client is nil")
+		return false, errors.Errorf("naming client is nil")
 	}
 }
 
@@ -137,7 +137,7 @@ func (c *NacosClient) GetAllInstances() ([]model.Instance, error) {
 			HealthyOnly: true,
 		})
 	} else {
-		return nil, fmt.Errorf("naming client is nil")
+		return nil, errors.Errorf("naming client is nil")
 	}
 }
 
@@ -255,7 +255,7 @@ func (c *NacosClient) Subscribe() error {
 			SubscribeCallback: c.SubscribeCallback,
 		})
 	} else {
-		return fmt.Errorf("naming client is nil")
+		return errors.Errorf("naming client is nil")
 	}
 }
 
@@ -291,6 +291,6 @@ func (c *NacosClient) Unsubscribe() error {
 			SubscribeCallback: c.SubscribeCallback,
 		})
 	} else {
-		return fmt.Errorf("naming client is nil")
+		return errors.Errorf("naming client is nil")
 	}
 }

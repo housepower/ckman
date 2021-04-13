@@ -1,13 +1,13 @@
 package common
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
 
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -24,7 +24,7 @@ func VerifyPassword(pwd string) error {
 	var hasNumber, hasUpperCase, hasLowercase, hasSpecial bool
 
 	if len(pwd) < 8 {
-		return fmt.Errorf("password is only %d characters long", len(pwd))
+		return errors.Errorf("password is only %d characters long", len(pwd))
 	}
 
 	for _, c := range pwd {
@@ -55,7 +55,7 @@ func VerifyPassword(pwd string) error {
 	}
 
 	if typeNum < 3 {
-		return fmt.Errorf("password don't contain at least three character categories")
+		return errors.Errorf("password don't contain at least three character categories")
 	}
 
 	return nil

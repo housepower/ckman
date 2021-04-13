@@ -1,7 +1,7 @@
 package common
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/txn2/txeh"
 )
 
@@ -19,7 +19,7 @@ func AddHost(h *txeh.Hosts, address, host string) error {
 		h.AddHost(address, host)
 		return nil
 	} else {
-		return fmt.Errorf("parameters invalid")
+		return errors.Errorf("parameters invalid")
 	}
 }
 
@@ -33,7 +33,7 @@ func AddHosts(h *txeh.Hosts, addresses, hosts []string) error {
 		}
 		return nil
 	} else {
-		return fmt.Errorf("parameters invalid")
+		return errors.Errorf("parameters invalid")
 	}
 }
 
@@ -42,7 +42,7 @@ func RemoveHost(h *txeh.Hosts, host string) error {
 		h.RemoveHost(host)
 		return nil
 	} else {
-		return fmt.Errorf("parameters invalid")
+		return errors.Errorf("parameters invalid")
 	}
 }
 
@@ -51,7 +51,7 @@ func RemoveHosts(h *txeh.Hosts, hosts []string) error {
 		h.RemoveHosts(hosts)
 		return nil
 	} else {
-		return fmt.Errorf("parameters invalid")
+		return errors.Errorf("parameters invalid")
 	}
 }
 

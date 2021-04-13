@@ -3,12 +3,14 @@ package prometheus
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/model"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	m "github.com/prometheus/common/model"
-	"github.com/housepower/ckman/config"
-	"github.com/housepower/ckman/model"
-	"time"
 )
 
 type PrometheusService struct {
@@ -26,7 +28,7 @@ func NewPrometheusService(config *config.CKManPrometheusConfig) *PrometheusServi
 
 func (p *PrometheusService) QueryMetric(params *model.MetricQueryReq) (m.Value, error) {
 	if p.hosts == 0 {
-		return nil, fmt.Errorf("prometheus service unavailable")
+		return nil, errors.Errorf("prometheus service unavailable")
 	}
 	p.times++
 
@@ -51,7 +53,7 @@ func (p *PrometheusService) QueryMetric(params *model.MetricQueryReq) (m.Value, 
 
 func (p *PrometheusService) QueryRangeMetric(params *model.MetricQueryRangeReq) (m.Value, error) {
 	if p.hosts == 0 {
-		return nil, fmt.Errorf("prometheus service unavailable")
+		return nil, errors.Errorf("prometheus service unavailable")
 	}
 	p.times++
 

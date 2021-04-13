@@ -3,7 +3,6 @@ package controller
 import (
 	"database/sql"
 	"fmt"
-	"github.com/housepower/ckman/business"
 	"net/url"
 	"os"
 	"os/exec"
@@ -11,6 +10,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/housepower/ckman/business"
+	"github.com/pkg/errors"
 
 	"github.com/housepower/ckman/service/nacos"
 
@@ -856,7 +858,7 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), rsp)
 		return
 	}
-	for _, host := range conf.Hosts{
+	for _, host := range conf.Hosts {
 		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
 			host, conf.Port, url.QueryEscape(req.Database), url.QueryEscape(req.User), url.QueryEscape(req.Password))
 		connect, err := sql.Open("clickhouse", dsn)
@@ -910,12 +912,12 @@ func (ck *ClickHouseController) PurgeTables(c *gin.Context) {
 
 	if len(conf.Hosts) == 0 {
 		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL),
-			fmt.Errorf("can't find any host"))
+			errors.Errorf("can't find any host"))
 		return
 	}
 
 	var chHosts []string
-	for _, shard := range conf.Shards{
+	for _, shard := range conf.Shards {
 		chHosts = append(chHosts, shard.Replicas[0].Ip)
 	}
 	p := business.NewPurgerRange(chHosts, conf.Port, conf.User, conf.Password, req.Database, req.Begin, req.End)
@@ -924,7 +926,7 @@ func (ck *ClickHouseController) PurgeTables(c *gin.Context) {
 		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL), err)
 		return
 	}
-	for _, table := range req.Tables{
+	for _, table := range req.Tables {
 		err := p.PurgeTable(table)
 		if err != nil {
 			model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL), err)
@@ -952,8 +954,6 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 		return
 	}
 
-
-
 	var conf model.CKManClickHouseConfig
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
@@ -965,12 +965,12 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 
 	if len(conf.Hosts) == 0 {
 		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL),
-			fmt.Errorf("can't find any host"))
+			errors.Errorf("can't find any host"))
 		return
 	}
 
 	var chHosts []string
-	for _, shard := range conf.Shards{
+	for _, shard := range conf.Shards {
 		chHosts = append(chHosts, shard.Replicas[0].Ip)
 	}
 	archive := &business.ArchiveHDFS{

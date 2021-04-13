@@ -3,10 +3,6 @@ package controller
 import (
 	"bytes"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/housepower/ckman/config"
-	"github.com/housepower/ckman/log"
-	"github.com/housepower/ckman/model"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -16,6 +12,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -144,7 +146,7 @@ func UploadFileByURL(url string, localFile string) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
-		return fmt.Errorf("%s", response.Status)
+		return errors.Errorf("%s", response.Status)
 	}
 
 	return nil
@@ -295,7 +297,7 @@ func DeleteFileByURL(url string) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
-		return fmt.Errorf("%s", response.Status)
+		return errors.Errorf("%s", response.Status)
 	}
 
 	return nil

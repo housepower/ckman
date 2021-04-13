@@ -50,17 +50,18 @@ type DeleteCkTableParams struct {
 }
 
 type CkTableNameTypeAfter struct {
-	Name  string `json:"name" example:"age"`
-	Type  string `json:"type" example:"Int32"`
-	After string `json:"after" example:"_timestamp"`
+	Name    string   `json:"name" example:"age"`
+	Type    string   `json:"type" example:"Int32"`
+	Options []string `json:"options"` //example:["DEFAULT now()", "CODEC(NONE)"]
+	After   string   `json:"after" example:"_timestamp"`
 }
 
 type AlterCkTableReq struct {
-	Name   string `json:"name" example:"test_table"`
-	DB     string `json:"database" example:"default"`
-	Add    []CkTableNameTypeAfter
-	Modify []CkTableNameType `json:"modify"`
-	Drop   []string          `json:"drop" example:"age"`
+	Name   string                 `json:"name" example:"test_table"`
+	DB     string                 `json:"database" example:"default"`
+	Add    []CkTableNameTypeAfter `json:"add"`
+	Modify []CkTableNameType      `json:"modify"`
+	Drop   []string               `json:"drop" example:"age"`
 }
 
 type AlterCkTableParams struct {
@@ -77,7 +78,7 @@ type DescCkTableParams struct {
 	DB   string
 }
 
-type CkTableAttribute struct {
+type CkColumnAttribute struct {
 	Name              string `json:"name"`
 	Type              string `json:"type"`
 	DefaultType       string `json:"defaultType"`

@@ -19,6 +19,7 @@ import (
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -87,7 +88,7 @@ func (ck *CkService) Stop() error {
 
 func (ck *CkService) InitCkService() error {
 	if len(ck.Config.Hosts) == 0 {
-		return fmt.Errorf("can't find any host")
+		return errors.Errorf("can't find any host")
 	}
 
 	dataSourceName := fmt.Sprintf("tcp://%s:%d?service=%s&username=%s&password=%s",
@@ -105,14 +106,14 @@ func (ck *CkService) InitCkService() error {
 	log.Logger.Infof("connect clickhouse with dsn '%s'", dataSourceName)
 	connect, err := sql.Open("clickhouse", dataSourceName)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "")
 	}
 
 	if err := connect.Ping(); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
 			log.Logger.Errorf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		}
-		return err
+		return errors.Wrapf(err, "")
 	}
 
 	ck.DB = connect
@@ -130,7 +131,7 @@ func ReadClusterConfigFile() ([]byte, error) {
 
 	data, err := ioutil.ReadFile(localFile)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "")
 	}
 
 	return data, nil
@@ -144,7 +145,7 @@ func UnmarshalClusters(data []byte) (map[string]interface{}, error) {
 	clustersMap := make(map[string]interface{})
 	err := json.Unmarshal(data, &clustersMap)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "")
 	}
 
 	return clustersMap, nil
@@ -157,11 +158,11 @@ func MergeCkClusterConfig(src map[string]interface{}) error {
 
 	srcVersion, ok := src[ClickHouseConfigVersionKey]
 	if !ok {
-		return fmt.Errorf("can't find source version")
+		return errors.Errorf("can't find source version")
 	}
 	dstVersion, ok := CkClusters.Load(ClickHouseConfigVersionKey)
 	if !ok {
-		return fmt.Errorf("can't find version")
+		return errors.Errorf("can't find version")
 	}
 
 	if int(srcVersion.(float64)) <= dstVersion.(int) {
@@ -244,7 +245,7 @@ func MarshalClusters() ([]byte, error) {
 
 	data, err := json.Marshal(clustersMap)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "")
 	}
 
 	return data, nil
@@ -254,17 +255,17 @@ func WriteClusterConfigFile(data []byte) error {
 	localFile := path.Join(config.GetWorkDirectory(), "conf", ClickHouseClustersFile)
 	localFd, err := os.OpenFile(localFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "")
 	}
 	defer localFd.Close()
 
 	num, err := localFd.Write(data)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "")
 	}
 
 	if num != len(data) {
-		return fmt.Errorf("do not write enough data")
+		return errors.Errorf("didn't write enough data")
 	}
 
 	return nil
@@ -305,7 +306,7 @@ func GetCkService(clusterName string) (*CkService, error) {
 		CkServices.Store(clusterName, clusterService)
 		return service, nil
 	} else {
-		return nil, fmt.Errorf("can't find cluster %s service", clusterName)
+		return nil, errors.Errorf("can't find cluster %s service", clusterName)
 	}
 }
 
@@ -344,7 +345,7 @@ func GetCkNodeService(clusterName string, node string) (*CkService, error) {
 		CkServices.Store(key, clusterService)
 		return service, nil
 	} else {
-		return nil, fmt.Errorf("can't find cluster %s service", key)
+		return nil, errors.Errorf("can't find cluster %s service", key)
 	}
 }
 
@@ -368,41 +369,41 @@ func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseCon
 	conf.Names = make([]string, 0)
 	conf.Shards = make([]model.CkShard, 0)
 
-	value, err := service.QueryInfo("select cluster, shard_num, replica_num, host_name, host_address from system.clusters order by cluster, shard_num, replica_num")
+	value, err := service.QueryInfo(fmt.Sprintf("SELECT cluster, shard_num, replica_num, host_name, host_address FROM system.clusters WHERE cluster='%s' ORDER BY cluster, shard_num, replica_num", req.Cluster))
 	if err != nil {
 		return err
 	}
 	shardNum := uint32(0)
 	for i := 1; i < len(value); i++ {
-		if value[i][0].(string) == conf.Cluster {
-			if shardNum != value[i][1].(uint32) {
-				if shardNum != 0 {
-					shard := model.CkShard{
-						Replicas: replicas,
-					}
-					conf.Shards = append(conf.Shards, shard)
+		if shardNum != value[i][1].(uint32) {
+			if len(replicas) != 0 {
+				shard := model.CkShard{
+					Replicas: replicas,
 				}
-				replicas = make([]model.CkReplica, 0)
+				conf.Shards = append(conf.Shards, shard)
 			}
-			if value[i][2].(uint32) > 1 {
-				conf.IsReplica = true
-			}
-			replica := model.CkReplica{
-				Ip:       value[i][4].(string),
-				HostName: value[i][3].(string),
-			}
-			replicas = append(replicas, replica)
-			conf.Hosts = append(conf.Hosts, value[i][4].(string))
-			conf.Names = append(conf.Names, value[i][3].(string))
-			shardNum = value[i][1].(uint32)
+			replicas = make([]model.CkReplica, 0)
 		}
+		if value[i][2].(uint32) > 1 {
+			conf.IsReplica = true
+		}
+		replica := model.CkReplica{
+			Ip:       value[i][4].(string),
+			HostName: value[i][3].(string),
+		}
+		replicas = append(replicas, replica)
+		conf.Hosts = append(conf.Hosts, value[i][4].(string))
+		conf.Names = append(conf.Names, value[i][3].(string))
+		shardNum = value[i][1].(uint32)
 	}
-	shard := model.CkShard{
-		Replicas: replicas,
+	if len(replicas) != 0 {
+		shard := model.CkShard{
+			Replicas: replicas,
+		}
+		conf.Shards = append(conf.Shards, shard)
 	}
-	conf.Shards = append(conf.Shards, shard)
 
-	value, err = service.QueryInfo("select version()")
+	value, err = service.QueryInfo("SELECT version()")
 	if err != nil {
 		return err
 	}
@@ -448,7 +449,7 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 
 func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	if ck.DB == nil {
-		return fmt.Errorf("clickhouse service unavailable")
+		return errors.Errorf("clickhouse service unavailable")
 	}
 
 	columns := make([]string, 0)
@@ -485,8 +486,8 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 		return err
 	}
 
-	create = fmt.Sprintf(`CREATE TABLE %s.%s%s ON CLUSTER %s AS %s ENGINE = Distributed(%s, %s, %s, rand())`,
-		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.Name,
+	create = fmt.Sprintf(`CREATE TABLE %s.%s%s ON CLUSTER %s AS %s.%s ENGINE = Distributed(%s, %s, %s, rand())`,
+		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.DB, params.Name,
 		params.Cluster, params.DB, params.Name)
 	log.Logger.Debugf(create)
 	if _, err := ck.DB.Exec(create); err != nil {
@@ -498,16 +499,18 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 
 func (ck *CkService) DeleteTable(params *model.DeleteCkTableParams) error {
 	if ck.DB == nil {
-		return fmt.Errorf("clickhouse service unavailable")
+		return errors.Errorf("clickhouse service unavailable")
 	}
 
 	delete := fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix,
 		params.Name, params.Cluster)
+	log.Logger.Debugf(delete)
 	if _, err := ck.DB.Exec(delete); err != nil {
 		return err
 	}
 
 	delete = fmt.Sprintf("DROP TABLE %s.%s ON CLUSTER %s", params.DB, params.Name, params.Cluster)
+	log.Logger.Debugf(delete)
 	if _, err := ck.DB.Exec(delete); err != nil {
 		return err
 	}
@@ -517,19 +520,20 @@ func (ck *CkService) DeleteTable(params *model.DeleteCkTableParams) error {
 
 func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	if ck.DB == nil {
-		return fmt.Errorf("clickhouse service unavailable")
+		return errors.Errorf("clickhouse service unavailable")
 	}
 
 	// add column
 	for _, value := range params.Add {
 		add := ""
 		if value.After != "" {
-			add = fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s ADD COLUMN %s %s AFTER %s",
-				params.DB, params.Name, params.Cluster, value.Name, value.Type, value.After)
+			add = fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s ADD COLUMN `%s` %s %s AFTER `%s`",
+				params.DB, params.Name, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "), value.After)
 		} else {
-			add = fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s ADD COLUMN %s %s",
-				params.DB, params.Name, params.Cluster, value.Name, value.Type)
+			add = fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s ADD COLUMN `%s` %s %s",
+				params.DB, params.Name, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "))
 		}
+		log.Logger.Debugf(add)
 		if _, err := ck.DB.Exec(add); err != nil {
 			return err
 		}
@@ -537,8 +541,9 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 
 	// modify column
 	for _, value := range params.Modify {
-		modify := fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s MODIFY COLUMN %s %s",
-			params.DB, params.Name, params.Cluster, value.Name, value.Type)
+		modify := fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s MODIFY COLUMN `%s` %s %s",
+			params.DB, params.Name, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "))
+		log.Logger.Debugf(modify)
 		if _, err := ck.DB.Exec(modify); err != nil {
 			return err
 		}
@@ -546,8 +551,9 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 
 	// delete column
 	for _, value := range params.Drop {
-		drop := fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s DROP COLUMN %s",
+		drop := fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s DROP COLUMN `%s`",
 			params.DB, params.Name, params.Cluster, value)
+		log.Logger.Debugf(drop)
 		if _, err := ck.DB.Exec(drop); err != nil {
 			return err
 		}
@@ -556,13 +562,15 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	// 删除分布式表并重建
 	delete := fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s",
 		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
+	log.Logger.Debugf(delete)
 	if _, err := ck.DB.Exec(delete); err != nil {
 		return err
 	}
 
-	create := fmt.Sprintf(`CREATE TABLE %s.%s%s ON CLUSTER %s AS %s ENGINE = Distributed(%s, %s, %s, rand())`,
-		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.Name,
+	create := fmt.Sprintf(`CREATE TABLE %s.%s%s ON CLUSTER %s AS %s.%s ENGINE = Distributed(%s, %s, %s, rand())`,
+		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.DB, params.Name,
 		params.Cluster, params.DB, params.Name)
+	log.Logger.Debugf(create)
 	if _, err := ck.DB.Exec(create); err != nil {
 		return err
 	}
@@ -570,13 +578,14 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	return nil
 }
 
-func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkTableAttribute, error) {
-	attrs := make([]model.CkTableAttribute, 0)
+func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkColumnAttribute, error) {
+	attrs := make([]model.CkColumnAttribute, 0)
 	if ck.DB == nil {
-		return attrs, fmt.Errorf("clickhouse service unavailable")
+		return attrs, errors.Errorf("clickhouse service unavailable")
 	}
 
 	desc := fmt.Sprintf("DESCRIBE TABLE %s.%s", params.DB, params.Name)
+	log.Logger.Debugf(desc)
 	rows, err := ck.DB.Query(desc)
 	if err != nil {
 		return attrs, err
@@ -588,9 +597,9 @@ func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkTable
 			name, types, default_type, default_expression, comments, codec_expression, ttl_expression string
 		)
 		if err := rows.Scan(&name, &types, &default_type, &default_expression, &comments, &codec_expression, &ttl_expression); err != nil {
-			return []model.CkTableAttribute{}, err
+			return []model.CkColumnAttribute{}, err
 		}
-		attr := model.CkTableAttribute{
+		attr := model.CkColumnAttribute{
 			Name:              name,
 			Type:              types,
 			DefaultType:       default_type,
@@ -607,9 +616,10 @@ func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkTable
 
 func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 	if ck.DB == nil {
-		return nil, fmt.Errorf("clickhouse service unavailable")
+		return nil, errors.Errorf("clickhouse service unavailable")
 	}
 
+	log.Logger.Debugf(query)
 	rows, err := ck.DB.Query(query)
 	if err != nil {
 		return nil, err

@@ -2,13 +2,15 @@ package zookeeper
 
 import (
 	"fmt"
-	"github.com/go-zookeeper/zk"
-	"github.com/patrickmn/go-cache"
-	"github.com/housepower/ckman/model"
-	"github.com/housepower/ckman/service/clickhouse"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/go-zookeeper/zk"
+	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/service/clickhouse"
+	"github.com/patrickmn/go-cache"
+	"github.com/pkg/errors"
 )
 
 var ZkServiceCache *cache.Cache
@@ -57,7 +59,7 @@ func GetZkService(clusterName string) (*ZkService, error) {
 			ZkServiceCache.SetDefault(clusterName, service)
 			return service, nil
 		} else {
-			return nil, fmt.Errorf("can't find cluster %s zookeeper service", clusterName)
+			return nil, errors.Errorf("can't find cluster %s zookeeper service", clusterName)
 		}
 	}
 }

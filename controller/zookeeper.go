@@ -2,14 +2,16 @@ package controller
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
-	jsoniter "github.com/json-iterator/go"
-	"github.com/housepower/ckman/model"
-	"github.com/housepower/ckman/service/clickhouse"
-	"github.com/housepower/ckman/service/zookeeper"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/service/clickhouse"
+	"github.com/housepower/ckman/service/zookeeper"
+	jsoniter "github.com/json-iterator/go"
+	"github.com/pkg/errors"
 )
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -75,7 +77,7 @@ func getZkStatus(host string, port int) ([]byte, error) {
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
-		return nil, fmt.Errorf("%s", response.Status)
+		return nil, errors.Errorf("%s", response.Status)
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
@@ -131,5 +133,5 @@ func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 		Tables: tables,
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS),resp)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), resp)
 }

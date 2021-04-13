@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"github.com/housepower/ckman/config"
 	"io/ioutil"
 	"os"
 	"path"
@@ -13,6 +12,9 @@ import (
 	"sync"
 	"text/template"
 	"time"
+
+	"github.com/housepower/ckman/config"
+	"github.com/pkg/errors"
 
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
@@ -100,7 +102,7 @@ type CkUpdateNodeParam struct {
 func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 	c, ok := conf.(*model.CkDeployConfig)
 	if !ok {
-		return fmt.Errorf("value isn't type of CkDeployConfig")
+		return errors.Errorf("value isn't type of CkDeployConfig")
 	}
 
 	d.DeployBase = *base
@@ -179,7 +181,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 	}
 
 	if len(HostNameMap) != clusterNodeNum {
-		return fmt.Errorf("host name are the same")
+		return errors.Errorf("host name are the same")
 	}
 
 	if err := ensureHosts(d); err != nil {
@@ -629,7 +631,7 @@ func DestroyCkCluster(conf *model.CKManClickHouseConfig) error {
 			Packages: packages,
 		},
 		Conf: &model.CkDeployConfig{
-			Path:conf.Path,
+			Path: conf.Path,
 		},
 	}
 	if err := deploy.Stop(); err != nil {
@@ -646,7 +648,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 	// add the node to conf struct
 	for _, host := range conf.Hosts {
 		if host == req.Ip {
-			return fmt.Errorf("node ip %s is duplicate", req.Ip)
+			return errors.Errorf("node ip %s is duplicate", req.Ip)
 		}
 	}
 
@@ -670,7 +672,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		}
 		shards = append(shards, shard)
 	} else {
-		return fmt.Errorf("shard number %d is incorrect", req.Shard)
+		return errors.Errorf("shard number %d is incorrect", req.Shard)
 	}
 
 	// install clickhouse and start service on the new node
@@ -763,7 +765,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 		index++
 	}
 	if index >= len(conf.Hosts) {
-		return fmt.Errorf("can'f find node %s on cluster %s", ip, conf.Cluster)
+		return errors.Errorf("can'f find node %s on cluster %s", ip, conf.Cluster)
 	}
 
 	// stop the node
@@ -917,13 +919,13 @@ func updateMetrikaconfig(user, password, host, clusterName string, port int, par
 					}
 				}
 			} else {
-				return fmt.Errorf("unsupported operate %d", param.Op)
+				return errors.Errorf("unsupported operate %d", param.Op)
 			}
 			break
 		}
 	}
 	if !found {
-		return fmt.Errorf("can't find cluster")
+		return errors.Errorf("can't find cluster")
 	}
 
 	data, err := xml.MarshalIndent(metrika, "", "  ")
