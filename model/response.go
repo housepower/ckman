@@ -1,10 +1,11 @@
 package model
 
 import (
+	"net/http"
+
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/log"
-	"net/http"
 )
 
 type ResponseBody struct {
@@ -17,12 +18,14 @@ func WrapMsg(c *gin.Context, retCode int, retMsg string, entity interface{}) err
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "application/json; charset=utf-8")
 
-	if _, ok := entity.(error); ok {
+	if retCode != SUCCESS {
 		if exception, ok := entity.(*clickhouse.Exception); ok {
 			retCode = int(exception.Code)
-			retMsg = exception.Message
+			retMsg += ": " + exception.Message
+		} else if exception, ok := entity.(error); ok {
+			retMsg += ": " + exception.Error()
 		}
-		entity = entity.(error).Error()
+		entity = nil
 	}
 
 	resp := ResponseBody{
