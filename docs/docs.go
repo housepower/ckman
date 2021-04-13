@@ -1339,6 +1339,13 @@ var doc = `{
                     "type": "string",
                     "example": "_timestamp"
                 },
+                "options": {
+                    "description": "example:[\"DEFAULT now()\", \"CODEC(NONE)\"]",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "type": {
                     "type": "string",
                     "example": "DateTime"

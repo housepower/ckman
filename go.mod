@@ -11,11 +11,14 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.6.3
+	github.com/go-openapi/spec v0.20.3 // indirect
+	github.com/go-openapi/swag v0.19.15 // indirect
 	github.com/go-zookeeper/zk v1.0.2
 	github.com/json-iterator/go v1.1.10
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/markbates/pkger v0.17.1
 	github.com/nacos-group/nacos-sdk-go v1.0.6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -31,6 +34,9 @@ require (
 	github.com/txn2/txeh v1.3.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
+	golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1 // indirect
+	golang.org/x/sys v0.0.0-20210412220455-f1c623a9e750 // indirect
+	golang.org/x/tools v0.1.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/sevlyar/go-daemon.v0 v0.1.5
 	gopkg.in/yaml.v2 v2.4.0

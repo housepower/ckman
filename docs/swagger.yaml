@@ -160,6 +160,11 @@ definitions:
       name:
         example: _timestamp
         type: string
+      options:
+        description: example:["DEFAULT now()", "CODEC(NONE)"]
+        items:
+          type: string
+        type: array
       type:
         example: DateTime
         type: string

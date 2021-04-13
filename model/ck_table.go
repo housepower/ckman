@@ -10,8 +10,9 @@ type CreateCkTableReq struct {
 }
 
 type CkTableNameType struct {
-	Name string `json:"name" example:"_timestamp"`
-	Type string `json:"type" example:"DateTime"`
+	Name    string   `json:"name" example:"_timestamp"`
+	Type    string   `json:"type" example:"DateTime"`
+	Options []string `json:"options"` //example:["DEFAULT now()", "CODEC(NONE)"]
 }
 
 type CkTablePartition struct {

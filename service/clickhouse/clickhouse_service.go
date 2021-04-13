@@ -4,11 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go"
-	"github.com/MakeNowJust/heredoc"
-	"github.com/housepower/ckman/config"
-	"github.com/housepower/ckman/log"
-	"github.com/housepower/ckman/model"
 	"io/ioutil"
 	"net"
 	"net/url"
@@ -18,6 +13,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go"
+	"github.com/MakeNowJust/heredoc"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
 )
 
 const (
@@ -452,29 +453,34 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 
 	columns := make([]string, 0)
 	for _, value := range params.Fields {
-		columns = append(columns, fmt.Sprintf("%s %s", value.Name, value.Type))
+		columns = append(columns, fmt.Sprintf("`%s` %s %s", value.Name, value.Type, strings.Join(value.Options, " ")))
 	}
 
 	partition := ""
 	switch params.Partition.Policy {
 	case model.CkTablePartitionPolicyDay:
-		partition = fmt.Sprintf("toYYYYMMDD(%s)", params.Partition.Name)
+		partition = fmt.Sprintf("toYYYYMMDD(`%s`)", params.Partition.Name)
 	case model.CkTablePartitionPolicyMonth:
-		partition = fmt.Sprintf("toYYYYMM(%s)", params.Partition.Name)
+		partition = fmt.Sprintf("toYYYYMM(`%s`)", params.Partition.Name)
 	case model.CkTablePartitionPolicyWeek:
-		partition = fmt.Sprintf("toYearWeek(%s)", params.Partition.Name)
+		partition = fmt.Sprintf("toYearWeek(`%s`)", params.Partition.Name)
 	default:
-		partition = fmt.Sprintf("toYYYYMMDD(%s)", params.Partition.Name)
+		partition = fmt.Sprintf("toYYYYMMDD(`%s`)", params.Partition.Name)
+	}
+
+	for i := range params.Order {
+		params.Order[i] = fmt.Sprintf("`%s`", params.Order[i])
 	}
 
 	create := fmt.Sprintf(`CREATE TABLE %s.%s ON CLUSTER %s (%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)`,
-		params.DB, params.Name, params.Cluster, strings.Join(columns, ","), params.Engine,
-		partition, strings.Join(params.Order, ","))
+		params.DB, params.Name, params.Cluster, strings.Join(columns, ", "), params.Engine,
+		partition, strings.Join(params.Order, ", "))
 	if params.Engine == model.ClickHouseDefaultReplicaEngine || params.Engine == model.ClickHouseReplicaReplacingEngine {
 		create = fmt.Sprintf(`CREATE TABLE %s.%s ON CLUSTER %s (%s) ENGINE = %s('/clickhouse/tables/{cluster}/{shard}/%s', '{replica}') PARTITION BY %s ORDER BY (%s)`,
-			params.DB, params.Name, params.Cluster, strings.Join(columns, ","), params.Engine, params.Name,
-			partition, strings.Join(params.Order, ","))
+			params.DB, params.Name, params.Cluster, strings.Join(columns, ", "), params.Engine, params.Name,
+			partition, strings.Join(params.Order, ", "))
 	}
+	log.Logger.Debugf(create)
 	if _, err := ck.DB.Exec(create); err != nil {
 		return err
 	}
@@ -482,6 +488,7 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	create = fmt.Sprintf(`CREATE TABLE %s.%s%s ON CLUSTER %s AS %s ENGINE = Distributed(%s, %s, %s, rand())`,
 		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.Name,
 		params.Cluster, params.DB, params.Name)
+	log.Logger.Debugf(create)
 	if _, err := ck.DB.Exec(create); err != nil {
 		return err
 	}
