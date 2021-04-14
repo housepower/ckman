@@ -8,7 +8,10 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/pkg/errors"
 	"net/url"
+	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -50,7 +53,6 @@ var (
 	wg                   sync.WaitGroup
 	cntErrors            int32
 	estSize              uint64
-	hdfsDir              string
 )
 
 func (this *ArchiveHDFS) FillArchiveDefault() {
@@ -216,7 +218,7 @@ func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEn
 	_ = globalPool.Submit(func() {
 		defer wg.Done()
 		hdfsTbl := "hdfs_" + table + "_" + slotBeg.Format(SlotTimeFormat)
-		fp := filepath.Join(hdfsDir, table+"_"+host+"_"+slotBeg.Format(SlotTimeFormat)+".parquet")
+		fp := filepath.Join(this.HdfsDir, table+"_"+host+"_"+slotBeg.Format(SlotTimeFormat)+".parquet")
 		queries := []string{
 			fmt.Sprintf("DROP TABLE IF EXISTS %s", hdfsTbl),
 			fmt.Sprintf("CREATE TABLE %s AS %s ENGINE=HDFS('hdfs://%s%s', 'Parquet')", hdfsTbl, table, this.HdfsAddr, fp),
@@ -242,8 +244,6 @@ func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEn
 func (this *ArchiveHDFS) ClearHDFS() error {
 	var err error
 	globalPool = common.NewWorkerPool(this.Parallelism, len(this.Conns))
-	dir := this.Begin + "_" + this.End
-	hdfsDir = filepath.Join(this.HdfsDir, dir)
 	ops := hdfs.ClientOptions{
 		Addresses: []string{this.HdfsAddr},
 		User:      this.HdfsUser,
@@ -254,17 +254,42 @@ func (this *ArchiveHDFS) ClearHDFS() error {
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
-	if err = hc.RemoveAll(hdfsDir); err != nil {
+
+	if err = hc.Chmod(this.HdfsDir, 0777); err != nil {
 		err = errors.Wrapf(err, "")
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
-	if err = hc.MkdirAll(hdfsDir, 0777); err != nil {
+
+	var fileList []os.FileInfo
+	if fileList,err = hc.ReadDir(this.HdfsDir); err != nil {
 		err = errors.Wrapf(err, "")
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
-	log.Logger.Infof("cleared hdfs directory %s", hdfsDir)
+
+	slotBeg, _ := time.Parse(DateLayout, this.Begin)
+	start := slotBeg.Format(SlotTimeFormat)
+	slotEnd, _ := time.Parse(DateLayout, this.End)
+	end := slotEnd.Format(SlotTimeFormat)
+	for _, file := range fileList{
+		name := file.Name()
+		n := len(name)
+		if !strings.Contains(name, "parquet") || n < 22 {
+			continue
+		}
+		slotName := name[n-22:n-8]
+		if slotName >= start && slotName < end {
+			dir := path.Join(this.HdfsDir, name)
+			if err = hc.Remove(dir); err != nil {
+				err = errors.Wrapf(err, "")
+				log.Logger.Errorf("got error %+v", err)
+				return err
+			}
+		}
+	}
+
+	log.Logger.Infof("cleared hdfs directory %s", this.HdfsDir)
 	return nil
 }
 
