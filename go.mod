@@ -26,6 +26,7 @@ require (
 	github.com/pkg/sftp v1.12.0
 	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/common v0.18.0
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sirupsen/logrus v1.8.0
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.6.1
@@ -34,8 +35,8 @@ require (
 	github.com/txn2/txeh v1.3.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
-	golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1 // indirect
-	golang.org/x/sys v0.0.0-20210412220455-f1c623a9e750 // indirect
+	golang.org/x/net v0.0.0-20210414194228-064579744ee0 // indirect
+	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c // indirect
 	golang.org/x/tools v0.1.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/sevlyar/go-daemon.v0 v0.1.5

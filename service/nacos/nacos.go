@@ -240,9 +240,10 @@ func (c *NacosClient) ListenConfig() error {
 
 func ListenConfigCallback(namespace, group, dataId, data string) {
 	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
-		buf, _ := clickhouse.MarshalClusters()
-		clickhouse.WriteClusterConfigFile(buf)
+		if updated, err := clickhouse.UpdateLocalCkClusterConfig([]byte(data)); err == nil && updated {
+			buf, _ := clickhouse.MarshalClusters()
+			clickhouse.WriteClusterConfigFile(buf)
+		}
 	}
 }
 

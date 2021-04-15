@@ -65,7 +65,11 @@ func (d *DeployController) syncDownClusters(c *gin.Context) (err error) {
 		return
 	}
 	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+		var updated bool
+		if updated, err = clickhouse.UpdateLocalCkClusterConfig([]byte(data)); err == nil && updated {
+			buf, _ := clickhouse.MarshalClusters()
+			clickhouse.WriteClusterConfigFile(buf)
+		}
 	}
 	return
 }
@@ -135,7 +139,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		return
 	}
 	clickhouse.CkClusters.Store(req.ClickHouse.ClusterName, conf)
-	if err = d.syncDownClusters(c); err != nil {
+	if err = d.syncUpClusters(c); err != nil {
 		return
 	}
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)

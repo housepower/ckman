@@ -42,13 +42,18 @@ func NewClickHouseController(nacosClient *nacos.NacosClient) *ClickHouseControll
 }
 
 func (ck *ClickHouseController) syncDownClusters(c *gin.Context) (err error) {
-	data, err := ck.nacosClient.GetConfig()
+	var data string
+	data, err = ck.nacosClient.GetConfig()
 	if err != nil {
 		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err)
 		return
 	}
 	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+		var updated bool
+		if updated, err = clickhouse.UpdateLocalCkClusterConfig([]byte(data)); err == nil && updated {
+			buf, _ := clickhouse.MarshalClusters()
+			clickhouse.WriteClusterConfigFile(buf)
+		}
 	}
 	return
 }
@@ -524,6 +529,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
 	clusterName := c.Param(ClickHouseClusterPath)
 
+	var err error
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
@@ -538,27 +544,17 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 		return
 	}
 
-	clickhouse.CkServices.Delete(clusterName)
-	err := deploy.DestroyCkCluster(&conf)
-	if err != nil {
+	if err = deploy.DestroyCkCluster(&conf); err != nil {
 		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(c, model.DESTROY_CK_CLUSTER_FAIL), err)
 		return
 	}
-
-	data, err := ck.nacosClient.GetConfig()
-	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err)
+	if err = ck.syncDownClusters(c); err != nil {
 		return
 	}
-	if data != "" {
-		clickhouse.UpdateLocalCkClusterConfig([]byte(data))
+	clickhouse.CkServices.Delete(clusterName)
+	if err = ck.syncUpClusters(c); err != nil {
+		return
 	}
-	clickhouse.CkClusters.Delete(clusterName)
-	clickhouse.AddCkClusterConfigVersion()
-	buf, _ := clickhouse.MarshalClusters()
-	clickhouse.WriteClusterConfigFile(buf)
-	ck.nacosClient.PublishConfig(string(buf))
-
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 

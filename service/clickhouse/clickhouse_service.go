@@ -151,22 +151,35 @@ func UnmarshalClusters(data []byte) (map[string]interface{}, error) {
 	return clustersMap, nil
 }
 
-func MergeCkClusterConfig(src map[string]interface{}) error {
-	if src == nil {
-		return nil
+func AddCkClusterConfigVersion() {
+	version, ok := CkClusters.Load(ClickHouseConfigVersionKey)
+	if !ok {
+		CkClusters.Store(ClickHouseConfigVersionKey, 0)
 	}
 
-	srcVersion, ok := src[ClickHouseConfigVersionKey]
+	CkClusters.Store(ClickHouseConfigVersionKey, version.(int)+1)
+}
+
+func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
+	var ck map[string]interface{}
+	ck, err = UnmarshalClusters(data)
+	if err != nil || ck == nil {
+		return
+	}
+
+	srcVersion, ok := ck[ClickHouseConfigVersionKey]
 	if !ok {
-		return errors.Errorf("can't find source version")
+		err = errors.Errorf("can't find source version")
+		return
 	}
 	dstVersion, ok := CkClusters.Load(ClickHouseConfigVersionKey)
 	if !ok {
-		return errors.Errorf("can't find version")
+		err = errors.Errorf("can't find version")
+		return
 	}
 
 	if int(srcVersion.(float64)) <= dstVersion.(int) {
-		return nil
+		return
 	}
 
 	// delete old CkClusters config
@@ -176,7 +189,7 @@ func MergeCkClusterConfig(src map[string]interface{}) error {
 	})
 
 	// merge new CkClusters config
-	for key, value := range src {
+	for key, value := range ck {
 		v, ok := value.(map[string]interface{})
 		if ok {
 			var conf model.CKManClickHouseConfig
@@ -188,25 +201,8 @@ func MergeCkClusterConfig(src map[string]interface{}) error {
 		}
 	}
 
-	return nil
-}
-
-func AddCkClusterConfigVersion() {
-	version, ok := CkClusters.Load(ClickHouseConfigVersionKey)
-	if !ok {
-		CkClusters.Store(ClickHouseConfigVersionKey, 0)
-	}
-
-	CkClusters.Store(ClickHouseConfigVersionKey, version.(int)+1)
-}
-
-func UpdateLocalCkClusterConfig(data []byte) error {
-	ck, err := UnmarshalClusters(data)
-	if err != nil {
-		return err
-	}
-
-	return MergeCkClusterConfig(ck)
+	updated = true
+	return
 }
 
 func ParseCkClusterConfigFile() error {
@@ -217,7 +213,7 @@ func ParseCkClusterConfigFile() error {
 
 	if data != nil {
 		CkClusters.Store(ClickHouseConfigVersionKey, -1)
-		err := UpdateLocalCkClusterConfig(data)
+		_, err := UpdateLocalCkClusterConfig(data)
 		if err != nil {
 			return err
 		}
