@@ -25,11 +25,16 @@ backend:
 	go build ${LDFLAGS} -o exporter cmd/exporter/exporter.go
 	go build ${LDFLAGS} -o purger cmd/purger/purger.go
 
+.PHONY: pre
+pre:
+	go mod tidy
+	go get  github.com/markbates/pkger/cmd/pkger
+	go get github.com/swaggo/swag/cmd/swag
+
 .PHONY: build
-build:
+build: pre
 	@rm -rf ${PKGFULLDIR}
 	make -C frontend build
-	go get  github.com/markbates/pkger/cmd/pkger
 	pkger
 	swag init
 	go build ${LDFLAGS}
@@ -40,7 +45,7 @@ build:
 	go build ${LDFLAGS} -o purger cmd/purger/purger.go
 
 .PHONY: package
-package: build
+package:
 	@rm -rf ${PKGFULLDIR_TMP}
 	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package ${PKGFULLDIR_TMP}/template
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
@@ -72,13 +77,13 @@ docker-sh:
 	docker run --rm  -it -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct eoitek/ckman-build:go-1.16 bash
 
 .PHONY: rpm
-rpm: build
+rpm:
 	@sed "s/trunk/${VERSION}/g" nfpm.yaml > nfpm_${VERSION}.yaml
 	nfpm -f nfpm_${VERSION}.yaml pkg --packager rpm --target .
 	@rm nfpm_${VERSION}.yaml
 
 .PHONY: deb
-deb: build
+deb:
 	@sed "s/trunk/${VERSION}/g" nfpm.yaml > nfpm_${VERSION}.yaml
 	nfpm -f nfpm_${VERSION}.yaml pkg --packager deb --target .
 	@rm nfpm_${VERSION}.yaml
