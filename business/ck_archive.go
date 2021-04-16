@@ -8,7 +8,10 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/pkg/errors"
 	"net/url"
+	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -50,7 +53,7 @@ var (
 	wg                   sync.WaitGroup
 	cntErrors            int32
 	estSize              uint64
-	hdfsDir              string
+	hdfsDir              []string
 )
 
 func (this *ArchiveHDFS) FillArchiveDefault() {
@@ -216,34 +219,34 @@ func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEn
 	_ = globalPool.Submit(func() {
 		defer wg.Done()
 		hdfsTbl := "hdfs_" + table + "_" + slotBeg.Format(SlotTimeFormat)
-		fp := filepath.Join(hdfsDir, table+"_"+host+"_"+slotBeg.Format(SlotTimeFormat)+".parquet")
-		queries := []string{
-			fmt.Sprintf("DROP TABLE IF EXISTS %s", hdfsTbl),
-			fmt.Sprintf("CREATE TABLE %s AS %s ENGINE=HDFS('hdfs://%s%s', 'Parquet')", hdfsTbl, table, this.HdfsAddr, fp),
-			fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>=%s AND `%s`<%s", hdfsTbl, table, colName, formatTimestamp(slotBeg, colType), colName, formatTimestamp(slotEnd, colType)),
-			fmt.Sprintf("DROP TABLE %s", hdfsTbl),
-		}
-		db := this.Conns[host]
-		for _, query := range queries {
-			if atomic.LoadInt32(&cntErrors) != 0 {
-				return
+		for _, dir := range hdfsDir {
+			fp := filepath.Join(dir, host+"_"+slotBeg.Format(SlotTimeFormat)+".parquet")
+			queries := []string{
+				fmt.Sprintf("DROP TABLE IF EXISTS %s", hdfsTbl),
+				fmt.Sprintf("CREATE TABLE %s AS %s ENGINE=HDFS('hdfs://%s%s', 'Parquet')", hdfsTbl, table, this.HdfsAddr, fp),
+				fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>=%s AND `%s`<%s", hdfsTbl, table, colName, formatTimestamp(slotBeg, colType), colName, formatTimestamp(slotEnd, colType)),
+				fmt.Sprintf("DROP TABLE %s", hdfsTbl),
 			}
-			log.Logger.Infof("host %s, table %s, slot %d, query: %s", host, table, seq, query)
-			if _, err := db.Exec(query); err != nil {
-				log.Logger.Errorf("host %s: got error %+v", host, err)
-				atomic.AddInt32(&cntErrors, 1)
-				return
+			db := this.Conns[host]
+			for _, query := range queries {
+				if atomic.LoadInt32(&cntErrors) != 0 {
+					return
+				}
+				log.Logger.Infof("host %s, table %s, slot %d, query: %s", host, table, seq, query)
+				if _, err := db.Exec(query); err != nil {
+					log.Logger.Errorf("host %s: got error %+v", host, err)
+					atomic.AddInt32(&cntErrors, 1)
+					return
+				}
 			}
+			log.Logger.Infof("host %s, table %s, slot %d, export done", host, table, seq)
 		}
-		log.Logger.Infof("host %s, table %s, slot %d, export done", host, table, seq)
 	})
 }
 
 func (this *ArchiveHDFS) ClearHDFS() error {
 	var err error
 	globalPool = common.NewWorkerPool(this.Parallelism, len(this.Conns))
-	dir := this.Begin + "_" + this.End
-	hdfsDir = filepath.Join(this.HdfsDir, dir)
 	ops := hdfs.ClientOptions{
 		Addresses: []string{this.HdfsAddr},
 		User:      this.HdfsUser,
@@ -254,17 +257,42 @@ func (this *ArchiveHDFS) ClearHDFS() error {
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
-	if err = hc.RemoveAll(hdfsDir); err != nil {
-		err = errors.Wrapf(err, "")
-		log.Logger.Errorf("got error %+v", err)
-		return err
+
+	slotBeg, _ := time.Parse(DateLayout, this.Begin)
+	slotEnd, _ := time.Parse(DateLayout, this.End)
+	for _, table := range this.Tables{
+		dir := path.Join(this.HdfsDir, table)
+		hdfsDir = append(hdfsDir, dir)
+		_ = hc.Mkdir(dir, 0777)
+		var fileList []os.FileInfo
+		if fileList,err = hc.ReadDir(dir); err != nil {
+			err = errors.Wrapf(err, "")
+			log.Logger.Errorf("got error %+v", err)
+			return err
+		}
+		for _, file := range fileList {
+			name := file.Name()
+			if !strings.Contains(name, "parquet"){
+				continue
+			}
+			slot := strings.Split(strings.TrimSuffix(name, ".parquet"),"_")[1]
+			slotTime,err := time.Parse(SlotTimeFormat, slot)
+			if err != nil{
+				log.Logger.Errorf("parse time error: %+v", err)
+				return err
+			}
+			if (slotTime.After(slotBeg) || slotTime.Equal(slotBeg)) && slotTime.Before(slotEnd){
+				filePath := path.Join(dir, name)
+				if err = hc.Remove(filePath); err != nil {
+					err = errors.Wrapf(err, "")
+					log.Logger.Errorf("got error %+v", err)
+					return err
+				}
+			}
+		}
+		log.Logger.Infof("cleared hdfs directory %s", dir)
 	}
-	if err = hc.MkdirAll(hdfsDir, 0777); err != nil {
-		err = errors.Wrapf(err, "")
-		log.Logger.Errorf("got error %+v", err)
-		return err
-	}
-	log.Logger.Infof("cleared hdfs directory %s", hdfsDir)
+
 	return nil
 }
 

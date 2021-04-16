@@ -31,10 +31,6 @@ type PingClusterReq struct {
 	Password string `json:"password" example:"123456"`
 }
 
-type PingClusterRsp struct {
-	Message  string   `json:"message"`
-	FailList []string `json:"failList"`
-}
 
 type PurgerTableReq struct {
 	Database string   `json:"database" example:"default"`

@@ -862,48 +862,44 @@ func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 // @Router /api/v1/ck/ping/{clusterName} [post]
 func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 	var req model.PingClusterReq
-	var rsp model.PingClusterRsp
 	clusterName := c.Param(ClickHouseClusterPath)
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		rsp.Message = err.Error()
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), rsp)
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
 
 	var conf model.CKManClickHouseConfig
 	con, ok := clickhouse.CkClusters.Load(clusterName)
 	if !ok {
-		rsp.Message = fmt.Sprintf("cluster %s does not exist", clusterName)
-		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST), rsp)
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST), fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 	conf = con.(model.CKManClickHouseConfig)
 
 	if len(conf.Hosts) == 0 {
-		rsp.Message = "can't find any host"
-		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), rsp)
+		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), "can't find any host")
 		return
 	}
+	var failList []string
 	for _, host := range conf.Hosts {
 		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
 			host, conf.Port, url.QueryEscape(req.Database), url.QueryEscape(req.User), url.QueryEscape(req.Password))
 		connect, err := sql.Open("clickhouse", dsn)
 		if err != nil {
-			rsp.FailList = append(rsp.FailList, host)
-			rsp.Message = err.Error()
+			failList = append(failList, host)
 			log.Logger.Error("%s: %v", dsn, err)
 			continue
 		}
 		if err = connect.Ping(); err != nil {
-			rsp.FailList = append(rsp.FailList, host)
-			rsp.Message = err.Error()
+			failList = append(failList, host)
 			log.Logger.Error("%s: %v", dsn, err)
 			continue
 		}
 	}
-	if len(rsp.FailList) > 0 {
-		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), rsp)
+	if len(failList) > 0 {
+		err := fmt.Errorf("failList: %v", failList)
+		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
 		return
 	}
 

@@ -24,6 +24,8 @@ func WrapMsg(c *gin.Context, retCode int, retMsg string, entity interface{}) err
 			retMsg += ": " + exception.Message
 		} else if exception, ok := entity.(error); ok {
 			retMsg += ": " + exception.Error()
+		} else if s, ok := entity.(string); ok {
+			retMsg += ": " + s
 		}
 		entity = nil
 	}
