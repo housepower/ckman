@@ -258,6 +258,8 @@ func (this *ArchiveHDFS) ClearHDFS() error {
 		return err
 	}
 
+	slotBeg, _ := time.Parse(DateLayout, this.Begin)
+	slotEnd, _ := time.Parse(DateLayout, this.End)
 	for _, table := range this.Tables{
 		dir := path.Join(this.HdfsDir, table)
 		hdfsDir = append(hdfsDir, dir)
@@ -279,8 +281,6 @@ func (this *ArchiveHDFS) ClearHDFS() error {
 				log.Logger.Errorf("parse time error: %+v", err)
 				return err
 			}
-			slotBeg, _ := time.Parse(DateLayout, this.Begin)
-			slotEnd, _ := time.Parse(DateLayout, this.End)
 			if (slotTime.After(slotBeg) || slotTime.Equal(slotBeg)) && slotTime.Before(slotEnd){
 				filePath := path.Join(dir, name)
 				if err = hc.Remove(filePath); err != nil {
