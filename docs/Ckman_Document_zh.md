@@ -6,13 +6,13 @@
 
 通过网页端的可视化界面，`ckman`可以非常便捷的完成集群的导入、部署、节点的增删以及性能指标的监控等功能，可以大大简化集群部署的操作流程，从而起到事半功倍的效果。
 
-如今，这款工具已经在`github`上开源啦！有想要体验的同学可以移步 https://github.com/housepower/ckman，欢迎`star`和贡献代码。
+如今，这款工具已经在`github`上开源啦！有想要体验的同学可以移步 https://github.com/housepower/ckman ，欢迎`star`和`issue`。
 
 
 
 # ckman架构
 
-![image-20210305173254562](img/image-20210305173254562.png)
+![image-20210418095016306](img/image-20210418095016306.png)  
 
 ckman支持多中心部署，使用nacos进行配置同步，可以对多个集群进行管理，在集群的每个节点下，如果配置node_exporter，则可以对对应的节点进行指标监控。node_exporter的数据传给prometheus，然后在前端展示。
 
@@ -45,23 +45,23 @@ cd frontend
 sudo rm -rf node_modules package-lock.json && npm install
 ```
 
-2.  安装pkger
+2.  安装`pkger`
 
 ```bash
 go get github.com/markbates/pkger/cmd/pkger
 ```
 
-3.  安装swag
+3.  安装`swag`
 
 ```bash
 go get -u github.com/swaggo/swag/cmd/swag
 ```
 
-4.  安装 nfpm2.2.4:
+4.  安装 `nfpm2.2.4`:
 
-nfpm是一款用来打包rpm的工具，如果不打算做成rpm包，可以不安装。
+`nfpm`是一款用来打包``rpm`的工具，如果不打算做成`rpm`包，可以不安装。
 
-由于nfpm新版本配置文件和旧版本差别很大，建议安装指定的2.2.4版本。
+由于`nfpm`新版本配置文件和旧版本差别很大，建议安装指定的`2.2.4`版本。
 
 ```
 wget -q https://github.com/goreleaser/nfpm/releases/download/v2.2.4/nfpm_2.2.4_Linux_x86_64.tar.gz
@@ -71,33 +71,41 @@ cp nfpm /usr/local/bin
 
 ### 编译命令
 
-Linux和MacOS下编译命令都是一样的：
+`Linux`和`MacOS`下编译命令都是一样的：
 
 ```bash
-make package VERSION=1.2.5   
+make package VERSION=x.x.x   
 ```
 
-以上命令会编译成打包成一个tar.gz安装包，该安装包解压即可用。
+以上命令会编译成打包成一个`tar.gz`安装包，该安装包解压即可用。
+
+`VERSION`是指定的版本号，如果不指定，则默认生成一个版本号为`trunk`的版本。
 
 ### rpm编译
 
 ```bash
-make rpm
+make rpm VERSION=x.x.x
+```
+
+### deb编译
+
+```bash
+make deb VERSION=x.x.x
 ```
 
 ## Docker编译
 
-鉴于编译环境的诸多依赖，配置起来可能比较麻烦，因此也提供了docker编译的方式，直接运行下面的命令即可：
+鉴于编译环境的诸多依赖，配置起来可能比较麻烦，因此也提供了`docker`编译的方式，直接运行下面的命令即可：
 
 ```bash
-make docker-build VERSION=1.2.5
+make docker-build VERSION=x.x.x
 ```
 
-如果想利用docker编译rpm版本，可以先进入docker环境，再编译：
+如果想利用`docker`编译`rpm`版本，可以先进入`docker`环境，再编译：
 
 ```bash
 make docker-sh
-make rpm
+make rpm VERSION=x.x.x
 ```
 
 
@@ -159,15 +167,15 @@ bin/start
 
 ## docker启动
 
-从v1.2.7版本开始，ckman支持从docker镜像启动。启动命令如下所示：
+从`v1.2.7`版本开始，`ckman`支持从`docker`镜像启动。启动命令如下所示：
 
 ```bash
 docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/housepower/ckman:latest
 ```
 
-但是需要注意的是，搭建promethues和nacos并不属于ckman程序自身的范畴，因此，从容器启动ckman默认是关闭nacos的，且前台Overview监控不会正常显示。
+但是需要注意的是，搭建`promethues`和`nacos`并不属于`ckman`程序自身的范畴，因此，从容器启动`ckman`默认是关闭`nacos`的，且前台`Overview`监控不会正常显示。
 
-如果想自己配置nacos和prometheus，可以进入容器自行配置。
+如果想自己配置`nacos`和`prometheus`，可以进入容器自行配置。
 
 ## ckman配置文件
 
@@ -180,12 +188,13 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 |              | `https`           | `false`                            | 是否支持`https`，默认为不支持                            |
 |              | `pprof`           | `true`                             | 是否支持`pprof`监控，默认支持                            |
 |              | `session_timeout` | `3600`                             | 会话超时（`token`失效）时间，默认为`1`个小时             |
-|              | `publick_key`     |                                    | 接入擎创统一门户用来解析token的公钥                      |
+|              | `publick_key`     |                                    | 接入擎创统一门户用来解析`token`的公钥                    |
+|              | `swagger_enable`  | `false`                            | 是否开启`swagger`文档，默认不开启                        |
 | `log`        | `level`           | `INFO`                             | 日志级别，默认为`INFO`                                   |
 |              | `max_count`       | `5`                                | 滚动日志数量                                             |
 |              | `max_size`        | `10`                               | 单个日志大小，默认为`10M`                                |
 |              | `max_age`         | `10`                               | 日志有效生命周期，默认为`10`天                           |
-| `prometheus` | `hosts`           | `127.0.0.1:19090`                  | 普罗米修斯监控的`ip`和端口                               |
+| `prometheus` | `hosts`           | `127.0.0.1:9090`                   | 普罗米修斯监控的`ip`和端口                               |
 |              | `timeout`         | `10`                               | 普罗米修斯的超时时间                                     |
 | `nacos`      | `enabled`         | `true`                             | 是否开启`nacos`，默认为`true`                            |
 |              | `hosts`           | `127.0.0.1`                        | `nacos`服务的`ip`                                        |
@@ -223,44 +232,69 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 
 ## ckman 支持的接口
 
-| 接口                                        | method   | 说明                  |
-| ------------------------------------------- | -------- | --------------------- |
-| `/api/login`                                | `POST`   | 登录                  |
-| `/api/logout `                              | `PUT`    | 退出登录              |
-| `/api/v1/ck/cluster`                        | `GET`    | 获取所有集群信息      |
-| `/api/v1/ck/cluster`                        | `PUT`    | 更新集群信息          |
-| `/api/v1/ck/cluster`                        | `POST`   | 导入集群              |
-| `/api/v1/ck/cluster/{clusterName}`          | `DELETE` | 删除集群              |
-| `/api/v1/ck/destroy/{clusterName}`          | `PUT`    | 销毁集群              |
-| `/api/v1/ck/get/{clusterName}`              | `GET`    | 获取指定集群的信息    |
-| `/api/v1/ck/node/{clusterName}`             | `POST`   | 增加节点              |
-| `/api/v1/ck/node/{clusterName}`             | `DELETE` | 删除节点              |
-| `/api/v1/ck/open_sessions/{clusterName}`    | `GET`    | 获取有效`session`个数 |
-| `/api/v1/ck/query/{clusterName}`            | `GET`    | 执行`Query`           |
-| `/api/v1/ck/rebalance/{clusterName}`        | `PUT`    | `Rebanlance`集群数据  |
-| `/api/v1/ck/slow_sessions/{clusterName}`    | `GET`    | 获取慢`SQL`查询       |
-| `/api/v1/ck/start/{clusterName}`            | `PUT`    | 启动集群              |
-| `/api/v1/ck/stop/{clusterName}`             | `PUT`    | 停止集群              |
-| `/api/v1/ck/table/{clusterName}`            | `GET`    | 描述表                |
-| `/api/v1/ck/table/{clusterName}`            | `PUT`    | 更新表                |
-| `/api/v1/ck/table/{clusterName}`            | `POST`   | 创建表                |
-| `/api/v1/ck/table/{clusterName}`            | `DELETE` | 删除表                |
-| `/api/v1/ck/table_metric/{clusterName}`     | `GET`    | 获取表集群信息        |
-| `/api/v1/ck/upgrade/{clusterName}`          | `PUT`    | 升级集群              |
-| `/api/v1/config`                            | `GET`    | 获取配置              |
-| `/api/v1/config`                            | `PUT`    | 修改配置              |
-| `/api/v1/deploy/ck`                         | `POST`   | 部署`ck`              |
-| `/api/v1/metric/query`                      | `GET`    | 获取`query`指标       |
-| `/api/v1/metric/query_range`                | `GET`    | 获取范围指标          |
-| `/api/v1/package`                           | `GET`    | 获取安装包列表        |
-| `/api/v1/package`                           | `POST`   | 上传安装包            |
-| `/api/v1/package`                           | `DELETE` | 删除安装包            |
-| `/api/v1/zk/replicated_table/{clusterName}` | `GET`    | 获取复制表状态        |
-| `/api/v1/zk/status/{clusterName}`           | `GET`    | 获取集群状态          |
+详细接口参数可通过`swagger`文档查看。
+
+`swagger`访问方式：开启`ckman`服务后，通过[http://127.0.0.1:8808/swagger/index.html](http://127.0.0.1:8808/swagger/index.html) 网址访问。
+
+| 接口                                        | method   | 说明                         |
+| ------------------------------------------- | -------- | ---------------------------- |
+| `/api/login`                                | `POST`   | 登录                         |
+| `/api/logout `                              | `PUT`    | 退出登录                     |
+| `/api/v1/ck/cluster`                        | `GET`    | 获取所有集群信息             |
+| `/api/v1/ck/cluster`                        | `PUT`    | 更新集群信息                 |
+| `/api/v1/ck/cluster`                        | `POST`   | 导入集群                     |
+| `/api/v1/ck/cluster/{clusterName}`          | `GET`    | 获取指定集群的信息           |
+| `/api/v1/ck/cluster/{clusterName}`          | `DELETE` | 删除集群                     |
+| `/api/v1/ck/destroy/{clusterName}`          | `PUT`    | 销毁集群                     |
+| `/api/v1/ck/get/{clusterName}`              | `GET`    | 获取指定集群的信息           |
+| `/api/v1/ck/node/{clusterName}`             | `POST`   | 增加节点                     |
+| `/api/v1/ck/node/{clusterName}`             | `DELETE` | 删除节点                     |
+| `/api/v1/ck/open_sessions/{clusterName}`    | `GET`    | 获取有效`session`个数        |
+| `/api/v1/ck/query/{clusterName}`            | `GET`    | 执行`Query`                  |
+| `/api/v1/ck/rebalance/{clusterName}`        | `PUT`    | `Rebalance`集群数据          |
+| `/api/v1/ck/slow_sessions/{clusterName}`    | `GET`    | 获取慢`SQL`查询              |
+| `/api/v1/ck/start/{clusterName}`            | `PUT`    | 启动集群                     |
+| `/api/v1/ck/stop/{clusterName}`             | `PUT`    | 停止集群                     |
+| `/api/v1/ck/table/{clusterName}`            | `GET`    | 描述表                       |
+| `/api/v1/ck/table/{clusterName}`            | `PUT`    | 更新表                       |
+| `/api/v1/ck/table/{clusterName}`            | `POST`   | 创建表                       |
+| `/api/v1/ck/table/{clusterName}`            | `DELETE` | 删除表                       |
+| `/api/v1/ck/table_metric/{clusterName}`     | `GET`    | 获取表集群信息               |
+| `/api/v1/ck/upgrade/{clusterName}`          | `PUT`    | 升级集群                     |
+| `/api/v1/config`                            | `GET`    | 获取配置                     |
+| `/api/v1/config`                            | `PUT`    | 修改配置                     |
+| `/api/v1/deploy/ck`                         | `POST`   | 部署`ck`                     |
+| `/api/v1/metric/query`                      | `GET`    | 获取`query`指标              |
+| `/api/v1/metric/query_range`                | `GET`    | 获取范围指标                 |
+| `/api/v1/package`                           | `GET`    | 获取安装包列表               |
+| `/api/v1/package`                           | `POST`   | 上传安装包                   |
+| `/api/v1/package`                           | `DELETE` | 删除安装包                   |
+| `/api/v1/zk/replicated_table/{clusterName}` | `GET`    | 获取复制表状态               |
+| `/api/v1/zk/status/{clusterName}`           | `GET`    | 获取集群状态                 |
+| `/api/v1/ck/ping/{clusterName}`             | `POST`   | 监测集群节点连通性           |
+| `/api/v1/ck/purge_tables/{clusterName}`     | `POST`   | 删除指定范围内的数据         |
+| `/api/v1/ck/archive/{clusterName}`          | `POST`   | 归档指定时间范围数据到`HDFS` |
 
 ## 登录
 
 `ckman`默认的登录名为`ckman`， 密码为` Ckman123456!`
+
+>   **注意：** `Ckman123456!`是默认的密码，该密码可以通过`ckmanpassword`工具进行修改。修改方式和`ckman`的安装方式有关：
+>
+>   如果是`tar.gz`解压安装，则需要进入到`bin`目录下，在该目录下执行：
+>
+>   ```bash
+>   ./ckmanpassword
+>   ```
+>
+>   如果是通过`rpm`方式安装，则需要`cd`到`/etc/ckman/conf`目录下，执行:
+>
+>   ```bash
+>   cd /etc/ckman/conf
+>   ckmanpassword
+>   ```
+>
+>   执行完成后，在`conf`目录下会生成一个新的`password`文件，覆盖掉原来的`password`，这样就可以使用新的密码登录了。
 
 登陆成功后会得到一个`token`，该`token`在1个小时内有效，`token`失效后需要重新登录。
 
@@ -278,39 +312,59 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 
 ```json
 {
-  "ck_cluster_config_version": 5,	# 配置版本，如果配置了多中心部署，会从nacos上同步集群配置，版本号大的会覆盖版本号小的
-  "test": {		#集群名称
-    "mode": "import",	#集群的模式，import表示是导入的集群，还有deploy，表示是通过部署的，import的集群只能查看，不能操作，deploy的集群可以查看和操作
-    "hosts": [	#ck节点ip列表
+    "@ck_cluster_config_version": "配置版本，如果配置了多中心部署，会从nacos上同步集群配置，版本号大的会覆盖版本号小的",
+    "ck_cluster_config_version": 5,
+    "@test":"test是集群名称，它是以一个map的形式存储的",
+    "test": {		
+    "@mode":"集群的模式，import表示是导入的集群，还有deploy，表示是通过部署的，import的集群只能查看，不能操作，deploy的集群可以查看和操作",
+    "mode": "import",	
+    "@hosts":"ck节点ip列表",
+    "hosts": [	
       "192.168.101.40",
       "192.168.101.41",
       "192.168.101.42",
       "192.168.101.57"
-    ],    #ck节点的hostname
+    ],    
+    "@names":"ck节点的hostname",
     "names": [
       "vm10140",
       "vm10141",
       "vm10142",
       "zhanglei01"
     ],
-    "port": 9000,	 #ck节点的端口
-    "user": "eoi",   #ck用户
-    "password": "123456",   #ck密码
-    "database": "default",  #访问的数据库
-    "cluster": "test",      #集群的名字
-    "zkNodes": [       #zk的ip列表
+    "@port": "ck节点的端口",
+    "port": 9000,	 
+    "@user":"ck用户",
+    "user": "eoi",   
+    "@password": "ck密码",
+    "password": "123456", 
+    "@default": "访问的数据库",
+    "database": "default",  
+    "@cluster": "集群的名字",
+    "cluster": "test",  
+    "@zkNodes": "zk集群的ip列表",
+    "zkNodes": [       
       "192.168.101.40",
       "192.168.101.41",
       "192.168.101.42"
     ],
-    "zkPort": 2181,		#zk的端口
-    "isReplica": true,  #是否支持副本
-    "version": "20.8.5.45",  #ck版本
-    "sshUser": "",      #ssh连接节点主机的用户名，如果是import的集群，此处为空
-    "sshPassword": "",  #ssh连接节点主机的密码
-    "shards": [			#分片信息，以下表示2分片2副本
+    "@zkPort":"zk的端口",
+    "zkPort": 2181,	
+    "@zkStatusPort": "zookeeper的监控端口",
+    "zkStatusPort": 8080,
+    "@isReplica": "是否支持副本",
+    "isReplica": true,  
+    "@version": "ck版本",
+    "version": "20.8.5.45",  
+    "@sshUser": "ssh连接节点主机的用户名，如果是import的集群，此处为空",
+    "sshUser": "",      
+    "@sshPassword": "ssh连接节点主机的密码",
+    "sshPassword": "",  
+    "@shards": "分片信息，以下表示2分片2副本",
+    "shards": [			
       {
-        "replicas": [   #副本信息
+        "@replicas": "副本信息，包含ip和hostname"
+        "replicas": [  
           {
             "ip": "192.168.101.40",
             "hostname": "vm10140"
@@ -334,12 +388,13 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
         ]
       }
     ],
-    "path": ""    #存放数据的路径，如果是import的集群，为空
+	"@path": "存放数据的路径，如果是import的集群，为空",
+    "path": ""    
   }
 }
 ```
 
-每次对集群进行操作（增加、删除、修改、`rebanlance`等），都会修改`clusters.json`这个文件，相应的`ck_cluster_config_version`都会发生变化。
+每次对集群进行操作（增加、删除、修改、`rebalance`等），都会修改`clusters.json`这个文件，相应的`ck_cluster_config_version`都会发生变化。
 
 ## 安装包管理
 
@@ -377,6 +432,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 
 >   -   `ClickHouse Version`: `ck`的版本，不需要自己填写，通过下拉列表选择，下拉列表中会列出`ckman`服务器中所有的安装包版本。
 >       -   此处版本信息只会列出当前`ckman`服务下的安装包版本，如果配置了多中心，其他`ckman`的安装包是无法看见的
+>       -   由`version`的来源可知，在部署集群之前，需要先上传安装包。部署的集群版本时基于上传安装包的版本的。
 >   -   `Cluster Name`： 集群的名字，注意不要和已有的名字重合
 >   -   `ClickHouse TCP Port`: `clickhouse`的`TCP`端口，默认是`9000`，当然也可以自己指定
 >   -   `ClickHouse Node List`: `clickhouse`节点列表，以逗号分隔
@@ -385,17 +441,19 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 >       -   如果要增加节点的副本数，可通过增加节点完成，创建集群时最多只能指定一个副本
 >       -   如果没有开启副本，则有几个节点就有几个`shard`
 >   -   `Zookeeper Node List`: `zk`列表
+>       -   `ckman`并没有提供`zookeeper`集群搭建的功能，因此在部署集群之前，需要将`zookeeper`集群搭建好。
 >   -   `ZooKeeper Port`: `zk`端口，默认是`2181`
 >   -   `ZK Status Port`: `zookeeper`指标监控的端口，默认`8080` 
->       -   该功能是zookeeper v3.5.0以上版本开始支持的，如果zk版本太旧，无法从界面看到zk的指标
+>       -   该功能是`zookeeper v3.5.0`以上版本开始支持的，如果`zk`版本太旧，无法从界面看到`zk`的指标
 >   -   `Data path`: `ck`节点数据存放的路径
->   -   `Cluster Username`: `ck`的用户名，注意：`default`用户作为保留用户，此处不能填`default`。
+>   -   `Cluster Username`: `ck`的用户名
+>       -   注意：`default`用户作为保留用户，此处不能填`default`。
 >   -   `Cluster Password`: `ck`的密码
 >   -   `SSH Username`: `ssh`登录`ck`节点的用户名
 >       -   该用户必须具有`root`权限或是`root`本身，否则部署无法成功，一般都是`root`。
 >   -   `SSH Password`: `ssh`登录`ck`节点的密码
 
-通过此种方式安装部署成功的集群的`mode`就是`deploy`，可以对其进行删、改、`rebanlance`、启停、升级以及节点的增删等操作。
+通过此种方式安装部署成功的集群的`mode`就是`deploy`，可以对其进行删、改、`rebalance`、启停、升级以及节点的增删等操作。
 
 ***需要注意的是：当前版本的ckman仅支持在centos7以上的系统部署ck。***
 
@@ -425,7 +483,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 
 导入集群有个前提是该集群必须确实存在，否则导入会出现问题。
 
-导入的集群的`mode`为`import`，这种模式的集群不能进行修改、`rebanlance`、启停、升级以及节点的增删等操作（因为这些操作都需要提供`root`用户权限，但是导入的集群没有提供这些信息），但是可以删除和查看。
+导入的集群的`mode`为`import`，这种模式的集群不能进行修改、`rebalance`、启停、升级以及节点的增删等操作（因为这些操作都需要提供`root`用户权限，但是导入的集群没有提供这些信息），但是可以删除和查看。
 
 ### 管理节点
 
@@ -437,22 +495,24 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 
 ![image-20210301143207383](img/image-20210301143207383.png)
 
-右上角的操作：`Start Cluster`、`Stop Cluster`、`Destroy Cluster`以及`Rebanlance Cluster`针对的是`deploy`模式的集群，`import`的集群均不可操作。
+右上角的操作：`Start Cluster`、`Stop Cluster`、`Destroy Cluster`以及`rebalance Cluster`针对的是`deploy`模式的集群，`import`的集群均不可操作。
+
+以下这些过程都是`ckman`自己完成的，用户无需手动干涉。
 
 >   -   `Start Cluster`: 启动集群
 >       -   `ssh`到每台`ck`节点下启动`clickhouse`服务，都成功才返回成功
 >   -   `Stop Cluster`
 >       -   `ssh`到每台`ck`节点下关闭`clickhouse`服务，都成功才返回成功
 >   -   `Destroy Cluster`
->       -   首先第一步要停止正在运行的`clickhouse`服务
+>       -   首先第一步停止正在运行的`clickhouse`服务
 >       -   然后卸载`clickhouse`软件
 >       -   删除`cluster.json`并同步到`nacos`
 >       -   销毁集群与删除集群的区别：
 >           -   销毁集群后集群彻底不存在了
 >           -   删除集群只是删除`ckman`中集群管理的入口（`cluster.json`），集群还存在，可以重新导入
->   -   `Rebanlance Cluster`
->       -   一般情况下，通过`clickhouse-sinker`插入的数据基本上是均衡分布在各个节点的。但是如果新增了一个节点，那么新增的节点数据一定是空的，这时候可以通过`rebanlance`工具进行数据搬运
->       -   `rebanlance`搬运数据是直接将某个分区的数据直接搬运到目标节点，在搬运的过程中如果有查询操作，正在搬运的这部分数据是无法查到的，因此在进行`rebanlance`操作时，请避免查询操作（`rebanlance`操作时间很短，一般不会影响业务）
+>   -   `Rebalance Cluster`
+>       -   一般情况下，通过`clickhouse-sinker`插入的数据基本上是均衡分布在各个节点的。但是如果新增了一个节点，那么新增的节点数据一定是空的，这时候可以通过`rebalance`工具进行数据搬运
+>       -   `rebalance`搬运数据是直接将某个分区的数据直接搬运到目标节点，在搬运的过程中如果有查询操作，正在搬运的这部分数据是无法查到的，因此在进行`rebalance`操作时，请避免查询操作（`rebalance`操作时间很短，一般不会影响业务）
 
 #### 升级集群
 
@@ -470,13 +530,13 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 >-   `Node Shard`: 节点的`Shard NUmber`。
 >    -   如果填写的`shard`是已经存在的，那么增加的节点会作为已存在`shard`的一个副本；如果`shard`不存在（一般是最大的`shard`编号+1，如果不是就不正确了），就会新增加一个`shard`。
 
-增加节点时需要先将集群整体都停掉，然后将新节点的信息增加到`metrika.xml`中，同步给所有的节点，再重启集群。
+增加节点时`ckman`会先将集群整体都停掉，然后将新节点的信息增加到`metrika.xml`中，同步给所有的节点，再重启集群。
 
 #### 删除节点
 
 删除节点时需要注意的是：如果某个`shard`本来是有副本的，删除节点后该`shard`副本没有了，要同时更新`replica`的标志，删除节点并不会销毁该节点，只会停止该节点的`clickhouse`服务，并从`cluster.json`中删除掉。
 
-同增加节点一样，删除节点也要先将集群停掉，将删除后的信息更新到`metrika.xml`中，同步给其他所有节点，再重启集群。
+同增加节点一样，删除节点`ckman`也会先将集群停掉，将删除后的信息更新到`metrika.xml`中，同步给其他所有节点，再重启集群。
 
 ## 监控管理
 
@@ -521,7 +581,7 @@ scrape_configs:
 
 #### **ZooKeeper KPIs**
 
-`zookeeper`监控使用的是`zookeeper-3.5.0`版本新增的特性，通过暴露的`8080`端口监控`mntr`指标信息，因此，如果想要看到zookeeper的监控指标，需要保证当前使用的`zookeeper`版本大于等于`3.5.0`。
+`zookeeper`监控使用的是`zookeeper-3.5.0`版本新增的特性，通过暴露的`8080`端口监控`mntr`指标信息，因此，如果想要看到`zookeeper`的监控指标，需要保证当前使用的`zookeeper`版本大于等于`3.5.0`。
 
 | 指标                              | 说明                 |
 | --------------------------------- | -------------------- |
@@ -537,14 +597,14 @@ scrape_configs:
 
 ![image-20210301155735285](img/image-20210301155735285.png)
 
-| 指标                                                         | 说明                                             |
-| ------------------------------------------------------------ | ------------------------------------------------ |
-| `sum by(task)(rate(clickhouse_sinker_consume_msgs_total[1m]))` | clickhouse_sinker消费Kafka消息的速率(个/秒)      |
-| `sum by(task) (rate(clickhouse_sinker_flush_msgs_total[1m]))` | clickhouse_sinker写ClickHouse的速率(行/秒)       |
-| `sum by(task) (clickhouse_sinker_shard_msgs)`                | clickhouse_sinker shard buffer当前包含的消息数目 |
-| `sum by(task) (clickhouse_sinker_ring_msgs)`                 | clickhouse_sinker ring buffer当前包含的消息数目  |
-| `sum by(task)(clickhouse_sinker_parsing_pool_backlog)`       | clickhouse_sinker 解析协程池当前积压的消息数目   |
-| `sum by(task) (clickhouse_sinker_writing_pool_backlog)`      | clickhouse_sinker 输出协程池当前积压的批数目     |
+| 指标                                                         | 说明                                               |
+| ------------------------------------------------------------ | -------------------------------------------------- |
+| `sum by(task)(rate(clickhouse_sinker_consume_msgs_total[1m]))` | `clickhouse_sinker`消费`Kafka`消息的速率(个/秒)    |
+| `sum by(task) (rate(clickhouse_sinker_flush_msgs_total[1m]))` | `clickhouse_sinker`写`ClickHouse`的速率(行/秒)     |
+| `sum by(task) (clickhouse_sinker_shard_msgs)`                | `clickhouse_sinker shard buffer`当前包含的消息数目 |
+| `sum by(task) (clickhouse_sinker_ring_msgs)`                 | `clickhouse_sinker ring buffer`当前包含的消息数目  |
+| `sum by(task)(clickhouse_sinker_parsing_pool_backlog)`       | `clickhouse_sinker` 解析协程池当前积压的消息数目   |
+| `sum by(task) (clickhouse_sinker_writing_pool_backlog)`      | `clickhouse_sinker` 输出协程池当前积压的批数目     |
 
 ## 表管理
 
@@ -552,9 +612,9 @@ scrape_configs:
 
 ### Table Metrics
 
-统计表的一些指标。
+统计表的一些指标。除`system`数据库的表之外，其他数据库的表都会显示在下面。
 
-![image-20210301150634949](img/image-20210301150634949.png)
+![image-20210418110835531](img/image-20210418110835531.png)
 
 `Queries Cost`有三个值：
 
@@ -576,7 +636,7 @@ scrape_configs:
 
 `zookeeper`的相关指标查看。
 
-可查看的指标包括：版本，主从状态，平均延迟，近似数据总和大小，znode数等。
+可查看的指标包括：版本，主从状态，平均延迟，近似数据总和大小，`znode`数等。
 
 ![image-20210301150934056](img/image-20210301150934056.png)
 
@@ -610,12 +670,6 @@ scrape_configs:
 
 ## Settings
 
->
-
-### ckman设置
-
-除了集群可配置之外，`ckman`也有一些自己的配置项：
-
 ![image-20210301160644273](img/image-20210301160644273.png)
 
 -   `HA Pair Addresses`：多中心部署`ckman`的节点列表
@@ -635,37 +689,41 @@ scrape_configs:
 如：
 
 ```bash
-exporter --ch-hosts=192.168.101.40,192.168.101.42 --ch-user=eoi --ch-password=123456 --ch-tables=dbtest,tbtesttype --hdfs-addr=localhost:50070 --hdfs-dir=/data
+exporter --ch-hosts=192.168.101.40,192.168.101.42 --ch-user=eoi --ch-password=123456 --ch-tables=dbtest,tbtesttype --hdfs-addr=localhost:8020 --hdfs-dir=/data
 ```
 
 参数说明：
 
->   -   v
+>   -   `v`
 >       -   查看版本号
->   -   ch-hosts
->       -   clickhouse节点列表（每shard仅列出一个）
->   -   ch-port
->       -   clickhouse tcp 端口号，默认9000
->   -   ch-user
->       -   clickhouse 用户
->   -   ch-password
->       -   clickhouse 密码
->   -   ch-database
->       -   clickhouse 数据库，默认default
->   -   ch-tables
+>   -   `ch-hosts`
+>       -   `clickhouse`节点列表（每`shard`仅列出一个）
+>   -   `ch-port`
+>       -   `clickhouse` `tcp` 端口号，默认`9000`
+>   -   `ch-user`
+>       -   `clickhouse` 用户
+>   -   `ch-password`
+>       -   `clickhouse` 密码
+>   -   `ch-database`
+>       -   `clickhouse` 数据库，默认`default`
+>   -   `ch-tables`
 >       -   表名列表
->   -   dt-begin
->       -   开始时间，默认1970-01-01
->   -   dt-end
->       -   结束时间
->   -   max-file-size
->       -   文件最大大小限制，默认10G
->   -   hdfs-addr
->       -   hdfs的ip:port
->   -   hdfs-user
->       -   hdfs的用户
->   -   hdfs-dir
->       -   hdfs的文件路径
+>   -   `dt-begin`
+>       -   开始时间，默认`1970-01-01`（包含）
+>   -   `dt-end`
+>       -   结束时间（不包含）
+>   -   `max-file-size`
+>       -   文件最大大小限制，默认`10G`
+>   -   `hdfs-addr`
+>       -   `hdfs`的`ip:port`
+>   -   `hdfs-user`
+>       -   `hdfs`的用户
+>   -   `hdfs-dir`
+>       -   `hdfs`的文件路径
+
+以上命令会在`HDFS`中，指定的`hdfs-dir`下，以表名作为目录，生成形如`host_slot.parquet`格式的文件。
+
+时间范围包含`begin`，不包含`end`。
 
 ## purger
 
@@ -679,30 +737,30 @@ purger --ch-hosts=192.168.101.40,192.168.101.42 --ch-port=9000 --ch-user=eoi --c
 
 参数说明：
 
->   -   v
+>   -   `v`
 >       -   查看版本号
->   -   ch-hosts
->       -   clickhouse节点列表（每shard仅列出一个）
->   -   ch-port
->       -   clickhouse tcp 端口号，默认9000
->   -   ch-user
->       -   clickhouse 用户
->   -   ch-password
->       -   clickhouse 密码
->   -   ch-database
->       -   clickhouse 数据库，默认default
->   -   ch-tables
+>   -   `ch-hosts`
+>       -   `clickhouse`节点列表（每`shard`仅列出一个）
+>   -   `ch-port`
+>       -   `clickhouse` `tcp` 端口号，默认`9000`
+>   -   `ch-user`
+>       -   `clickhouse` 用户
+>   -   `ch-password`
+>       -   `clickhouse` 密码
+>   -   `ch-database`
+>       -   `clickhouse` 数据库，默认`default`
+>   -   `ch-tables`
 >       -   表名列表
->   -   dt-begin
->       -   开始时间，默认1970-01-01
->   -   dt-end
->       -   结束时间
+>   -   `dt-begin`
+>       -   开始时间，默认`1970-01-01`（包含）
+>   -   `dt-end`
+>       -   结束时间（不包含）
 
 ## schemer
 
 在指定结点创建与另一指定结点相同的表格。
 
-通过该工具，会在目标节点上创建于源节点除system数据库以外的所有数据库和表。如：
+通过该工具，会在目标节点上创建于源节点除`system`数据库以外的所有数据库和表。如：
 
 ```bash
 schemer --src-host=192.168.101.40 --dst-host=192.168.21.73 --ch-port=9000 --ch-user=eoi --ch-password=123456
@@ -710,46 +768,46 @@ schemer --src-host=192.168.101.40 --dst-host=192.168.21.73 --ch-port=9000 --ch-u
 
 参数说明：
 
->   -   v
+>   -   `v`
 >       -   显示版本信息
->   -   src-host
+>   -   `src-host`
 >       -   源节点
->   -   dst-host
+>   -   `dst-host`
 >       -   目标节点
->   -   ch-port
->       -   tcp端口号，默认9000
->   -   ch-user
->       -   目标节点ck用户
->   -   ch-password
->       -   目标节点ck密码
+>   -   `ch-port`
+>       -   `tcp`端口号，默认`9000`
+>   -   `ch-user`
+>       -   目标节点`ck`用户
+>   -   `ch-password`
+>       -   目标节点`ck`密码
 
-## rebanlancer
+## rebalancer
 
 集群结点间负载均衡。
 
 此处的均衡操作直接是物理搬运，先通过一套均衡规则计算出需要从哪些节点移除，添加到哪些节点，然后将源节点的分区`detach`掉，然后通过`ssh`将分区数据传输给目标节点，`attach`到目标节点上，并删除掉源节点的分区数据。
 
-`ckman`的`rebanlance`也是使用此工具完成的负载均衡。在搬运某表数据期间，针对该表的查询将可能得到不一致的结果。
+`ckman`的`rebalance`也是使用此工具完成的负载均衡。在搬运某表数据期间，针对该表的查询将可能得到不一致的结果。
 
 参数说明：
 
->   -   v
+>   -   `v`
 >       -   显示版本信息
->   -   ch-hosts
->       -   ck节点列表
->   -   ch-port
->       -   ck节点tcp端口，默认9000
->   -   ch-user
->       -   ck用户名
->   -   ch-password
->       -   ck密码
->   -   ch-database
->       -   ck数据库，默认default
->   -   ch-data-dir
+>   -   `ch-hosts`
+>       -   `ck`节点列表
+>   -   `ch-port`
+>       -   `ck`节点`tcp`端口，默认`9000`
+>   -   `ch-user`
+>       -   `ck`用户名
+>   -   `ch-password`
+>       -   `ck`密码
+>   -   `ch-database`
+>       -   `ck`数据库，默认`default`
+>   -   `ch-data-dir`
 >       -   数据存放目录
->   -   os-user
->       -   节点主机用户名(需要有root权限)
->   -   os-password
+>   -   `os-user`
+>       -   节点主机用户名(需要有`root`权限)
+>   -   `os-password`
 >       -   节点主机密码
 
 # 扩展API
@@ -760,9 +818,9 @@ schemer --src-host=192.168.101.40 --dst-host=192.168.21.73 --ch-port=9000 --ch-u
 
 ## 描述表
 
->METHOD： GET
+>`METHOD`： `GET`
 >
->URL：          /api/v1/ck/table/{clusterName}
+>`URL`：         ` /api/v1/ck/table/{clusterName}`
 
 调用 `DESCRIBE TABLE database.table`语句进行查看表的结构信息。使用`tableName`指定表名，`database`指定数据库名。
 
@@ -828,13 +886,13 @@ GET  http://192.168.31.55:8808/api/v1/ck/table/test?tableName=tbtest&database=de
 }
 ```
 
->   注意：本操作要求表在集群的各节点存在，包括本地表和dist_开头的分布式表。
+>   注意：本操作要求表在集群的各节点存在，包括本地表和`dist_`开头的分布式表。
 
 ## 更新表
 
->   METHOD:  PUT
+>   `METHOD`:  `PUT`
 >
->   URL:            /api/v1/ck/table/{clusterName}
+>   `URL`:          `  /api/v1/ck/table/{clusterName}`
 
 使用`ALTER`语句完成分布式表的更新。
 
@@ -847,22 +905,28 @@ GET  http://192.168.31.55:8808/api/v1/ck/table/test?tableName=tbtest&database=de
 ```json
 PUT /api/v1/ck/table/test
 {
-	"name":"t1",	#表名
-    "database":"default",    #数据库名
+    "@name": "表名",
+	"name":"t1",
+    "@database": "数据库名",
+    "database":"default",    
     "add":[{
-    	"name":"fieldNew",	#在field3后增加一个fieldNew，类型为String
+        "@name": "在field3后增加一个fieldNew，类型为String",
+    	"name":"fieldNew",	
         "type":"String",
         "after":"field3"
 	},
 	{
-    	"name":"filedLast",	#在最后增加一个字段fieldLast，类型为Int32
+        "@name": "在最后增加一个字段fieldLast，类型为Int32",
+    	"name":"filedLast",	
         "type":"Int32"
 	}],
     "modify":[{
-        "name":"field6",	#将filed6修改为DateTime类型
+        "@name": "将filed6修改为DateTime类型",
+        "name":"field6",	
         "type":"DateTime"
     }],
-    "drop": ["field8", "field9"]	#删除field8，field9
+    "@drop":"删除field8，field9",
+    "drop": ["field8", "field9"]	
 }
 ```
 
@@ -870,18 +934,18 @@ PUT /api/v1/ck/table/test
 
 ## 创建表
 
->   METHOD:  POST
+>   `METHOD`:  `POST`
 >
->   URL:            /api/v1/ck/table/{clusterName}
+>   `URL`:           ` /api/v1/ck/table/{clusterName}`
 
 创建表默认使用的是`MergeTree`引擎，如果指定了`distinct`为`false`，表示支持去重，使用的引擎为`ReplacingMergeTree`。
 
 ```json
 POST /api/v1/ck/table/test
 {
-	"name": "t1",		#要创建的表名
-    "database": "default",  #数据库
-    "fields":[{			#字段信息
+	"name": "t1",		
+    "database": "default",  
+    "fields":[{			
         "name":"id",
         "type":"Int32"
     },{
@@ -891,8 +955,10 @@ POST /api/v1/ck/table/test
         "name":"name",
         "type":"String"
     }],
-    "order": ["id"],		#order by 的字段,可以指定多个
-    "partition":"toMMMMYY(birth)",   #partition by的字段
+    "@order": "order by 的字段,可以指定多个",
+    "order": ["id"],	
+    "partition": "partition by的字段",
+    "partition":"toMMMMYY(birth)",   
     "distinct": true
 }
 ```
@@ -910,9 +976,9 @@ POST /api/v1/ck/table/test
 
 ## 删除表
 
->    METHOD:  DELETE
+>    `METHOD`:  `DELETE`
 >
->   URL:            /api/v1/ck/table/{clusterName}
+>   `URL`:            `/api/v1/ck/table/{clusterName}`
 
 操作和描述表类似，通过`tableName`指定表名，`database`指定数据库名。
 
@@ -924,7 +990,7 @@ DELETE  http://192.168.31.55:8808/api/v1/ck/table/test?tableName=t1&database=def
 
 通过以上操作就能删除掉表`t1`。删除时先删`dist_`开头的分布式表，再删表`t1`。
 
->   注意：表必须在集群的各个节点存在且不能是dist_开头的分布式表。如果该本地表虽然在集群中各节点存在，但没有根据该本地表创建过分布式表，删除依然会报错。这一点需要注意。
+>   注意：表必须在集群的各个节点存在且不能是`dist_`开头的分布式表。如果该本地表虽然在集群中各节点存在，但没有根据该本地表创建过分布式表，删除依然会报错。这一点需要注意。
 
 
 
