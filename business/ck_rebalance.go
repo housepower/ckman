@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	sshErr         error
-	locks          map[string]*sync.Mutex
+	sshErr error
+	locks  map[string]*sync.Mutex
 )
 
 type CKRebalance struct {
@@ -24,9 +24,9 @@ type CKRebalance struct {
 	Port       int
 	User       string
 	Password   string
-	Database   string
+	Databases  []string
 	DataDir    string
-	Tables     []string
+	DBTables   map[string][]string
 	RepTables  map[string]map[string]string
 	OsUser     string
 	OsPassword string
@@ -45,12 +45,12 @@ type TblPartitions struct {
 	ToMoveIn   bool              // plan to move some partitions in
 }
 
-func (this *CKRebalance)InitCKConns() (err error) {
+func (this *CKRebalance) InitCKConns() (err error) {
 	locks = make(map[string]*sync.Mutex)
 	for _, host := range this.Hosts {
 		var db *sql.DB
 		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-			host, this.Port, url.QueryEscape(this.Database), url.QueryEscape(this.User), url.QueryEscape(this.Password))
+			host, this.Port, "default", url.QueryEscape(this.User), url.QueryEscape(this.Password))
 		if db, err = sql.Open("clickhouse", dsn); err != nil {
 			err = errors.Wrapf(err, "")
 			return
@@ -62,58 +62,73 @@ func (this *CKRebalance)InitCKConns() (err error) {
 	return
 }
 
-
-func (this *CKRebalance)GetTables() (err error) {
+func (this *CKRebalance) GetTables() (err error) {
 	host := this.Hosts[0]
 	db := this.CKConns[host]
 	var rows *sql.Rows
-	query := fmt.Sprintf("SELECT DISTINCT  name FROM system.tables WHERE (database = '%s') AND (engine LIKE '%%MergeTree%%')", this.Database)
+	query := fmt.Sprintf("SELECT DISTINCT  database, name FROM system.tables WHERE (engine LIKE '%%MergeTree%%') AND (database != 'system') ORDER BY database")
 	log.Logger.Infof("host %s: query: %s", host, query)
 	if rows, err = db.Query(query); err != nil {
 		err = errors.Wrapf(err, "")
 		return
 	}
 	defer rows.Close()
+	var tables []string
+	var predbname string
 	for rows.Next() {
-		var name string
-		if err = rows.Scan(&name); err != nil {
+		var database, name string
+		if err = rows.Scan(&database, &name); err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
-		this.Tables = append(this.Tables, name)
-	}
-
-	return
-}
-
-func (this *CKRebalance)GetRepTables() (err error) {
-	this.RepTables = make(map[string]map[string]string)
-	for _, host := range this.Hosts {
-		db := this.CKConns[host]
-		query := fmt.Sprintf("SELECT table, zookeeper_path FROM system.replicas WHERE database='%s'", this.Database)
-		log.Logger.Infof("host %s: query: %s", host, query)
-		var rows *sql.Rows
-		if rows, err = db.Query(query); err != nil {
-			err = errors.Wrapf(err, "")
-			return
-		}
-		defer rows.Close()
-		var table, zookeeper_path string
-		for rows.Next() {
-			rows.Scan(&table, &zookeeper_path)
-			var host2ZooPath map[string]string
-			var ok bool
-			if host2ZooPath, ok = this.RepTables[table]; !ok {
-				host2ZooPath = make(map[string]string)
-				this.RepTables[table] = host2ZooPath
+		if database != predbname {
+			if predbname != "" {
+				this.DBTables[predbname] = tables
+				this.Databases = append(this.Databases, predbname)
 			}
-			host2ZooPath[host] = zookeeper_path
+			tables = []string{}
+		}
+		tables = append(tables, name)
+		predbname = database
+	}
+	if predbname != "" {
+		this.DBTables[predbname] = tables
+		this.Databases = append(this.Databases, predbname)
+	}
+
+	return
+}
+
+func (this *CKRebalance) GetRepTables() (err error) {
+	for _, host := range this.Hosts {
+		for _, database := range this.Databases {
+			db := this.CKConns[host]
+			query := fmt.Sprintf("SELECT table, zookeeper_path FROM system.replicas WHERE database='%s'", database)
+			log.Logger.Infof("host %s: query: %s", host, query)
+			var rows *sql.Rows
+			if rows, err = db.Query(query); err != nil {
+				err = errors.Wrapf(err, "")
+				return
+			}
+			defer rows.Close()
+			var table, zookeeper_path string
+			for rows.Next() {
+				rows.Scan(&table, &zookeeper_path)
+				var host2ZooPath map[string]string
+				var ok bool
+				tablename := fmt.Sprintf("%s.%s", database, table)
+				if host2ZooPath, ok = this.RepTables[tablename]; !ok {
+					host2ZooPath = make(map[string]string)
+					this.RepTables[tablename] = host2ZooPath
+				}
+				host2ZooPath[host] = zookeeper_path
+			}
 		}
 	}
 	return
 }
 
-func (this *CKRebalance)InitSshConns() (err error) {
+func (this *CKRebalance) InitSshConns(database string) (err error) {
 	for _, host := range this.Hosts {
 		var conn *ssh.Client
 		if conn, err = common.SSHConnect(this.OsUser, this.OsPassword, host, 22); err != nil {
@@ -130,7 +145,7 @@ func (this *CKRebalance)InitSshConns() (err error) {
 				continue
 			}
 			sshConn := this.SshConns[srcHost]
-			cmd := fmt.Sprintf("ssh -o StrictHostKeyChecking=false %s ls %s/clickhouse/data/default", dstHost, this.DataDir)
+			cmd := fmt.Sprintf("ssh -o StrictHostKeyChecking=false %s ls %s/clickhouse/data/%s", dstHost, this.DataDir, database)
 			log.Logger.Infof("host: %s, command: %s", srcHost, cmd)
 			var out string
 			if out, err = common.SSHRun(sshConn, cmd); err != nil {
@@ -143,13 +158,13 @@ func (this *CKRebalance)InitSshConns() (err error) {
 	return
 }
 
-func (this *CKRebalance)GetState(table string) (tbls []*TblPartitions, err error) {
+func (this *CKRebalance) GetState(database string, table string) (tbls []*TblPartitions, err error) {
 	tbls = make([]*TblPartitions, 0)
 	for _, host := range this.Hosts {
 		db := this.CKConns[host]
 		var rows *sql.Rows
 		// Skip the newest partition on each host since into which there could by ongoing insertions.
-		query := fmt.Sprintf(`WITH (SELECT argMax(partition, modification_time) FROM system.parts WHERE database='%s' AND table='%s') AS latest_partition SELECT partition, sum(data_compressed_bytes) AS compressed FROM system.parts WHERE database='%s' AND table='%s' AND active=1 AND partition!=latest_partition GROUP BY partition ORDER BY partition;`, this.Database, table, this.Database, table)
+		query := fmt.Sprintf(`WITH (SELECT argMax(partition, modification_time) FROM system.parts WHERE database='%s' AND table='%s') AS latest_partition SELECT partition, sum(data_compressed_bytes) AS compressed FROM system.parts WHERE database='%s' AND table='%s' AND active=1 AND partition!=latest_partition GROUP BY partition ORDER BY partition;`, database, table, database, table)
 		log.Logger.Infof("host %s: query: %s", host, query)
 		if rows, err = db.Query(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -171,7 +186,8 @@ func (this *CKRebalance)GetState(table string) (tbls []*TblPartitions, err error
 			tbl.Partitions[patt] = compressed
 			tbl.TotalSize += compressed
 		}
-		if host2ZooPath, ok := this.RepTables[table]; ok {
+		tablename := fmt.Sprintf("%s.%s", database, table)
+		if host2ZooPath, ok := this.RepTables[tablename]; ok {
 			tbl.ZooPath = host2ZooPath[host]
 		}
 		tbls = append(tbls, &tbl)
@@ -180,8 +196,7 @@ func (this *CKRebalance)GetState(table string) (tbls []*TblPartitions, err error
 	return
 }
 
-
-func (this *CKRebalance)GeneratePlan(table string, tbls []*TblPartitions) {
+func (this *CKRebalance) GeneratePlan(tablename string, tbls []*TblPartitions) {
 	for {
 		sort.Slice(tbls, func(i, j int) bool { return tbls[i].TotalSize < tbls[j].TotalSize })
 		numTbls := len(tbls)
@@ -220,10 +235,10 @@ func (this *CKRebalance)GeneratePlan(table string, tbls []*TblPartitions) {
 	for _, tbl := range tbls {
 		tbl.Partitions = nil
 	}
-	log.Logger.Infof("table %s plan %s", table, pp.Sprint(tbls))
+	log.Logger.Infof("table %s plan %s", tablename, pp.Sprint(tbls))
 }
 
-func (this *CKRebalance)ExecutePlan(tbl *TblPartitions) (err error) {
+func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err error) {
 	if tbl.ToMoveOut == nil {
 		return
 	}
@@ -266,7 +281,7 @@ func (this *CKRebalance)ExecutePlan(tbl *TblPartitions) (err error) {
 		srcCkConn := this.CKConns[tbl.Host]
 		dstCkConn := this.CKConns[dstHost]
 		lock := locks[dstHost]
-		dstDir := filepath.Join(this.DataDir, fmt.Sprintf("clickhouse/data/default/%s/detached", tbl.Table))
+		dstDir := filepath.Join(this.DataDir, fmt.Sprintf("clickhouse/data/%s/%s/detached", database, tbl.Table))
 		srcDir := dstDir + "/"
 
 		query := fmt.Sprintf("ALTER TABLE %s DETACH PARTITION '%s'", tbl.Table, patt)
@@ -312,44 +327,48 @@ func (this *CKRebalance)ExecutePlan(tbl *TblPartitions) (err error) {
 	return
 }
 
-func (this *CKRebalance)DoRebalance()(err error){
-	for _, table := range this.Tables {
-		if _, ok := this.RepTables[table]; !ok {
-			// initialize SSH connections only if there are some non-replicated tables
-			if sshErr = this.InitSshConns(); sshErr != nil {
-				log.Logger.Warnf("failed to init ssh connections, error: %+v", sshErr)
-			}
-			break
-		}
-	}
+func (this *CKRebalance) DoRebalance() (err error) {
 	globalPool = common.NewWorkerPool(len(this.Hosts), len(this.CKConns))
-	for _, table := range this.Tables {
-		var tbls []*TblPartitions
-		if tbls, err = this.GetState(table); err != nil {
-			log.Logger.Errorf("got error %+v", err)
-			return err
-		}
-		this.GeneratePlan(table, tbls)
-		wg := sync.WaitGroup{}
-		wg.Add(len(tbls))
-		var gotError bool
-		for i := 0; i < len(tbls); i++ {
-			tbl := tbls[i]
-			_ = globalPool.Submit(func() {
-				if err := this.ExecutePlan(tbl); err != nil {
-					log.Logger.Errorf("host: %s, got error %+v", tbl.Host, err)
-					gotError = true
-				} else {
-					log.Logger.Infof("table %s host %s rebalance done", tbl.Table, tbl.Host)
+	for _, database := range this.Databases {
+		tables := this.DBTables[database]
+		for _, table := range tables {
+			tablename := fmt.Sprintf("%s.%s", database, table)
+			if _, ok := this.RepTables[tablename]; !ok {
+				// initialize SSH connections only if there are some non-replicated tables
+				if sshErr = this.InitSshConns(database); sshErr != nil {
+					log.Logger.Warnf("failed to init ssh connections, error: %+v", sshErr)
 				}
-				wg.Done()
-			})
+				break
+			}
 		}
-		wg.Wait()
-		if gotError {
-			return err
+		for _, table := range tables {
+			var tbls []*TblPartitions
+			if tbls, err = this.GetState(database, table); err != nil {
+				log.Logger.Errorf("got error %+v", err)
+				return err
+			}
+			this.GeneratePlan(fmt.Sprintf("%s.%s", database, table), tbls)
+			wg := sync.WaitGroup{}
+			wg.Add(len(tbls))
+			var gotError bool
+			for i := 0; i < len(tbls); i++ {
+				tbl := tbls[i]
+				_ = globalPool.Submit(func() {
+					if err := this.ExecutePlan(database, tbl); err != nil {
+						log.Logger.Errorf("host: %s, got error %+v", tbl.Host, err)
+						gotError = true
+					} else {
+						log.Logger.Infof("table %s host %s rebalance done", tbl.Table, tbl.Host)
+					}
+					wg.Done()
+				})
+			}
+			wg.Wait()
+			if gotError {
+				return err
+			}
+			log.Logger.Infof("table %s rebalance done", table)
 		}
-		log.Logger.Infof("table %s rebalance done", table)
 	}
 	return nil
 }

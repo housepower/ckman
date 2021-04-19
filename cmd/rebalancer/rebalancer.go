@@ -28,7 +28,6 @@ type CmdOptions struct {
 	ChPort     int
 	ChUser     string
 	ChPassword string
-	ChDatabase string
 	ChDataDir  string
 	OsUser     string
 	OsPassword string
@@ -53,7 +52,6 @@ func initCmdOptions() {
 	cmdOps = CmdOptions{
 		ShowVer:    false,
 		ChPort:     9000,
-		ChDatabase: "default",
 		ChDataDir:  "/var/lib",
 	}
 
@@ -63,7 +61,6 @@ func initCmdOptions() {
 	common.EnvIntVar(&cmdOps.ChPort, "ch-port")
 	common.EnvStringVar(&cmdOps.ChUser, "ch-user")
 	common.EnvStringVar(&cmdOps.ChPassword, "ch-password")
-	common.EnvStringVar(&cmdOps.ChDatabase, "ch-database")
 	common.EnvStringVar(&cmdOps.ChDataDir, "ch-data-dir")
 	common.EnvStringVar(&cmdOps.OsUser, "os-user")
 	common.EnvStringVar(&cmdOps.OsPassword, "os-password")
@@ -74,7 +71,6 @@ func initCmdOptions() {
 	flag.IntVar(&cmdOps.ChPort, "ch-port", cmdOps.ChPort, "clickhouse tcp listen port")
 	flag.StringVar(&cmdOps.ChUser, "ch-user", cmdOps.ChUser, "clickhouse user")
 	flag.StringVar(&cmdOps.ChPassword, "ch-password", cmdOps.ChPassword, "clickhouse password")
-	flag.StringVar(&cmdOps.ChDatabase, "ch-database", cmdOps.ChDatabase, "clickhouse database")
 	flag.StringVar(&cmdOps.ChDataDir, "ch-data-dir", cmdOps.ChDataDir, "clickhouse data directory, required for rebalancing non-replicated tables")
 	flag.StringVar(&cmdOps.OsUser, "os-user", cmdOps.OsUser, "os user, required for rebalancing non-replicated tables")
 	flag.StringVar(&cmdOps.OsPassword, "os-password", cmdOps.OsPassword, "os password")
@@ -99,10 +95,10 @@ func main() {
 		Port:       cmdOps.ChPort,
 		User:       cmdOps.ChUser,
 		Password:   cmdOps.ChPassword,
-		Database:   cmdOps.ChDatabase,
 		DataDir:    cmdOps.ChDataDir,
 		OsUser:     cmdOps.OsUser,
 		OsPassword: cmdOps.OsPassword,
+		DBTables:   make(map[string][]string),
 		SshConns:   make(map[string]*ssh.Client),
 		CKConns:    make(map[string]*sql.DB),
 		RepTables:  make(map[string]map[string]string),
