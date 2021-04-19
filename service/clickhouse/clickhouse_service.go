@@ -731,26 +731,35 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 
 		// get table names
 		query := fmt.Sprintf("SELECT DISTINCT database, name FROM system.tables WHERE  (engine LIKE '%%MergeTree%%') AND database != 'system'")
+		log.Logger.Infof("host: %s, query: %s", host, query)
 		value, err := service.QueryInfo(query)
 		if err != nil {
 			return nil, err
 		}
 		var databases []string
+		var predbname string
 		for i := 1; i < len(value); i++ {
-			databse := value[i][0].(string)
-			databases = append(databases, databse)
+			database := value[i][0].(string)
+			if database != predbname && predbname != "" {
+				databases = append(databases, predbname)
+			}
+			predbname = database
 			name := value[i][1].(string)
-			tableName := fmt.Sprintf("%s.%s", databse, name)
+			tableName := fmt.Sprintf("%s.%s", database, name)
 			if _, ok := metrics[tableName]; !ok {
 				metric := &model.CkTableMetrics{}
 				metrics[tableName] = metric
 			}
+		}
+		if predbname != ""{
+			databases = append(databases, predbname)
 		}
 
 		// get columns
 		for _, database := range databases {
 			query = fmt.Sprintf("SELECT table, count() AS columns FROM system.columns WHERE database = '%s' GROUP BY table",
 				database)
+			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
 			if err != nil {
 				return nil, err
@@ -766,6 +775,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 			// get bytes, parts, rows
 			query = fmt.Sprintf("SELECT table, sum(bytes_on_disk) AS bytes, count() AS parts, sum(rows) AS rows FROM system.parts WHERE (active = 1) AND (database = '%s') GROUP BY table",
 				database)
+			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
 			if err != nil {
 				return nil, err
@@ -782,6 +792,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 
 			// get success, failed counts
 			query = fmt.Sprintf("SELECT (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name, type, count() AS counts from system.query_log where tbl_name != '' AND is_initial_query=1 AND event_time >= subtractDays(now(), 1) group by tbl_name, type")
+			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
 			if err != nil {
 				return nil, err
@@ -801,6 +812,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 
 			// get query duration
 			query = fmt.Sprintf("SELECT (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name, quantiles(0.5, 0.99, 1.0)(query_duration_ms) AS duration from system.query_log where tbl_name != '' AND type = 2 AND is_initial_query=1 AND event_time >= subtractDays(now(), 7) group by tbl_name")
+			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
 			if err != nil {
 				return nil, err
