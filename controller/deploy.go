@@ -148,6 +148,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {
 	conf := model.CKManClickHouseConfig{
 		Port:        req.ClickHouse.CkTcpPort,
+		HttpPort:    req.ClickHouse.CkHttpPort,
 		User:        req.ClickHouse.User,
 		Password:    req.ClickHouse.Password,
 		Cluster:     req.ClickHouse.ClusterName,
@@ -174,6 +175,6 @@ func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {
 	conf.Hosts = hosts
 	conf.Names = hostnames
 
-	clickhouse.CkConfigFillDefault(&conf)
+	conf.Normalize()
 	return conf
 }

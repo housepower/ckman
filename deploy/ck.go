@@ -83,6 +83,7 @@ type HostInfo struct {
 
 type CkConfigTemplate struct {
 	CkTcpPort         int
+	CkHttpPort        int
 	Path              string
 	User              string
 	Password          string
@@ -107,15 +108,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 
 	d.DeployBase = *base
 	d.Conf = c
-	if d.Conf.User == "" {
-		d.Conf.User = clickhouse.ClickHouseDefaultUser
-	}
-	if d.Conf.Password == "" {
-		d.Conf.Password = clickhouse.ClickHouseDefaultPassword
-	}
-	if d.Conf.CkTcpPort == 0 {
-		d.Conf.CkTcpPort = clickhouse.ClickHouseDefaultPort
-	}
+	d.Conf.Normalize()
 	d.HostInfos = make([]HostInfo, len(d.Hosts))
 	HostNameMap := make(map[string]bool)
 
@@ -318,6 +311,7 @@ func (d *CKDeploy) Upgrade() error {
 func (d *CKDeploy) Config() error {
 	configTemplate := CkConfigTemplate{
 		CkTcpPort:   d.Conf.CkTcpPort,
+		CkHttpPort:  d.Conf.CkHttpPort,
 		Path:        d.Conf.Path,
 		User:        d.Conf.User,
 		Password:    d.Conf.Password,
@@ -436,6 +430,7 @@ func (d *CKDeploy) Check() error {
 	conf := model.CKManClickHouseConfig{
 		Hosts:    d.Hosts,
 		Port:     d.Conf.CkTcpPort,
+		HttpPort: d.Conf.CkHttpPort,
 		User:     d.Conf.User,
 		Password: d.Conf.Password,
 		DB:       "default",
@@ -697,6 +692,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		Shards:         shards,
 		PackageVersion: conf.Version,
 		CkTcpPort:      conf.Port,
+		CkHttpPort:     conf.HttpPort,
 	}
 	if err := deploy.Init(base, con); err != nil {
 		return err
@@ -734,6 +730,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		Shards:         shards,
 		PackageVersion: conf.Version,
 		CkTcpPort:      conf.Port,
+		CkHttpPort:     conf.HttpPort,
 	}
 	if err := deploy.Init(base, con); err != nil {
 		return err
@@ -827,6 +824,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 		Shards:         shards,
 		PackageVersion: conf.Version,
 		CkTcpPort:      conf.Port,
+		CkHttpPort:     conf.HttpPort,
 	}
 	if err := deploy.Init(base, con); err != nil {
 		return err

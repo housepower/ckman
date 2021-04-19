@@ -58,7 +58,7 @@
     </send_crash_reports>
 
     <!--display_name>production</display_name--> <!-- It is the name that will be shown in the client -->
-    <http_port>8123</http_port>
+    <http_port>{{.CkHttpPort}}</http_port>
     <tcp_port>{{.CkTcpPort}}</tcp_port>
     <mysql_port>9004</mysql_port>
     <!-- For HTTPS and SSL over native protocol. -->

@@ -10,6 +10,14 @@ const (
 	CkServerPackagePrefix string = "clickhouse-server"
 	CkServerPackageSuffix string = "2.noarch.rpm"
 	ClickHouseRetainUser  string = "default"
+
+	ClickHouseDefaultDB       string = "default"
+	ClickHouseDefaultUser     string = "clickhouse"
+	ClickHouseDefaultPassword string = "Ck123456!"
+	ClickHouseDefaultPort     int    = 9000
+	ClickHouseDefaultHttpPort int    = 8123
+	ClickHouseDefaultZkPort   int    = 2181
+	ZkStatusDefaultPort       int    = 8080
 )
 
 type DeployCkReq struct {
@@ -45,6 +53,7 @@ type CkReplica struct {
 type CkImportConfig struct {
 	Hosts        []string `json:"hosts" example:"192.168.101.105,192.168.101.107"`
 	Port         int      `json:"port" example:"9000"`
+	HttpPort     int      `json:"httpPort" example:"8123"`
 	User         string   `json:"user" example:"ck"`
 	Password     string   `json:"password" example:"123456"`
 	Cluster      string   `json:"cluster" example:"test"`
@@ -58,6 +67,7 @@ type CKManClickHouseConfig struct {
 	Hosts        []string  `json:"hosts"`
 	Names        []string  `json:"names"`
 	Port         int       `json:"port"`
+	HttpPort     int       `json:"httpPort"`
 	User         string    `json:"user"`
 	Password     string    `json:"password"`
 	DB           string    `json:"database"`
@@ -71,4 +81,37 @@ type CKManClickHouseConfig struct {
 	SshPassword  string    `json:"sshPassword"`
 	Shards       []CkShard `json:"shards"`
 	Path         string    `json:"path"`
+}
+
+func (config *CkDeployConfig) Normalize() {
+	if config.CkTcpPort == 0 {
+		config.CkTcpPort = ClickHouseDefaultPort
+	}
+	if config.CkHttpPort == 0 {
+		config.CkHttpPort = ClickHouseDefaultHttpPort
+	}
+	if config.ZkPort == 0 {
+		config.ZkPort = ClickHouseDefaultZkPort
+	}
+	if config.ZkStatusPort == 0 {
+		config.ZkStatusPort = ZkStatusDefaultPort
+	}
+}
+
+func (config *CKManClickHouseConfig) Normalize() {
+	if config.DB == "" {
+		config.DB = ClickHouseDefaultDB
+	}
+	if config.Port == 0 {
+		config.Port = ClickHouseDefaultPort
+	}
+	if config.HttpPort == 0 {
+		config.HttpPort = ClickHouseDefaultHttpPort
+	}
+	if config.ZkPort == 0 {
+		config.ZkPort = ClickHouseDefaultZkPort
+	}
+	if config.ZkStatusPort == 0 {
+		config.ZkStatusPort = ZkStatusDefaultPort
+	}
 }

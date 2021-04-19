@@ -332,8 +332,10 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
       "vm10142",
       "zhanglei01"
     ],
-    "@port": "ck节点的端口",
-    "port": 9000,	 
+    "@port": "ck节点的TCP端口",
+    "port": 9000,
+    "@httpPort": "ck节点的HTTP端口",
+    "httpPort": 8123,
     "@user":"ck用户",
     "user": "eoi",   
     "@password": "ck密码",

@@ -24,19 +24,13 @@ import (
 
 const (
 	ClickHouseDistributedTablePrefix string = "dist_"
-	ClickHouseDefaultDB              string = "default"
-	ClickHouseDefaultUser            string = "clickhouse"
-	ClickHouseDefaultPassword        string = "Ck123456!"
-	ClickHouseClustersFile           string = "clusters.json"
-	ClickHouseDefaultPort            int    = 9000
-	ClickHouseDefaultZkPort          int    = 2181
-	ClickHouseServiceTimeout         int    = 3600
-	ZkStatusDefaultPort              int    = 8080
 	ClickHouseQueryStart             string = "QueryStart"
 	ClickHouseQueryFinish            string = "QueryFinish"
 	ClickHouseQueryExStart           string = "ExceptionBeforeStart"
 	ClickHouseQueryExProcessing      string = "ExceptionWhileProcessing"
 	ClickHouseConfigVersionKey       string = "ck_cluster_config_version"
+	ClickHouseClustersFile           string = "clusters.json"
+	ClickHouseServiceTimeout         int    = 3600
 )
 
 var CkClusters sync.Map
@@ -52,25 +46,9 @@ type ClusterService struct {
 	Timeout int64
 }
 
-func CkConfigFillDefault(config *model.CKManClickHouseConfig) {
-	if config.DB == "" {
-		config.DB = ClickHouseDefaultDB
-	}
-	if config.Port == 0 {
-		config.Port = ClickHouseDefaultPort
-	}
-	if config.ZkPort == 0 {
-		config.ZkPort = ClickHouseDefaultZkPort
-	}
-	if config.ZkStatusPort == 0 {
-		config.ZkStatusPort = ZkStatusDefaultPort
-	}
-}
-
 func NewCkService(config *model.CKManClickHouseConfig) *CkService {
 	ck := &CkService{}
-
-	CkConfigFillDefault(config)
+	config.Normalize()
 	ck.Config = config
 	ck.DB = nil
 
@@ -195,6 +173,7 @@ func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
 			var conf model.CKManClickHouseConfig
 			jsonStr, _ := json.Marshal(v)
 			_ = json.Unmarshal(jsonStr, &conf)
+			conf.Normalize()
 			CkClusters.Store(key, conf)
 		} else {
 			CkClusters.Store(key, int(value.(float64)))
@@ -349,12 +328,15 @@ func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseCon
 	var replicas []model.CkReplica
 	conf.Hosts = req.Hosts
 	conf.Port = req.Port
+	conf.HttpPort = req.HttpPort
 	conf.Cluster = req.Cluster
 	conf.User = req.User
 	conf.Password = req.Password
 	conf.ZkNodes = req.ZkNodes
 	conf.ZkPort = req.ZkPort
 	conf.ZkStatusPort = req.ZkStatusPort
+	conf.Mode = model.CkClusterImport
+	conf.Normalize()
 
 	service := NewCkService(conf)
 	if err := service.InitCkService(); err != nil {
@@ -417,6 +399,7 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 			tmp := &model.CKManClickHouseConfig{
 				Hosts:    []string{replica.Ip},
 				Port:     conf.Port,
+				HttpPort: conf.HttpPort,
 				Cluster:  conf.Cluster,
 				User:     conf.User,
 				Password: conf.Password,
