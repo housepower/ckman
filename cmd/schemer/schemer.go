@@ -4,14 +4,15 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
 	_ "github.com/ClickHouse/clickhouse-go"
 	"github.com/MakeNowJust/heredoc"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/log"
+	"github.com/pkg/errors"
 )
 
 // Create objects on a new ClickHouse instance.
@@ -60,7 +61,7 @@ func initCmdOptions() {
 // getObjectListFromClickHouse
 func getObjectListFromClickHouse(db *sql.DB, query string) (names, statements []string, err error) {
 	// Fetch data from any of specified services
-	log.Infof("Run query: %+v", query)
+	log.Logger.Infof("Run query: %+v", query)
 
 	// Some data available, let's fetch it
 	var rows *sql.Rows
@@ -124,9 +125,7 @@ func main() {
 	var names, statements []string
 	var err error
 	var db *sql.DB
-	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp: true,
-	})
+	log.InitLoggerConsole()
 	initCmdOptions()
 	if cmdOps.ShowVer {
 		fmt.Println("Build Timestamp:", BuildTimeStamp)
@@ -134,26 +133,26 @@ func main() {
 		os.Exit(0)
 	}
 	if cmdOps.SrcHost == "" || cmdOps.DstHost == "" {
-		log.Fatalf("need to specify clickhouse source host and dest host")
+		log.Logger.Fatalf("need to specify clickhouse source host and dest host")
 	} else if cmdOps.ChUser == "" || cmdOps.ChPassword == "" {
-		log.Fatalf("need to specify clickhouse username and password")
+		log.Logger.Fatalf("need to specify clickhouse username and password")
 	}
 
 	dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-		cmdOps.DstHost, cmdOps.ChPort, "default", cmdOps.ChUser, cmdOps.ChPassword)
+		cmdOps.DstHost, cmdOps.ChPort, "default", url.QueryEscape(cmdOps.ChUser), url.QueryEscape(cmdOps.ChPassword))
 	if db, err = sql.Open("clickhouse", dsn); err != nil {
 		err = errors.Wrapf(err, "")
 		return
 	}
 
 	if names, statements, err = getCreateReplicaObjects(db); err != nil {
-		log.Fatalf("got error %+v", err)
+		log.Logger.Fatalf("got error %+v", err)
 	}
-	log.Infof("names: %+v", names)
-	log.Infof("statements: %+v", statements)
+	log.Logger.Infof("names: %+v", names)
+	log.Logger.Infof("statements: %+v", statements)
 	num := len(names)
 	for i := 0; i < num; i++ {
-		log.Infof("executing %s", statements[i])
+		log.Logger.Infof("executing %s", statements[i])
 		if _, err = db.Exec(statements[i]); err != nil {
 			err = errors.Wrapf(err, "")
 			return
