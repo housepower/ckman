@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
 	"github.com/k0kubun/pp"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
-	"net/url"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -49,9 +49,8 @@ func (this *CKRebalance) InitCKConns() (err error) {
 	locks = make(map[string]*sync.Mutex)
 	for _, host := range this.Hosts {
 		var db *sql.DB
-		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-			host, this.Port, "default", url.QueryEscape(this.User), url.QueryEscape(this.Password))
-		if db, err = sql.Open("clickhouse", dsn); err != nil {
+		db,err = common.ConnectClickHouse(host, this.Port, model.ClickHouseDefaultDB, this.User, this.Password)
+		if err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
@@ -65,37 +64,10 @@ func (this *CKRebalance) InitCKConns() (err error) {
 func (this *CKRebalance) GetTables() (err error) {
 	host := this.Hosts[0]
 	db := this.CKConns[host]
-	var rows *sql.Rows
-	query := fmt.Sprintf("SELECT DISTINCT  database, name FROM system.tables WHERE (engine LIKE '%%MergeTree%%') AND (database != 'system') ORDER BY database")
-	log.Logger.Infof("host %s: query: %s", host, query)
-	if rows, err = db.Query(query); err != nil {
+	if this.Databases, this.DBTables,err = common.GetMergeTreeTables(db, host); err != nil{
 		err = errors.Wrapf(err, "")
 		return
 	}
-	defer rows.Close()
-	var tables []string
-	var predbname string
-	for rows.Next() {
-		var database, name string
-		if err = rows.Scan(&database, &name); err != nil {
-			err = errors.Wrapf(err, "")
-			return
-		}
-		if database != predbname {
-			if predbname != "" {
-				this.DBTables[predbname] = tables
-				this.Databases = append(this.Databases, predbname)
-			}
-			tables = []string{}
-		}
-		tables = append(tables, name)
-		predbname = database
-	}
-	if predbname != "" {
-		this.DBTables[predbname] = tables
-		this.Databases = append(this.Databases, predbname)
-	}
-
 	return
 }
 

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/housepower/ckman/common"
 	"io/ioutil"
 	"net"
 	"net/url"
@@ -730,32 +731,26 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 		}
 
 		// get table names
-		query := fmt.Sprintf("SELECT DISTINCT database, name FROM system.tables WHERE  (engine LIKE '%%MergeTree%%') AND database != 'system'")
-		log.Logger.Infof("host: %s, query: %s", host, query)
-		value, err := service.QueryInfo(query)
-		if err != nil {
+		var databases []string
+		dbtables :=  make(map[string][]string)
+		if databases, dbtables, err = common.GetMergeTreeTables(service.DB, host); err != nil{
 			return nil, err
 		}
-		var databases []string
-		var predbname string
-		for i := 1; i < len(value); i++ {
-			database := value[i][0].(string)
-			if database != predbname && predbname != "" {
-				databases = append(databases, predbname)
+
+
+		for db, tables := range dbtables {
+			for _, table := range tables {
+				tableName := fmt.Sprintf("%s.%s", db, table)
+				if _, ok := metrics[tableName]; !ok {
+					metric := &model.CkTableMetrics{}
+					metrics[tableName] = metric
+				}
 			}
-			predbname = database
-			name := value[i][1].(string)
-			tableName := fmt.Sprintf("%s.%s", database, name)
-			if _, ok := metrics[tableName]; !ok {
-				metric := &model.CkTableMetrics{}
-				metrics[tableName] = metric
-			}
-		}
-		if predbname != ""{
-			databases = append(databases, predbname)
 		}
 
 		// get columns
+		var query string
+		var value [][]interface{}
 		for _, database := range databases {
 			query = fmt.Sprintf("SELECT table, count() AS columns FROM system.columns WHERE database = '%s' GROUP BY table",
 				database)

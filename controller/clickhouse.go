@@ -3,8 +3,8 @@ package controller
 import (
 	"database/sql"
 	"fmt"
+	"github.com/housepower/ckman/common"
 	"golang.org/x/crypto/ssh"
-	"net/url"
 	"strconv"
 
 	"github.com/housepower/ckman/business"
@@ -897,17 +897,15 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 	}
 	var failList []string
 	for _, host := range conf.Hosts {
-		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-			host, conf.Port, url.QueryEscape(req.Database), url.QueryEscape(req.User), url.QueryEscape(req.Password))
-		connect, err := sql.Open("clickhouse", dsn)
+		connect,err := common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
 		if err != nil {
 			failList = append(failList, host)
-			log.Logger.Error("%s: %v", dsn, err)
+			log.Logger.Error("err: %+v", err)
 			continue
 		}
 		if err = connect.Ping(); err != nil {
 			failList = append(failList, host)
-			log.Logger.Error("%s: %v", dsn, err)
+			log.Logger.Error("err: %+v", err)
 			continue
 		}
 	}

@@ -7,7 +7,6 @@ import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/pkg/errors"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -77,9 +76,8 @@ func (this *ArchiveHDFS) InitConns() (err error) {
 			continue
 		}
 		var db *sql.DB
-		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-			host, this.Port, url.QueryEscape(this.Database), url.QueryEscape(this.User), url.QueryEscape(this.Password))
-		if db, err = sql.Open("clickhouse", dsn); err != nil {
+		db,err = common.ConnectClickHouse(host, this.Port, this.Database, this.User, this.Password)
+		if err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}

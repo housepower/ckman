@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"net/url"
+	"github.com/housepower/ckman/model"
 	"os"
 	"strings"
 
@@ -138,9 +138,8 @@ func main() {
 		log.Logger.Fatalf("need to specify clickhouse username and password")
 	}
 
-	dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-		cmdOps.DstHost, cmdOps.ChPort, "default", url.QueryEscape(cmdOps.ChUser), url.QueryEscape(cmdOps.ChPassword))
-	if db, err = sql.Open("clickhouse", dsn); err != nil {
+	db, err = common.ConnectClickHouse(cmdOps.DstHost, cmdOps.ChPort, model.ClickHouseDefaultDB, cmdOps.ChUser, cmdOps.ChPassword)
+	if err != nil {
 		err = errors.Wrapf(err, "")
 		return
 	}
