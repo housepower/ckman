@@ -21,7 +21,7 @@ prometheus:
   timeout: 10
 
 nacos:
-  enabled: true
+  enabled: false
   hosts:
     - 127.0.0.1
   port: 8848

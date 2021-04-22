@@ -14,8 +14,6 @@ ADD ./resources/users.xml /etc/ckman/template/users.xml
 ADD ./resources/ckman.yaml /etc/ckman/conf
 ADD ./resources/password /etc/ckman/conf/password
 
-# nacos enabled
-RUN sed -i 's/enabled: true/enabled: false/g' /etc/ckman/conf/ckman.yaml
 WORKDIR /etc/ckman
 ENTRYPOINT ["bin/ckman"]
 

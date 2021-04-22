@@ -960,7 +960,11 @@ POST /api/v1/ck/table/test
     "@order": "order by 的字段,可以指定多个",
     "order": ["id"],	
     "partition": "partition by的字段",
-    "partition":"toMMMMYY(birth)",   
+    "partition":{
+        "@policy": "分区策略， 0- 按天 1-按周 2-按月",
+        "policy": 0,
+        "name": "birth"
+    },
     "distinct": true
 }
 ```
