@@ -3,13 +3,9 @@ package controller
 import (
 	"database/sql"
 	"fmt"
-	"net/url"
-	"os"
-	"os/exec"
-	"path"
-	"path/filepath"
+	"github.com/housepower/ckman/common"
+	"golang.org/x/crypto/ssh"
 	"strconv"
-	"strings"
 
 	"github.com/housepower/ckman/business"
 	"github.com/pkg/errors"
@@ -565,7 +561,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 // @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
 // @Router /api/v1/ck/rebalance/{clusterName} [put]
 func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
-	args := make([]string, 0)
+	var err error
 	clusterName := c.Param(ClickHouseClusterPath)
 
 	con, ok := clickhouse.CkClusters.Load(clusterName)
@@ -581,22 +577,42 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 		hosts[index] = shard.Replicas[0].Ip
 	}
 
-	args = append(args, path.Join(filepath.Dir(os.Args[0]), "rebalancer"))
-	args = append(args, fmt.Sprintf("-ch-hosts=%s", strings.Join(hosts, ",")))
-	args = append(args, fmt.Sprintf("-ch-port=%d", conf.Port))
-	args = append(args, fmt.Sprintf("-ch-user=%s", conf.User))
-	args = append(args, fmt.Sprintf("-ch-password=%s", conf.Password))
-	args = append(args, fmt.Sprintf("-ch-data-dir=%s", conf.Path))
-	args = append(args, fmt.Sprintf("-os-user=%s", conf.SshUser))
-	args = append(args, fmt.Sprintf("-os-password=%s", conf.SshPassword))
+	rebalancer := &business.CKRebalance{
+		Hosts:      hosts,
+		Port:       conf.Port,
+		User:       conf.User,
+		Password:   conf.Password,
+		DataDir:    conf.Path,
+		OsUser:     conf.SshUser,
+		OsPassword: conf.SshPassword,
+		DBTables:   make(map[string][]string),
+		SshConns:   make(map[string]*ssh.Client),
+		CKConns:    make(map[string]*sql.DB),
+		RepTables:  make(map[string]map[string]string),
+	}
 
-	cmd := strings.Join(args, " ")
-	log.Logger.Infof("run %s", cmd)
-	exe := exec.Command("/bin/sh", "-c", cmd)
-	if err := exe.Start(); err != nil {
+	if err = rebalancer.InitCKConns(); err != nil {
+		log.Logger.Errorf("got error %+v", err)
 		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
 		return
 	}
+	if err = rebalancer.GetTables(); err != nil {
+		log.Logger.Errorf("got error %+v", err)
+		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
+		return
+	}
+	if err = rebalancer.GetRepTables(); err != nil {
+		log.Logger.Errorf("got error %+v", err)
+		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
+		return
+	}
+
+	if err = rebalancer.DoRebalance(); err != nil {
+		log.Logger.Errorf("got error %+v", err)
+		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
+		return
+	}
+	log.Logger.Infof("rebalance done")
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
@@ -881,17 +897,15 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 	}
 	var failList []string
 	for _, host := range conf.Hosts {
-		dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-			host, conf.Port, url.QueryEscape(req.Database), url.QueryEscape(req.User), url.QueryEscape(req.Password))
-		connect, err := sql.Open("clickhouse", dsn)
+		connect,err := common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
 		if err != nil {
 			failList = append(failList, host)
-			log.Logger.Error("%s: %v", dsn, err)
+			log.Logger.Error("err: %+v", err)
 			continue
 		}
 		if err = connect.Ping(); err != nil {
 			failList = append(failList, host)
-			log.Logger.Error("%s: %v", dsn, err)
+			log.Logger.Error("err: %+v", err)
 			continue
 		}
 	}
