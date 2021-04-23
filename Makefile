@@ -4,14 +4,14 @@ PKGDIR=ckman
 PKGDIR_TMP=ckman_
 PKGFULLDIR=${SHDIR}/${PKGDIR}
 PKGFULLDIR_TMP=${SHDIR}/${PKGDIR_TMP}
-REVISION=$(shell git log --oneline | head -n1 | cut -f1 -d" ")
+VERSION=$(shell git describe --tags --dirty)
+REVISION=$(shell git rev-parse HEAD)
 DATE=$(shell date +%y%m%d)
 TIME=$(shell date --iso-8601=seconds)
 OS=$(shell uname)
 OSLOWER=$(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH=$(shell uname -m)
-TARNAME=${PKGDIR}-${VERSION}-${DATE}-${REVISION}.${OS}.$(ARCH).tar.gz
-VERSION?=trunk
+TARNAME=${PKGDIR}-${VERSION}-${DATE}.${OS}.$(ARCH).tar.gz
 TAG?=$(shell date +%y%m%d)
 LDFLAGS=-ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=${VERSION}"
 

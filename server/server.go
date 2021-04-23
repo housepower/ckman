@@ -50,8 +50,8 @@ func NewApiServer(config *config.CKManConfig, prom *prometheus.PrometheusService
 
 func (server *ApiServer) Start() error {
 	gin.SetMode(gin.ReleaseMode)
+	// Create gin engine with customized log and recovery middlewares.
 	r := gin.New()
-	// add log middleware
 	r.Use(ginLoggerToFile())
 	r.Use(gin.CustomRecoveryWithWriter(nil, handlePanic))
 
@@ -137,12 +137,13 @@ func embedStaticHandler(embedPath, contentType string) gin.HandlerFunc {
 	}
 }
 
-func handlePanic(c *gin.Context, err interface{}){
+// Log runtime error stack to make debug easy.
+func handlePanic(c *gin.Context, err interface{}) {
 	log.Logger.Errorf("server panic: %+v\n%v", err, string(debug.Stack()))
 	model.WrapMsg(c, model.UNKNOWN, model.GetMsg(c, model.UNKNOWN), err)
-	c.Next()
 }
 
+// Replace gin.Logger middleware to customize log format.
 func ginLoggerToFile() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// start time
@@ -162,22 +163,16 @@ func ginLoggerToFile() gin.HandlerFunc {
 		// Request IP
 		clientIP := c.ClientIP()
 		// Log format
+		msg := fmt.Sprintf("| %3d | %13v | %15s | %s | %s",
+			statusCode,
+			latencyTime,
+			clientIP,
+			reqMethod,
+			reqUri)
 		if statusCode == 200 {
-			log.Logger.Infof("| %3d | %13v | %15s | %s | %s",
-				statusCode,
-				latencyTime,
-				clientIP,
-				reqMethod,
-				reqUri,
-			)
+			log.Logger.Info(msg)
 		} else {
-			log.Logger.Errorf("| %3d | %13v | %15s | %s | %s",
-				statusCode,
-				latencyTime,
-				clientIP,
-				reqMethod,
-				reqUri,
-			)
+			log.Logger.Error(msg)
 		}
 	}
 }
@@ -187,11 +182,11 @@ func ginJWTAuth() gin.HandlerFunc {
 		// intercept token from unified portal
 		// it has higher priority than jwt
 		uEnc := c.Request.Header.Get("userToken")
-		if uEnc != ""{
+		if uEnc != "" {
 			//request from unified portal
 			var rsaEncrypt common.RSAEncryption
-			decode,err := rsaEncrypt.Decode([]byte(uEnc), config.GlobalConfig.Server.PublicKey)
-			if err != nil{
+			decode, err := rsaEncrypt.Decode([]byte(uEnc), config.GlobalConfig.Server.PublicKey)
+			if err != nil {
 				model.WrapMsg(c, model.JWT_TOKEN_INVALID, model.GetMsg(c, model.JWT_TOKEN_INVALID), nil)
 				c.Abort()
 				return
@@ -199,12 +194,12 @@ func ginJWTAuth() gin.HandlerFunc {
 
 			var userToken common.UserTokenModel
 			err = json.Unmarshal(decode, &userToken)
-			if err != nil{
+			if err != nil {
 				model.WrapMsg(c, model.JWT_TOKEN_INVALID, model.GetMsg(c, model.JWT_TOKEN_INVALID), nil)
 				c.Abort()
 				return
 			}
-			if (time.Now().UnixNano()/1e6 - userToken.Timestamp > userToken.Duration*1000){
+			if time.Now().UnixNano()/1e6-userToken.Timestamp > userToken.Duration*1000 {
 				model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, model.GetMsg(c, model.JWT_TOKEN_EXPIRED), nil)
 				c.Abort()
 				return
