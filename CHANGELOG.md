@@ -1,3 +1,12 @@
+
+# v1.3.0
+- add http port in cluster config
+- fix get rows in table metrics
+- nacos default disabled when first start
+- do not restart cluster when add or delete node
+- fix upgrade bug ([#39](https://github.com/housepower/ckman/issues/39))
+- handle 500 code in Gin
+
 # v1.2.9
 - fix get table metric bugs([#22](https://github.com/housepower/ckman/issues/22))
 - fix create table with incorrect zookeeper path
