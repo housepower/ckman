@@ -7,17 +7,15 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"time"
 
-	"github.com/patrickmn/go-cache"
 	"github.com/housepower/ckman/service/nacos"
+	"github.com/patrickmn/go-cache"
 
 	static "github.com/choidamdam/gin-static-pkger"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/markbates/pkger"
-	ginSwagger "github.com/swaggo/gin-swagger"
-	"github.com/swaggo/gin-swagger/swaggerFiles"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/controller"
@@ -26,6 +24,9 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/router"
 	"github.com/housepower/ckman/service/prometheus"
+	"github.com/markbates/pkger"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/swaggo/gin-swagger/swaggerFiles"
 )
 
 const ENV_CKMAN_SWAGGER string = "ENV_CKMAN_SWAGGER"
@@ -49,10 +50,10 @@ func NewApiServer(config *config.CKManConfig, prom *prometheus.PrometheusService
 
 func (server *ApiServer) Start() error {
 	gin.SetMode(gin.ReleaseMode)
-	r := gin.Default()
-
+	r := gin.New()
 	// add log middleware
 	r.Use(ginLoggerToFile())
+	r.Use(gin.CustomRecoveryWithWriter(nil, handlePanic))
 
 	controller.TokenCache = cache.New(time.Duration(server.config.Server.SessionTimeout)*time.Second, time.Minute)
 	userController := controller.NewUserController(server.config)
@@ -134,6 +135,12 @@ func embedStaticHandler(embedPath, contentType string) gin.HandlerFunc {
 			log.Logger.Errorf("failed to copy embed static file %s", embedPath)
 		}
 	}
+}
+
+func handlePanic(c *gin.Context, err interface{}){
+	log.Logger.Errorf("server panic: %+v\n%v", err, string(debug.Stack()))
+	model.WrapMsg(c, model.UNKNOWN, model.GetMsg(c, model.UNKNOWN), err)
+	c.Next()
 }
 
 func ginLoggerToFile() gin.HandlerFunc {

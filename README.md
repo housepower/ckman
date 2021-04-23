@@ -3,6 +3,7 @@ This is a tool which used to manage and monitor ClickHouse database
 
 ## build command
 ```bash
+make build VERSION=x.x.x
 make package VERSION=x.x.x
 ```
 
@@ -13,7 +14,7 @@ make package VERSION=x.x.x
 ```bash
 docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/housepower/ckman:latest
 ```
-Then you can view the manage page on [localhost:8808/](localhost:8808/) 
+Then you can view the manage page on [localhost:8808/](localhost:8808/)    
 You can run ckman in docker, but since deployment of Nacos is not ckman's responsibility,
  we do not enable Nacos by default.
  If you want to enable Nacos, please modify the configuration file in container.
