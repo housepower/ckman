@@ -544,22 +544,33 @@ func UpgradeCkCluster(conf *model.CKManClickHouseConfig, version string) error {
 			Password: conf.SshPassword,
 			Packages: packages,
 		},
+		Conf: &model.CkDeployConfig{
+			CkHttpPort: conf.HttpPort,
+			CkTcpPort:  conf.Port,
+			User:       conf.User,
+			Password:   conf.Password,
+		},
 	}
 	if err := deploy.Stop(); err != nil {
 		return err
 	}
+	log.Logger.Infof("cluster stopped succeed ")
 	if err := deploy.Prepare(); err != nil {
 		return err
 	}
+	log.Logger.Infof("cluster prepared succeed ")
 	if err := deploy.Upgrade(); err != nil {
 		return err
 	}
+	log.Logger.Infof("cluster upgrade succeed ")
 	if err := deploy.Start(); err != nil {
 		return err
 	}
+	log.Logger.Infof("cluster start succeed ")
 	if err := deploy.Check(); err != nil {
 		return err
 	}
+	log.Logger.Infof("cluster checked succeed ")
 
 	return nil
 }
