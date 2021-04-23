@@ -11,6 +11,7 @@
             <max_query_size>1073741824</max_query_size>
             <distributed_aggregation_memory_efficient>1</distributed_aggregation_memory_efficient>
             <joined_subquery_requires_alias>0</joined_subquery_requires_alias>
+            <distributed_ddl_task_timeout>15</distributed_ddl_task_timeout>
 
             <!-- Use cache of uncompressed blocks of data. Meaningful only for processing many of very short queries. -->
             <use_uncompressed_cache>0</use_uncompressed_cache>

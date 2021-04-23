@@ -399,31 +399,6 @@ func (d *CKDeploy) Stop() error {
 	return nil
 }
 
-func (d *CKDeploy) Restart() error {
-	for _, host := range d.Hosts {
-		err := func() error {
-			client, err := common.SSHConnect(d.User, d.Password, host, 22)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-
-			cmd := "systemctl restart clickhouse-server"
-			if output, err := common.SSHRun(client, cmd); err != nil {
-				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
-				return err
-			}
-
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (d *CKDeploy) Check() error {
 	time.Sleep(5 * time.Second)
 
@@ -713,7 +688,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		return err
 	}
 
-	// update other nodes config and restart clickhouse service
+	// update other nodes config
 	deploy = &CKDeploy{}
 	base = &DeployBase{
 		Hosts:    conf.Hosts,
@@ -736,12 +711,6 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		return err
 	}
 	if err := deploy.Config(); err != nil {
-		return err
-	}
-	if err := deploy.Restart(); err != nil {
-		return err
-	}
-	if err := deploy.Check(); err != nil {
 		return err
 	}
 
@@ -807,7 +776,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 		}
 	}
 
-	// update other nodes config and restart clickhouse service
+	// update other nodes config
 	deploy = &CKDeploy{}
 	base := &DeployBase{
 		Hosts:    hosts,
@@ -830,12 +799,6 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 		return err
 	}
 	if err := deploy.Config(); err != nil {
-		return err
-	}
-	if err := deploy.Restart(); err != nil {
-		return err
-	}
-	if err := deploy.Check(); err != nil {
 		return err
 	}
 
