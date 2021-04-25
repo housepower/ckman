@@ -896,21 +896,32 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 		return
 	}
 	var failList []string
-	for _, host := range conf.Hosts {
-		connect,err := common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
-		if err != nil {
-			failList = append(failList, host)
-			log.Logger.Error("err: %+v", err)
-			continue
+	shardAvailable := true
+	for _, shard := range conf.Shards{
+		failNum := 0
+		for _, replica := range shard.Replicas {
+			host :=  replica.Ip
+			connect,err := common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
+			if err != nil {
+				failList = append(failList, host)
+				log.Logger.Error("err: %+v", err)
+				failNum++
+				continue
+			}
+			if err = connect.Ping(); err != nil {
+				failList = append(failList, host)
+				log.Logger.Error("err: %+v", err)
+				failNum++
+				continue
+			}
 		}
-		if err = connect.Ping(); err != nil {
-			failList = append(failList, host)
-			log.Logger.Error("err: %+v", err)
-			continue
+		if failNum == len(shard.Replicas) {
+			shardAvailable = false
 		}
 	}
-	if len(failList) > 0 {
-		err := fmt.Errorf("failList: %v", failList)
+
+	if !shardAvailable {
+		err := errors.Wrap(nil, fmt.Sprintf("failList: %v", failList))
 		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
 		return
 	}
@@ -999,7 +1010,7 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 
 	if len(conf.Hosts) == 0 {
-		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL),
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL),
 			errors.Errorf("can't find any host"))
 		return
 	}
@@ -1027,19 +1038,19 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 
 	archive.FillArchiveDefault()
 	if err := archive.InitConns(); err != nil {
-		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
 	}
 
 	if err := archive.GetSortingInfo(); err != nil {
-		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
 	}
 
 	if err := archive.ClearHDFS(); err != nil {
-		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
 	}
 
 	if err := archive.ExportToHDFS(); err != nil {
-		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
 	}
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
