@@ -974,7 +974,7 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 	}
 
 	if !shardAvailable {
-		err := errors.Wrap(nil, fmt.Sprintf("failList: %v", failList))
+		err := fmt.Errorf("failList: %v", failList)
 		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
 		return
 	}
