@@ -915,7 +915,7 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 		return err
 	}
 
-	databases, dbtables, err := common.GetMergeTreeTables("ReplicatedMergeTree", db, connHost)
+	databases, dbtables, err := common.GetMergeTreeTables("Replicated\\\\w*MergeTree", db, connHost)
 	if err != nil {
 		return err
 	}

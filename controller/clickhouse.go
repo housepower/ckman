@@ -948,21 +948,21 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), "can't find any host")
 		return
 	}
-	var failList []string
+
+	var err error
+	var db *sql.DB
 	shardAvailable := true
 	for _, shard := range conf.Shards{
 		failNum := 0
 		for _, replica := range shard.Replicas {
 			host :=  replica.Ip
-			connect,err := common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
+			db,err = common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
 			if err != nil {
-				failList = append(failList, host)
 				log.Logger.Error("err: %+v", err)
 				failNum++
 				continue
 			}
-			if err = connect.Ping(); err != nil {
-				failList = append(failList, host)
+			if err = db.Ping(); err != nil {
 				log.Logger.Error("err: %+v", err)
 				failNum++
 				continue
@@ -974,7 +974,6 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 	}
 
 	if !shardAvailable {
-		err := fmt.Errorf("failList: %v", failList)
 		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
 		return
 	}

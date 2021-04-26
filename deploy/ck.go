@@ -764,7 +764,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 					}
 				} else {
 					if len(shard.Replicas) == 1{
-						err = fmt.Errorf("can't delete only this node in a shard")
+						err = fmt.Errorf("can't delete node which only 1 replica in shard")
 					}
 				}
 				break
@@ -785,7 +785,6 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	if needDrop {
 		log.Logger.Infof("the node %s is the only replica in shard, so we should delete zoopath", ip)
 		if err = clickhouse.GetReplicaZkPath(conf); err != nil {
-			log.Logger.Errorf("get replicazkPath error: %v", err)
 			return err
 		}
 		var zooPaths []string
