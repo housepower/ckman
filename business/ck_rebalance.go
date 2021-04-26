@@ -64,7 +64,7 @@ func (this *CKRebalance) InitCKConns() (err error) {
 func (this *CKRebalance) GetTables() (err error) {
 	host := this.Hosts[0]
 	db := this.CKConns[host]
-	if this.Databases, this.DBTables,err = common.GetMergeTreeTables(db, host); err != nil{
+	if this.Databases, this.DBTables,err = common.GetMergeTreeTables("MergeTree", db, host); err != nil{
 		err = errors.Wrapf(err, "")
 		return
 	}

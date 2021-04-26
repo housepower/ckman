@@ -3,12 +3,11 @@ package controller
 import (
 	"database/sql"
 	"fmt"
+	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"strconv"
-
-	"github.com/housepower/ckman/business"
-	"github.com/pkg/errors"
 
 	"github.com/housepower/ckman/service/nacos"
 
@@ -239,6 +238,26 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 		return
 	}
 
+	//sync zookeeper path
+	var conf model.CKManClickHouseConfig
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	conf = con.(model.CKManClickHouseConfig)
+	err = clickhouse.GetReplicaZkPath(&conf)
+
+	if err = ck.syncDownClusters(c); err != nil {
+		return
+	}
+	clickhouse.CkClusters.Store(clusterName, conf)
+	if err = ck.syncUpClusters(c); err != nil {
+		return
+	}
+
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
@@ -307,6 +326,16 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 		return
 	}
 
+	var conf model.CKManClickHouseConfig
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	conf = con.(model.CKManClickHouseConfig)
+
 	params.Cluster = ckService.Config.Cluster
 	params.Name = c.Query("tableName")
 	params.DB = c.Query("database")
@@ -314,8 +343,16 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 		params.DB = ckService.Config.DB
 	}
 
-	if err := ckService.DeleteTable(&params); err != nil {
+	if err := ckService.DeleteTable(&conf, &params); err != nil {
 		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(c, model.DELETE_CK_TABLE_FAIL), err)
+		return
+	}
+
+	if err = ck.syncDownClusters(c); err != nil {
+		return
+	}
+	clickhouse.CkClusters.Store(clusterName, conf)
+	if err = ck.syncUpClusters(c); err != nil {
 		return
 	}
 
@@ -501,10 +538,25 @@ func (ck *ClickHouseController) StopCluster(c *gin.Context) {
 		return
 	}
 
-	clickhouse.CkServices.Delete(clusterName)
-	err := deploy.StopCkCluster(&conf)
+	//before stop, we need sync zoopath
+	err := clickhouse.GetReplicaZkPath(&conf)
 	if err != nil {
 		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL), err)
+		return
+	}
+
+	clickhouse.CkServices.Delete(clusterName)
+	err = deploy.StopCkCluster(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL), err)
+		return
+	}
+
+	if err = ck.syncDownClusters(c); err != nil {
+		return
+	}
+	clickhouse.CkClusters.Store(clusterName, conf)
+	if err = ck.syncUpClusters(c); err != nil {
 		return
 	}
 
@@ -545,6 +597,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 	if err = ck.syncDownClusters(c); err != nil {
 		return
 	}
+	clickhouse.CkClusters.Delete(clusterName)
 	clickhouse.CkServices.Delete(clusterName)
 	if err = ck.syncUpClusters(c); err != nil {
 		return

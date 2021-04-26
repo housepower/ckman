@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -477,22 +478,28 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	return nil
 }
 
-func (ck *CkService) DeleteTable(params *model.DeleteCkTableParams) error {
+func (ck *CkService) DeleteTable(conf *model.CKManClickHouseConfig, params *model.DeleteCkTableParams) error {
 	if ck.DB == nil {
 		return errors.Errorf("clickhouse service unavailable")
 	}
 
-	delete := fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix,
+	deleteSql := fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix,
 		params.Name, params.Cluster)
-	log.Logger.Debugf(delete)
-	if _, err := ck.DB.Exec(delete); err != nil {
+	log.Logger.Debugf(deleteSql)
+	if _, err := ck.DB.Exec(deleteSql); err != nil {
 		return err
 	}
 
-	delete = fmt.Sprintf("DROP TABLE %s.%s ON CLUSTER %s", params.DB, params.Name, params.Cluster)
-	log.Logger.Debugf(delete)
-	if _, err := ck.DB.Exec(delete); err != nil {
+	deleteSql = fmt.Sprintf("DROP TABLE %s.%s ON CLUSTER %s", params.DB, params.Name, params.Cluster)
+	log.Logger.Debugf(deleteSql)
+	if _, err := ck.DB.Exec(deleteSql); err != nil {
 		return err
+	}
+
+	//delete zoopath
+	tableName := fmt.Sprintf("%s.%s", params.DB, params.Cluster)
+	if _, ok := conf.ZooPath[tableName]; ok {
+		delete(conf.ZooPath, tableName)
 	}
 
 	return nil
@@ -732,11 +739,10 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 
 		// get table names
 		var databases []string
-		dbtables :=  make(map[string][]string)
-		if databases, dbtables, err = common.GetMergeTreeTables(service.DB, host); err != nil{
+		dbtables := make(map[string][]string)
+		if databases, dbtables, err = common.GetMergeTreeTables("MergeTree", service.DB, host); err != nil {
 			return nil, err
 		}
-
 
 		for db, tables := range dbtables {
 			for _, table := range tables {
@@ -882,12 +888,105 @@ func getCkSessions(conf *model.CKManClickHouseConfig, limit int, query string) (
 
 func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.CkSessionInfo, error) {
 	query := fmt.Sprintf("select subtractSeconds(now(), elapsed) AS query_start_time, toUInt64(elapsed*1000) AS query_duration_ms,  query, initial_user, initial_query_id, initial_address, thread_ids, (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name from system.processes WHERE tbl_name != '' AND tbl_name != 'processes' AND tbl_name != 'query_log' AND is_initial_query=1 ORDER BY query_duration_ms DESC limit %d", limit)
-
+	log.Logger.Debugf("query: %s", query)
 	return getCkSessions(conf, limit, query)
 }
 
 func GetCkSlowSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.CkSessionInfo, error) {
 	query := fmt.Sprintf("SELECT query_start_time, query_duration_ms, query, initial_user, initial_query_id, initial_address, thread_ids, (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name from system.query_log WHERE tbl_name != '' AND tbl_name != 'query_log' AND tbl_name != 'processes' AND type=2 AND is_initial_query=1 AND query_start_time >= subtractDays(now(), 7) ORDER BY query_duration_ms DESC limit %d", limit)
-
+	log.Logger.Debugf("query: %s", query)
 	return getCkSessions(conf, limit, query)
+}
+
+func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
+	var db *sql.DB
+	var err error
+	var connHost string
+	available := false
+	for _, host := range conf.Hosts{
+		db, err = common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
+		if err == nil {
+			available = true
+			break
+		}
+	}
+	if !available {
+		log.Logger.Errorf("all hosts not available, can't get zoopath")
+		return err
+	}
+
+	databases, dbtables, err := common.GetMergeTreeTables("ReplicatedMergeTree", db, connHost)
+	if err != nil {
+		return err
+	}
+
+	//clear map first
+	for tableName := range conf.ZooPath{
+		delete(conf.ZooPath, tableName)
+	}
+	//reload again
+	conf.ZooPath = make(map[string]string)
+	for _, database := range databases {
+		if tables, ok := dbtables[database]; ok {
+			for _, table := range tables {
+				path, err := getReplicaZkPath(db, database, table)
+				if err != nil {
+					return err
+				}
+				tableName := fmt.Sprintf("%s.%s", database, table)
+				conf.ZooPath[tableName] = path
+			}
+		}
+	}
+	return nil
+}
+
+func getReplicaZkPath(db *sql.DB, database, table string) (string, error) {
+	var err error
+	var path string
+	var rows *sql.Rows
+	query := fmt.Sprintf(`SHOW CREATE TABLE %s.%s`, database, table)
+	log.Logger.Debugf("database %s, table %s: query: %s", database, table, query)
+	if rows, err = db.Query(query); err != nil {
+		err = errors.Wrapf(err, "")
+		return "", err
+	}
+
+	for rows.Next() {
+		var result string
+		if err = rows.Scan(&result); err != nil {
+			err = errors.Wrapf(err, "")
+			return "", err
+		}
+
+		myExp := regexp.MustCompile(`(ReplicatedMergeTree\(').*\b'`)
+		paths := myExp.FindStringSubmatch(result)
+		if len(paths) > 0 {
+			path = strings.Split(paths[0], "'")[1]
+		}
+	}
+
+	log.Logger.Infof("path: %s", path)
+	return path, nil
+}
+
+func ConvertZooPath(conf *model.CKManClickHouseConfig) []string {
+	var zooPaths []string
+	var chHosts []string
+	for _, shard := range conf.Shards {
+		host := shard.Replicas[0].Ip
+		chHosts = append(chHosts, host)
+	}
+	for _, path := range conf.ZooPath {
+		if path != "" {
+			for index := range chHosts {
+				// TODO[L] macros maybe not named {cluster} or {shard}
+				shardNum := fmt.Sprintf("%d", index+1)
+				zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
+				zooPath = strings.Replace(zooPath, "{shard}", shardNum, -1)
+				zooPaths = append(zooPaths, zooPath)
+			}
+		}
+	}
+	return zooPaths
 }

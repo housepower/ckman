@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"github.com/housepower/ckman/service/zookeeper"
 	"io/ioutil"
 	"os"
 	"path"
@@ -622,6 +623,20 @@ func DestroyCkCluster(conf *model.CKManClickHouseConfig) error {
 		return err
 	}
 
+
+	//clear zkNode
+	service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
+	if err != nil {
+		return err
+	}
+	zooPaths := clickhouse.ConvertZooPath(conf)
+	if len(zooPaths) > 0 {
+		for _, zooPath := range zooPaths {
+			if err := service.DeleteAll(zooPath); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
