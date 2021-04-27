@@ -3,7 +3,6 @@ This is a tool which used to manage and monitor ClickHouse database
 
 ## build command
 ```bash
-make build VERSION=x.x.x
 make package VERSION=x.x.x
 ```
 

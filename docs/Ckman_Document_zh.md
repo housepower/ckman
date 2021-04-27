@@ -20,58 +20,9 @@ ckman支持多中心部署，使用nacos进行配置同步，可以对多个集�
 
 ## Linux & MacOS下编译
 
-### 编译环境配置
-
-1.  安装Node.js
-
-由于ckman将前端代码静态嵌入到了server中，因此需要安装Node.js以编译前端代码：
-
-MacOS上安装Node.js:
-
-```bash
-brew install node
-```
-
-Linux下安装Node.js:
-
-```bash
-yum install -y nodejs
-```
-
-安装完成后，在frontend目录下执行：
-
-```
-cd frontend
-sudo rm -rf node_modules package-lock.json && npm install
-```
-
-2.  安装`pkger`
-
-```bash
-go get github.com/markbates/pkger/cmd/pkger
-```
-
-3.  安装`swag`
-
-```bash
-go get -u github.com/swaggo/swag/cmd/swag
-```
-
-4.  安装 `nfpm2.2.4`:
-
-`nfpm`是一款用来打包``rpm`的工具，如果不打算做成`rpm`包，可以不安装。
-
-由于`nfpm`新版本配置文件和旧版本差别很大，建议安装指定的`2.2.4`版本。
-
-```
-wget -q https://github.com/goreleaser/nfpm/releases/download/v2.2.4/nfpm_2.2.4_Linux_x86_64.tar.gz
-tar -xzvf nfpm_2.2.4_Linux_x86_64.tar.gz
-cp nfpm /usr/local/bin
-```
-
 ### 编译命令
 
-`Linux`和`MacOS`下编译命令都是一样的：
+`ckman`依赖`golang`(推荐`1.16`)，需要提前安装好, `Linux`和`MacOS`下编译命令都是一样的：
 
 ```bash
 make package VERSION=x.x.x   
@@ -79,7 +30,7 @@ make package VERSION=x.x.x
 
 以上命令会编译成打包成一个`tar.gz`安装包，该安装包解压即可用。
 
-`VERSION`是指定的版本号，如果不指定，则默认生成一个版本号为`trunk`的版本。
+`VERSION`是指定的版本号，如果不指定，则默认取`git describe --tags --dirty`的结果作为版本号。
 
 ### rpm编译
 
@@ -112,7 +63,11 @@ make rpm VERSION=x.x.x
 
 # ckman安装部署
 
-`ckman`部署分为`rpm`包安装和`tar.gz`包安装。其实只是提供的安装包不一样，实际安装还是一样的。
+## 部署依赖
+- `prometheus`(非必需)
+- `node_exporter`(非必需)
+- `nacos`(>`1.4`，目前不支持`2.0`)(非必需)
+- `zookeeper`(>`3.5.0`, 推荐 )
 
 ## rpm安装
 
