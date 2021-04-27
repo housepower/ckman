@@ -63,24 +63,25 @@ type CkImportConfig struct {
 }
 
 type CKManClickHouseConfig struct {
-	Mode         string    `json:"mode"`
-	Hosts        []string  `json:"hosts"`
-	Names        []string  `json:"names"`
-	Port         int       `json:"port"`
-	HttpPort     int       `json:"httpPort"`
-	User         string    `json:"user"`
-	Password     string    `json:"password"`
-	DB           string    `json:"database"`
-	Cluster      string    `json:"cluster"`
-	ZkNodes      []string  `json:"zkNodes"`
-	ZkPort       int       `json:"zkPort"`
-	ZkStatusPort int       `json:"zkStatusPort"`
-	IsReplica    bool      `json:"isReplica"`
-	Version      string    `json:"version"`
-	SshUser      string    `json:"sshUser"`
-	SshPassword  string    `json:"sshPassword"`
-	Shards       []CkShard `json:"shards"`
-	Path         string    `json:"path"`
+	Mode         string            `json:"mode"`
+	Hosts        []string          `json:"hosts"`
+	Names        []string          `json:"names"`
+	Port         int               `json:"port"`
+	HttpPort     int               `json:"httpPort"`
+	User         string            `json:"user"`
+	Password     string            `json:"password"`
+	DB           string            `json:"database"`
+	Cluster      string            `json:"cluster"`
+	ZkNodes      []string          `json:"zkNodes"`
+	ZkPort       int               `json:"zkPort"`
+	ZkStatusPort int               `json:"zkStatusPort"`
+	IsReplica    bool              `json:"isReplica"`
+	Version      string            `json:"version"`
+	SshUser      string            `json:"sshUser"`
+	SshPassword  string            `json:"sshPassword"`
+	Shards       []CkShard         `json:"shards"`
+	Path         string            `json:"path"`
+	ZooPath      map[string]string `json:"zooPath"`
 }
 
 func (config *CkDeployConfig) Normalize() {

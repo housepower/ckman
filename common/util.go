@@ -120,13 +120,13 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 	return db, nil
 }
 
-func GetMergeTreeTables(db *sql.DB, host string) ([]string, map[string][]string, error) {
+func GetMergeTreeTables(engine string, db *sql.DB, host string) ([]string, map[string][]string, error) {
 	var rows *sql.Rows
 	var databases []string
 	var err error
 	dbtables := make(map[string][]string)
-	query := fmt.Sprintf("SELECT DISTINCT  database, name FROM system.tables WHERE (engine LIKE '%%MergeTree%%') AND (database != 'system') ORDER BY database")
-	log.Logger.Infof("host %s: query: %s", host, query)
+	query := fmt.Sprintf("SELECT DISTINCT  database, name FROM system.tables WHERE (match(engine, '%s')) AND (database != 'system') ORDER BY database", engine)
+	log.Logger.Debugf("host %s: query: %s", host, query)
 	if rows, err = db.Query(query); err != nil {
 		err = errors.Wrapf(err, "")
 		return nil, nil, err

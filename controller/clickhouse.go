@@ -3,12 +3,11 @@ package controller
 import (
 	"database/sql"
 	"fmt"
+	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"strconv"
-
-	"github.com/housepower/ckman/business"
-	"github.com/pkg/errors"
 
 	"github.com/housepower/ckman/service/nacos"
 
@@ -239,6 +238,26 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 		return
 	}
 
+	//sync zookeeper path
+	var conf model.CKManClickHouseConfig
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	conf = con.(model.CKManClickHouseConfig)
+	err = clickhouse.GetReplicaZkPath(&conf)
+
+	if err = ck.syncDownClusters(c); err != nil {
+		return
+	}
+	clickhouse.CkClusters.Store(clusterName, conf)
+	if err = ck.syncUpClusters(c); err != nil {
+		return
+	}
+
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
@@ -307,6 +326,16 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 		return
 	}
 
+	var conf model.CKManClickHouseConfig
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	conf = con.(model.CKManClickHouseConfig)
+
 	params.Cluster = ckService.Config.Cluster
 	params.Name = c.Query("tableName")
 	params.DB = c.Query("database")
@@ -314,8 +343,16 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 		params.DB = ckService.Config.DB
 	}
 
-	if err := ckService.DeleteTable(&params); err != nil {
+	if err := ckService.DeleteTable(&conf, &params); err != nil {
 		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, model.GetMsg(c, model.DELETE_CK_TABLE_FAIL), err)
+		return
+	}
+
+	if err = ck.syncDownClusters(c); err != nil {
+		return
+	}
+	clickhouse.CkClusters.Store(clusterName, conf)
+	if err = ck.syncUpClusters(c); err != nil {
 		return
 	}
 
@@ -501,10 +538,25 @@ func (ck *ClickHouseController) StopCluster(c *gin.Context) {
 		return
 	}
 
-	clickhouse.CkServices.Delete(clusterName)
-	err := deploy.StopCkCluster(&conf)
+	//before stop, we need sync zoopath
+	err := clickhouse.GetReplicaZkPath(&conf)
 	if err != nil {
 		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL), err)
+		return
+	}
+
+	clickhouse.CkServices.Delete(clusterName)
+	err = deploy.StopCkCluster(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL), err)
+		return
+	}
+
+	if err = ck.syncDownClusters(c); err != nil {
+		return
+	}
+	clickhouse.CkClusters.Store(clusterName, conf)
+	if err = ck.syncUpClusters(c); err != nil {
 		return
 	}
 
@@ -545,6 +597,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 	if err = ck.syncDownClusters(c); err != nil {
 		return
 	}
+	clickhouse.CkClusters.Delete(clusterName)
 	clickhouse.CkServices.Delete(clusterName)
 	if err = ck.syncUpClusters(c); err != nil {
 		return
@@ -895,22 +948,32 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), "can't find any host")
 		return
 	}
-	var failList []string
-	for _, host := range conf.Hosts {
-		connect,err := common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
-		if err != nil {
-			failList = append(failList, host)
-			log.Logger.Error("err: %+v", err)
-			continue
+
+	var err error
+	var db *sql.DB
+	shardAvailable := true
+	for _, shard := range conf.Shards{
+		failNum := 0
+		for _, replica := range shard.Replicas {
+			host :=  replica.Ip
+			db,err = common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
+			if err != nil {
+				log.Logger.Error("err: %+v", err)
+				failNum++
+				continue
+			}
+			if err = db.Ping(); err != nil {
+				log.Logger.Error("err: %+v", err)
+				failNum++
+				continue
+			}
 		}
-		if err = connect.Ping(); err != nil {
-			failList = append(failList, host)
-			log.Logger.Error("err: %+v", err)
-			continue
+		if failNum == len(shard.Replicas) {
+			shardAvailable = false
 		}
 	}
-	if len(failList) > 0 {
-		err := fmt.Errorf("failList: %v", failList)
+
+	if !shardAvailable {
 		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
 		return
 	}
@@ -999,7 +1062,7 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 	conf = con.(model.CKManClickHouseConfig)
 
 	if len(conf.Hosts) == 0 {
-		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL),
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL),
 			errors.Errorf("can't find any host"))
 		return
 	}
@@ -1027,19 +1090,19 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 
 	archive.FillArchiveDefault()
 	if err := archive.InitConns(); err != nil {
-		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
 	}
 
 	if err := archive.GetSortingInfo(); err != nil {
-		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
 	}
 
 	if err := archive.ClearHDFS(); err != nil {
-		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
 	}
 
 	if err := archive.ExportToHDFS(); err != nil {
-		model.WrapMsg(c, model.PING_CK_CLUSTER_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
 	}
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }

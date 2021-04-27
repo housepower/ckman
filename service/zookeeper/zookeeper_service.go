@@ -2,6 +2,7 @@ package zookeeper
 
 import (
 	"fmt"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -109,4 +110,24 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 	}
 
 	return tableStatus, nil
+}
+
+
+func (z *ZkService) DeleteAll(node string) (err error) {
+	children, stat, err := z.Conn.Children(node)
+	if err == zk.ErrNoNode {
+		return nil
+	} else if err != nil {
+		err = errors.Wrap(err, "delete zk node: ")
+		return
+	}
+
+	for _, child := range children {
+		if err = z.DeleteAll(path.Join(node, child)); err != nil {
+			err = errors.Wrap(err, "delete zk node: ")
+			return
+		}
+	}
+
+	return z.Conn.Delete(node, stat.Version)
 }
