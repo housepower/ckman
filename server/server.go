@@ -60,9 +60,9 @@ func (server *ApiServer) Start() error {
 
 	// https://github.com/gin-gonic/gin/issues/1048
 	// How do you solve vue.js HTML5 History Mode?
-	_ = pkger.Dir("/frontend/dist")
-	r.Use(static.Serve("/", static.LocalFile("/frontend/dist", false)))
-	homepage := embedStaticHandler("/frontend/dist/index.html", "text/html;charset=utf-8")
+	_ = pkger.Dir("/static/dist")
+	r.Use(static.Serve("/", static.LocalFile("/static/dist", false)))
+	homepage := embedStaticHandler("/static/dist/index.html", "text/html;charset=utf-8")
 	r.NoRoute(homepage)
 
 	if !server.config.Server.SwaggerEnable {

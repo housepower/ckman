@@ -14,6 +14,13 @@ ARCH=$(shell uname -m)
 TARNAME=${PKGDIR}-${VERSION}-${DATE}.${OS}.$(ARCH).tar.gz
 TAG?=$(shell date +%y%m%d)
 LDFLAGS=-ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=${VERSION}"
+export GOPROXY=https://goproxy.cn,direct
+
+.PHONY: frontend
+frontend:
+	rm -rf static/dist
+	make -C frontend build
+	cp -r frontend/dist static
 
 .PHONY: backend
 backend:
@@ -28,14 +35,12 @@ backend:
 .PHONY: pre
 pre:
 	go mod tidy
-	go get  github.com/markbates/pkger/cmd/pkger
+	go get github.com/markbates/pkger/cmd/pkger
 	go get github.com/swaggo/swag/cmd/swag
 
 .PHONY: build
-build: pre
-	@rm -rf ${PKGFULLDIR}
-	make -C frontend build
-	pkger
+build:pre
+	@test -d static/dist || (git submodule update --init --recursive && make frontend && pkger)
 	swag init
 	go build ${LDFLAGS}
 	go build ${LDFLAGS} -o ckmanpasswd password/password.go
@@ -45,7 +50,7 @@ build: pre
 	go build ${LDFLAGS} -o purger cmd/purger/purger.go
 
 .PHONY: package
-package:
+package:build
 	@rm -rf ${PKGFULLDIR_TMP}
 	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package ${PKGFULLDIR_TMP}/template
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
@@ -70,20 +75,20 @@ package:
 .PHONY: docker-build
 docker-build:
 	rm -rf ${PKGDIR}-*.tar.gz
-	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct eoitek/ckman-build:go-1.16 make build VERSION=${VERSION} && make package VERSION=${VERSION}
+	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct eoitek/ckman-build:go-1.16 make package VERSION=${VERSION}
 
 .PHONY: docker-sh
 docker-sh:
 	docker run --rm  -it -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct eoitek/ckman-build:go-1.16 bash
 
 .PHONY: rpm
-rpm:
+rpm:build
 	@sed "s/trunk/${VERSION}/g" nfpm.yaml > nfpm_${VERSION}.yaml
 	nfpm -f nfpm_${VERSION}.yaml pkg --packager rpm --target .
 	@rm nfpm_${VERSION}.yaml
 
 .PHONY: deb
-deb:
+deb:build
 	@sed "s/trunk/${VERSION}/g" nfpm.yaml > nfpm_${VERSION}.yaml
 	nfpm -f nfpm_${VERSION}.yaml pkg --packager deb --target .
 	@rm nfpm_${VERSION}.yaml
@@ -103,7 +108,7 @@ test-ci:package
 	@docker-compose down -v
 
 .PHONY: docker-image
-docker-image:
+docker-image:build
 	docker build -t ckman:${VERSION} .
 	docker tag ckman:${VERSION} quay.io/housepower/ckman:${VERSION}
 	docker tag ckman:${VERSION} quay.io/housepower/ckman:latest
