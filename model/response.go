@@ -19,6 +19,7 @@ func WrapMsg(c *gin.Context, retCode int, retMsg string, entity interface{}) err
 	c.Header("Content-Type", "application/json; charset=utf-8")
 
 	if retCode != SUCCESS {
+		log.Logger.Errorf("%s %s return %d, %v", c.Request.Method, c.Request.RequestURI, retCode, entity)
 		if exception, ok := entity.(*clickhouse.Exception); ok {
 			retCode = int(exception.Code)
 			retMsg += ": " + exception.Message
@@ -45,10 +46,6 @@ func WrapMsg(c *gin.Context, retCode int, retMsg string, entity interface{}) err
 	if err != nil {
 		log.Logger.Errorf("%s %s write response body fail: %s", c.Request.Method, c.Request.RequestURI, err.Error())
 		return err
-	}
-
-	if retCode != SUCCESS {
-		log.Logger.Errorf("%s %s return %d, %v", c.Request.Method, c.Request.RequestURI, retCode, entity)
 	}
 
 	return nil

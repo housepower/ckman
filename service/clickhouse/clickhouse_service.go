@@ -72,7 +72,7 @@ func (ck *CkService) InitCkService() error {
 	}
 
 	dataSourceName := fmt.Sprintf("tcp://%s:%d?service=%s&username=%s&password=%s",
-		ck.Config.Hosts[0], ck.Config.Port, url.QueryEscape(ck.Config.DB), url.QueryEscape(ck.Config.User), url.QueryEscape(ck.Config.Password))
+		ck.Config.Hosts[0], ck.Config.Port, url.QueryEscape(model.ClickHouseDefaultDB), url.QueryEscape(ck.Config.User), url.QueryEscape(ck.Config.Password))
 	if len(ck.Config.Hosts) > 1 {
 		otherHosts := make([]string, 0)
 		for _, host := range ck.Config.Hosts[1:] {
@@ -307,7 +307,6 @@ func GetCkNodeService(clusterName string, node string) (*CkService, error) {
 			Hosts:    []string{node},
 			Port:     ckConfig.Port,
 			Cluster:  ckConfig.Cluster,
-			DB:       ckConfig.DB,
 			User:     ckConfig.User,
 			Password: ckConfig.Password,
 		}
@@ -740,7 +739,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 		// get table names
 		var databases []string
 		dbtables := make(map[string][]string)
-		if databases, dbtables, err = common.GetMergeTreeTables("MergeTree", service.DB, host); err != nil {
+		if databases, dbtables, err = common.GetMergeTreeTables("MergeTree", service.DB); err != nil {
 			return nil, err
 		}
 
@@ -901,7 +900,6 @@ func GetCkSlowSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 	var db *sql.DB
 	var err error
-	var connHost string
 	available := false
 	for _, host := range conf.Hosts{
 		db, err = common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
@@ -915,16 +913,12 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 		return err
 	}
 
-	databases, dbtables, err := common.GetMergeTreeTables("Replicated\\\\w*MergeTree", db, connHost)
+	databases, dbtables, err := common.GetMergeTreeTables("Replicated\\\\w*MergeTree", db)
 	if err != nil {
 		return err
 	}
 
-	//clear map first
-	for tableName := range conf.ZooPath{
-		delete(conf.ZooPath, tableName)
-	}
-	//reload again
+	//clear and reload again
 	conf.ZooPath = make(map[string]string)
 	for _, database := range databases {
 		if tables, ok := dbtables[database]; ok {
@@ -946,7 +940,7 @@ func getReplicaZkPath(db *sql.DB, database, table string) (string, error) {
 	var path string
 	var rows *sql.Rows
 	query := fmt.Sprintf(`SHOW CREATE TABLE %s.%s`, database, table)
-	log.Logger.Debugf("database %s, table %s: query: %s", database, table, query)
+	log.Logger.Debugf("database:%s, table:%s: query: %s", database, table, query)
 	if rows, err = db.Query(query); err != nil {
 		err = errors.Wrapf(err, "")
 		return "", err
@@ -966,7 +960,7 @@ func getReplicaZkPath(db *sql.DB, database, table string) (string, error) {
 		}
 	}
 
-	log.Logger.Infof("path: %s", path)
+	log.Logger.Debugf("path: %s", path)
 	return path, nil
 }
 

@@ -409,7 +409,6 @@ func (d *CKDeploy) Check() error {
 		HttpPort: d.Conf.CkHttpPort,
 		User:     d.Conf.User,
 		Password: d.Conf.Password,
-		DB:       "default",
 	}
 
 	svr := clickhouse.NewCkService(&conf)
