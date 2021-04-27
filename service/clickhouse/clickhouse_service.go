@@ -497,7 +497,7 @@ func (ck *CkService) DeleteTable(conf *model.CKManClickHouseConfig, params *mode
 	}
 
 	//delete zoopath
-	tableName := fmt.Sprintf("%s.%s", params.DB, params.Cluster)
+	tableName := fmt.Sprintf("%s.%s", params.DB, params.Name)
 	if _, ok := conf.ZooPath[tableName]; ok {
 		delete(conf.ZooPath, tableName)
 	}

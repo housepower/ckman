@@ -470,6 +470,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 >   -   `Rebalance Cluster`
 >       -   一般情况下，通过`clickhouse-sinker`插入的数据基本上是均衡分布在各个节点的。但是如果新增了一个节点，那么新增的节点数据一定是空的，这时候可以通过`rebalance`工具进行数据搬运
 >       -   `rebalance`搬运数据是直接将某个分区的数据直接搬运到目标节点，在搬运的过程中如果有查询操作，正在搬运的这部分数据是无法查到的，因此在进行`rebalance`操作时，请避免查询操作（`rebalance`操作时间很短，一般不会影响业务）
+>       -   **需要注意的是，如果集群是开启了副本模式，`Rebalance`是通过`attach`和`detach`分区文件的方式进行数据迁移的；如果集群不是副本模式，则通过ssh进行操作，这时就需要集群各个节点之间建立互信。****
 
 #### 升级集群
 
