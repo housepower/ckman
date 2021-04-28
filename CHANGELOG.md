@@ -1,3 +1,13 @@
+# v1.3.1
+- The node health is displayed on the Manage interface, which is connected for Green, disconnected for RED
+- Error prompts to automatically disappear later
+- Cleaning ZooKeeper information when destroy cluster, delete node, delete table. ([#42](https://github.com/housepower/ckman/issues/42))
+- Rebalancer not only support default database ([#45](https://github.com/housepower/ckman/issues/45))
+- Repairing the replicated table status, the node does not exist ([#27](https://github.com/housepower/ckman/issues/27))
+- Repair Slow Session No Display Questions ([#32](https://github.com/housepower/ckman/issues/32))
+- When the node is deleted, when the Shard number is not the last one, and the node is alone in a Shard, it is not allowed to be deleted.
+- Simplify the compilation step, the frontend is packaged into `dist`, no need to manually compile
+
 
 # v1.3.0
 - add http port in cluster config
