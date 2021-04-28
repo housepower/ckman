@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -64,7 +65,7 @@ func (this *CKRebalance) InitCKConns() (err error) {
 func (this *CKRebalance) GetTables() (err error) {
 	host := this.Hosts[0]
 	db := this.CKConns[host]
-	if this.Databases, this.DBTables,err = common.GetMergeTreeTables("MergeTree", db, host); err != nil{
+	if this.Databases, this.DBTables,err = common.GetMergeTreeTables("MergeTree", db); err != nil{
 		err = errors.Wrapf(err, "")
 		return
 	}
@@ -144,7 +145,7 @@ func (this *CKRebalance) GetState(database string, table string) (tbls []*TblPar
 		}
 		defer rows.Close()
 		tbl := TblPartitions{
-			Table:      table,
+			Table:      fmt.Sprintf("%s.%s", database, table),
 			Host:       host,
 			Partitions: make(map[string]int64),
 		}
@@ -253,7 +254,8 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 		srcCkConn := this.CKConns[tbl.Host]
 		dstCkConn := this.CKConns[dstHost]
 		lock := locks[dstHost]
-		dstDir := filepath.Join(this.DataDir, fmt.Sprintf("clickhouse/data/%s/%s/detached", database, tbl.Table))
+		tableName := strings.Split(tbl.Table, ".")[1]
+		dstDir := filepath.Join(this.DataDir, fmt.Sprintf("clickhouse/data/%s/%s/detached", database, tableName))
 		srcDir := dstDir + "/"
 
 		query := fmt.Sprintf("ALTER TABLE %s DETACH PARTITION '%s'", tbl.Table, patt)

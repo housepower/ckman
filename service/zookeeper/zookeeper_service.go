@@ -66,16 +66,16 @@ func GetZkService(clusterName string) (*ZkService, error) {
 }
 
 func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.ZkReplicatedTableStatus, error) {
-	path := fmt.Sprintf("/clickhouse/tables/%s/1/%s", conf.Cluster, conf.DB)
-	tables, _, err := z.Conn.Children(path)
+	err := clickhouse.GetReplicaZkPath(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	tableStatus := make([]model.ZkReplicatedTableStatus, len(tables))
-	for tableIndex, tableName := range tables {
+	tableStatus := make([]model.ZkReplicatedTableStatus, len(conf.ZooPath))
+	tableIndex := 0
+	for key, value := range conf.ZooPath {
 		status := model.ZkReplicatedTableStatus{
-			Name: tableName,
+			Name: key,
 		}
 		shards := make([][]string, len(conf.Shards))
 		status.Values = shards
@@ -85,7 +85,10 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 			replicas := make([]string, len(shard.Replicas))
 			shards[shardIndex] = replicas
 
-			path = fmt.Sprintf("/clickhouse/tables/%s/%d/%s/%s/leader_election", conf.Cluster, shardIndex+1, conf.DB, tableName)
+			zooPath := strings.Replace(value, "{shard}", fmt.Sprintf("%d", shardIndex+1), -1)
+			zooPath = strings.Replace(zooPath, "{cluster}", conf.Cluster, -1)
+
+			path := fmt.Sprintf("%s/leader_election", zooPath)
 			leaderElection, _, err := z.Conn.Children(path)
 			if err != nil {
 				continue
@@ -97,16 +100,17 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 			for replicaIndex, replica := range shard.Replicas {
 				logPointer := ""
 				if leader == replica.HostName {
-					logPointer = "l"
+					logPointer = "L"
 				} else {
-					logPointer = "f"
+					logPointer = "F"
 				}
-				path = fmt.Sprintf("/clickhouse/tables/%s/%d/%s/%s/replicas/%s/log_pointer", conf.Cluster, shardIndex+1, conf.DB, tableName, replica.HostName)
+				path = fmt.Sprintf("%s/replicas/%s/log_pointer", zooPath, replica.HostName)
 				pointer, _, _ := z.Conn.Get(path)
 				logPointer = logPointer + string(pointer)
 				replicas[replicaIndex] = logPointer
 			}
 		}
+		tableIndex++
 	}
 
 	return tableStatus, nil

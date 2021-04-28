@@ -70,7 +70,6 @@ type CKManClickHouseConfig struct {
 	HttpPort     int               `json:"httpPort"`
 	User         string            `json:"user"`
 	Password     string            `json:"password"`
-	DB           string            `json:"database"`
 	Cluster      string            `json:"cluster"`
 	ZkNodes      []string          `json:"zkNodes"`
 	ZkPort       int               `json:"zkPort"`
@@ -100,9 +99,6 @@ func (config *CkDeployConfig) Normalize() {
 }
 
 func (config *CKManClickHouseConfig) Normalize() {
-	if config.DB == "" {
-		config.DB = ClickHouseDefaultDB
-	}
 	if config.Port == 0 {
 		config.Port = ClickHouseDefaultPort
 	}

@@ -230,7 +230,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 		}
 	}
 	if params.DB == "" {
-		params.DB = ckService.Config.DB
+		params.DB = model.ClickHouseDefaultDB
 	}
 
 	if err := ckService.CreateTable(&params); err != nil {
@@ -295,7 +295,7 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 	params.Drop = req.Drop
 	params.Modify = req.Modify
 	if params.DB == "" {
-		params.DB = ckService.Config.DB
+		params.DB = model.ClickHouseDefaultDB
 	}
 
 	if err := ckService.AlterTable(&params); err != nil {
@@ -340,7 +340,7 @@ func (ck *ClickHouseController) DeleteTable(c *gin.Context) {
 	params.Name = c.Query("tableName")
 	params.DB = c.Query("database")
 	if params.DB == "" {
-		params.DB = ckService.Config.DB
+		params.DB = model.ClickHouseDefaultDB
 	}
 
 	if err := ckService.DeleteTable(&conf, &params); err != nil {
@@ -382,7 +382,7 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 	params.Name = c.Query("tableName")
 	params.DB = c.Query("database")
 	if params.DB == "" {
-		params.DB = ckService.Config.DB
+		params.DB = model.ClickHouseDefaultDB
 	}
 
 	atts, err := ckService.DescTable(&params)
