@@ -7,13 +7,14 @@ PKGFULLDIR_TMP=${SHDIR}/${PKGDIR_TMP}
 VERSION=$(shell git describe --tags --dirty)
 REVISION=$(shell git rev-parse HEAD)
 DATE=$(shell date +%y%m%d)
-TIME=$(shell date --iso-8601=seconds)
+TIME=$(shell date --iso-8601=seconds 2>/dev/null)
 OS=$(shell uname)
 OSLOWER=$(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH=$(shell uname -m)
 TARNAME=${PKGDIR}-${VERSION}-${DATE}.${OS}.$(ARCH).tar.gz
 TAG?=$(shell date +%y%m%d)
 LDFLAGS=-ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=${VERSION}"
+PUB_KEY=$(shell cat resources/eoi_public_key.pub 2>/dev/null)
 export GOPROXY=https://goproxy.cn,direct
 
 .PHONY: frontend
@@ -40,7 +41,8 @@ pre:
 
 .PHONY: build
 build:pre
-	@test -d static/dist || (git submodule update --init --recursive && make frontend && pkger)
+	@test -d static/dist || (git submodule update --init --recursive && make frontend)
+	pkger
 	swag init
 	go build ${LDFLAGS}
 	go build ${LDFLAGS} -o ckmanpasswd password/password.go
@@ -66,6 +68,7 @@ package:build
 	@cp ${SHDIR}/resources/ckman.yaml ${PKGFULLDIR_TMP}/conf/ckman.yaml
 	@cp ${SHDIR}/resources/password ${PKGFULLDIR_TMP}/conf/password
 	@cp ${SHDIR}/README.md ${PKGFULLDIR_TMP}
+	@test ! -f resources/eoi_public_key.pub || (sed -i "s|#public_key:|${PUB_KEY}|" ${PKGFULLDIR_TMP}/conf/ckman.yaml)
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}
 	@echo "create ${TARNAME} from ${PKGDIR}"
 	@tar -czf ${TARNAME} ${PKGDIR}
@@ -116,7 +119,6 @@ docker-image:build
 
 .PHONY: release
 release:
-	make build VERSION=${VERSION}
 	make docker-image VERSION=${VERSION}
 	make rpm VERSION=${VERSION}
 	make package VERSION=${VERSION}

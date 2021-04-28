@@ -14,3 +14,4 @@ purger
 rebalancer
 schemer
 pkged.go
+resources/eoi_public_key.pub
