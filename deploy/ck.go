@@ -622,10 +622,14 @@ func DestroyCkCluster(conf *model.CKManClickHouseConfig) error {
 		return err
 	}
 
-
 	//clear zkNode
 	service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
 	if err != nil {
+		return err
+	}
+	//delete from standard path
+	stdZooPath := fmt.Sprintf("/clickhouse/tables/%s", conf.Cluster)
+	if err := service.DeleteAll(stdZooPath); err != nil {
 		return err
 	}
 	zooPaths := clickhouse.ConvertZooPath(conf)
@@ -640,6 +644,11 @@ func DestroyCkCluster(conf *model.CKManClickHouseConfig) error {
 }
 
 func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) error {
+	maxShardNum := len(conf.Shards)
+	if !conf.IsReplica && req.Shard != maxShardNum+1 {
+		return errors.Errorf("It's not allow to add replica node for shard%d while IsReplica is false", req.Shard)
+	}
+
 	// add the node to conf struct
 	for _, host := range conf.Hosts {
 		if host == req.Ip {
@@ -648,11 +657,9 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 	}
 
 	replicaIndex := 0
-	isReplica := conf.IsReplica
 	shards := make([]model.CkShard, len(conf.Shards))
 	copy(shards, conf.Shards)
 	if len(shards) >= req.Shard {
-		isReplica = true
 		replica := model.CkReplica{
 			Ip: req.Ip,
 		}
@@ -742,27 +749,28 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 	conf.Shards = shards
 	conf.Hosts = append(conf.Hosts, req.Ip)
 	conf.Names = append(conf.Names, shards[req.Shard-1].Replicas[replicaIndex].HostName)
-	conf.IsReplica = isReplica
 	return nil
 }
 
 func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	// If the cluster just have 1 replica in shard, and the shard number not the biggest, we don't allow to delete it.
 	available := false
-	needDrop := false
+	ifDeleteShard := false
 	shardNum := 0
+	replicaNum := 0
 	var err error
-	for i, shard := range  conf.Shards{
-		for _,replica := range  shard.Replicas{
+	for i, shard := range conf.Shards {
+		for j, replica := range shard.Replicas {
 			if replica.Ip == ip {
-				shardNum = i + 1
+				shardNum = i
+				replicaNum = j
 				available = true
-				if i + 1 == len(conf.Shards){
-					if len(shard.Replicas) == 1{
-						needDrop = true
+				if i+1 == len(conf.Shards) {
+					if len(shard.Replicas) == 1 {
+						ifDeleteShard = true
 					}
 				} else {
-					if len(shard.Replicas) == 1{
+					if len(shard.Replicas) == 1 {
 						err = fmt.Errorf("can't delete node which only 1 replica in shard")
 					}
 				}
@@ -775,32 +783,40 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 		err = fmt.Errorf("can't find this ip in cluster")
 	}
 
-	if err !=  nil {
+	if err != nil {
 		log.Logger.Errorf("can't delete this node: %v", err)
 		return err
 	}
 
 	//delete zookeeper path if need
-	if needDrop {
-		log.Logger.Infof("the node %s is the only replica in shard, so we should delete zoopath", ip)
-		if err = clickhouse.GetReplicaZkPath(conf); err != nil {
-			return err
-		}
-		var zooPaths []string
-		for _, path := range conf.ZooPath {
-			zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
-			zooPath = strings.Replace(zooPath, "{shard}", fmt.Sprintf("%d", shardNum), -1)
-			zooPaths = append(zooPaths, zooPath)
-		}
+	service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
+	if err != nil {
+		return err
+	}
+	if err = clickhouse.GetReplicaZkPath(conf); err != nil {
+		return err
+	}
+	var zooPaths []string
+	for _, path := range conf.ZooPath {
+		zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
+		zooPath = strings.Replace(zooPath, "{shard}", fmt.Sprintf("%d", shardNum+1), -1)
+		zooPaths = append(zooPaths, zooPath)
+	}
 
-		service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
-		if err != nil {
-			return err
-		}
-
-		for _, path := range zooPaths {
-			log.Logger.Debugf("zoopath: %s", path)
-			err := service.DeleteAll(path)
+	for _, path := range zooPaths {
+		if ifDeleteShard {
+			//delete the shard
+			shardNode := fmt.Sprintf("%d", shardNum+1)
+			err := service.DeletePathUntilNode(path, shardNode)
+			if err != nil {
+				return err
+			}
+		} else {
+			// delete replica path
+			replicaName := conf.Shards[shardNum].Replicas[replicaNum].HostName
+			replicaPath := fmt.Sprintf("%s/replicas/%s", path, replicaName)
+			log.Logger.Debugf("replicaPath: %s", replicaPath)
+			err := service.DeleteAll(replicaPath)
 			if err != nil {
 				return err
 			}
@@ -849,13 +865,6 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 			break
 		}
 	}
-	isReplica := false
-	for _, shard := range shards {
-		if len(shard.Replicas) > 1 {
-			isReplica = true
-			break
-		}
-	}
 
 	// update other nodes config
 	deploy = &CKDeploy{}
@@ -886,7 +895,6 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	conf.Hosts = hosts
 	conf.Names = names
 	conf.Shards = shards
-	conf.IsReplica = isReplica
 	return nil
 }
 

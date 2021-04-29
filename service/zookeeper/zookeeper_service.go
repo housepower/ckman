@@ -3,6 +3,7 @@ package zookeeper
 import (
 	"fmt"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -116,7 +117,6 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 	return tableStatus, nil
 }
 
-
 func (z *ZkService) DeleteAll(node string) (err error) {
 	children, stat, err := z.Conn.Children(node)
 	if err == zk.ErrNoNode {
@@ -134,4 +134,23 @@ func (z *ZkService) DeleteAll(node string) (err error) {
 	}
 
 	return z.Conn.Delete(node, stat.Version)
+}
+
+func (z *ZkService) DeletePathUntilNode(path, endNode string) error {
+	ok, _, _ := z.Conn.Exists(path)
+	if !ok {
+		return nil
+	}
+
+	for {
+		node := filepath.Base(path)
+		parent := filepath.Dir(path)
+		if node == endNode {
+			return z.DeleteAll(path)
+		}
+		if parent == "/clickhouse/tables" {
+			return nil
+		}
+		path = parent
+	}
 }

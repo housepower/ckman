@@ -539,6 +539,11 @@ func (ck *ClickHouseController) StopCluster(c *gin.Context) {
 	}
 
 	//before stop, we need sync zoopath
+	/*
+	Since when destory cluster, the cluster must be stopped,
+	we cant't get zookeeper path by querying ck,
+	so need to save the ZooKeeper path before stopping the cluster.
+	*/
 	err := clickhouse.GetReplicaZkPath(&conf)
 	if err != nil {
 		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL), err)
