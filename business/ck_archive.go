@@ -18,13 +18,13 @@ import (
 
 const (
 	HdfsUserDefault    string = "root"
-	MaxFileSizeDefailt int    = 1e10
+	MaxFileSizeDefault int    = 1e10
 	CKDatabaseDefault  string = "default"
 	ParallelismDefault int    = 4
 
-	DateLayout         string = "2006-01-02"
-	DateTimeLayout     string = "2006-01-02 15:05:05"
-	SlotTimeFormat     string = "20060102150405"
+	DateLayout     string = "2006-01-02"
+	DateTimeLayout string = "2006-01-02 15:05:05"
+	SlotTimeFormat string = "20060102150405"
 )
 
 type ArchiveHDFS struct {
@@ -42,13 +42,13 @@ type ArchiveHDFS struct {
 	HdfsDir     string
 	Parallelism int
 	Conns       map[string]*sql.DB
+	GoRoutine   *common.GoRoutine
 }
 
 var (
 	tryDateIntervals     = []string{"1 year", "1 month", "1 week", "1 day"}
 	tryDateTimeIntervals = []string{"1 year", "1 month", "1 week", "1 day", "4 hour", "1 hour"}
 	pattInfo             map[string][]string // table -> Date/DateTime column, type
-	globalPool           *common.WorkerPool
 	wg                   sync.WaitGroup
 	cntErrors            int32
 	estSize              uint64
@@ -60,7 +60,7 @@ func (this *ArchiveHDFS) FillArchiveDefault() {
 		this.HdfsUser = HdfsUserDefault
 	}
 	if this.MaxFileSize == 0 {
-		this.MaxFileSize = MaxFileSizeDefailt
+		this.MaxFileSize = MaxFileSizeDefault
 	}
 	if this.Database == "" {
 		this.Database = CKDatabaseDefault
@@ -76,7 +76,7 @@ func (this *ArchiveHDFS) InitConns() (err error) {
 			continue
 		}
 		var db *sql.DB
-		db,err = common.ConnectClickHouse(host, this.Port, this.Database, this.User, this.Password)
+		db, err = common.ConnectClickHouse(host, this.Port, this.Database, this.User, this.Password)
 		if err != nil {
 			err = errors.Wrapf(err, "")
 			return
@@ -212,10 +212,9 @@ func (this *ArchiveHDFS) Export(host, table string, slots []time.Time) {
 func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {
 	colName := pattInfo[table][0]
 	colType := pattInfo[table][1]
-	var wg sync.WaitGroup
-	wg.Add(1)
-	_ = globalPool.Submit(func() {
-		defer wg.Done()
+	this.GoRoutine.Init()
+	this.GoRoutine.Go(func() {
+		defer this.GoRoutine.SendComplete()
 		hdfsTbl := "hdfs_" + table + "_" + slotBeg.Format(SlotTimeFormat)
 		for _, dir := range hdfsDir {
 			fp := filepath.Join(dir, host+"_"+slotBeg.Format(SlotTimeFormat)+".parquet")
@@ -240,11 +239,12 @@ func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEn
 			log.Logger.Infof("host %s, table %s, slot %d, export done", host, table, seq)
 		}
 	})
+	this.GoRoutine.WaitComplete()
 }
 
 func (this *ArchiveHDFS) ClearHDFS() error {
 	var err error
-	globalPool = common.NewWorkerPool(this.Parallelism, len(this.Conns))
+	this.GoRoutine = common.NewGoRoutine(this.Parallelism, len(this.Conns))
 	ops := hdfs.ClientOptions{
 		Addresses: []string{this.HdfsAddr},
 		User:      this.HdfsUser,
@@ -258,28 +258,28 @@ func (this *ArchiveHDFS) ClearHDFS() error {
 
 	slotBeg, _ := time.Parse(DateLayout, this.Begin)
 	slotEnd, _ := time.Parse(DateLayout, this.End)
-	for _, table := range this.Tables{
+	for _, table := range this.Tables {
 		dir := path.Join(this.HdfsDir, table)
 		hdfsDir = append(hdfsDir, dir)
 		_ = hc.Mkdir(dir, 0777)
 		var fileList []os.FileInfo
-		if fileList,err = hc.ReadDir(dir); err != nil {
+		if fileList, err = hc.ReadDir(dir); err != nil {
 			err = errors.Wrapf(err, "")
 			log.Logger.Errorf("got error %+v", err)
 			return err
 		}
 		for _, file := range fileList {
 			name := file.Name()
-			if !strings.Contains(name, "parquet"){
+			if !strings.Contains(name, "parquet") {
 				continue
 			}
-			slot := strings.Split(strings.TrimSuffix(name, ".parquet"),"_")[1]
-			slotTime,err := time.Parse(SlotTimeFormat, slot)
-			if err != nil{
+			slot := strings.Split(strings.TrimSuffix(name, ".parquet"), "_")[1]
+			slotTime, err := time.Parse(SlotTimeFormat, slot)
+			if err != nil {
 				log.Logger.Errorf("parse time error: %+v", err)
 				return err
 			}
-			if (slotTime.After(slotBeg) || slotTime.Equal(slotBeg)) && slotTime.Before(slotEnd){
+			if (slotTime.After(slotBeg) || slotTime.Equal(slotBeg)) && slotTime.Before(slotEnd) {
 				filePath := path.Join(dir, name)
 				if err = hc.Remove(filePath); err != nil {
 					err = errors.Wrapf(err, "")

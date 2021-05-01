@@ -33,6 +33,7 @@ type CKRebalance struct {
 	OsPassword string
 	CKConns    map[string]*sql.DB
 	SshConns   map[string]*ssh.Client
+	GoRoutine  *common.GoRoutine
 }
 
 // TblPartitions is partitions status of a host. A host never move out and move in at the same iteration.
@@ -50,7 +51,7 @@ func (this *CKRebalance) InitCKConns() (err error) {
 	locks = make(map[string]*sync.Mutex)
 	for _, host := range this.Hosts {
 		var db *sql.DB
-		db,err = common.ConnectClickHouse(host, this.Port, model.ClickHouseDefaultDB, this.User, this.Password)
+		db, err = common.ConnectClickHouse(host, this.Port, model.ClickHouseDefaultDB, this.User, this.Password)
 		if err != nil {
 			err = errors.Wrapf(err, "")
 			return
@@ -65,7 +66,7 @@ func (this *CKRebalance) InitCKConns() (err error) {
 func (this *CKRebalance) GetTables() (err error) {
 	host := this.Hosts[0]
 	db := this.CKConns[host]
-	if this.Databases, this.DBTables,err = common.GetMergeTreeTables("MergeTree", db); err != nil{
+	if this.Databases, this.DBTables, err = common.GetMergeTreeTables("MergeTree", db); err != nil {
 		err = errors.Wrapf(err, "")
 		return
 	}
@@ -302,7 +303,6 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 }
 
 func (this *CKRebalance) DoRebalance() (err error) {
-	globalPool = common.NewWorkerPool(len(this.Hosts), len(this.CKConns))
 	for _, database := range this.Databases {
 		tables := this.DBTables[database]
 		for _, table := range tables {
@@ -322,23 +322,22 @@ func (this *CKRebalance) DoRebalance() (err error) {
 				return err
 			}
 			this.GeneratePlan(fmt.Sprintf("%s.%s", database, table), tbls)
-			wg := sync.WaitGroup{}
-			wg.Add(len(tbls))
-			var gotError bool
+			this.GoRoutine = common.NewGoRoutine(common.MaxWorkersDefault, len(tbls))
+			this.GoRoutine.Init()
 			for i := 0; i < len(tbls); i++ {
 				tbl := tbls[i]
-				_ = globalPool.Submit(func() {
+				this.GoRoutine.Go(func() {
+					defer this.GoRoutine.SendComplete()
 					if err := this.ExecutePlan(database, tbl); err != nil {
 						log.Logger.Errorf("host: %s, got error %+v", tbl.Host, err)
-						gotError = true
+						this.GoRoutine.SendError(err)
 					} else {
 						log.Logger.Infof("table %s host %s rebalance done", tbl.Table, tbl.Host)
 					}
-					wg.Done()
 				})
 			}
-			wg.Wait()
-			if gotError {
+			this.GoRoutine.WaitComplete()
+			if err := this.GoRoutine.HandleError(); err != nil {
 				return err
 			}
 			log.Logger.Infof("table %s rebalance done", table)

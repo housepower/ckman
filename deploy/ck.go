@@ -10,7 +10,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"text/template"
 	"time"
 
@@ -76,6 +75,7 @@ type CKDeploy struct {
 	DeployBase
 	Conf      *model.CkDeployConfig
 	HostInfos []HostInfo
+	Routine   *common.GoRoutine
 }
 
 type HostInfo struct {
@@ -112,12 +112,17 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 	d.Conf.Normalize()
 	d.HostInfos = make([]HostInfo, len(d.Hosts))
 	HostNameMap := make(map[string]bool)
-
+	if d.Routine == nil {
+		d.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(d.Hosts))
+	}
+	d.Routine.Init()
 	for index, host := range d.Hosts {
-		err := func() error {
+		go func(index int, host string) {
+			d.Routine.SendComplete()
 			client, err := common.SSHConnect(d.User, d.Password, host, 22)
 			if err != nil {
-				return err
+				d.Routine.SendError(err)
+				return
 			}
 			defer client.Close()
 
@@ -125,33 +130,44 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 			output, err := common.SSHRun(client, cmd)
 			if err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
-				return err
+				d.Routine.SendError(err)
+				return
 			}
 
 			memory := strings.Trim(output, "\n")
 			total, err := strconv.Atoi(memory)
 			if err != nil {
-				return err
+				d.Routine.SendError(err)
+				return
 			}
 
 			info := HostInfo{
 				MemoryTotal: total,
 			}
 			d.HostInfos[index] = info
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
+		}(index, host)
+	}
+	d.Routine.WaitComplete()
+	if err := d.Routine.HandleError(); err != nil {
+		return err
 	}
 
 	clusterNodeNum := 0
-	for i, shard := range d.Conf.Shards {
-		for j, replica := range shard.Replicas {
-			err := func(shardIndex, replicaIndex int) error {
+	for _, shard := range d.Conf.Shards {
+		for _ = range shard.Replicas {
+			clusterNodeNum++
+		}
+	}
+	rs := common.NewGoRoutine(common.MaxWorkersDefault, clusterNodeNum)
+	rs.Init()
+	for shardIndex, shard := range d.Conf.Shards {
+		for replicaIndex, replica := range shard.Replicas {
+			go func(shardIndex, replicaIndex int, replica model.CkReplica) {
+				defer rs.SendComplete()
 				client, err := common.SSHConnect(d.User, d.Password, replica.Ip, 22)
 				if err != nil {
-					return err
+					rs.SendError(err)
+					return
 				}
 				defer client.Close()
 
@@ -159,19 +175,20 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 				output, err := common.SSHRun(client, cmd)
 				if err != nil {
 					log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, replica.Ip, output)
-					return err
+					rs.SendError(err)
+					return
 				}
 
 				hostname := strings.Trim(output, "\n")
 				d.Conf.Shards[shardIndex].Replicas[replicaIndex].HostName = hostname
 				HostNameMap[hostname] = true
-				clusterNodeNum++
-				return nil
-			}(i, j)
-			if err != nil {
-				return err
-			}
+			}(shardIndex, replicaIndex, replica)
 		}
+	}
+
+	rs.WaitComplete()
+	if err := rs.HandleError(); err != nil {
+		return err
 	}
 
 	if len(HostNameMap) != clusterNodeNum {
@@ -181,6 +198,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 	if err := ensureHosts(d); err != nil {
 		return err
 	}
+	log.Logger.Infof("init done")
 
 	return nil
 }
@@ -191,24 +209,23 @@ func (d *CKDeploy) Prepare() error {
 		files = append(files, path.Join(config.GetWorkDirectory(), "package", file))
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(len(d.Hosts))
-	ch := make(chan error, len(d.Hosts))
+	if d.Routine == nil {
+		d.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(d.Hosts))
+	}
+	d.Routine.Init()
 	for _, host := range d.Hosts {
-		go func(host string, ch chan error) {
-			defer wg.Done()
+		go func(host string) {
+			defer d.Routine.SendComplete()
 			if err := common.ScpFiles(files, TmpWorkDirectory, d.User, d.Password, host); err != nil {
-				ch <- err
+				d.Routine.SendError(err)
+				return
 			}
-		}(host, ch)
+			log.Logger.Debugf("host %s prepare done", host)
+		}(host)
 	}
-	wg.Wait()
-	close(ch)
-	for err := range ch {
-		return err
-	}
-
-	return nil
+	d.Routine.WaitComplete()
+	log.Logger.Infof("prepare done")
+	return d.Routine.HandleError()
 }
 
 func (d *CKDeploy) Install() error {
@@ -219,15 +236,16 @@ func (d *CKDeploy) Install() error {
 	cmds = append(cmds, fmt.Sprintf("mkdir -p %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
 
-	var wg sync.WaitGroup
-	wg.Add(len(d.Hosts))
-	ch := make(chan error, len(d.Hosts))
+	if d.Routine == nil {
+		d.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(d.Hosts))
+	}
+	d.Routine.Init()
 	for _, host := range d.Hosts {
-		go func(host string, ch chan error) {
-			defer wg.Done()
+		go func(host string) {
+			defer d.Routine.SendComplete()
 			client, err := common.SSHConnect(d.User, d.Password, host, 22)
 			if err != nil {
-				ch <- err
+				d.Routine.SendError(err)
 				return
 			}
 			defer client.Close()
@@ -236,18 +254,15 @@ func (d *CKDeploy) Install() error {
 			cmd := strings.Join(cmds, " && ")
 			if output, err := common.SSHRun(client, cmd); err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
-				ch <- err
+				d.Routine.SendError(err)
 				return
 			}
-		}(host, ch)
+			log.Logger.Debugf("host %s install done", host)
+		}(host)
 	}
-	wg.Wait()
-	close(ch)
-	for err := range ch {
-		return err
-	}
-
-	return nil
+	d.Routine.WaitComplete()
+	log.Logger.Infof("install done")
+	return d.Routine.HandleError()
 }
 
 func (d *CKDeploy) Uninstall() error {
@@ -259,54 +274,61 @@ func (d *CKDeploy) Uninstall() error {
 	cmds = append(cmds, "rm -rf /etc/clickhouse-server")
 	cmds = append(cmds, "rm -rf /etc/clickhouse-client")
 
+	if d.Routine == nil {
+		d.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(d.Hosts))
+	}
+	d.Routine.Init()
 	for _, host := range d.Hosts {
-		err := func() error {
+		go func(host string) {
+			defer d.Routine.SendComplete()
 			client, err := common.SSHConnect(d.User, d.Password, host, 22)
 			if err != nil {
-				return err
+				d.Routine.SendError(err)
+				return
 			}
 			defer client.Close()
 
 			cmd := strings.Join(cmds, " && ")
 			if output, err := common.SSHRun(client, cmd); err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
-				return err
+				d.Routine.SendError(err)
+				return
 			}
-
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
+			log.Logger.Debugf("host %s uninstall done", host)
+		}(host)
 	}
-
-	return nil
+	d.Routine.WaitComplete()
+	log.Logger.Infof("uninstall done")
+	return d.Routine.HandleError()
 }
 
 func (d *CKDeploy) Upgrade() error {
 	cmd := fmt.Sprintf("cd %s && rpm --force -Uvh %s %s %s", TmpWorkDirectory, d.Packages[0], d.Packages[1], d.Packages[2])
-
+	if d.Routine == nil {
+		d.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(d.Hosts))
+	}
+	d.Routine.Init()
 	for _, host := range d.Hosts {
-		err := func() error {
+		go func(host string) {
+			defer d.Routine.SendComplete()
 			client, err := common.SSHConnect(d.User, d.Password, host, 22)
 			if err != nil {
-				return err
+				d.Routine.SendError(err)
+				return
 			}
 			defer client.Close()
 
 			if output, err := common.SSHRun(client, cmd); err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
-				return err
+				d.Routine.SendError(err)
+				return
 			}
-
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
+			log.Logger.Debugf("host %s upgrade done", host)
+		}(host)
 	}
-
-	return nil
+	d.Routine.WaitComplete()
+	log.Logger.Infof("upgrade done")
+	return d.Routine.HandleError()
 }
 
 func (d *CKDeploy) Config() error {
@@ -323,102 +345,129 @@ func (d *CKDeploy) Config() error {
 		return err
 	}
 
-	for index, host := range d.Hosts {
-		files := make([]string, 3)
-		files[0] = conf
-
-		configTemplate.MaxMemoryPerQuery = int64((d.HostInfos[index].MemoryTotal / 2) * 1e3)
-		configTemplate.MaxMemoryAllQuery = int64(((d.HostInfos[index].MemoryTotal * 3) / 4) * 1e3)
-		configTemplate.MaxBytesGroupBy = int64((d.HostInfos[index].MemoryTotal / 4) * 1e3)
-		user, err := ParseConfigTemplate("users.xml", configTemplate)
-		if err != nil {
-			return err
-		}
-		files[1] = user
-
-		metrika, err := GenerateMetrikaTemplate("metrika.xml", d.Conf, host)
-		if err != nil {
-			return err
-		}
-		files[2] = metrika
-
-		if err := common.ScpFiles(files, "/etc/clickhouse-server/", d.User, d.Password, host); err != nil {
-			return err
-		}
+	if d.Routine == nil {
+		d.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(d.Hosts))
 	}
+	d.Routine.Init()
+	for index, host := range d.Hosts {
+		go func(index int, host string) {
+			defer d.Routine.SendComplete()
+			files := make([]string, 3)
+			files[0] = conf
 
-	return nil
+			configTemplate.MaxMemoryPerQuery = int64((d.HostInfos[index].MemoryTotal / 2) * 1e3)
+			configTemplate.MaxMemoryAllQuery = int64(((d.HostInfos[index].MemoryTotal * 3) / 4) * 1e3)
+			configTemplate.MaxBytesGroupBy = int64((d.HostInfos[index].MemoryTotal / 4) * 1e3)
+			user, err := ParseConfigTemplate("users.xml", configTemplate)
+			if err != nil {
+				d.Routine.SendError(err)
+				return
+			}
+			files[1] = user
+
+			metrika, err := GenerateMetrikaTemplate("metrika.xml", d.Conf, host)
+			if err != nil {
+				d.Routine.SendError(err)
+				return
+			}
+			files[2] = metrika
+
+			if err := common.ScpFiles(files, "/etc/clickhouse-server/", d.User, d.Password, host); err != nil {
+				d.Routine.SendError(err)
+				return
+			}
+			log.Logger.Debugf("host %s config done", host)
+		}(index, host)
+	}
+	d.Routine.WaitComplete()
+	log.Logger.Infof("config done")
+	return d.Routine.HandleError()
 }
 
 func (d *CKDeploy) Start() error {
+	if d.Routine == nil {
+		d.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(d.Hosts))
+	}
+	d.Routine.Init()
 	for _, host := range d.Hosts {
-		err := func() error {
+		go func(host string) {
+			defer d.Routine.SendComplete()
 			client, err := common.SSHConnect(d.User, d.Password, host, 22)
 			if err != nil {
-				return err
+				d.Routine.SendError(err)
+				return
 			}
 			defer client.Close()
 
 			cmd := "systemctl start clickhouse-server"
 			if output, err := common.SSHRun(client, cmd); err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
-				return err
+				d.Routine.SendError(err)
+				return
 			}
-
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
+			log.Logger.Debugf("host %s start done", host)
+		}(host)
 	}
-
-	return nil
+	d.Routine.WaitComplete()
+	log.Logger.Infof("start done")
+	return d.Routine.HandleError()
 }
 
 func (d *CKDeploy) Stop() error {
+	if d.Routine == nil {
+		d.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(d.Hosts))
+	}
+	d.Routine.Init()
 	for _, host := range d.Hosts {
-		err := func() error {
+		go func(host string) {
+			defer d.Routine.SendComplete()
 			client, err := common.SSHConnect(d.User, d.Password, host, 22)
 			if err != nil {
-				return err
+				d.Routine.SendError(err)
+				return
 			}
 			defer client.Close()
 
 			cmd := "systemctl stop clickhouse-server"
 			if output, err := common.SSHRun(client, cmd); err != nil {
 				log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
-				return err
+				d.Routine.SendError(err)
+				return
 			}
-
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
+			log.Logger.Debugf("host %s stop done", host)
+		}(host)
 	}
-
-	return nil
+	d.Routine.WaitComplete()
+	log.Logger.Infof("stop done")
+	return d.Routine.HandleError()
 }
 
 func (d *CKDeploy) Check() error {
 	time.Sleep(5 * time.Second)
 
-	conf := model.CKManClickHouseConfig{
-		Hosts:    d.Hosts,
-		Port:     d.Conf.CkTcpPort,
-		HttpPort: d.Conf.CkHttpPort,
-		User:     d.Conf.User,
-		Password: d.Conf.Password,
+	if d.Routine == nil {
+		d.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(d.Hosts))
+	}
+	d.Routine.Init()
+	for _, host := range d.Hosts {
+		go func(host string){
+			defer d.Routine.SendComplete()
+			db, err := common.ConnectClickHouse(host, d.Conf.CkTcpPort, model.ClickHouseDefaultDB,d.Conf.User, d.Conf.Password)
+			if err != nil {
+				d.Routine.SendError(err)
+				return
+			}
+			if err = db.Ping(); err != nil {
+				d.Routine.SendError(err)
+				return
+			}
+			log.Logger.Debugf("host %s check done", host)
+		}(host)
 	}
 
-	svr := clickhouse.NewCkService(&conf)
-	defer svr.Stop()
-
-	if err := svr.InitCkService(); err != nil {
-		return err
-	}
-
-	return nil
+	d.Routine.WaitComplete()
+	log.Logger.Infof("check done")
+	return d.Routine.HandleError()
 }
 
 func ParseConfigTemplate(templateFile string, conf CkConfigTemplate) (string, error) {
@@ -551,6 +600,7 @@ func UpgradeCkCluster(conf *model.CKManClickHouseConfig, version string) error {
 			Password:   conf.Password,
 		},
 	}
+	deploy.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(deploy.Hosts))
 	if err := deploy.Stop(); err != nil {
 		return err
 	}
@@ -583,6 +633,7 @@ func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 			Password: conf.SshPassword,
 		},
 	}
+	deploy.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(deploy.Hosts))
 
 	return deploy.Start()
 }
@@ -595,6 +646,7 @@ func StopCkCluster(conf *model.CKManClickHouseConfig) error {
 			Password: conf.SshPassword,
 		},
 	}
+	deploy.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(deploy.Hosts))
 
 	return deploy.Stop()
 }
@@ -615,6 +667,7 @@ func DestroyCkCluster(conf *model.CKManClickHouseConfig) error {
 			Path: conf.Path,
 		},
 	}
+	deploy.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(deploy.Hosts))
 	if err := deploy.Stop(); err != nil {
 		return err
 	}
@@ -701,6 +754,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		CkTcpPort:      conf.Port,
 		CkHttpPort:     conf.HttpPort,
 	}
+	deploy.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(base.Hosts))
 	if err := deploy.Init(base, con); err != nil {
 		return err
 	}
@@ -739,6 +793,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		CkTcpPort:      conf.Port,
 		CkHttpPort:     conf.HttpPort,
 	}
+	deploy.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(base.Hosts))
 	if err := deploy.Init(base, con); err != nil {
 		return err
 	}
@@ -793,9 +848,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	if err != nil {
 		return err
 	}
-	if err = clickhouse.GetReplicaZkPath(conf); err != nil {
-		return err
-	}
+	clickhouse.GetReplicaZkPath(conf)
 	var zooPaths []string
 	for _, path := range conf.ZooPath {
 		zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
@@ -839,6 +892,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 			Password: conf.SshPassword,
 		},
 	}
+	deploy.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(deploy.Hosts))
 	if err := deploy.Stop(); err != nil {
 		return err
 	}
@@ -885,6 +939,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 		CkTcpPort:      conf.Port,
 		CkHttpPort:     conf.HttpPort,
 	}
+	deploy.Routine = common.NewGoRoutine(common.MaxWorkersDefault, len(base.Hosts))
 	if err := deploy.Init(base, con); err != nil {
 		return err
 	}
@@ -1010,22 +1065,30 @@ func ensureHosts(d *CKDeploy) error {
 		}
 	}
 
+	d.Routine.Init()
 	for _, host := range d.Hosts {
-		if err := common.ScpDownloadFiles([]string{"/etc/hosts"}, path.Join(config.GetWorkDirectory(), "package"), d.User, d.Password, host); err != nil {
-			return err
-		}
-		h, err := common.NewHosts(tmplFile, tmplFile)
-		if err != nil {
-			return err
-		}
-		if err := common.AddHosts(h, addresses, hosts); err != nil {
-			return err
-		}
-		common.Save(h)
-		if err := common.ScpFiles([]string{tmplFile}, "/etc/", d.User, d.Password, host); err != nil {
-			return err
-		}
+		go func(hosr string) {
+			defer d.Routine.SendComplete()
+			if err := common.ScpDownloadFiles([]string{"/etc/hosts"}, path.Join(config.GetWorkDirectory(), "package"), d.User, d.Password, host); err != nil {
+				d.Routine.SendError(err)
+				return
+			}
+			h, err := common.NewHosts(tmplFile, tmplFile)
+			if err != nil {
+				d.Routine.SendError(err)
+				return
+			}
+			if err := common.AddHosts(h, addresses, hosts); err != nil {
+				d.Routine.SendError(err)
+				return
+			}
+			common.Save(h)
+			if err := common.ScpFiles([]string{tmplFile}, "/etc/", d.User, d.Password, host); err != nil {
+				d.Routine.SendError(err)
+				return
+			}
+		}(host)
 	}
-
-	return nil
+	d.Routine.WaitComplete()
+	return d.Routine.HandleError()
 }

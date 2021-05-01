@@ -156,3 +156,10 @@ func GetMergeTreeTables(engine string, db *sql.DB) ([]string, map[string][]strin
 	}
 	return databases, dbtables, nil
 }
+
+func MaxInt(x, y int)int{
+	if x > y {
+		return x
+	}
+	return y
+}
