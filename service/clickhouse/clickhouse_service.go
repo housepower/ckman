@@ -220,7 +220,7 @@ func MarshalClusters() ([]byte, error) {
 		return true
 	})
 
-	data, err := json.Marshal(clustersMap)
+	data, err := json.MarshalIndent(clustersMap, "", "  ")
 	if err != nil {
 		return nil, errors.Wrapf(err, "")
 	}
