@@ -25,6 +25,7 @@ type CKManConfig struct {
 	Log        CKManLogConfig
 	Prometheus CKManPrometheusConfig
 	Nacos      CKManNacosConfig
+	Version    string `yaml:"-"`
 }
 
 type CKManServerConfig struct {
@@ -82,7 +83,7 @@ func fillDefault(c *CKManConfig) {
 	c.Nacos.DataID = "ckman"
 }
 
-func ParseConfigFile(path string) error {
+func ParseConfigFile(path,version string) error {
 	f, err := os.Open(path)
 	defer f.Close()
 	if err != nil {
@@ -100,7 +101,7 @@ func ParseConfigFile(path string) error {
 		return err
 	}
 	GlobalConfig.ConfigFile = path
-
+	GlobalConfig.Version = version
 	return nil
 }
 

@@ -59,3 +59,14 @@ func (cf *ConfigController) GetConfig(c *gin.Context) {
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), req)
 }
+
+// @Summary Get Version
+// @Description Get Version
+// @version 1.0
+// @Security ApiKeyAuth
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":"v1.3.1"}"
+// @Router /api/v1/version [get]
+func (cf ConfigController) GetVersion(c *gin.Context) {
+	version := config.GlobalConfig.Version
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), version)
+}

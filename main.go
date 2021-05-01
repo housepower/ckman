@@ -44,7 +44,7 @@ var (
 // @BasePath /
 func main() {
 	InitCmd()
-	if err := config.ParseConfigFile(ConfigFilePath); err != nil {
+	if err := config.ParseConfigFile(ConfigFilePath, Version); err != nil {
 		fmt.Printf("Parse config file %s fail: %v\n", ConfigFilePath, err)
 		os.Exit(1)
 	}
