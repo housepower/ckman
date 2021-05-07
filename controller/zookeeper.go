@@ -55,7 +55,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 			return
 		}
 		json.Unmarshal(body, &tmp)
-		tmp.Version = tmp.Version[:strings.Index(tmp.Version, "--")]
+		tmp.Version = strings.Split(strings.Split(tmp.Version, ",")[0], "-")[0]
 		zkList[index] = tmp
 	}
 

@@ -23,7 +23,7 @@ const (
 	ParallelismDefault int    = 4
 
 	DateLayout     string = "2006-01-02"
-	DateTimeLayout string = "2006-01-02 15:05:05"
+	DateTimeLayout string = "2006-01-02 15:04:05"
 	SlotTimeFormat string = "20060102150405"
 )
 
@@ -42,7 +42,7 @@ type ArchiveHDFS struct {
 	HdfsDir     string
 	Parallelism int
 	Conns       map[string]*sql.DB
-	GoRoutine   *common.GoRoutine
+	Pool        *common.WorkerPool
 }
 
 var (
@@ -212,9 +212,7 @@ func (this *ArchiveHDFS) Export(host, table string, slots []time.Time) {
 func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {
 	colName := pattInfo[table][0]
 	colType := pattInfo[table][1]
-	this.GoRoutine.Init()
-	this.GoRoutine.Go(func() {
-		defer this.GoRoutine.SendComplete()
+	_ = this.Pool.Submit(func() {
 		hdfsTbl := "hdfs_" + table + "_" + slotBeg.Format(SlotTimeFormat)
 		for _, dir := range hdfsDir {
 			fp := filepath.Join(dir, host+"_"+slotBeg.Format(SlotTimeFormat)+".parquet")
@@ -239,12 +237,12 @@ func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEn
 			log.Logger.Infof("host %s, table %s, slot %d, export done", host, table, seq)
 		}
 	})
-	this.GoRoutine.WaitComplete()
+	this.Pool.Wait()
 }
 
 func (this *ArchiveHDFS) ClearHDFS() error {
 	var err error
-	this.GoRoutine = common.NewGoRoutine(this.Parallelism, len(this.Conns))
+	this.Pool = common.NewWorkerPool(this.Parallelism, len(this.Conns))
 	ops := hdfs.ClientOptions{
 		Addresses: []string{this.HdfsAddr},
 		User:      this.HdfsUser,

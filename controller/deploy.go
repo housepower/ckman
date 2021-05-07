@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/housepower/ckman/common"
 
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/config"
@@ -125,6 +126,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		Packages: packages,
 		User:     req.User,
 		Password: req.Password,
+		Pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 	}
 
 	code, err := DeployPackage(ckDeploy, base, &req.ClickHouse)

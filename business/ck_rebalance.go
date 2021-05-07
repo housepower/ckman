@@ -33,7 +33,7 @@ type CKRebalance struct {
 	OsPassword string
 	CKConns    map[string]*sql.DB
 	SshConns   map[string]*ssh.Client
-	GoRoutine  *common.GoRoutine
+	Pool       *common.WorkerPool
 }
 
 // TblPartitions is partitions status of a host. A host never move out and move in at the same iteration.
@@ -303,6 +303,7 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 }
 
 func (this *CKRebalance) DoRebalance() (err error) {
+	this.Pool = common.NewWorkerPool(len(this.Hosts), len(this.CKConns))
 	for _, database := range this.Databases {
 		tables := this.DBTables[database]
 		for _, table := range tables {
@@ -322,22 +323,21 @@ func (this *CKRebalance) DoRebalance() (err error) {
 				return err
 			}
 			this.GeneratePlan(fmt.Sprintf("%s.%s", database, table), tbls)
-			this.GoRoutine = common.NewGoRoutine(common.MaxWorkersDefault, len(tbls))
-			this.GoRoutine.Init()
+
+			var gotError bool
 			for i := 0; i < len(tbls); i++ {
 				tbl := tbls[i]
-				this.GoRoutine.Go(func() {
-					defer this.GoRoutine.SendComplete()
+				this.Pool.Submit(func() {
 					if err := this.ExecutePlan(database, tbl); err != nil {
 						log.Logger.Errorf("host: %s, got error %+v", tbl.Host, err)
-						this.GoRoutine.SendError(err)
+						gotError = true
 					} else {
 						log.Logger.Infof("table %s host %s rebalance done", tbl.Table, tbl.Host)
 					}
 				})
 			}
-			this.GoRoutine.WaitComplete()
-			if err := this.GoRoutine.HandleError(); err != nil {
+			this.Pool.Wait()
+			if gotError {
 				return err
 			}
 			log.Logger.Infof("table %s rebalance done", table)

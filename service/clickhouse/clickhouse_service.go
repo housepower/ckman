@@ -395,14 +395,12 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 	index := 0
 	statusList := make([]model.CkClusterNode, len(conf.Hosts))
 	statusMap := make(map[string]string, len(conf.Hosts))
-
-	rs := common.NewGoRoutine(common.MaxWorkersDefault, len(conf.Hosts))
-	rs.Init()
+	pool := common.NewWorkerPool(common.MaxWorkersDefault, len(conf.Hosts))
 	for _, host := range conf.Hosts {
-		go func(host string) {
-			defer rs.SendComplete()
+		innerHost := host
+		pool.Submit(func() {
 			tmp := &model.CKManClickHouseConfig{
-				Hosts:    []string{host},
+				Hosts:    []string{innerHost},
 				Port:     conf.Port,
 				HttpPort: conf.HttpPort,
 				Cluster:  conf.Cluster,
@@ -411,14 +409,14 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 			}
 			service := NewCkService(tmp)
 			if err := service.InitCkService(); err != nil {
-				statusMap[host] = model.CkStatusRed
+				statusMap[innerHost] = model.CkStatusRed
 			} else {
-				statusMap[host] = model.CkStatusGreen
+				statusMap[innerHost] = model.CkStatusGreen
 			}
 			service.Stop()
-		}(host)
+		})
 	}
-	rs.WaitComplete()
+	pool.Wait()
 	for i, shard := range conf.Shards {
 		for j, replica := range shard.Replicas {
 			status := model.CkClusterNode{

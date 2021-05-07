@@ -5,6 +5,7 @@ import (
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/model"
 	"os"
+	"strings"
 	"syscall"
 )
 
@@ -67,6 +68,6 @@ func (cf *ConfigController) GetConfig(c *gin.Context) {
 // @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":"v1.3.1"}"
 // @Router /api/v1/version [get]
 func (cf ConfigController) GetVersion(c *gin.Context) {
-	version := config.GlobalConfig.Version
+	version := strings.Split(config.GlobalConfig.Version, "-")[0]
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), version)
 }
