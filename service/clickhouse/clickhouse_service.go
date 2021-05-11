@@ -220,7 +220,7 @@ func MarshalClusters() ([]byte, error) {
 		return true
 	})
 
-	data, err := json.Marshal(clustersMap)
+	data, err := json.MarshalIndent(clustersMap, "", "  ")
 	if err != nil {
 		return nil, errors.Wrapf(err, "")
 	}
@@ -394,36 +394,42 @@ func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseCon
 func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode {
 	index := 0
 	statusList := make([]model.CkClusterNode, len(conf.Hosts))
-
-	for i, shard := range conf.Shards {
-		for j, replica := range shard.Replicas {
+	statusMap := make(map[string]string, len(conf.Hosts))
+	pool := common.NewWorkerPool(common.MaxWorkersDefault, len(conf.Hosts))
+	for _, host := range conf.Hosts {
+		innerHost := host
+		pool.Submit(func() {
 			tmp := &model.CKManClickHouseConfig{
-				Hosts:    []string{replica.Ip},
+				Hosts:    []string{innerHost},
 				Port:     conf.Port,
 				HttpPort: conf.HttpPort,
 				Cluster:  conf.Cluster,
 				User:     conf.User,
 				Password: conf.Password,
 			}
+			service := NewCkService(tmp)
+			if err := service.InitCkService(); err != nil {
+				statusMap[innerHost] = model.CkStatusRed
+			} else {
+				statusMap[innerHost] = model.CkStatusGreen
+			}
+			service.Stop()
+		})
+	}
+	pool.Wait()
+	for i, shard := range conf.Shards {
+		for j, replica := range shard.Replicas {
 			status := model.CkClusterNode{
 				Ip:            replica.Ip,
 				HostName:      replica.HostName,
 				ShardNumber:   i + 1,
 				ReplicaNumber: j + 1,
+				Status:        statusMap[replica.Ip],
 			}
-			service := NewCkService(tmp)
-			if err := service.InitCkService(); err != nil {
-				status.Status = model.CkStatusRed
-			} else {
-				status.Status = model.CkStatusGreen
-			}
-			service.Stop()
 			statusList[index] = status
 			index++
 		}
-
 	}
-
 	return statusList
 }
 
@@ -901,7 +907,7 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 	var db *sql.DB
 	var err error
 	available := false
-	for _, host := range conf.Hosts{
+	for _, host := range conf.Hosts {
 		db, err = common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
 		if err == nil {
 			available = true

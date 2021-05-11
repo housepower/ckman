@@ -1080,6 +1080,25 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/version": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get Version",
+                "summary": "Get Version",
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":\"v1.3.1\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/zk/replicated_table/{clusterName}": {
             "get": {
                 "security": [

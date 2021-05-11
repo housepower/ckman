@@ -983,6 +983,17 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Upload package
+  /api/v1/version:
+    get:
+      description: Get Version
+      responses:
+        "200":
+          description: '{"retCode":0,"retMsg":"ok","entity":"v1.3.1"}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Get Version
   /api/v1/zk/replicated_table/{clusterName}:
     get:
       description: Get replicated table in Zookeeper status

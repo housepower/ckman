@@ -2,6 +2,9 @@ package common
 
 import (
 	"errors"
+	"github.com/housepower/ckman/log"
+	"runtime"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 )
@@ -10,6 +13,8 @@ const (
 	StateRunning uint32 = 0
 	StateStopped uint32 = 1
 )
+
+var MaxWorkersDefault int = MaxInt(2 * runtime.NumCPU(), 10)
 
 // WorkerPool is a blocked worker pool inspired by https://github.com/gammazero/workerpool/
 type WorkerPool struct {
@@ -49,7 +54,7 @@ func (w *WorkerPool) wokerFunc() {
 	w.Unlock()
 LOOP:
 	for fn := range w.workChan {
-		fn()
+		runFunc(fn)
 		var needQuit bool
 		w.Lock()
 		w.outNums++
@@ -66,7 +71,14 @@ LOOP:
 		}
 	}
 }
-
+func runFunc(fn func()){
+	defer func() {
+		if err := recover(); err != nil {
+			log.Logger.Errorf("err:%v\n%v", err, string(debug.Stack()))
+		}
+	}()
+	fn()
+}
 func (w *WorkerPool) start() {
 	for i := 0; i < w.maxWorkers; i++ {
 		go w.wokerFunc()
@@ -103,6 +115,14 @@ func (w *WorkerPool) Submit(fn func()) (err error) {
 func (w *WorkerPool) StopWait() {
 	atomic.StoreUint32(&w.state, StateStopped)
 
+	w.Lock()
+	defer w.Unlock()
+	for w.inNums != w.outNums {
+		w.taskDone.Wait()
+	}
+}
+
+func (w *WorkerPool) Wait() {
 	w.Lock()
 	defer w.Unlock()
 	for w.inNums != w.outNums {
