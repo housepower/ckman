@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -111,6 +112,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 	d.Conf.Normalize()
 	d.HostInfos = make([]HostInfo, len(d.Hosts))
 	HostNameMap := make(map[string]bool)
+	var lock sync.RWMutex
 	var lastError error
 	for index, host := range d.Hosts {
 		innerIndex := index
@@ -175,7 +177,9 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 
 				hostname := strings.Trim(output, "\n")
 				d.Conf.Shards[innerShardIndex].Replicas[innerReplicaIndex].HostName = hostname
+				lock.Lock()
 				HostNameMap[hostname] = true
+				lock.Unlock()
 				clusterNodeNum++
 			})
 		}
