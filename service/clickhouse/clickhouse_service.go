@@ -399,7 +399,7 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 	pool := common.NewWorkerPool(common.MaxWorkersDefault, len(conf.Hosts))
 	for _, host := range conf.Hosts {
 		innerHost := host
-		pool.Submit(func() {
+		_ = pool.Submit(func() {
 			tmp := &model.CKManClickHouseConfig{
 				Hosts:    []string{innerHost},
 				Port:     conf.Port,
