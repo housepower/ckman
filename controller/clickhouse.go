@@ -643,6 +643,7 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 		DataDir:    conf.Path,
 		OsUser:     conf.SshUser,
 		OsPassword: conf.SshPassword,
+		OsPort:     conf.SshPort,
 		DBTables:   make(map[string][]string),
 		SshConns:   make(map[string]*ssh.Client),
 		CKConns:    make(map[string]*sql.DB),

@@ -7,6 +7,7 @@ type DeployBase struct {
 	Packages  []string
 	User      string
 	Password  string
+	Port      int
 	Directory string
 	Pool      *common.WorkerPool
 }

@@ -242,6 +242,9 @@ definitions:
       password:
         example: "123456"
         type: string
+      sshPort:
+        example: 22
+        type: integer
       user:
         example: root
         type: string

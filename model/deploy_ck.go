@@ -18,12 +18,14 @@ const (
 	ClickHouseDefaultHttpPort int    = 8123
 	ClickHouseDefaultZkPort   int    = 2181
 	ZkStatusDefaultPort       int    = 8080
+	SshDefaultPort            int    = 22
 )
 
 type DeployCkReq struct {
 	Hosts      []string       `json:"hosts" example:"192.168.101.105"`
 	User       string         `json:"user" example:"root"`
 	Password   string         `json:"password" example:"123456"`
+	Port       int            `json:"sshPort" example:"22"`
 	ClickHouse CkDeployConfig `json:"clickhouse"`
 }
 
@@ -78,6 +80,7 @@ type CKManClickHouseConfig struct {
 	Version      string            `json:"version"`
 	SshUser      string            `json:"sshUser"`
 	SshPassword  string            `json:"sshPassword"`
+	SshPort      int               `json:"sshPort"`
 	Shards       []CkShard         `json:"shards"`
 	Path         string            `json:"path"`
 	ZooPath      map[string]string `json:"zooPath"`
@@ -111,4 +114,7 @@ func (config *CKManClickHouseConfig) Normalize() {
 	if config.ZkStatusPort == 0 {
 		config.ZkStatusPort = ZkStatusDefaultPort
 	}
+	if config.SshPort == 0 {
+       config.SshPort = SshDefaultPort
+   }
 }

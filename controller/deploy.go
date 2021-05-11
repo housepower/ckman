@@ -126,7 +126,8 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		Packages: packages,
 		User:     req.User,
 		Password: req.Password,
-		Pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
+		Port:     req.Port,
+		Pool:     common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 	}
 
 	code, err := DeployPackage(ckDeploy, base, &req.ClickHouse)
@@ -159,6 +160,7 @@ func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {
 		Version:     req.ClickHouse.PackageVersion,
 		SshUser:     req.User,
 		SshPassword: req.Password,
+		SshPort:     req.Port,
 		Shards:      req.ClickHouse.Shards,
 		Path:        req.ClickHouse.Path,
 	}

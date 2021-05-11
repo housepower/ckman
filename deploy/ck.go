@@ -118,7 +118,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 		innerIndex := index
 		innerHost := host
 		d.Pool.Submit(func() {
-			client, err := common.SSHConnect(d.User, d.Password, innerHost, 22)
+			client, err := common.SSHConnect(d.User, d.Password, innerHost, d.Port)
 			if err != nil {
 				lastError = err
 				return
@@ -160,7 +160,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 			innerReplicaIndex := replicaIndex
 			innerReplica := replica
 			d.Pool.Submit(func() {
-				client, err := common.SSHConnect(d.User, d.Password, innerReplica.Ip, 22)
+				client, err := common.SSHConnect(d.User, d.Password, innerReplica.Ip, d.Port)
 				if err != nil {
 					lastError = err
 					return
@@ -212,7 +212,7 @@ func (d *CKDeploy) Prepare() error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		d.Pool.Submit(func() {
-			if err := common.ScpFiles(files, TmpWorkDirectory, d.User, d.Password, innerHost); err != nil {
+			if err := common.ScpFiles(files, TmpWorkDirectory, d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}
@@ -239,7 +239,7 @@ func (d *CKDeploy) Install() error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		d.Pool.Submit(func() {
-			client, err := common.SSHConnect(d.User, d.Password, innerHost, 22)
+			client, err := common.SSHConnect(d.User, d.Password, innerHost, d.Port)
 			if err != nil {
 				lastError = err
 				return
@@ -277,7 +277,7 @@ func (d *CKDeploy) Uninstall() error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		d.Pool.Submit(func() {
-			client, err := common.SSHConnect(d.User, d.Password, innerHost, 22)
+			client, err := common.SSHConnect(d.User, d.Password, innerHost, d.Port)
 			if err != nil {
 				lastError = err
 				return
@@ -307,7 +307,7 @@ func (d *CKDeploy) Upgrade() error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		d.Pool.Submit(func() {
-			client, err := common.SSHConnect(d.User, d.Password, innerHost, 22)
+			client, err := common.SSHConnect(d.User, d.Password, innerHost, d.Port)
 			if err != nil {
 				lastError = err
 				return
@@ -369,7 +369,7 @@ func (d *CKDeploy) Config() error {
 			}
 			files[2] = metrika
 
-			if err := common.ScpFiles(files, "/etc/clickhouse-server/", d.User, d.Password, innerHost); err != nil {
+			if err := common.ScpFiles(files, "/etc/clickhouse-server/", d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}
@@ -389,7 +389,7 @@ func (d *CKDeploy) Start() error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		d.Pool.Submit(func() {
-			client, err := common.SSHConnect(d.User, d.Password, innerHost, 22)
+			client, err := common.SSHConnect(d.User, d.Password, innerHost, d.Port)
 			if err != nil {
 				lastError = err
 				return
@@ -418,7 +418,7 @@ func (d *CKDeploy) Stop() error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		d.Pool.Submit(func() {
-			client, err := common.SSHConnect(d.User, d.Password, innerHost, 22)
+			client, err := common.SSHConnect(d.User, d.Password, innerHost, d.Port)
 			if err != nil {
 				lastError = err
 				return
@@ -591,6 +591,7 @@ func UpgradeCkCluster(conf *model.CKManClickHouseConfig, version string) error {
 			Hosts:    conf.Hosts,
 			User:     conf.SshUser,
 			Password: conf.SshPassword,
+			Port:     conf.SshPort,
 			Packages: packages,
 			Pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 		},
@@ -631,6 +632,7 @@ func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 			Hosts:    conf.Hosts,
 			User:     conf.SshUser,
 			Password: conf.SshPassword,
+			Port:     conf.SshPort,
 			Pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 		},
 	}
@@ -644,6 +646,7 @@ func StopCkCluster(conf *model.CKManClickHouseConfig) error {
 			Hosts:    conf.Hosts,
 			User:     conf.SshUser,
 			Password: conf.SshPassword,
+			Port:     conf.SshPort,
 			Pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 		},
 	}
@@ -661,6 +664,7 @@ func DestroyCkCluster(conf *model.CKManClickHouseConfig) error {
 			Hosts:    conf.Hosts,
 			User:     conf.SshUser,
 			Password: conf.SshPassword,
+			Port:     conf.SshPort,
 			Packages: packages,
 			Pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 		},
@@ -740,6 +744,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		Hosts:    []string{req.Ip},
 		User:     conf.SshUser,
 		Password: conf.SshPassword,
+		Port:     conf.SshPort,
 		Packages: packages,
 		Pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 	}
@@ -780,6 +785,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		Hosts:    conf.Hosts,
 		User:     conf.SshUser,
 		Password: conf.SshPassword,
+		Port:     conf.SshPort,
 		Pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 	}
 	con = &model.CkDeployConfig{
@@ -890,6 +896,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 			Hosts:    []string{ip},
 			User:     conf.SshUser,
 			Password: conf.SshPassword,
+			Port:     conf.SshPort,
 			Pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 		},
 	}
@@ -926,6 +933,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 		Hosts:    hosts,
 		User:     conf.SshUser,
 		Password: conf.SshPassword,
+		Port:     conf.SshPort,
 		Pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 	}
 	con := &model.CkDeployConfig{
@@ -953,11 +961,11 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	return nil
 }
 
-func updateMetrikaconfig(user, password, host, clusterName string, port int, param CkUpdateNodeParam) error {
+func updateMetrikaconfig(user, password, host, clusterName string, port, sshPort int, param CkUpdateNodeParam) error {
 	templateFile := "metrika.xml"
 	confFile := "/etc/clickhouse-server/metrika.xml"
 
-	client, err := common.SSHConnect(user, password, host, 22)
+	client, err := common.SSHConnect(user, password, host, sshPort)
 	if err != nil {
 		return err
 	}
@@ -1046,7 +1054,7 @@ func updateMetrikaconfig(user, password, host, clusterName string, port int, par
 	if _, err := localFd.Write(data); err != nil {
 		return err
 	}
-	if err := common.ScpFiles([]string{tmplFile}, confFile, user, password, host); err != nil {
+	if err := common.ScpFiles([]string{tmplFile}, confFile, user, password, host, sshPort); err != nil {
 		return err
 	}
 
@@ -1070,7 +1078,7 @@ func ensureHosts(d *CKDeploy) error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		d.Pool.Submit(func() {
-			if err := common.ScpDownloadFiles([]string{"/etc/hosts"}, path.Join(config.GetWorkDirectory(), "package"), d.User, d.Password, innerHost); err != nil {
+			if err := common.ScpDownloadFiles([]string{"/etc/hosts"}, path.Join(config.GetWorkDirectory(), "package"), d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}
@@ -1084,7 +1092,7 @@ func ensureHosts(d *CKDeploy) error {
 				return
 			}
 			common.Save(h)
-			if err := common.ScpFiles([]string{tmplFile}, "/etc/", d.User, d.Password, innerHost); err != nil {
+			if err := common.ScpFiles([]string{tmplFile}, "/etc/", d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}

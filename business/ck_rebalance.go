@@ -31,6 +31,7 @@ type CKRebalance struct {
 	RepTables  map[string]map[string]string
 	OsUser     string
 	OsPassword string
+	OsPort     int
 	CKConns    map[string]*sql.DB
 	SshConns   map[string]*ssh.Client
 	Pool       *common.WorkerPool
@@ -105,7 +106,7 @@ func (this *CKRebalance) GetRepTables() (err error) {
 func (this *CKRebalance) InitSshConns(database string) (err error) {
 	for _, host := range this.Hosts {
 		var conn *ssh.Client
-		if conn, err = common.SSHConnect(this.OsUser, this.OsPassword, host, 22); err != nil {
+		if conn, err = common.SSHConnect(this.OsUser, this.OsPassword, host, this.OsPort); err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}

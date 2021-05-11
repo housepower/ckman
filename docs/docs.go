@@ -1498,6 +1498,10 @@ var doc = `{
                     "type": "string",
                     "example": "123456"
                 },
+                "sshPort": {
+                    "type": "integer",
+                    "example": 22
+                },
                 "user": {
                     "type": "string",
                     "example": "root"

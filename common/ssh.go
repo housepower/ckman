@@ -156,8 +156,8 @@ func SSHRun(client *ssh.Client, shell string) (result string, err error) {
 	return
 }
 
-func ScpFiles(files []string, path, user, password, ip string) error {
-	sftpClient, err := SFTPConnect(user, password, ip, 22)
+func ScpFiles(files []string, path, user, password, ip string, port int) error {
+	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
 		return err
 	}
@@ -172,8 +172,8 @@ func ScpFiles(files []string, path, user, password, ip string) error {
 	return nil
 }
 
-func ScpDownloadFiles(files []string, path, user, password, ip string) error {
-	sftpClient, err := SFTPConnect(user, password, ip, 22)
+func ScpDownloadFiles(files []string, path, user, password, ip string, port int) error {
+	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
 		return err
 	}
