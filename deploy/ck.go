@@ -583,9 +583,22 @@ func UpgradeCkCluster(conf *model.CKManClickHouseConfig, version string) error {
 }
 
 func StartCkCluster(conf *model.CKManClickHouseConfig) error {
+
+	statusList := clickhouse.GetCkClusterStatus(conf)
+	var chHosts []string
+	for _, status := range statusList {
+		if status.Status == model.CkStatusRed {
+			chHosts = append(chHosts, status.Ip)
+		}
+	}
+
+	if len(chHosts) == 0 {
+		return nil
+	}
+
 	deploy := &CKDeploy{
 		DeployBase: DeployBase{
-			Hosts:    conf.Hosts,
+			Hosts:    chHosts,
 			User:     conf.SshUser,
 			Password: conf.SshPassword,
 			Port:     conf.SshPort,
