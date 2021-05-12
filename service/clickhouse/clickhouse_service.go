@@ -395,10 +395,11 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 	index := 0
 	statusList := make([]model.CkClusterNode, len(conf.Hosts))
 	statusMap := make(map[string]string, len(conf.Hosts))
+	var lock sync.RWMutex
 	pool := common.NewWorkerPool(common.MaxWorkersDefault, len(conf.Hosts))
 	for _, host := range conf.Hosts {
 		innerHost := host
-		pool.Submit(func() {
+		_ = pool.Submit(func() {
 			tmp := &model.CKManClickHouseConfig{
 				Hosts:    []string{innerHost},
 				Port:     conf.Port,
@@ -409,9 +410,13 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 			}
 			service := NewCkService(tmp)
 			if err := service.InitCkService(); err != nil {
+				lock.Lock()
 				statusMap[innerHost] = model.CkStatusRed
+				lock.Unlock()
 			} else {
+				lock.Lock()
 				statusMap[innerHost] = model.CkStatusGreen
+				lock.Unlock()
 			}
 			service.Stop()
 		})

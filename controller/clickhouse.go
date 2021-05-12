@@ -11,7 +11,7 @@ import (
 
 	"github.com/housepower/ckman/service/nacos"
 
-	_ "github.com/ClickHouse/clickhouse-go"
+	client "github.com/ClickHouse/clickhouse-go"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/deploy"
 	_ "github.com/housepower/ckman/docs"
@@ -643,6 +643,7 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 		DataDir:    conf.Path,
 		OsUser:     conf.SshUser,
 		OsPassword: conf.SshPassword,
+		OsPort:     conf.SshPort,
 		DBTables:   make(map[string][]string),
 		SshConns:   make(map[string]*ssh.Client),
 		CKConns:    make(map[string]*sql.DB),
@@ -913,9 +914,19 @@ func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 		return
 	}
 
+	var gotError bool
 	conf = con.(model.CKManClickHouseConfig)
 	sessions, err := clickhouse.GetCkSlowSessions(&conf, limit)
 	if err != nil {
+		gotError = true
+		if exception, ok := err.(*client.Exception); ok {
+			if exception.Code == 60 {
+				// we do not return error when system.query_log is not exist
+				gotError = false
+			}
+		}
+	}
+	if gotError {
 		model.WrapMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_SLOW_SESSIONS_FAIL), err)
 		return
 	}

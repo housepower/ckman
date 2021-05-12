@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"github.com/housepower/ckman/log"
 	"net"
 	"os"
 	"path"
@@ -156,8 +157,8 @@ func SSHRun(client *ssh.Client, shell string) (result string, err error) {
 	return
 }
 
-func ScpFiles(files []string, path, user, password, ip string) error {
-	sftpClient, err := SFTPConnect(user, password, ip, 22)
+func ScpFiles(files []string, path, user, password, ip string, port int) error {
+	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
 		return err
 	}
@@ -172,8 +173,8 @@ func ScpFiles(files []string, path, user, password, ip string) error {
 	return nil
 }
 
-func ScpDownloadFiles(files []string, path, user, password, ip string) error {
-	sftpClient, err := SFTPConnect(user, password, ip, 22)
+func ScpDownloadFiles(files []string, path, user, password, ip string, port int) error {
+	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
 		return err
 	}
@@ -186,4 +187,18 @@ func ScpDownloadFiles(files []string, path, user, password, ip string) error {
 		}
 	}
 	return nil
+}
+
+func RemoteExecute(user, password, host string, port int, cmd string)(string, error) {
+	client, err := SSHConnect(user, password, host, port)
+	if err != nil {
+		return "", err
+	}
+	defer client.Close()
+	var output string
+	if output, err = SSHRun(client, cmd); err != nil {
+		log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
+		return "", err
+	}
+	return output, nil
 }
