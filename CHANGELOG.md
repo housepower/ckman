@@ -1,3 +1,16 @@
+# v 1.3.2
+- show version on web page
+- support routine, more faster to operate cluster
+- support internationalize 
+- not allow to modify isReplica
+- write clusters.json format
+- fix runtime error when get zk version
+- make ssh port configurable([#63](https://github.com/housepower/ckman/issues/63))
+- do not report error when system.query_log is not exist([#60](https://github.com/housepower/ckman/issues/60))
+- when node server is disconnect, we can also delete it
+- only start node when status is red
+
+
 # v1.3.1
 - The node health is displayed on the Manage interface, which is connected for Green, disconnected for RED
 - Error prompts to automatically disappear later
