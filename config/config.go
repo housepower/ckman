@@ -85,10 +85,10 @@ func fillDefault(c *CKManConfig) {
 
 func ParseConfigFile(path,version string) error {
 	f, err := os.Open(path)
-	defer f.Close()
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	data, err := ioutil.ReadAll(f)
 	if err != nil {

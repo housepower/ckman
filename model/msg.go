@@ -120,7 +120,7 @@ var MsgFlags_en = map[int]string{
 
 func GetMsg(c *gin.Context, code int) string {
 	lang := c.Request.Header.Get("Accept-Language")
-	MsgFlags := make(map[int]string)
+	var MsgFlags map[int]string
 	if strings.Contains(lang, "zh") {
 		MsgFlags = MsgFlags_zh
 	} else {

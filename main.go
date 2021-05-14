@@ -9,8 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/patrickmn/go-cache"
-	"github.com/spf13/cobra"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/server"
@@ -18,6 +16,8 @@ import (
 	"github.com/housepower/ckman/service/nacos"
 	"github.com/housepower/ckman/service/prometheus"
 	"github.com/housepower/ckman/service/zookeeper"
+	"github.com/patrickmn/go-cache"
+	"github.com/spf13/cobra"
 	"gopkg.in/sevlyar/go-daemon.v0"
 )
 
@@ -108,18 +108,15 @@ func main() {
 
 func handleSignal(ch chan os.Signal, svr *server.ApiServer) {
 	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
-	for {
-		sig := <-ch
-		log.Logger.Infof("receive signal: %v", sig)
-		log.Logger.Warn("ckman exiting...")
-		switch sig {
-		case syscall.SIGINT, syscall.SIGTERM:
-			termHandler(svr)
-		case syscall.SIGHUP:
-			termHandler(svr)
-			reloadHandler()
-		}
-		break
+	sig := <-ch
+	log.Logger.Infof("receive signal: %v", sig)
+	log.Logger.Warn("ckman exiting...")
+	switch sig {
+	case syscall.SIGINT, syscall.SIGTERM:
+		_ = termHandler(svr)
+	case syscall.SIGHUP:
+		_ = termHandler(svr)
+		_ = reloadHandler()
 	}
 	signal.Stop(ch)
 }
@@ -131,7 +128,7 @@ func termHandler(svr *server.ApiServer) error {
 
 	clickhouse.CkServices.Range(func(k, v interface{}) bool {
 		service := v.(*clickhouse.ClusterService)
-		service.Service.Stop()
+		_ = service.Service.Stop()
 		return true
 	})
 
@@ -174,7 +171,7 @@ func InitCmd() {
 	rootCmd.PersistentFlags().BoolVarP(&Daemon, "daemon", "d", false, "Run as daemon")
 	rootCmd.AddCommand(VersionCmd)
 
-	rootCmd.Execute()
+	_ = rootCmd.Execute()
 }
 
 // GetOutboundIP get preferred outbound ip of this machine

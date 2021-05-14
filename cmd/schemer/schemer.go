@@ -140,7 +140,6 @@ func main() {
 
 	db, err = common.ConnectClickHouse(cmdOps.DstHost, cmdOps.ChPort, model.ClickHouseDefaultDB, cmdOps.ChUser, cmdOps.ChPassword)
 	if err != nil {
-		err = errors.Wrapf(err, "")
 		return
 	}
 
@@ -153,7 +152,6 @@ func main() {
 	for i := 0; i < num; i++ {
 		log.Logger.Infof("executing %s", statements[i])
 		if _, err = db.Exec(statements[i]); err != nil {
-			err = errors.Wrapf(err, "")
 			return
 		}
 	}

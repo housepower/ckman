@@ -47,7 +47,7 @@ func (ck *ClickHouseController) syncDownClusters(c *gin.Context) (err error) {
 		var updated bool
 		if updated, err = clickhouse.UpdateLocalCkClusterConfig([]byte(data)); err == nil && updated {
 			buf, _ := clickhouse.MarshalClusters()
-			clickhouse.WriteClusterConfigFile(buf)
+			_ = clickhouse.WriteClusterConfigFile(buf)
 		}
 	}
 	return
@@ -56,7 +56,7 @@ func (ck *ClickHouseController) syncDownClusters(c *gin.Context) (err error) {
 func (ck *ClickHouseController) syncUpClusters(c *gin.Context) (err error) {
 	clickhouse.AddCkClusterConfigVersion()
 	buf, _ := clickhouse.MarshalClusters()
-	clickhouse.WriteClusterConfigFile(buf)
+	_ = clickhouse.WriteClusterConfigFile(buf)
 	err = ck.nacosClient.PublishConfig(string(buf))
 	if err != nil {
 		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, model.GetMsg(c, model.PUB_NACOS_CONFIG_FAIL), err)
@@ -249,6 +249,9 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 
 	conf = con.(model.CKManClickHouseConfig)
 	err = clickhouse.GetReplicaZkPath(&conf)
+	if err != nil {
+		return
+	}
 
 	if err = ck.syncDownClusters(c); err != nil {
 		return
@@ -628,8 +631,8 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
-	var conf model.CKManClickHouseConfig
-	conf = con.(model.CKManClickHouseConfig)
+
+	conf := con.(model.CKManClickHouseConfig)
 	hosts := make([]string, len(conf.Shards))
 	for index, shard := range conf.Shards {
 		hosts[index] = shard.Replicas[0].Ip

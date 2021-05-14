@@ -31,7 +31,6 @@ var (
 	GitCommitHash  string
 	BuildTimeStamp string
 	chTables       []string
-	cntErrors      int32
 )
 
 func initCmdOptions() {
@@ -105,6 +104,4 @@ func main() {
 		log.Logger.Fatalf("got error %+v", err)
 	}
 	log.Logger.Infof("purge done")
-
-	return
 }

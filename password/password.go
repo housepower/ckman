@@ -4,7 +4,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"github.com/housepower/ckman/common"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	"os"
 	"path"
 	"syscall"
@@ -21,7 +21,7 @@ Password must contain at least three character categories among the following:
 * Special characters (~!@#$%^&*_-+=|\(){}[]:;"'<>,.?/)`)
 
 	fmt.Printf("\nEnter password for [%s]: ", common.DefaultUserName)
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		fmt.Printf("\nEnter password fail: %v\n", err)
 		return
@@ -34,7 +34,7 @@ Password must contain at least three character categories among the following:
 	}
 
 	fmt.Printf("\nReenter password for [%s]: ", common.DefaultUserName)
-	dupPassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	dupPassword, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		fmt.Printf("\nReenter password fail: %v\n", err)
 		return

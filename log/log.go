@@ -13,7 +13,7 @@ func InitLogger(path string, config *config.CKManLogConfig) {
 	writeSyncer := getLogWriter(path, config)
 	encoder := getEncoder()
 	level := zapcore.InfoLevel
-	level.UnmarshalText([]byte(config.Level))
+	_ = level.UnmarshalText([]byte(config.Level))
 	core := zapcore.NewCore(encoder, writeSyncer, level)
 
 	logger := zap.New(core, zap.AddCaller())

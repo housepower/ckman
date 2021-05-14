@@ -318,7 +318,7 @@ func (d *CKDeploy) Config() error {
 	for index, host := range d.Hosts {
 		innerIndex := index
 		innerHost := host
-		d.Pool.Submit(func() {
+		_ = d.Pool.Submit(func() {
 			files := make([]string, 3)
 			files[0] = conf
 
@@ -829,7 +829,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	if err != nil {
 		return err
 	}
-	clickhouse.GetReplicaZkPath(conf)
+	_ = clickhouse.GetReplicaZkPath(conf)
 	var zooPaths []string
 	for _, path := range conf.ZooPath {
 		zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
@@ -936,105 +936,105 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	return nil
 }
 
-func updateMetrikaconfig(user, password, host, clusterName string, port, sshPort int, param CkUpdateNodeParam) error {
-	templateFile := "metrika.xml"
-	confFile := "/etc/clickhouse-server/metrika.xml"
-
-	client, err := common.SSHConnect(user, password, host, sshPort)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	cmd := fmt.Sprintf("cat %s", confFile)
-	output, err := common.SSHRun(client, cmd)
-	if err != nil {
-		log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
-		return err
-	}
-
-	metrika := Metrika{}
-	err = xml.Unmarshal([]byte(output), &metrika)
-	if err != nil {
-		return err
-	}
-
-	found := false
-	for index, cluster := range metrika.CkServers {
-		if cluster.XMLName.Local == clusterName {
-			found = true
-			shards := metrika.CkServers[index].Shards
-			if param.Op == CkClusterNodeAdd {
-				if len(shards) <= param.Shard {
-					shard := shards[param.Shard-1]
-					shard.Replication = true
-					shard.Replicas = append(shard.Replicas, Replica{
-						Host: param.Ip,
-						Port: port,
-					})
-				} else {
-					replicas := make([]Replica, 1)
-					replica := Replica{
-						Host: param.Ip,
-						Port: port,
-					}
-					replicas[0] = replica
-					shard := Shard{
-						Replication: false,
-						Replicas:    replicas,
-					}
-					shards = append(shards, shard)
-				}
-			} else if param.Op == CkClusterNodeDelete {
-				for i, shard := range shards {
-					found := false
-					for j, replica := range shard.Replicas {
-						if replica.Host == param.Hostname || replica.Host == param.Ip {
-							found = true
-							if len(shard.Replicas) > 1 {
-								shards[i].Replicas = append(shard.Replicas[:j], shard.Replicas[j+1:]...)
-								if len(shards[i].Replicas) == 1 {
-									shards[i].Replication = false
-								}
-							} else {
-								metrika.CkServers[index].Shards = append(shards[:i], shards[i+1:]...)
-							}
-							break
-						}
-					}
-					if found {
-						break
-					}
-				}
-			} else {
-				return errors.Errorf("unsupported operate %d", param.Op)
-			}
-			break
-		}
-	}
-	if !found {
-		return errors.Errorf("can't find cluster")
-	}
-
-	data, err := xml.MarshalIndent(metrika, "", "  ")
-	if err != nil {
-		return err
-	}
-	tmplFile := path.Join(config.GetWorkDirectory(), "package", templateFile)
-	localFd, err := os.OpenFile(tmplFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return err
-	}
-	defer localFd.Close()
-	if _, err := localFd.Write(data); err != nil {
-		return err
-	}
-	if err := common.ScpFiles([]string{tmplFile}, confFile, user, password, host, sshPort); err != nil {
-		return err
-	}
-
-	return nil
-}
+//func updateMetrikaconfig(user, password, host, clusterName string, port, sshPort int, param CkUpdateNodeParam) error {
+//	templateFile := "metrika.xml"
+//	confFile := "/etc/clickhouse-server/metrika.xml"
+//
+//	client, err := common.SSHConnect(user, password, host, sshPort)
+//	if err != nil {
+//		return err
+//	}
+//	defer client.Close()
+//
+//	cmd := fmt.Sprintf("cat %s", confFile)
+//	output, err := common.SSHRun(client, cmd)
+//	if err != nil {
+//		log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
+//		return err
+//	}
+//
+//	metrika := Metrika{}
+//	err = xml.Unmarshal([]byte(output), &metrika)
+//	if err != nil {
+//		return err
+//	}
+//
+//	found := false
+//	for index, cluster := range metrika.CkServers {
+//		if cluster.XMLName.Local == clusterName {
+//			found = true
+//			shards := metrika.CkServers[index].Shards
+//			if param.Op == CkClusterNodeAdd {
+//				if len(shards) <= param.Shard {
+//					shard := shards[param.Shard-1]
+//					shard.Replication = true
+//					shard.Replicas = append(shard.Replicas, Replica{
+//						Host: param.Ip,
+//						Port: port,
+//					})
+//				} else {
+//					replicas := make([]Replica, 1)
+//					replica := Replica{
+//						Host: param.Ip,
+//						Port: port,
+//					}
+//					replicas[0] = replica
+//					shard := Shard{
+//						Replication: false,
+//						Replicas:    replicas,
+//					}
+//					shards = append(shards, shard)
+//				}
+//			} else if param.Op == CkClusterNodeDelete {
+//				for i, shard := range shards {
+//					found := false
+//					for j, replica := range shard.Replicas {
+//						if replica.Host == param.Hostname || replica.Host == param.Ip {
+//							found = true
+//							if len(shard.Replicas) > 1 {
+//								shards[i].Replicas = append(shard.Replicas[:j], shard.Replicas[j+1:]...)
+//								if len(shards[i].Replicas) == 1 {
+//									shards[i].Replication = false
+//								}
+//							} else {
+//								metrika.CkServers[index].Shards = append(shards[:i], shards[i+1:]...)
+//							}
+//							break
+//						}
+//					}
+//					if found {
+//						break
+//					}
+//				}
+//			} else {
+//				return errors.Errorf("unsupported operate %d", param.Op)
+//			}
+//			break
+//		}
+//	}
+//	if !found {
+//		return errors.Errorf("can't find cluster")
+//	}
+//
+//	data, err := xml.MarshalIndent(metrika, "", "  ")
+//	if err != nil {
+//		return err
+//	}
+//	tmplFile := path.Join(config.GetWorkDirectory(), "package", templateFile)
+//	localFd, err := os.OpenFile(tmplFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+//	if err != nil {
+//		return err
+//	}
+//	defer localFd.Close()
+//	if _, err := localFd.Write(data); err != nil {
+//		return err
+//	}
+//	if err := common.ScpFiles([]string{tmplFile}, confFile, user, password, host, sshPort); err != nil {
+//		return err
+//	}
+//
+//	return nil
+//}
 
 func ensureHosts(d *CKDeploy) error {
 	addresses := make([]string, 0)
@@ -1066,7 +1066,7 @@ func ensureHosts(d *CKDeploy) error {
 				lastError = err
 				return
 			}
-			common.Save(h)
+			_ = common.Save(h)
 			if err := common.ScpFiles([]string{tmplFile}, "/etc/", d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return

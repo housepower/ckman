@@ -54,7 +54,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 				fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
 			return
 		}
-		json.Unmarshal(body, &tmp)
+		_ = json.Unmarshal(body, &tmp)
 		tmp.Version = strings.Split(strings.Split(tmp.Version, ",")[0], "-")[0]
 		zkList[index] = tmp
 	}
