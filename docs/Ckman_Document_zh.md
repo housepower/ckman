@@ -69,6 +69,77 @@ make rpm VERSION=x.x.x
 - `nacos`(>`1.4`，目前不支持`2.0`)(非必需)
 - `zookeeper`(>`3.5.0`, 推荐 )
 
+## 监控配置(可选，不影响ckman核心功能)
+
+### zookeeper监控配置
+
+`zookeeper`集群是`clickhouse`实现分布式集群的重要组件，需要提前搭建好。由于`clickhouse`数据量极大，避免给`zookeeper`带来太大的压力，最好给`clickhouse`单独部署一套集群，不要和其他业务公用。
+
+本文默认`zookeeper`集群已经搭建完成。我们需要在zk各节点的`zoo.cfg`配置文件里加上如下配置：
+
+```ini
+metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider
+metricsProvider.httpPort=7070  #暴露给promethues的监控端口
+admin.enableServer=true
+admin.serverPort=8080   #暴露给四字命令如mntr等的监控端口，3.5.0以上版本支持
+```
+
+然后依次重启`zookeeper`各个节点。
+
+### clickhouse监控配置
+
+`ckman`部署的`clickhouse`集群默认监听了`9363`端口上报`metric`给`prometheus`，因此无需做任何配置。
+
+如果集群是导入的，请确保`/etc/clickhouse-server/config.xml`中有以下配置内容：
+
+```xml
+<!-- Serve endpoint for Prometheus monitoring. -->
+    <!--
+        endpoint - mertics path (relative to root, statring with "/")
+        port - port to setup server. If not defined or 0 than http_port used
+        metrics - send data from table system.metrics
+        events - send data from table system.events
+        asynchronous_metrics - send data from table system.asynchronous_metrics
+        status_info - send data from different component from CH, ex: Dictionaries status
+    -->
+    <prometheus>
+        <endpoint>/metrics</endpoint>
+        <port>9363</port>
+
+        <metrics>true</metrics>
+        <events>true</events>
+        <asynchronous_metrics>true</asynchronous_metrics>
+        <status_info>true</status_info>
+    </prometheus>
+```
+
+
+
+### node监控配置
+
+`node_exporter`是用来监控`clickhouse`节点所在机器的一些系统指标的一款工具，因此需要安装在`ck`节点所在的机器，默认监听`9100`端口。
+
+安装步骤略。
+
+### promethues配置
+
+```yaml
+- job_name: 'node_exporter'
+  scrape_interval: 10s
+  static_configs:
+  - targets: ['192.168.0.1:9100', '192.168.0.2:9100', '192.168.0.3:9100', '192.168.0.4:9100']
+ 
+- job_name: 'clickhouse'
+  scrape_interval: 10s
+  static_configs:
+  - targets: ['192.168.0.1:9363', '192.168.0.2:9363', '192.168.0.3:9363', '192.168.0.4:9363']
+ 
+- job_name: 'zookeeper'
+  scrape_interval: 10s
+  static_configs:
+  - targets: ['192.168.0.1.40:7070', '192.168.0.2.41:7070', '192.168.0.3.42:7070']
+```
+
 ## rpm安装
 
 ### 安装
@@ -76,7 +147,7 @@ make rpm VERSION=x.x.x
 `rpm`安装直接使用命令安装即可：
 
 ```bash
-rpm -ivh ckman-1.2.5.x86_64.rpm
+rpm -ivh ckman-1.3.1.x86_64.rpm
 ```
 
 安装完成后，在`/etc/ckman`目录下，会生成工作目录（日志和配置文件等都在该目录下）。
@@ -104,7 +175,7 @@ systemctl start ckman
 可以在任意目录进行安装。安装方式为直接解压安装包即可。
 
 ```bash
-tar -xzvf ckman-1.5.0-201216-6b03a3a.Linux.x86_64.tar.gz
+tar -xzvf ckman-1.3.1-210428.Linux.x86_64.tar.gz
 ```
 
 ### 启动
@@ -159,29 +230,6 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 |              | `namespace`       |                                    | 指定`nacos`的`namespace`，默认为`DEFAULT`                |
 |              | `group`           | `DEFAULT_GROUP`                    | 向`nacos`注册的服务所处的组                              |
 |              | `data_id`         | `ckman`                            | 向`nacos`注册的服务名称、数据项名称                      |
-
-
-
-## 安装部署node_exporter和prometheus
-
-参考文档： http://www.eryajf.net/2468.html
-
->   node_exporter和prometheus不一定要部署在同一台主机，在prometheus的配置文件中指定监控的node_exporter即可。
->
->   ```yaml
->   static_configs:
->       - targets: ['localhost:9100']
->   ```
->
->   node_exporter一般是用来监控系统性能指标的，因此一般是配置在各个节点上。
->
->   prometheus和ckman不一定要配置在同一台主机，在ckman配置文件中指定prometheus的地址和端口即可。
->
->   ```yaml
->   prometheus:
->     hosts:
->       - 192.168.21.73:9090
->   ```
 
 # ckman功能说明
 
@@ -251,7 +299,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 >
 >   执行完成后，在`conf`目录下会生成一个新的`password`文件，覆盖掉原来的`password`，这样就可以使用新的密码登录了。
 
-登陆成功后会得到一个`token`，该`token`在1个小时内有效，`token`失效后需要重新登录。
+登陆成功后会得到一个`token`，该`token`在1个小时内有效(如果不做任何操作的话)，`token`失效后需要重新登录。
 
 登陆成功后会进入如下所示的主页：
 
@@ -275,17 +323,17 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
     "mode": "import",	
     "@hosts":"ck节点ip列表",
     "hosts": [	
-      "192.168.101.40",
-      "192.168.101.41",
-      "192.168.101.42",
-      "192.168.101.57"
+      "192.168.0.1",
+      "192.168.0.2",
+      "192.168.0.3",
+      "192.168.0.4"
     ],    
     "@names":"ck节点的hostname",
     "names": [
-      "vm10140",
-      "vm10141",
-      "vm10142",
-      "zhanglei01"
+      "node1",
+      "node2",
+      "node3",
+      "node4"
     ],
     "@port": "ck节点的TCP端口",
     "port": 9000,
@@ -316,31 +364,33 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
     "@sshUser": "ssh连接节点主机的用户名，如果是import的集群，此处为空",
     "sshUser": "",      
     "@sshPassword": "ssh连接节点主机的密码",
-    "sshPassword": "",  
+    "sshPassword": "", 
+    "@sshPort":"ssh 端口，默认为22"
+    "sshPort":22,
     "@shards": "分片信息，以下表示2分片2副本",
     "shards": [			
       {
         "@replicas": "副本信息，包含ip和hostname"
         "replicas": [  
           {
-            "ip": "192.168.101.40",
-            "hostname": "vm10140"
+            "ip": "192.168.0.1",
+            "hostname": "node1"
           },
           {
-            "ip": "192.168.101.41",
-            "hostname": "vm10141"
+            "ip": "192.168.0.2",
+            "hostname": "node2"
           }
         ]
       },
       {
         "replicas": [
           {
-            "ip": "192.168.101.42",
-            "hostname": "vm10142"
+            "ip": "192.168.0.3",
+            "hostname": "node3"
           },
           {
-            "ip": "192.168.101.57",
-            "hostname": "zhanglei01"
+            "ip": "192.168.0.4",
+            "hostname": "node4"
           }
         ]
       }
@@ -397,6 +447,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 >       -   如果开启了副本，默认是1个`shard`一个副本，所以节点数量一定要是偶数，否则会报错
 >       -   如果要增加节点的副本数，可通过增加节点完成，创建集群时最多只能指定一个副本
 >       -   如果没有开启副本，则有几个节点就有几个`shard`
+>       -   注意：集群是否支持副本在部署集群时就已经决定了，后续不可更改
 >   -   `Zookeeper Node List`: `zk`列表
 >       -   `ckman`并没有提供`zookeeper`集群搭建的功能，因此在部署集群之前，需要将`zookeeper`集群搭建好。
 >   -   `ZooKeeper Port`: `zk`端口，默认是`2181`
@@ -409,6 +460,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 >   -   `SSH Username`: `ssh`登录`ck`节点的用户名
 >       -   该用户必须具有`root`权限或是`root`本身，否则部署无法成功，一般都是`root`。
 >   -   `SSH Password`: `ssh`登录`ck`节点的密码
+>   -   `SSH Port`: `ssh`端口，默认是`22`
 
 通过此种方式安装部署成功的集群的`mode`就是`deploy`，可以对其进行删、改、`rebalance`、启停、升级以及节点的增删等操作。
 
@@ -470,7 +522,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 >   -   `Rebalance Cluster`
 >       -   一般情况下，通过`clickhouse-sinker`插入的数据基本上是均衡分布在各个节点的。但是如果新增了一个节点，那么新增的节点数据一定是空的，这时候可以通过`rebalance`工具进行数据搬运
 >       -   `rebalance`搬运数据是直接将某个分区的数据直接搬运到目标节点，在搬运的过程中如果有查询操作，正在搬运的这部分数据是无法查到的，因此在进行`rebalance`操作时，请避免查询操作（`rebalance`操作时间很短，一般不会影响业务）
->       -   **需要注意的是，如果集群是开启了副本模式，`Rebalance`是通过`attach`和`detach`分区文件的方式进行数据迁移的；如果集群不是副本模式，则通过ssh进行操作，这时就需要集群各个节点之间建立互信。****
+>       -   **需要注意的是，如果集群是开启了副本模式，`Rebalance`是通过`attach`和`detach`分区文件的方式进行数据迁移的；如果集群不是副本模式，则通过ssh进行操作，这时就需要集群各个节点之间建立互信。**
 
 #### 升级集群
 
@@ -486,35 +538,20 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 
 >-   `New Node IP`: 新节点的`IP`
 >-   `Node Shard`: 节点的`Shard NUmber`。
->    -   如果填写的`shard`是已经存在的，那么增加的节点会作为已存在`shard`的一个副本；如果`shard`不存在（一般是最大的`shard`编号+1，如果不是就不正确了），就会新增加一个`shard`。
+>   -   如果填写的`shard`是已经存在的，那么增加的节点会作为已存在`shard`的一个副本；如果`shard`不存在（一般是最大的`shard`编号`+1`，如果不是就不正确了），就会新增加一个`shard`。
+>-   如果集群不支持副本模式，则每个`shard`只能有一个节点，不可以给已有`shard`添加副本节点，如果集群支持副本模式，则可以在任意`shard`增加节点。
 
 增加节点时`ckman`会先将集群整体都停掉，然后将新节点的信息增加到`metrika.xml`中，同步给所有的节点，再重启集群。
 
 #### 删除节点
 
-删除节点时需要注意的是：如果某个`shard`本来是有副本的，删除节点后该`shard`副本没有了，要同时更新`replica`的标志，删除节点并不会销毁该节点，只会停止该节点的`clickhouse`服务，并从`cluster.json`中删除掉。
+删除节点时需要注意的是：删除节点并不会销毁该节点，只会停止该节点的`clickhouse`服务，并从`cluster.json`中删除掉。
+
+删除节点时，如果某个`shard`有且只有一个节点，那么这个节点一般是不可以被删除的，除非该节点处于`shard`编号的最大位置。
 
 同增加节点一样，删除节点`ckman`也会先将集群停掉，将删除后的信息更新到`metrika.xml`中，同步给其他所有节点，再重启集群。
 
 ## 监控管理
-
-监控管理需要提前配置好`node_exporter`和`prometheus`。
-
-`node_exporter`需要配置在`ck`节点上，这样才能监控`ck`的指标。
-
-在`ck`节点安装好`node_exporter`后，再在`prometheus`中配置`node_exporter`的节点信息。
-
-```yaml
-scrape_configs:
-  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
-  - job_name: 'prometheus'
-
-    # metrics_path defaults to '/metrics'
-    # scheme defaults to 'http'.
-
-    static_configs:
-    - targets: ['localhost:9090', 'localhost:9100', '192.168.101.40:9100', '192.168.101.41:9100', '192.168.101.42:9100', '192.168.101.57:9100']
-```
 
 ### 集群监控
 
@@ -526,7 +563,7 @@ scrape_configs:
 
 | 指标               | 说明                                                         |
 | ------------------ | ------------------------------------------------------------ |
-| `clickhouse.Query` | 针对Clickhouse集群的分布式表发起的查询，按照发起时刻的分布图 |
+| `clickhouse.Query` | 针对`Clickhouse`集群的分布式表发起的查询，按照发起时刻的分布图 |
 
 #### ClickHouse Node KPIs
 
@@ -576,9 +613,9 @@ scrape_configs:
 
 `Queries Cost`有三个值：
 
--   `0.5`：过去7天50%SQL的平均耗时
--   `0.99`：过去7天99%SQL的平均耗时
--   `max`：过去7天 SQL最大耗时
+-   `0.5`：过去7天`50% SQL`的平均耗时
+-   `0.99`：过去7天`99% SQL`的平均耗时
+-   `max`：过去7天 `SQL`最大耗时
 
 ### Table Replication Status
 
@@ -647,7 +684,7 @@ scrape_configs:
 如：
 
 ```bash
-exporter --ch-hosts=192.168.101.40,192.168.101.42 --ch-user=eoi --ch-password=123456 --ch-tables=dbtest,tbtesttype --hdfs-addr=localhost:8020 --hdfs-dir=/data
+exporter --ch-hosts=192.168.0.1,192.168.0.2 --ch-user=eoi --ch-password=123456 --ch-tables=dbtest,tbtesttype --hdfs-addr=localhost:8020 --hdfs-dir=/data
 ```
 
 参数说明：
@@ -690,7 +727,7 @@ exporter --ch-hosts=192.168.101.40,192.168.101.42 --ch-user=eoi --ch-password=12
 如：
 
 ```bash
-purger --ch-hosts=192.168.101.40,192.168.101.42 --ch-port=9000 --ch-user=eoi --ch_password=123456 --ch-database=default --ch-tables=dbtest --dt-begin=2021-02-01 --dt-end=2021-02-28
+purger --ch-hosts=192.168.0.1,192.168.0.2 --ch-port=9000 --ch-user=eoi --ch_password=123456 --ch-database=default --ch-tables=dbtest --dt-begin=2021-02-01 --dt-end=2021-02-28
 ```
 
 参数说明：
@@ -721,7 +758,7 @@ purger --ch-hosts=192.168.101.40,192.168.101.42 --ch-port=9000 --ch-user=eoi --c
 通过该工具，会在目标节点上创建于源节点除`system`数据库以外的所有数据库和表。如：
 
 ```bash
-schemer --src-host=192.168.101.40 --dst-host=192.168.21.73 --ch-port=9000 --ch-user=eoi --ch-password=123456
+schemer --src-host=192.168.0.1 --dst-host=192.168.0.2 --ch-port=9000 --ch-user=eoi --ch-password=123456
 ```
 
 参数说明：
@@ -785,7 +822,7 @@ schemer --src-host=192.168.101.40 --dst-host=192.168.21.73 --ch-port=9000 --ch-u
 举例如下：
 
 ```bash
-GET  http://192.168.31.55:8808/api/v1/ck/table/test?tableName=tbtest&database=default
+GET  http://192.168.0.1:8808/api/v1/ck/table/test?tableName=tbtest&database=default
 ```
 
 返回结果：
@@ -947,7 +984,7 @@ POST /api/v1/ck/table/test
 举例如下：
 
 ```bash
-DELETE  http://192.168.31.55:8808/api/v1/ck/table/test?tableName=t1&database=default
+DELETE  http://192.168.0.1:8808/api/v1/ck/table/test?tableName=t1&database=default
 ```
 
 通过以上操作就能删除掉表`t1`。删除时先删`dist_`开头的分布式表，再删表`t1`。

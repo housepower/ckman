@@ -443,6 +443,19 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 		return errors.Errorf("clickhouse service unavailable")
 	}
 
+	//before create, drop table if exists
+	dropSql := fmt.Sprintf("DROP TABLE IF EXISTS %s.%s ON CLUSTER %s", params.DB, params.Name, params.Cluster)
+	log.Logger.Debugf(dropSql)
+	if _, err := ck.DB.Exec(dropSql); err != nil {
+		return err
+	}
+
+	dropSql = fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
+	log.Logger.Debugf(dropSql)
+	if _, err := ck.DB.Exec(dropSql); err != nil {
+		return err
+	}
+
 	columns := make([]string, 0)
 	for _, value := range params.Fields {
 		columns = append(columns, fmt.Sprintf("`%s` %s %s", value.Name, value.Type, strings.Join(value.Options, " ")))
