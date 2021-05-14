@@ -118,7 +118,7 @@ func ReadClusterConfigFile() ([]byte, error) {
 }
 
 func UnmarshalClusters(data []byte) (map[string]interface{}, error) {
-	if data == nil || len(data) == 0 {
+	if len(data) == 0 {
 		return nil, nil
 	}
 
@@ -265,7 +265,7 @@ func GetCkService(clusterName string) (*CkService, error) {
 			return clusterService.Service, nil
 		} else {
 			// Fixme, Service maybe in use
-			clusterService.Service.Stop()
+			_ = clusterService.Service.Stop()
 		}
 	}
 
@@ -296,7 +296,7 @@ func GetCkNodeService(clusterName string, node string) (*CkService, error) {
 			return clusterService.Service, nil
 		} else {
 			// Fixme, Service maybe in use
-			clusterService.Service.Stop()
+			_ = clusterService.Service.Stop()
 		}
 	}
 
@@ -418,7 +418,7 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 				statusMap[innerHost] = model.CkStatusGreen
 				lock.Unlock()
 			}
-			service.Stop()
+			_ = service.Stop()
 		})
 	}
 	pool.Wait()
@@ -508,9 +508,7 @@ func (ck *CkService) DeleteTable(conf *model.CKManClickHouseConfig, params *mode
 
 	//delete zoopath
 	tableName := fmt.Sprintf("%s.%s", params.DB, params.Name)
-	if _, ok := conf.ZooPath[tableName]; ok {
-		delete(conf.ZooPath, tableName)
-	}
+	delete(conf.ZooPath, tableName)
 
 	return nil
 }
@@ -648,7 +646,7 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 		// Create our map, and retrieve the value for each column from the pointers slice,
 		// storing it in the map with the name of the column as the key.
 		m := make([]interface{}, len(cols))
-		for i, _ := range columnPointers {
+		for i := range columnPointers {
 			val := columnPointers[i].(*interface{})
 			m[i] = *val
 		}
@@ -749,7 +747,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 
 		// get table names
 		var databases []string
-		dbtables := make(map[string][]string)
+		var dbtables map[string][]string
 		if databases, dbtables, err = common.GetMergeTreeTables("MergeTree", service.DB); err != nil {
 			return nil, err
 		}
@@ -802,7 +800,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 			}
 
 			// get success, failed counts
-			query = fmt.Sprintf("SELECT (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name, type, count() AS counts from system.query_log where tbl_name != '' AND is_initial_query=1 AND event_time >= subtractDays(now(), 1) group by tbl_name, type")
+			query = "SELECT (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name, type, count() AS counts from system.query_log where tbl_name != '' AND is_initial_query=1 AND event_time >= subtractDays(now(), 1) group by tbl_name, type"
 			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
 			if err != nil {
@@ -822,7 +820,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 			}
 
 			// get query duration
-			query = fmt.Sprintf("SELECT (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name, quantiles(0.5, 0.99, 1.0)(query_duration_ms) AS duration from system.query_log where tbl_name != '' AND type = 2 AND is_initial_query=1 AND event_time >= subtractDays(now(), 7) group by tbl_name")
+			query = "SELECT (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name, quantiles(0.5, 0.99, 1.0)(query_duration_ms) AS duration from system.query_log where tbl_name != '' AND type = 2 AND is_initial_query=1 AND event_time >= subtractDays(now(), 7) group by tbl_name"
 			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
 			if err != nil {
@@ -950,7 +948,7 @@ func getReplicaZkPath(db *sql.DB, database, table string) (string, error) {
 	var err error
 	var path string
 	var rows *sql.Rows
-	query := fmt.Sprintf(`SHOW CREATE TABLE %s.%s`, database, table)
+	query := fmt.Sprintf("SHOW CREATE TABLE `%s`.`%s`", database, table)
 	log.Logger.Debugf("database:%s, table:%s: query: %s", database, table, query)
 	if rows, err = db.Query(query); err != nil {
 		err = errors.Wrapf(err, "")

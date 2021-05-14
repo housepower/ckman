@@ -14,7 +14,7 @@ type ResponseBody struct {
 	Entity  interface{} `json:"entity"`
 }
 
-func WrapMsg(c *gin.Context, retCode int, retMsg string, entity interface{}) error {
+func WrapMsg(c *gin.Context, retCode int, retMsg string, entity interface{}) {
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "application/json; charset=utf-8")
 
@@ -39,14 +39,12 @@ func WrapMsg(c *gin.Context, retCode int, retMsg string, entity interface{}) err
 	jsonBytes, err := json.Marshal(resp)
 	if err != nil {
 		log.Logger.Errorf("%s %s marshal response body fail: %s", c.Request.Method, c.Request.RequestURI, err.Error())
-		return err
+		return
 	}
 
 	_, err = c.Writer.Write(jsonBytes)
 	if err != nil {
 		log.Logger.Errorf("%s %s write response body fail: %s", c.Request.Method, c.Request.RequestURI, err.Error())
-		return err
+		return
 	}
-
-	return nil
 }

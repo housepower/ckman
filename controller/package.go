@@ -83,7 +83,7 @@ func (p *PackageController) Upload(c *gin.Context) {
 
 func ParserFormData(request *http.Request) (string, error) {
 	// Parse multipart form, 200 << 20 specifies a maximum upload of 200 MB files
-	request.ParseMultipartForm(200 << 20)
+	_ = request.ParseMultipartForm(200 << 20)
 	// FormFile returns the first file for the given key `file`
 	// It also returns the FileHeader so we can get the Filename, Header and the size of the file
 	clientFd, handler, err := request.FormFile(FormPackageFieldName)
@@ -218,7 +218,7 @@ func GetAllVersions(files []string) []string {
 		}
 	}
 
-	for key, _ := range ckCommonMap {
+	for key := range ckCommonMap {
 		_, clientOk := ckClientMap[key]
 		_, serverOk := ckServerMap[key]
 		if clientOk && serverOk {

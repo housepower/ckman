@@ -206,7 +206,6 @@ func (this *ArchiveHDFS) Export(host, table string, slots []time.Time) {
 		}
 		this.ExportSlot(host, table, i, slotBeg, slotEnd)
 	}
-	return
 }
 
 func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {

@@ -242,7 +242,7 @@ func ListenConfigCallback(namespace, group, dataId, data string) {
 	if data != "" {
 		if updated, err := clickhouse.UpdateLocalCkClusterConfig([]byte(data)); err == nil && updated {
 			buf, _ := clickhouse.MarshalClusters()
-			clickhouse.WriteClusterConfigFile(buf)
+			_ = clickhouse.WriteClusterConfigFile(buf)
 		}
 	}
 }
@@ -262,9 +262,9 @@ func (c *NacosClient) Subscribe() error {
 
 func (c *NacosClient) SubscribeCallback(services []model.SubscribeService, err error) {
 	log.Logger.Infof("service %s group %s changed", c.ServiceName, c.GroupName)
-	instances, err := c.GetAllInstances()
-	if err != nil {
-		log.Logger.Errorf("get instances fail: %v", err)
+	instances, err1 := c.GetAllInstances()
+	if err1 != nil {
+		log.Logger.Errorf("get instances fail: %v", err1)
 		return
 	}
 

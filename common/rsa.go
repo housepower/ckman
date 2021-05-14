@@ -97,5 +97,8 @@ func (encry RSAEncryption) Encode(decode []byte, privateKey string) ([]byte, err
 		return []byte(""), err
 	}
 	rsadata, err := ioutil.ReadAll(output)
+	if err != nil {
+		return []byte(""), err
+	}
 	return []byte(base64.StdEncoding.EncodeToString(rsadata)), nil
 }

@@ -141,5 +141,4 @@ func main() {
 		log.Logger.Fatalf("got error %+v", err)
 	}
 	log.Logger.Info("export success!")
-	return
 }

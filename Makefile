@@ -124,3 +124,7 @@ release:
 	make package VERSION=${VERSION}
 	docker push quay.io/housepower/ckman:${VERSION}
 	docker push quay.io/housepower/ckman:latest
+
+.PHONY: lint
+lint:
+	golangci-lint run -D errcheck,govet

@@ -58,7 +58,6 @@ func pubKeyIO(pub *rsa.PublicKey, in io.Reader, out io.Writer, isEncrytp bool) (
 			return err
 		}
 	}
-	return nil
 }
 
 func priKeyIO(pri *rsa.PrivateKey, r io.Reader, w io.Writer, isEncrytp bool) (err error) {
@@ -94,7 +93,6 @@ func priKeyIO(pri *rsa.PrivateKey, r io.Reader, w io.Writer, isEncrytp bool) (er
 			return err
 		}
 	}
-	return nil
 }
 
 func pubKeyDecrypt(pub *rsa.PublicKey, data []byte) ([]byte, error) {

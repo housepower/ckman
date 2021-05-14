@@ -69,7 +69,7 @@ func (d *DeployController) syncDownClusters(c *gin.Context) (err error) {
 		var updated bool
 		if updated, err = clickhouse.UpdateLocalCkClusterConfig([]byte(data)); err == nil && updated {
 			buf, _ := clickhouse.MarshalClusters()
-			clickhouse.WriteClusterConfigFile(buf)
+			_ = clickhouse.WriteClusterConfigFile(buf)
 		}
 	}
 	return
@@ -78,7 +78,7 @@ func (d *DeployController) syncDownClusters(c *gin.Context) (err error) {
 func (d *DeployController) syncUpClusters(c *gin.Context) (err error) {
 	clickhouse.AddCkClusterConfigVersion()
 	buf, _ := clickhouse.MarshalClusters()
-	clickhouse.WriteClusterConfigFile(buf)
+	_ = clickhouse.WriteClusterConfigFile(buf)
 	err = d.nacosClient.PublishConfig(string(buf))
 	if err != nil {
 		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, model.GetMsg(c, model.PUB_NACOS_CONFIG_FAIL), err)

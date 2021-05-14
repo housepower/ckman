@@ -4,15 +4,13 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/housepower/ckman/business"
-	"os"
-	"strings"
-	"sync"
-
 	_ "github.com/ClickHouse/clickhouse-go"
+	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"golang.org/x/crypto/ssh"
+	"os"
+	"strings"
 )
 
 // Rebalance the whole cluster. It queries every shard to get partitions size, calculates a plan, for each selected partition, detach from source node, rsync to dest node and attach it.
@@ -39,13 +37,6 @@ var (
 	GitCommitHash  string
 	BuildTimeStamp string
 	chHosts        []string
-	chRepTables    map[string]map[string]string //table -> host -> zookeeper_path
-	chTables       []string
-	sshConns       map[string]*ssh.Client
-	sshErr         error
-	chConns        map[string]*sql.DB
-	locks          map[string]*sync.Mutex
-	globalPool     *common.WorkerPool
 )
 
 func initCmdOptions() {
@@ -123,5 +114,4 @@ func main() {
 		log.Logger.Fatalf("got error %+v", err)
 	}
 	log.Logger.Infof("rebalance done")
-	return
 }

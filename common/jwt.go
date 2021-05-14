@@ -8,7 +8,6 @@ import (
 var (
 	DefaultUserName   = "ckman"
 	DefaultSigningKey = "change me"
-	TokenExpireTime   = 3600
 )
 
 type JWT struct {
@@ -37,10 +36,8 @@ func (j *JWT) ParserToken(tokenString string) (*CustomClaims, int) {
 		return j.SigningKey, nil
 	})
 
-	if err != nil {
-		if _, ok := err.(*jwt.ValidationError); ok {
-			return nil, model.JWT_TOKEN_INVALID
-		}
+	if _, ok := err.(*jwt.ValidationError); ok {
+		return nil, model.JWT_TOKEN_INVALID
 	}
 
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {

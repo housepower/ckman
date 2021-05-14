@@ -105,7 +105,7 @@ func SFTPUpload(sftpClient *sftp.Client, localFilePath, remoteDir string) error 
 		if n == 0 {
 			break
 		}
-		dstFile.Write(buf[0:n])
+		_, _ = dstFile.Write(buf[0:n])
 	}
 
 	return nil
@@ -133,7 +133,7 @@ func SFTPDownload(sftpClient *sftp.Client, remoteFilePath, localDir string) erro
 		if n == 0 {
 			break
 		}
-		dstFile.Write(buf[0:n])
+		_, _ = dstFile.Write(buf[0:n])
 	}
 
 	return nil

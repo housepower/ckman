@@ -88,7 +88,7 @@ func (this *CKRebalance) GetRepTables() (err error) {
 			defer rows.Close()
 			var table, zookeeper_path string
 			for rows.Next() {
-				rows.Scan(&table, &zookeeper_path)
+				_ = rows.Scan(&table, &zookeeper_path)
 				var host2ZooPath map[string]string
 				var ok bool
 				tablename := fmt.Sprintf("%s.%s", database, table)
@@ -328,7 +328,7 @@ func (this *CKRebalance) DoRebalance() (err error) {
 			var gotError bool
 			for i := 0; i < len(tbls); i++ {
 				tbl := tbls[i]
-				this.Pool.Submit(func() {
+				_ = this.Pool.Submit(func() {
 					if err := this.ExecutePlan(database, tbl); err != nil {
 						log.Logger.Errorf("host: %s, got error %+v", tbl.Host, err)
 						gotError = true

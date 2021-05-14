@@ -75,10 +75,7 @@ func HashPassword(pwd string) (string, error) {
 
 func ComparePassword(hashedPwd string, plainPwd string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPwd), []byte(plainPwd))
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func EnvStringVar(value *string, key string) {
