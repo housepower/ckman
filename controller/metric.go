@@ -1,11 +1,22 @@
 package controller
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/prometheus"
+	"html/template"
 	"strconv"
+)
+
+const (
+	TITLE_CLICKHOUSE_TABLE  string = "ClickHouse Table KPIs"
+	TITLE_CLICKHOUSE_NODE   string = "ClickHouse Node KPIs"
+	TITLE_ZOOKEEPER_METRICS string = "ZooKeeper KPIs"
 )
 
 type MetricController struct {
@@ -64,8 +75,52 @@ func (m *MetricController) Query(c *gin.Context) {
 // @Router /api/v1/metric/query_range [get]
 func (m *MetricController) QueryRange(c *gin.Context) {
 	var params model.MetricQueryRangeReq
+	clusterName := c.Param(ClickHouseClusterPath)
+	var conf model.CKManClickHouseConfig
+	con, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
 
-	params.Metric = c.Query("metric")
+	conf = con.(model.CKManClickHouseConfig)
+	params.Title = c.Query("title")
+	var hosts []string
+	if params.Title == TITLE_CLICKHOUSE_TABLE || params.Title == TITLE_CLICKHOUSE_NODE {
+		hosts = conf.Hosts
+	} else if params.Title == TITLE_ZOOKEEPER_METRICS {
+		hosts = conf.ZkNodes
+	}
+	templHosts := ""
+	for idx, host := range hosts {
+		templHosts += fmt.Sprintf("%s:....", host)
+		if idx < len(hosts)-1 {
+			templHosts += "|"
+		}
+	}
+
+	metric := c.Query("metric")
+	replace := make(map[string]interface{})
+	replace["hosts"] = templHosts
+	t, err := template.New("T1").Parse(metric)
+	if err != nil {
+		if err != nil {
+			model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+			return
+		}
+	}
+	buf := new(bytes.Buffer)
+	err = t.Execute(buf, replace)
+	if err != nil {
+		if err != nil {
+			model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+			return
+		}
+	}
+
+	params.Metric = buf.String()
+	log.Logger.Debugf("metric: %s", params.Metric)
 	start, err := strconv.ParseInt(c.Query("start"), 10, 64)
 	if err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
@@ -93,3 +148,51 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), value)
 }
+
+//func getFilter(conf *model.CKManClickHouseConfig, title string, value m.Value) (m.Value, error) {
+//	var hosts []string
+//	if title == TITLE_ZOOKEEPER_METRICS {
+//		hosts =  conf.ZkNodes
+//	} else {
+//		hosts = conf.Hosts
+//	}
+//
+//	var err error
+//	dataJSON,err := stdjson.Marshal(value)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	var dataMap,resultMap []map[string]interface{}
+//	err = stdjson.Unmarshal(dataJSON, &dataMap)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	for _, data :=  range dataMap {
+//		instance := data["metric"].(map[string]interface{})["instance"].(string)
+//		ip := strings.Split(instance, ":")[0]
+//		found := false
+//		for _, host := range hosts {
+//			if host == ip {
+//				found  =  true
+//				break
+//			}
+//		}
+//		if found {
+//			resultMap =  append(resultMap,data)
+//		}
+//	}
+//	if len(resultMap) == 0 {
+//		return nil, nil
+//	}
+//	resultJSON, err := stdjson.Marshal(resultMap)
+//	if err != nil {
+//		return nil, err
+//	}
+//	var result m.Value
+//	if err = stdjson.Unmarshal(resultJSON, &result); err != nil {
+//		return nil, err
+//	}
+//	return result, nil
+//}
