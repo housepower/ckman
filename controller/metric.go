@@ -105,18 +105,14 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 	replace["hosts"] = templHosts
 	t, err := template.New("T1").Parse(metric)
 	if err != nil {
-		if err != nil {
 			model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 			return
-		}
 	}
 	buf := new(bytes.Buffer)
 	err = t.Execute(buf, replace)
 	if err != nil {
-		if err != nil {
-			model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
-			return
-		}
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		return
 	}
 
 	params.Metric = buf.String()
@@ -148,51 +144,3 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), value)
 }
-
-//func getFilter(conf *model.CKManClickHouseConfig, title string, value m.Value) (m.Value, error) {
-//	var hosts []string
-//	if title == TITLE_ZOOKEEPER_METRICS {
-//		hosts =  conf.ZkNodes
-//	} else {
-//		hosts = conf.Hosts
-//	}
-//
-//	var err error
-//	dataJSON,err := stdjson.Marshal(value)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	var dataMap,resultMap []map[string]interface{}
-//	err = stdjson.Unmarshal(dataJSON, &dataMap)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	for _, data :=  range dataMap {
-//		instance := data["metric"].(map[string]interface{})["instance"].(string)
-//		ip := strings.Split(instance, ":")[0]
-//		found := false
-//		for _, host := range hosts {
-//			if host == ip {
-//				found  =  true
-//				break
-//			}
-//		}
-//		if found {
-//			resultMap =  append(resultMap,data)
-//		}
-//	}
-//	if len(resultMap) == 0 {
-//		return nil, nil
-//	}
-//	resultJSON, err := stdjson.Marshal(resultMap)
-//	if err != nil {
-//		return nil, err
-//	}
-//	var result m.Value
-//	if err = stdjson.Unmarshal(resultJSON, &result); err != nil {
-//		return nil, err
-//	}
-//	return result, nil
-//}

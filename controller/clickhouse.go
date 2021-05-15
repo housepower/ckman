@@ -883,9 +883,19 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 		return
 	}
 
+	var gotError bool
 	conf = con.(model.CKManClickHouseConfig)
 	sessions, err := clickhouse.GetCkOpenSessions(&conf, limit)
 	if err != nil {
+		gotError = true
+		if exception, ok := err.(*client.Exception); ok {
+			if exception.Code == 60 {
+				// we do not return error when system.query_log is not exist
+				gotError = false
+			}
+		}
+	}
+	if gotError {
 		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL), err)
 		return
 	}
