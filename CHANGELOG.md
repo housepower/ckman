@@ -1,3 +1,8 @@
+# v 1.3.3
+- detach macros.xml from metrika.xml
+- filter metrics by cluster name
+- remove loader
+
 # v 1.3.2
 - show version on web page
 - support routine, more faster to operate cluster
