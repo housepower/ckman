@@ -9,8 +9,10 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/prometheus"
+	"github.com/pkg/errors"
 	"html/template"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -91,22 +93,20 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 		hosts = conf.Hosts
 	} else if params.Title == TITLE_ZOOKEEPER_METRICS {
 		hosts = conf.ZkNodes
+	} else {
+		err := errors.Wrap(nil, fmt.Sprintf("title %s invalid", params.Title))
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		return
 	}
-	templHosts := ""
-	for idx, host := range hosts {
-		templHosts += fmt.Sprintf("%s:....", host)
-		if idx < len(hosts)-1 {
-			templHosts += "|"
-		}
-	}
+	templHosts := "(" + strings.Join(hosts, "|") + "):.*"
 
 	metric := c.Query("metric")
 	replace := make(map[string]interface{})
 	replace["hosts"] = templHosts
 	t, err := template.New("T1").Parse(metric)
 	if err != nil {
-			model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
-			return
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		return
 	}
 	buf := new(bytes.Buffer)
 	err = t.Execute(buf, replace)
