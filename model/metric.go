@@ -6,6 +6,7 @@ type MetricQueryReq struct {
 }
 
 type MetricQueryRangeReq struct {
+	Title  string
 	Metric string
 	Start  int64
 	End    int64

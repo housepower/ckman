@@ -78,6 +78,8 @@ definitions:
       clusterName:
         example: test
         type: string
+      isReplica:
+        type: boolean
       packageVersion:
         example: 20.8.5.45
         type: string

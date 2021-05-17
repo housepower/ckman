@@ -33,7 +33,6 @@ type Metrika struct {
 	XMLName   xml.Name  `xml:"yandex"`
 	ZkServers []Node    `xml:"zookeeper-servers>Node"`
 	CkServers []Cluster `xml:"clickhouse_remote_servers>Cluster"`
-	Macros    Macro     `xml:"macros"`
 }
 
 type Node struct {
@@ -58,6 +57,11 @@ type Replica struct {
 	XMLName xml.Name `xml:"replica"`
 	Host    string   `xml:"host"`
 	Port    int      `xml:"port"`
+}
+
+type MacroConf struct {
+	XMLName xml.Name `xml:"yandex"`
+	Macros  Macro    `xml:"macros"`
 }
 
 type Macro struct {
@@ -224,14 +228,10 @@ func (d *CKDeploy) Install() error {
 		innerHost := host
 		_ = d.Pool.Submit(func() {
 			cmd1 := "systemctl stop clickhouse-server"
-			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd1)
-			if err != nil {
-				lastError = err
-				return
-			}
+			_, _ = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd1)
 
 			cmd2 := strings.Join(cmds, " && ")
-			_, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd2)
+			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd2)
 			if err != nil {
 				lastError = err
 				return
@@ -319,7 +319,7 @@ func (d *CKDeploy) Config() error {
 		innerIndex := index
 		innerHost := host
 		_ = d.Pool.Submit(func() {
-			files := make([]string, 3)
+			files := make([]string, 4)
 			files[0] = conf
 
 			configTemplate.MaxMemoryPerQuery = int64((d.HostInfos[innerIndex].MemoryTotal / 2) * 1e3)
@@ -339,7 +339,21 @@ func (d *CKDeploy) Config() error {
 			}
 			files[2] = metrika
 
+			macrosFile := fmt.Sprintf("macros_%s.xml", innerHost)
+			macros, err := GenerateMacrosTemplate(macrosFile, d.Conf, innerHost)
+			if err != nil {
+				lastError = err
+				return
+			}
+			files[3] = macros
+
 			if err := common.ScpFiles(files, "/etc/clickhouse-server/", d.User, d.Password, innerHost, d.Port); err != nil {
+				lastError = err
+				return
+			}
+
+			cmd := fmt.Sprintf("mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml", macrosFile)
+			if _, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd); err != nil {
 				lastError = err
 				return
 			}
@@ -473,20 +487,10 @@ func GenerateMetrikaTemplate(templateFile string, conf *model.CkDeployConfig, ho
 
 	// clickhouse_remote_servers
 	shards := make([]Shard, 0)
-	shardIndex := 0
-	hostName := ""
-	for i, shard := range conf.Shards {
-		isReplica := false
+	for _, shard := range conf.Shards {
 		replicas := make([]Replica, 0)
-		if len(shard.Replicas) > 1 {
-			isReplica = true
-		}
 
 		for _, replica := range shard.Replicas {
-			if hostIp == replica.Ip {
-				shardIndex = i + 1
-				hostName = replica.HostName
-			}
 			rp := Replica{
 				Host: replica.HostName,
 				Port: conf.CkTcpPort,
@@ -495,7 +499,7 @@ func GenerateMetrikaTemplate(templateFile string, conf *model.CkDeployConfig, ho
 		}
 
 		sh := Shard{
-			Replication: isReplica,
+			Replication: conf.IsReplica,
 			Replicas:    replicas,
 		}
 		shards = append(shards, sh)
@@ -506,6 +510,42 @@ func GenerateMetrikaTemplate(templateFile string, conf *model.CkDeployConfig, ho
 	}
 	ckServers = append(ckServers, ck)
 
+	metrika := Metrika{
+		ZkServers: zkServers,
+		CkServers: ckServers,
+	}
+	output, err := xml.MarshalIndent(metrika, "", "  ")
+	if err != nil {
+		return "", err
+	}
+
+	tmplFile := path.Join(config.GetWorkDirectory(), "package", templateFile)
+	localFd, err := os.OpenFile(tmplFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return "", err
+	}
+	defer localFd.Close()
+
+	if _, err := localFd.Write(output); err != nil {
+		return "", err
+	}
+
+	return tmplFile, nil
+}
+
+func GenerateMacrosTemplate(templateFile string, conf *model.CkDeployConfig, hostIp string) (string, error) {
+	shardIndex := 0
+	hostName := ""
+	for i, shard := range conf.Shards {
+		for _, replica := range shard.Replicas {
+			if hostIp == replica.Ip {
+				shardIndex = i + 1
+				hostName = replica.HostName
+				break
+			}
+		}
+	}
+
 	// macros
 	macros := Macro{
 		Cluster: conf.ClusterName,
@@ -513,12 +553,11 @@ func GenerateMetrikaTemplate(templateFile string, conf *model.CkDeployConfig, ho
 		Replica: hostName,
 	}
 
-	metrika := Metrika{
-		ZkServers: zkServers,
-		CkServers: ckServers,
-		Macros:    macros,
+	macroConf := MacroConf{
+		Macros: macros,
 	}
-	output, err := xml.MarshalIndent(metrika, "", "  ")
+
+	output, err := xml.MarshalIndent(macroConf, "", "  ")
 	if err != nil {
 		return "", err
 	}
@@ -734,6 +773,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		PackageVersion: conf.Version,
 		CkTcpPort:      conf.Port,
 		CkHttpPort:     conf.HttpPort,
+		IsReplica:      conf.IsReplica,
 	}
 	if err := deploy.Init(base, con); err != nil {
 		return err
@@ -774,6 +814,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		PackageVersion: conf.Version,
 		CkTcpPort:      conf.Port,
 		CkHttpPort:     conf.HttpPort,
+		IsReplica:      conf.IsReplica,
 	}
 	if err := deploy.Init(base, con); err != nil {
 		return err
@@ -922,6 +963,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 		PackageVersion: conf.Version,
 		CkTcpPort:      conf.Port,
 		CkHttpPort:     conf.HttpPort,
+		IsReplica:      conf.IsReplica,
 	}
 	if err := deploy.Init(base, con); err != nil {
 		return err

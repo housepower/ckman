@@ -41,6 +41,7 @@ type CkDeployConfig struct {
 	PackageVersion string    `json:"packageVersion" example:"20.8.5.45"`
 	CkTcpPort      int       `json:"ckTcpPort" example:"9000"`
 	CkHttpPort     int       `json:"ckHttpPort" example:"8123"`
+	IsReplica      bool      `json:"isReplica"`
 }
 
 type CkShard struct {
@@ -115,6 +116,6 @@ func (config *CKManClickHouseConfig) Normalize() {
 		config.ZkStatusPort = ZkStatusDefaultPort
 	}
 	if config.SshPort == 0 {
-       config.SshPort = SshDefaultPort
-   }
+		config.SshPort = SshDefaultPort
+	}
 }

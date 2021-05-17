@@ -543,9 +543,9 @@ func (ck *ClickHouseController) StopCluster(c *gin.Context) {
 
 	//before stop, we need sync zoopath
 	/*
-	Since when destory cluster, the cluster must be stopped,
-	we cant't get zookeeper path by querying ck,
-	so need to save the ZooKeeper path before stopping the cluster.
+		Since when destory cluster, the cluster must be stopped,
+		we cant't get zookeeper path by querying ck,
+		so need to save the ZooKeeper path before stopping the cluster.
 	*/
 	err := clickhouse.GetReplicaZkPath(&conf)
 	if err != nil {
@@ -883,9 +883,20 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 		return
 	}
 
+	var gotError bool
 	conf = con.(model.CKManClickHouseConfig)
 	sessions, err := clickhouse.GetCkOpenSessions(&conf, limit)
 	if err != nil {
+		gotError = true
+		var exception *client.Exception
+		if errors.As(err, &exception) {
+			if exception.Code == 60 {
+				// we do not return error when system.query_log is not exist
+				gotError = false
+			}
+		}
+	}
+	if gotError {
 		model.WrapMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL, model.GetMsg(c, model.GET_CK_OPEN_SESSIONS_FAIL), err)
 		return
 	}
@@ -922,7 +933,8 @@ func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	sessions, err := clickhouse.GetCkSlowSessions(&conf, limit)
 	if err != nil {
 		gotError = true
-		if exception, ok := err.(*client.Exception); ok {
+		var exception *client.Exception
+		if errors.As(err, &exception) {
 			if exception.Code == 60 {
 				// we do not return error when system.query_log is not exist
 				gotError = false
@@ -971,11 +983,11 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 	var err error
 	var db *sql.DB
 	shardAvailable := true
-	for _, shard := range conf.Shards{
+	for _, shard := range conf.Shards {
 		failNum := 0
 		for _, replica := range shard.Replicas {
-			host :=  replica.Ip
-			db,err = common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
+			host := replica.Ip
+			db, err = common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
 			if err != nil {
 				log.Logger.Error("err: %+v", err)
 				failNum++

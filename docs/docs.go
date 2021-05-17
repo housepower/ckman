@@ -1269,6 +1269,9 @@ var doc = `{
                     "type": "string",
                     "example": "test"
                 },
+                "isReplica": {
+                    "type": "boolean"
+                },
                 "packageVersion": {
                     "type": "string",
                     "example": "20.8.5.45"
