@@ -352,7 +352,7 @@ func (d *CKDeploy) Config() error {
 				return
 			}
 
-			cmd := fmt.Sprintf("mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml", macrosFile)
+			cmd := fmt.Sprintf("rm -rf /etc/clickhouse-server/config.d/* && mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml", macrosFile)
 			if _, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd); err != nil {
 				lastError = err
 				return
@@ -609,6 +609,10 @@ func UpgradeCkCluster(conf *model.CKManClickHouseConfig, version string) error {
 		return err
 	}
 	log.Logger.Infof("cluster upgrade succeed ")
+	if err := deploy.Config(); err != nil {
+		return err
+	}
+	log.Logger.Infof("cluster config succeed ")
 	if err := deploy.Start(); err != nil {
 		return err
 	}

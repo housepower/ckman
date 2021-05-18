@@ -71,7 +71,7 @@ func (ck *CkService) InitCkService() error {
 		return errors.Errorf("can't find any host")
 	}
 
-	dataSourceName := fmt.Sprintf("tcp://%s:%d?service=%s&username=%s&password=%s",
+	dataSourceName := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
 		ck.Config.Hosts[0], ck.Config.Port, url.QueryEscape(model.ClickHouseDefaultDB), url.QueryEscape(ck.Config.User), url.QueryEscape(ck.Config.Password))
 	if len(ck.Config.Hosts) > 1 {
 		otherHosts := make([]string, 0)
@@ -90,7 +90,8 @@ func (ck *CkService) InitCkService() error {
 	}
 
 	if err := connect.Ping(); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
+		var exception *clickhouse.Exception
+		if errors.As(err, &exception) {
 			log.Logger.Errorf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		}
 		return errors.Wrapf(err, "")
