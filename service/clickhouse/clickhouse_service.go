@@ -71,7 +71,7 @@ func (ck *CkService) InitCkService() error {
 		return errors.Errorf("can't find any host")
 	}
 
-	dataSourceName := fmt.Sprintf("tcp://%s:%d?service=%s&username=%s&password=%s",
+	dataSourceName := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
 		ck.Config.Hosts[0], ck.Config.Port, url.QueryEscape(model.ClickHouseDefaultDB), url.QueryEscape(ck.Config.User), url.QueryEscape(ck.Config.Password))
 	if len(ck.Config.Hosts) > 1 {
 		otherHosts := make([]string, 0)
@@ -90,7 +90,8 @@ func (ck *CkService) InitCkService() error {
 	}
 
 	if err := connect.Ping(); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
+		var exception *clickhouse.Exception
+		if errors.As(err, &exception) {
 			log.Logger.Errorf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		}
 		return errors.Wrapf(err, "")
@@ -443,19 +444,6 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 		return errors.Errorf("clickhouse service unavailable")
 	}
 
-	//before create, drop table if exists
-	dropSql := fmt.Sprintf("DROP TABLE IF EXISTS %s.%s ON CLUSTER %s", params.DB, params.Name, params.Cluster)
-	log.Logger.Debugf(dropSql)
-	if _, err := ck.DB.Exec(dropSql); err != nil {
-		return err
-	}
-
-	dropSql = fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
-	log.Logger.Debugf(dropSql)
-	if _, err := ck.DB.Exec(dropSql); err != nil {
-		return err
-	}
-
 	columns := make([]string, 0)
 	for _, value := range params.Fields {
 		columns = append(columns, fmt.Sprintf("`%s` %s %s", value.Name, value.Type, strings.Join(value.Options, " ")))
@@ -487,7 +475,9 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	}
 	log.Logger.Debugf(create)
 	if _, err := ck.DB.Exec(create); err != nil {
-		return err
+		if ok := checkTableIfExists(params.DB, params.Name, params.Cluster); !ok {
+			return err
+		}
 	}
 
 	create = fmt.Sprintf(`CREATE TABLE %s.%s%s ON CLUSTER %s AS %s.%s ENGINE = Distributed(%s, %s, %s, rand())`,
@@ -495,7 +485,10 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 		params.Cluster, params.DB, params.Name)
 	log.Logger.Debugf(create)
 	if _, err := ck.DB.Exec(create); err != nil {
-		return err
+		name := fmt.Sprintf("%s%s", ClickHouseDistributedTablePrefix, params.Name)
+		if ok := checkTableIfExists(params.DB, name, params.Cluster); !ok {
+			return err
+		}
 	}
 
 	return nil
@@ -1005,4 +998,47 @@ func ConvertZooPath(conf *model.CKManClickHouseConfig) []string {
 		}
 	}
 	return zooPaths
+}
+
+
+func checkTableIfExists(database, name, cluster string)bool{
+	conf, ok := CkClusters.Load(cluster)
+	if !ok {
+		return false
+	}
+	ckConfig := conf.(model.CKManClickHouseConfig)
+	for _, shard := range ckConfig.Shards {
+		tmp := ckConfig
+		tmp.Hosts = []string{}
+		for _, replica := range shard.Replicas {
+			tmp.Hosts = append(tmp.Hosts, replica.Ip)
+		}
+		service := NewCkService(&tmp)
+		if err := service.InitCkService(); err != nil {
+			log.Logger.Warnf("shard: %v init service failed: %v", tmp.Hosts, err)
+			return false
+		}
+		query := fmt.Sprintf("SELECT count() FROM system.tables WHERE database = '%s' AND name = '%s'", database, name)
+		data, err := service.QueryInfo(query)
+		if err != nil {
+			log.Logger.Warnf("shard: %v , query: %v ,err: %v", tmp.Hosts, query, err)
+			return false
+		}
+		log.Logger.Debugf("count: %d", data[1][0].(uint64))
+		if data[1][0].(uint64) != 1 {
+			log.Logger.Warnf("shard: %v, table %s does not exist", tmp.Hosts, name)
+			return false
+		}
+	}
+	return true
+}
+
+func DropTableIfExists(params model.CreateCkTableParams, ck *CkService){
+	dropSql := fmt.Sprintf("DROP TABLE IF EXISTS %s.%s ON CLUSTER %s", params.DB, params.Name, params.Cluster)
+	log.Logger.Debugf(dropSql)
+	_, _ = ck.DB.Exec(dropSql)
+
+	dropSql = fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
+	log.Logger.Debugf(dropSql)
+	_, _ = ck.DB.Exec(dropSql)
 }

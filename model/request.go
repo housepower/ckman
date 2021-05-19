@@ -1,18 +1,16 @@
 package model
 
 import (
-	"bufio"
 	jsoniter "github.com/json-iterator/go"
+	"io/ioutil"
 	"net/http"
 )
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 func DecodeRequestBody(request *http.Request, v interface{}) error {
-	body := make([]byte, request.ContentLength)
-
-	r := bufio.NewReader(request.Body)
-	if _, err := r.Read(body); err != nil {
+	body, err := ioutil.ReadAll(request.Body)
+	if err != nil {
 		return err
 	}
 
