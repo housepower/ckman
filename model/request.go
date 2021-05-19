@@ -9,8 +9,6 @@ import (
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 func DecodeRequestBody(request *http.Request, v interface{}) error {
-	body := make([]byte, request.ContentLength)
-
 	body, err := ioutil.ReadAll(request.Body)
 	if err != nil {
 		return err
