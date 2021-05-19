@@ -1162,9 +1162,15 @@ var doc = `{
         "model.AddNodeReq": {
             "type": "object",
             "properties": {
-                "ip": {
-                    "type": "string",
-                    "example": "192.168.101.108"
+                "ips": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.0.1",
+                        "192.168.0.2"
+                    ]
                 },
                 "shard": {
                     "type": "integer",
