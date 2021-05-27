@@ -634,9 +634,10 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 	}
 
 	conf := con.(model.CKManClickHouseConfig)
-	hosts := make([]string, len(conf.Shards))
-	for index, shard := range conf.Shards {
-		hosts[index] = shard.Replicas[0].Ip
+	hosts, err := common.GetShardAvaliableHosts(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
+		return
 	}
 
 	rebalancer := &business.CKRebalance{
@@ -659,6 +660,7 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
 		return
 	}
+	defer common.CloseConns(rebalancer.CKConns)
 	if err = rebalancer.GetTables(); err != nil {
 		log.Logger.Errorf("got error %+v", err)
 		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
@@ -1046,16 +1048,18 @@ func (ck *ClickHouseController) PurgeTables(c *gin.Context) {
 		return
 	}
 
-	var chHosts []string
-	for _, shard := range conf.Shards {
-		chHosts = append(chHosts, shard.Replicas[0].Ip)
+	chHosts, err := common.GetShardAvaliableHosts(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL),err)
+		return
 	}
 	p := business.NewPurgerRange(chHosts, conf.Port, conf.User, conf.Password, req.Database, req.Begin, req.End)
-	err := p.InitConns()
+	err = p.InitConns()
 	if err != nil {
 		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL), err)
 		return
 	}
+	defer common.CloseConns(p.Conns)
 	for _, table := range req.Tables {
 		err := p.PurgeTable(table)
 		if err != nil {
@@ -1099,9 +1103,10 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 		return
 	}
 
-	var chHosts []string
-	for _, shard := range conf.Shards {
-		chHosts = append(chHosts, shard.Replicas[0].Ip)
+	chHosts, err := common.GetShardAvaliableHosts(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
+		return
 	}
 	archive := &business.ArchiveHDFS{
 		Hosts:       chHosts,
@@ -1123,18 +1128,23 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 	archive.FillArchiveDefault()
 	if err := archive.InitConns(); err != nil {
 		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
+		return
 	}
+	defer common.CloseConns(archive.Conns)
 
 	if err := archive.GetSortingInfo(); err != nil {
 		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
+		return
 	}
 
 	if err := archive.ClearHDFS(); err != nil {
 		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
+		return
 	}
 
 	if err := archive.ExportToHDFS(); err != nil {
 		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.PING_CK_CLUSTER_FAIL), err)
+		return
 	}
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }

@@ -733,11 +733,9 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		}
 	}
 
-	baseIndex := 0
 	shards := make([]model.CkShard, len(conf.Shards))
 	copy(shards, conf.Shards)
 	if len(shards) >= req.Shard {
-		baseIndex = len(shards[req.Shard-1].Replicas)
 		for _, ip := range req.Ips {
 			replica := model.CkReplica{
 				Ip: ip,
@@ -837,10 +835,6 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 
 	conf.Shards = shards
 	conf.Hosts = append(conf.Hosts, req.Ips...)
-	for index := range req.Ips {
-		replicaIndex := baseIndex + index
-		conf.Names = append(conf.Names, shards[req.Shard-1].Replicas[replicaIndex].HostName)
-	}
 	return nil
 }
 
@@ -937,7 +931,6 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 
 	// remove the node from conf struct
 	hosts := append(conf.Hosts[:index], conf.Hosts[index+1:]...)
-	names := append(conf.Names[:index], conf.Names[index+1:]...)
 	shards := make([]model.CkShard, len(conf.Shards))
 	copy(shards, conf.Shards)
 	for i, shard := range shards {
@@ -988,7 +981,6 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	}
 
 	conf.Hosts = hosts
-	conf.Names = names
 	conf.Shards = shards
 	return nil
 }

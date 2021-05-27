@@ -346,7 +346,6 @@ func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseCon
 	}
 	defer service.Stop()
 	conf.Hosts = make([]string, 0)
-	conf.Names = make([]string, 0)
 	conf.Shards = make([]model.CkShard, 0)
 
 	value, err := service.QueryInfo(fmt.Sprintf("SELECT cluster, shard_num, replica_num, host_name, host_address FROM system.clusters WHERE cluster='%s' ORDER BY cluster, shard_num, replica_num", req.Cluster))
@@ -373,7 +372,6 @@ func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseCon
 		}
 		replicas = append(replicas, replica)
 		conf.Hosts = append(conf.Hosts, value[i][4].(string))
-		conf.Names = append(conf.Names, value[i][3].(string))
 		shardNum = value[i][1].(uint32)
 	}
 	if len(replicas) != 0 {
@@ -740,11 +738,11 @@ func getCreateReplicaObjects(db *sql.DB, srcHost string) (names, statements []st
 func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkTableMetrics, error) {
 	metrics := make(map[string]*model.CkTableMetrics)
 
-	//TODO mabe replicas[0] disconnected?
-	var chHosts []string
-	for _, shard := range conf.Shards {
-		chHosts = append(chHosts, shard.Replicas[0].Ip)
+	chHosts, err := common.GetShardAvaliableHosts(conf)
+	if err != nil {
+		return nil, err
 	}
+
 	for _, host := range chHosts {
 		service, err := GetCkNodeService(conf.Cluster, host)
 		if err != nil {
@@ -913,22 +911,14 @@ func GetCkSlowSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 }
 
 func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
-	var db *sql.DB
 	var err error
-	available := false
-	for _, host := range conf.Hosts {
-		db, err = common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
-		if err == nil {
-			available = true
-			break
-		}
-	}
-	if !available {
+	service := NewCkService(conf)
+	if err := service.InitCkService(); err != nil {
 		log.Logger.Errorf("all hosts not available, can't get zoopath")
 		return err
 	}
 
-	databases, dbtables, err := common.GetMergeTreeTables("Replicated\\\\w*MergeTree", db)
+	databases, dbtables, err := common.GetMergeTreeTables("Replicated\\\\w*MergeTree", service.DB)
 	if err != nil {
 		return err
 	}
@@ -938,7 +928,7 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 	for _, database := range databases {
 		if tables, ok := dbtables[database]; ok {
 			for _, table := range tables {
-				path, err := getReplicaZkPath(db, database, table)
+				path, err := getReplicaZkPath(service.DB, database, table)
 				if err != nil {
 					return err
 				}
@@ -981,10 +971,10 @@ func getReplicaZkPath(db *sql.DB, database, table string) (string, error) {
 
 func ConvertZooPath(conf *model.CKManClickHouseConfig) []string {
 	var zooPaths []string
-	var chHosts []string
-	for _, shard := range conf.Shards {
-		host := shard.Replicas[0].Ip
-		chHosts = append(chHosts, host)
+
+	chHosts, err := common.GetShardAvaliableHosts(conf)
+	if err != nil {
+		return []string{}
 	}
 	for _, path := range conf.ZooPath {
 		if path != "" {

@@ -103,6 +103,7 @@ func main() {
 	if err = rebalancer.InitCKConns(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)
 	}
+	defer common.CloseConns(rebalancer.CKConns)
 	if err = rebalancer.GetTables(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)
 	}

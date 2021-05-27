@@ -128,6 +128,7 @@ func main() {
 	if err = archive.InitConns(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)
 	}
+	defer common.CloseConns(archive.Conns)
 
 	if err = archive.GetSortingInfo(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)

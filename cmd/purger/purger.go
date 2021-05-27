@@ -98,6 +98,7 @@ func main() {
 	if err = p.InitConns(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)
 	}
+	defer common.CloseConns(p.Conns)
 	chTables = strings.Split(cmdOps.ChTables, ",")
 
 	if err = purge(p); err != nil {
