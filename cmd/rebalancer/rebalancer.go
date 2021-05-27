@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 	"fmt"
 	_ "github.com/ClickHouse/clickhouse-go"
@@ -96,14 +95,13 @@ func main() {
 		OsPort:     cmdOps.OsPort,
 		DBTables:   make(map[string][]string),
 		SshConns:   make(map[string]*ssh.Client),
-		CKConns:    make(map[string]*sql.DB),
 		RepTables:  make(map[string]map[string]string),
 	}
 
 	if err = rebalancer.InitCKConns(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)
 	}
-	defer common.CloseConns(rebalancer.CKConns)
+	defer common.CloseConns(chHosts)
 	if err = rebalancer.GetTables(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)
 	}

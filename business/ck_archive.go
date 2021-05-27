@@ -41,7 +41,6 @@ type ArchiveHDFS struct {
 	HdfsUser    string
 	HdfsDir     string
 	Parallelism int
-	Conns       map[string]*sql.DB
 	Pool        *common.WorkerPool
 }
 
@@ -75,13 +74,11 @@ func (this *ArchiveHDFS) InitConns() (err error) {
 		if len(host) == 0 {
 			continue
 		}
-		var db *sql.DB
-		db, err = common.ConnectClickHouse(host, this.Port, this.Database, this.User, this.Password)
+		_, err = common.ConnectClickHouse(host, this.Port, this.Database, this.User, this.Password)
 		if err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
-		this.Conns[host] = db
 		log.Logger.Infof("initialized clickhouse connection to %s", host)
 	}
 	return
@@ -92,7 +89,10 @@ func (this *ArchiveHDFS) GetSortingInfo() (err error) {
 	for _, table := range this.Tables {
 		var name, typ string
 		for _, host := range this.Hosts {
-			db := this.Conns[host]
+			db := common.GetConnection(host)
+			if db == nil {
+				return fmt.Errorf("can't get connection: %s", host)
+			}
 			var rows *sql.Rows
 			query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type IN ('Date', 'DateTime')", this.Database, table)
 			log.Logger.Infof("host %s: query: %s", host, query)
@@ -143,7 +143,11 @@ func (this *ArchiveHDFS) GetSlots(host, table string) (slots []time.Time, err er
 	maxRowsCnt := uint64(float64(this.MaxFileSize) / sizePerRow)
 	slots = make([]time.Time, 0)
 	var slot time.Time
-	db := this.Conns[host]
+	db := common.GetConnection(host)
+	if db == nil {
+		log.Logger.Errorf("can't get connection:%s", host)
+		return
+	}
 
 	colName := pattInfo[table][0]
 	colType := pattInfo[table][1]
@@ -221,7 +225,11 @@ func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEn
 				fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>=%s AND `%s`<%s", hdfsTbl, table, colName, formatTimestamp(slotBeg, colType), colName, formatTimestamp(slotEnd, colType)),
 				fmt.Sprintf("DROP TABLE %s", hdfsTbl),
 			}
-			db := this.Conns[host]
+			db := common.GetConnection(host)
+			if db == nil {
+				log.Logger.Errorf("can't get connection: %s", host)
+				return
+			}
 			for _, query := range queries {
 				if atomic.LoadInt32(&cntErrors) != 0 {
 					return
@@ -241,7 +249,7 @@ func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEn
 
 func (this *ArchiveHDFS) ClearHDFS() error {
 	var err error
-	this.Pool = common.NewWorkerPool(this.Parallelism, len(this.Conns))
+	this.Pool = common.NewWorkerPool(this.Parallelism, len(this.Hosts))
 	ops := hdfs.ClientOptions{
 		Addresses: []string{this.HdfsAddr},
 		User:      this.HdfsUser,
@@ -340,7 +348,11 @@ func formatTimestamp(ts time.Time, typ string) string {
 }
 
 func (this *ArchiveHDFS) SelectUint64(host, query string) (res uint64, err error) {
-	db := this.Conns[host]
+	db := common.GetConnection(host)
+	if db == nil {
+		log.Logger.Errorf("can't get connection:%s", host)
+		return
+	}
 	var rows *sql.Rows
 	log.Logger.Infof("host %s: query: %s", host, query)
 	if rows, err = db.Query(query); err != nil {

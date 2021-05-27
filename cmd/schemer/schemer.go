@@ -142,7 +142,7 @@ func main() {
 	if err != nil {
 		return
 	}
-	defer db.Close()
+	defer common.CloseConns([]string{cmdOps.DstHost})
 
 	if names, statements, err = getCreateReplicaObjects(db); err != nil {
 		log.Logger.Fatalf("got error %+v", err)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/housepower/ckman/common"
 	"net"
 	"os"
 	"os/exec"
@@ -126,11 +127,13 @@ func termHandler(svr *server.ApiServer) error {
 		return err
 	}
 
-	clickhouse.CkServices.Range(func(k, v interface{}) bool {
-		service := v.(*clickhouse.ClusterService)
-		_ = service.Service.Stop()
+	var hosts []string
+	common.ConnectPool.Range(func(k, v interface{}) bool {
+		hosts = append(hosts, k.(string))
 		return true
 	})
+
+	common.CloseConns(hosts)
 
 	return nil
 }

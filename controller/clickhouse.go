@@ -121,8 +121,13 @@ func (ck *ClickHouseController) DeleteCluster(c *gin.Context) {
 	if err = ck.syncDownClusters(c); err != nil {
 		return
 	}
+	cfg, ok := clickhouse.CkClusters.Load(clusterName)
+	if ok {
+		conf := cfg.(model.CKManClickHouseConfig)
+		common.CloseConns(conf.Hosts)
+	}
+
 	clickhouse.CkClusters.Delete(clusterName)
-	clickhouse.CkServices.Delete(clusterName)
 	if err = ck.syncUpClusters(c); err != nil {
 		return
 	}
@@ -461,7 +466,7 @@ func (ck *ClickHouseController) UpgradeCluster(c *gin.Context) {
 		return
 	}
 
-	clickhouse.CkServices.Delete(clusterName)
+	common.CloseConns(conf.Hosts)
 	err := deploy.UpgradeCkCluster(&conf, packageVersion)
 	if err != nil {
 		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPGRADE_CK_CLUSTER_FAIL), err)
@@ -506,7 +511,6 @@ func (ck *ClickHouseController) StartCluster(c *gin.Context) {
 		return
 	}
 
-	clickhouse.CkServices.Delete(clusterName)
 	err := deploy.StartCkCluster(&conf)
 	if err != nil {
 		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(c, model.START_CK_CLUSTER_FAIL), err)
@@ -554,7 +558,7 @@ func (ck *ClickHouseController) StopCluster(c *gin.Context) {
 		return
 	}
 
-	clickhouse.CkServices.Delete(clusterName)
+	common.CloseConns(conf.Hosts)
 	err = deploy.StopCkCluster(&conf)
 	if err != nil {
 		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL), err)
@@ -607,7 +611,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 		return
 	}
 	clickhouse.CkClusters.Delete(clusterName)
-	clickhouse.CkServices.Delete(clusterName)
+	common.CloseConns(conf.Hosts)
 	if err = ck.syncUpClusters(c); err != nil {
 		return
 	}
@@ -651,7 +655,6 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 		OsPort:     conf.SshPort,
 		DBTables:   make(map[string][]string),
 		SshConns:   make(map[string]*ssh.Client),
-		CKConns:    make(map[string]*sql.DB),
 		RepTables:  make(map[string]map[string]string),
 	}
 
@@ -660,7 +663,7 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
 		return
 	}
-	defer common.CloseConns(rebalancer.CKConns)
+	defer common.CloseConns(hosts)
 	if err = rebalancer.GetTables(); err != nil {
 		log.Logger.Errorf("got error %+v", err)
 		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
@@ -786,7 +789,6 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 		return
 	}
 	clickhouse.CkClusters.Store(clusterName, conf)
-	clickhouse.CkServices.Delete(clusterName)
 	if err = ck.syncUpClusters(c); err != nil {
 		return
 	}
@@ -826,7 +828,7 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 		return
 	}
 	clickhouse.CkClusters.Store(clusterName, conf)
-	clickhouse.CkServices.Delete(clusterName)
+	common.CloseConns(conf.Hosts)
 	if err = ck.syncUpClusters(c); err != nil {
 		return
 	}
@@ -1059,7 +1061,7 @@ func (ck *ClickHouseController) PurgeTables(c *gin.Context) {
 		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL), err)
 		return
 	}
-	defer common.CloseConns(p.Conns)
+	defer common.CloseConns(chHosts)
 	for _, table := range req.Tables {
 		err := p.PurgeTable(table)
 		if err != nil {
@@ -1122,7 +1124,6 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 		HdfsUser:    req.HdfsUser,
 		HdfsDir:     req.HdfsDir,
 		Parallelism: req.Parallelism,
-		Conns:       make(map[string]*sql.DB),
 	}
 
 	archive.FillArchiveDefault()
@@ -1130,7 +1131,7 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
 		return
 	}
-	defer common.CloseConns(archive.Conns)
+	defer common.CloseConns(chHosts)
 
 	if err := archive.GetSortingInfo(); err != nil {
 		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)

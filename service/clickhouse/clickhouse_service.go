@@ -4,10 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/MakeNowJust/heredoc"
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"net"
-	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -15,13 +19,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/ClickHouse/clickhouse-go"
-	"github.com/MakeNowJust/heredoc"
-	"github.com/housepower/ckman/config"
-	"github.com/housepower/ckman/log"
-	"github.com/housepower/ckman/model"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -36,16 +33,10 @@ const (
 )
 
 var CkClusters sync.Map
-var CkServices sync.Map
 
 type CkService struct {
 	Config *model.CKManClickHouseConfig
 	DB     *sql.DB
-}
-
-type ClusterService struct {
-	Service *CkService
-	Timeout int64
 }
 
 func NewCkService(config *model.CKManClickHouseConfig) *CkService {
@@ -71,33 +62,21 @@ func (ck *CkService) InitCkService() error {
 		return errors.Errorf("can't find any host")
 	}
 
-	dataSourceName := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
-		ck.Config.Hosts[0], ck.Config.Port, url.QueryEscape(model.ClickHouseDefaultDB), url.QueryEscape(ck.Config.User), url.QueryEscape(ck.Config.Password))
-	if len(ck.Config.Hosts) > 1 {
-		otherHosts := make([]string, 0)
-		for _, host := range ck.Config.Hosts[1:] {
-			otherHosts = append(otherHosts, fmt.Sprintf("%s:%d", host, ck.Config.Port))
+	hasConnect := false
+	var lastError error
+	for _, host := range ck.Config.Hosts {
+		connect, err := common.ConnectClickHouse(host, ck.Config.Port, model.ClickHouseDefaultDB, ck.Config.User, ck.Config.Password)
+		if err == nil {
+			ck.DB = connect
+			hasConnect = true
+			break
+		} else {
+			lastError = err
 		}
-		dataSourceName += "&alt_hosts="
-		dataSourceName += strings.Join(otherHosts, ",")
-		dataSourceName += "&connection_open_strategy=random"
 	}
-
-	log.Logger.Infof("connect clickhouse with dsn '%s'", dataSourceName)
-	connect, err := sql.Open("clickhouse", dataSourceName)
-	if err != nil {
-		return errors.Wrapf(err, "")
+	if !hasConnect {
+		return lastError
 	}
-
-	if err := connect.Ping(); err != nil {
-		var exception *clickhouse.Exception
-		if errors.As(err, &exception) {
-			log.Logger.Errorf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-		}
-		return errors.Wrapf(err, "")
-	}
-
-	ck.DB = connect
 	return nil
 }
 
@@ -259,17 +238,6 @@ func UpdateCkClusterConfigFile() error {
 }
 
 func GetCkService(clusterName string) (*CkService, error) {
-	cluster, ok := CkServices.Load(clusterName)
-	if ok {
-		clusterService := cluster.(*ClusterService)
-		if time.Now().Unix() < clusterService.Timeout {
-			return clusterService.Service, nil
-		} else {
-			// Fixme, Service maybe in use
-			_ = clusterService.Service.Stop()
-		}
-	}
-
 	conf, ok := CkClusters.Load(clusterName)
 	if ok {
 		ckConfig := conf.(model.CKManClickHouseConfig)
@@ -277,11 +245,6 @@ func GetCkService(clusterName string) (*CkService, error) {
 		if err := service.InitCkService(); err != nil {
 			return nil, err
 		}
-		clusterService := &ClusterService{
-			Service: service,
-			Timeout: time.Now().Add(time.Second * time.Duration(ClickHouseServiceTimeout)).Unix(),
-		}
-		CkServices.Store(clusterName, clusterService)
 		return service, nil
 	} else {
 		return nil, errors.Errorf("can't find cluster %s service", clusterName)
@@ -289,18 +252,6 @@ func GetCkService(clusterName string) (*CkService, error) {
 }
 
 func GetCkNodeService(clusterName string, node string) (*CkService, error) {
-	key := clusterName + node
-	cluster, ok := CkServices.Load(key)
-	if ok {
-		clusterService := cluster.(*ClusterService)
-		if time.Now().Unix() < clusterService.Timeout {
-			return clusterService.Service, nil
-		} else {
-			// Fixme, Service maybe in use
-			_ = clusterService.Service.Stop()
-		}
-	}
-
 	conf, ok := CkClusters.Load(clusterName)
 	if ok {
 		ckConfig := conf.(model.CKManClickHouseConfig)
@@ -315,14 +266,9 @@ func GetCkNodeService(clusterName string, node string) (*CkService, error) {
 		if err := service.InitCkService(); err != nil {
 			return nil, err
 		}
-		clusterService := &ClusterService{
-			Service: service,
-			Timeout: time.Now().Add(time.Second * time.Duration(ClickHouseServiceTimeout)).Unix(),
-		}
-		CkServices.Store(key, clusterService)
 		return service, nil
 	} else {
-		return nil, errors.Errorf("can't find cluster %s service", key)
+		return nil, errors.Errorf("can't find cluster %s %s service", clusterName, node)
 	}
 }
 
@@ -395,7 +341,7 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 	statusList := make([]model.CkClusterNode, len(conf.Hosts))
 	statusMap := make(map[string]string, len(conf.Hosts))
 	var lock sync.RWMutex
-	pool := common.NewWorkerPool(common.MaxWorkersDefault, len(conf.Hosts))
+	pool := common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault)
 	for _, host := range conf.Hosts {
 		innerHost := host
 		_ = pool.Submit(func() {
@@ -880,7 +826,8 @@ func getCkSessions(conf *model.CKManClickHouseConfig, limit int, query string) (
 	for _, host := range conf.Hosts {
 		service, err := GetCkNodeService(conf.Cluster, host)
 		if err != nil {
-			return nil, err
+			log.Logger.Warnf("get ck node %s service error: %v", host, err)
+			continue
 		}
 
 		sessions, err := getHostSessions(service, query)
@@ -997,12 +944,14 @@ func checkTableIfExists(database, name, cluster string)bool{
 		return false
 	}
 	ckConfig := conf.(model.CKManClickHouseConfig)
-	for _, shard := range ckConfig.Shards {
+	hosts, err := common.GetShardAvaliableHosts(&ckConfig)
+	if err != nil {
+
+		return false
+	}
+	for _, host := range hosts {
 		tmp := ckConfig
-		tmp.Hosts = []string{}
-		for _, replica := range shard.Replicas {
-			tmp.Hosts = append(tmp.Hosts, replica.Ip)
-		}
+		tmp.Hosts = []string{host}
 		service := NewCkService(&tmp)
 		if err := service.InitCkService(); err != nil {
 			log.Logger.Warnf("shard: %v init service failed: %v", tmp.Hosts, err)

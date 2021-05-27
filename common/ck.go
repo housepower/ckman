@@ -7,11 +7,25 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
 	"net/url"
+	"sync"
+	"time"
 )
+
+var ConnectPool sync.Map
+
+type Connection struct {
+	dsn string
+	db  *sql.DB
+}
 
 func ConnectClickHouse(host string, port int, database string, user string, password string) (*sql.DB, error) {
 	var db *sql.DB
 	var err error
+
+	db = GetConnection(host)
+	if db != nil {
+		return db, nil
+	}
 
 	dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
 		host, port, url.QueryEscape(database), url.QueryEscape(user), url.QueryEscape(password))
@@ -25,13 +39,36 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 		err = errors.Wrapf(err, "")
 		return nil, err
 	}
+	SetConnOptions(db)
+	connction := Connection{
+		dsn: dsn,
+		db:  db,
+	}
+	ConnectPool.Store(host, connction)
 	return db, nil
 }
 
-func CloseConns(conns map[string]*sql.DB) {
-	for _, conn := range conns {
-		_ = conn.Close()
+func SetConnOptions(conn *sql.DB) {
+	conn.SetMaxOpenConns(1)
+	conn.SetMaxIdleConns(0)
+	conn.SetConnMaxIdleTime(10 * time.Second)
+}
+
+func CloseConns(hosts []string) {
+	for _, host := range hosts {
+		conn, ok := ConnectPool.Load(host)
+		if ok {
+			_ = conn.(Connection).db.Close()
+			ConnectPool.Delete(host)
+		}
 	}
+}
+
+func GetConnection(host string) *sql.DB {
+	if conn, ok := ConnectPool.Load(host); ok {
+		return conn.(Connection).db
+	}
+	return nil
 }
 
 func GetMergeTreeTables(engine string, db *sql.DB) ([]string, map[string][]string, error) {
@@ -71,27 +108,25 @@ func GetMergeTreeTables(engine string, db *sql.DB) ([]string, map[string][]strin
 	return databases, dbtables, nil
 }
 
-func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig)([]string, error){
+func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig) ([]string, error) {
 	var hosts []string
 	var lastErr error
 
 	for _, shard := range conf.Shards {
 		for _, replica := range shard.Replicas {
-			db, err := ConnectClickHouse(replica.Ip, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
+			_, err := ConnectClickHouse(replica.Ip, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
 			if err == nil {
 				hosts = append(hosts, replica.Ip)
-				_ = db.Close()
 				break
 			} else {
 				lastErr = err
 			}
 		}
 	}
-	if len(hosts) < len(conf.Shards){
+	if len(hosts) < len(conf.Shards) {
 		log.Logger.Errorf("not all shard avaliable: %v", lastErr)
 		return []string{}, nil
 	}
 	log.Logger.Debugf("hosts: %v", hosts)
 	return hosts, nil
 }
-

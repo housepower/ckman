@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 	"fmt"
 	_ "github.com/ClickHouse/clickhouse-go"
@@ -47,8 +46,8 @@ func initCmdOptions() {
 		MaxFileSize: 1e10, //10GB, Parquet files need be small, nearly equal size
 		HdfsUser:    "root",
 		HdfsDir:     "",
-		Parallelism: 4, // >=4 is capable of saturating HDFS cluster(3 DataNodes with HDDs) write bandwidth 150MB/s
-	}
+		Parallelism: 4,
+}
 
 	// 2. Replace options with the corresponding env variable if present.
 	common.EnvBoolVar(&cmdOps.ShowVer, "v")
@@ -122,13 +121,12 @@ func main() {
 		HdfsUser:    cmdOps.HdfsUser,
 		HdfsDir:     cmdOps.HdfsDir,
 		Parallelism: cmdOps.Parallelism,
-		Conns:       make(map[string]*sql.DB),
 	}
 	archive.FillArchiveDefault()
 	if err = archive.InitConns(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)
 	}
-	defer common.CloseConns(archive.Conns)
+	defer common.CloseConns(chHosts)
 
 	if err = archive.GetSortingInfo(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)
