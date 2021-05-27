@@ -762,7 +762,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	}
 
 	tmp := &model.CKManClickHouseConfig{
-		Hosts:    []string{req.Ip},
+		Hosts:    req.Ips,
 		Port:     conf.Port,
 		Cluster:  conf.Cluster,
 		User:     conf.User,

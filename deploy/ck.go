@@ -725,27 +725,35 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 	}
 
 	// add the node to conf struct
-	for _, host := range conf.Hosts {
-		if host == req.Ip {
-			return errors.Errorf("node ip %s is duplicate", req.Ip)
+	for _, ip := range req.Ips {
+		for _, host := range conf.Hosts {
+			if host == ip {
+				return errors.Errorf("node ip %s is duplicate", ip)
+			}
 		}
 	}
 
-	replicaIndex := 0
+	baseIndex := 0
 	shards := make([]model.CkShard, len(conf.Shards))
 	copy(shards, conf.Shards)
 	if len(shards) >= req.Shard {
-		replica := model.CkReplica{
-			Ip: req.Ip,
+		baseIndex = len(shards[req.Shard-1].Replicas)
+		for _, ip := range req.Ips {
+			replica := model.CkReplica{
+				Ip: ip,
+			}
+			shards[req.Shard-1].Replicas = append(shards[req.Shard-1].Replicas, replica)
 		}
-		replicaIndex = len(shards[req.Shard-1].Replicas)
-		shards[req.Shard-1].Replicas = append(shards[req.Shard-1].Replicas, replica)
 	} else if len(shards)+1 == req.Shard {
-		replica := model.CkReplica{
-			Ip: req.Ip,
+		var replicas []model.CkReplica
+		for _, ip := range req.Ips {
+			replica := model.CkReplica{
+				Ip: ip,
+			}
+			replicas = append(replicas, replica)
 		}
 		shard := model.CkShard{
-			Replicas: []model.CkReplica{replica},
+			Replicas: replicas,
 		}
 		shards = append(shards, shard)
 	} else {
@@ -759,7 +767,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, conf.Version, model.CkClientPackageSuffix)
 	deploy := &CKDeploy{}
 	base := &DeployBase{
-		Hosts:    []string{req.Ip},
+		Hosts:    req.Ips,
 		User:     conf.SshUser,
 		Password: conf.SshPassword,
 		Port:     conf.SshPort,
@@ -828,8 +836,11 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 	}
 
 	conf.Shards = shards
-	conf.Hosts = append(conf.Hosts, req.Ip)
-	conf.Names = append(conf.Names, shards[req.Shard-1].Replicas[replicaIndex].HostName)
+	conf.Hosts = append(conf.Hosts, req.Ips...)
+	for index := range req.Ips {
+		replicaIndex := baseIndex + index
+		conf.Names = append(conf.Names, shards[req.Shard-1].Replicas[replicaIndex].HostName)
+	}
 	return nil
 }
 

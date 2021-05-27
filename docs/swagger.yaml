@@ -2,9 +2,13 @@ basePath: /
 definitions:
   model.AddNodeReq:
     properties:
-      ip:
-        example: 192.168.101.108
-        type: string
+      ips:
+        example:
+        - 192.168.0.1
+        - 192.168.0.2
+        items:
+          type: string
+        type: array
       shard:
         example: 3
         type: integer

@@ -21,8 +21,8 @@ type CkClusterNode struct {
 }
 
 type AddNodeReq struct {
-	Ip    string `json:"ip" example:"192.168.101.108"`
-	Shard int    `json:"shard" example:"3"`
+	Ips   []string `json:"ips" example:"192.168.0.1,192.168.0.2"`
+	Shard int      `json:"shard" example:"3"`
 }
 
 type PingClusterReq struct {
