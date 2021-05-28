@@ -1,38 +1,25 @@
-# ckman
-This is a tool which used to manage and monitor ClickHouse database
 
-## build command
-```bash
-make package VERSION=x.x.x
-```
+ENGLISH|[简体中文](./README_ZH.md)
 
-## pprof
-> http://127.0.0.1:8808/debug/pprof/
+# About ckman
+This is a tool which used to manage and monitor ClickHouse database. It visits the cluster's related information through the front-end interface, which can be easily deployed, upgraded, and the node increases to the cluster. For more information, please read [document](./docs/Ckman_Document_zh.md).
 
-## docker run
-```bash
-docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/housepower/ckman:latest
-```
-Then you can view the manage page on [localhost:8808/](localhost:8808/)    
-You can run ckman in docker, but since deployment of Nacos is not ckman's responsibility,
- we do not enable Nacos by default.
- If you want to enable Nacos, please modify the configuration file in container.
+# Quik Start 
+quickly deploy and start using CKMAN, please click the [deploy document](./docs/guide/deploy.md). 
 
-## swagger
-> http://127.0.0.1:8808/swagger/index.html
+# What can ckman do?
+- Manage multiple ClickHouse cluster on WebPage, Replacing the cumbersome step configuration 
+- Deploy、upgrade、and destory cluster
+- Start and stop cluster
+- Add or delete node on ClickHouse cluster
+- Rebalance data
+- Archive and purge data 
+- Monitoring table status and `ZooKeeper` State 
+- Show more mertics with `prometheus` 
 
-Please login first, it will return token when verify successfully,
-then we should enter the token into "Authorize" frame,
-after that we will access other APIs successfully.
-Since v1.2.7,  we no longer provide the function of swagger document.
-If you really want to, you can use `swagger_enable` option in the configuration file:
-```yaml
-swagger_enable: true
-```
+# How to upgrade
+You can upgrade ckman with [upgrade document](./docs/guide/upgrade.md).
 
-## Chinese document
-[Ckman_Document_zh.md](docs/Ckman_Document_zh.md)
-
-## ckmanpasswd
-This is a tool to generate password for reserved user ckman,
-password file will saved under conf directory
+# About us
+EOI Technology Co., Ltd. is a domestic intelligent operation and maintenance and maintenance and land supply provider. This product is dominated by the engineering database R & D team and open source contribution to the community.   
+Everyone can consult the developer Yu Zhichang ( WeChat ID: `wxid_ufym9ehuag3l21`) and YenchangChan ( WeChat ID:` yudinghou`) during the process of use, and I hope everyone will be willing to `Issue`, contribute code, jointly maintained the` ckman`, make the ecology of the `Clickhouse`, is getting better and better. 
