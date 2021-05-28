@@ -137,7 +137,7 @@ admin.serverPort=8080   #暴露给四字命令如mntr等的监控端口，3.5.0�
 - job_name: 'zookeeper'
   scrape_interval: 10s
   static_configs:
-  - targets: ['192.168.0.1.40:7070', '192.168.0.2.41:7070', '192.168.0.3.42:7070']
+  - targets: ['192.168.0.1:7070', '192.168.0.2:7070', '192.168.0.3:7070']
 ```
 
 ## rpm安装
@@ -328,13 +328,6 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
       "192.168.0.3",
       "192.168.0.4"
     ],    
-    "@names":"ck节点的hostname",
-    "names": [
-      "node1",
-      "node2",
-      "node3",
-      "node4"
-    ],
     "@port": "ck节点的TCP端口",
     "port": 9000,
     "@httpPort": "ck节点的HTTP端口",
@@ -342,9 +335,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
     "@user":"ck用户",
     "user": "eoi",   
     "@password": "ck密码",
-    "password": "123456", 
-    "@default": "访问的数据库",
-    "database": "default",  
+    "password": "123456",   
     "@cluster": "集群的名字",
     "cluster": "test",  
     "@zkNodes": "zk集群的ip列表",
@@ -365,12 +356,12 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
     "sshUser": "",      
     "@sshPassword": "ssh连接节点主机的密码",
     "sshPassword": "", 
-    "@sshPort":"ssh 端口，默认为22"
+    "@sshPort":"ssh 端口，默认为22",
     "sshPort":22,
     "@shards": "分片信息，以下表示2分片2副本",
     "shards": [			
       {
-        "@replicas": "副本信息，包含ip和hostname"
+        "@replicas": "副本信息，包含ip和hostname",
         "replicas": [  
           {
             "ip": "192.168.0.1",
@@ -509,7 +500,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 以下这些过程都是`ckman`自己完成的，用户无需手动干涉。
 
 >   -   `Start Cluster`: 启动集群
->       -   `ssh`到每台`ck`节点下启动`clickhouse`服务，都成功才返回成功
+>       -   先检查节点是否正常工作，找到已停止服务的节点，`ssh`到每台已停止服务的`ck`节点下启动`clickhouse`服务，都成功才返回成功
 >   -   `Stop Cluster`
 >       -   `ssh`到每台`ck`节点下关闭`clickhouse`服务，都成功才返回成功
 >   -   `Destroy Cluster`
@@ -541,7 +532,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 >   -   如果填写的`shard`是已经存在的，那么增加的节点会作为已存在`shard`的一个副本；如果`shard`不存在（一般是最大的`shard`编号`+1`，如果不是就不正确了），就会新增加一个`shard`。
 >-   如果集群不支持副本模式，则每个`shard`只能有一个节点，不可以给已有`shard`添加副本节点，如果集群支持副本模式，则可以在任意`shard`增加节点。
 
-增加节点时`ckman`会先将集群整体都停掉，然后将新节点的信息增加到`metrika.xml`中，同步给所有的节点，再重启集群。
+以上完成后，会将新节点的信息刷到集群所有节点的`metrika.xml`中。
 
 #### 删除节点
 
@@ -549,7 +540,7 @@ docker run -itd -p 8808:8808 --restart unless-stopped --name ckman quay.io/house
 
 删除节点时，如果某个`shard`有且只有一个节点，那么这个节点一般是不可以被删除的，除非该节点处于`shard`编号的最大位置。
 
-同增加节点一样，删除节点`ckman`也会先将集群停掉，将删除后的信息更新到`metrika.xml`中，同步给其他所有节点，再重启集群。
+同增加节点一样，删除节点`ckman`也会将最新的`metrika.xml`刷新到所有节点。
 
 ## 监控管理
 
@@ -829,7 +820,7 @@ GET  http://192.168.0.1:8808/api/v1/ck/table/test?tableName=tbtest&database=defa
 
 ```json
 {
-    "code": 200,
+    "code": 0,
     "msg": "ok",
     "data": [
         {
@@ -897,8 +888,8 @@ GET  http://192.168.0.1:8808/api/v1/ck/table/test?tableName=tbtest&database=defa
 
 举例如下：
 
+> PUT /api/v1/ck/table/test
 ```json
-PUT /api/v1/ck/table/test
 {
     "@name": "表名",
 	"name":"t1",
@@ -935,8 +926,8 @@ PUT /api/v1/ck/table/test
 
 创建表默认使用的是`MergeTree`引擎，如果指定了`distinct`为`false`，表示支持去重，使用的引擎为`ReplacingMergeTree`。
 
+> POST /api/v1/ck/table/test
 ```json
-POST /api/v1/ck/table/test
 {
 	"name": "t1",		
     "database": "default",  

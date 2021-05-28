@@ -1,9 +1,17 @@
-# v 1.3.3
+# v1.3.4
+- fix json unmarshal of long request issue
+- fix 'URL is not allowed in config.xml' since 21.4
+- still create table successfully if shard is avaliable
+- Allow multiple nodes to be added once
+- remove hostnames in clusters.json
+- support query_log ttl
+
+# v1.3.3
 - detach macros.xml from metrika.xml
 - filter metrics by cluster name
 - remove loader
 
-# v 1.3.2
+# v1.3.2
 - show version on web page
 - support routine, more faster to operate cluster
 - support internationalize 
