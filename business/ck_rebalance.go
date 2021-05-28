@@ -32,7 +32,6 @@ type CKRebalance struct {
 	OsUser     string
 	OsPassword string
 	OsPort     int
-	CKConns    map[string]*sql.DB
 	SshConns   map[string]*ssh.Client
 	Pool       *common.WorkerPool
 }
@@ -51,13 +50,11 @@ type TblPartitions struct {
 func (this *CKRebalance) InitCKConns() (err error) {
 	locks = make(map[string]*sync.Mutex)
 	for _, host := range this.Hosts {
-		var db *sql.DB
-		db, err = common.ConnectClickHouse(host, this.Port, model.ClickHouseDefaultDB, this.User, this.Password)
+		_, err = common.ConnectClickHouse(host, this.Port, model.ClickHouseDefaultDB, this.User, this.Password)
 		if err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
-		this.CKConns[host] = db
 		log.Logger.Infof("initialized clickhouse connection to %s", host)
 		locks[host] = &sync.Mutex{}
 	}
@@ -66,7 +63,10 @@ func (this *CKRebalance) InitCKConns() (err error) {
 
 func (this *CKRebalance) GetTables() (err error) {
 	host := this.Hosts[0]
-	db := this.CKConns[host]
+	db := common.GetConnection(host)
+	if db == nil {
+		return fmt.Errorf("can't get connection: %s", host)
+	}
 	if this.Databases, this.DBTables, err = common.GetMergeTreeTables("MergeTree", db); err != nil {
 		err = errors.Wrapf(err, "")
 		return
@@ -77,7 +77,10 @@ func (this *CKRebalance) GetTables() (err error) {
 func (this *CKRebalance) GetRepTables() (err error) {
 	for _, host := range this.Hosts {
 		for _, database := range this.Databases {
-			db := this.CKConns[host]
+			db := common.GetConnection(host)
+			if db == nil {
+				return fmt.Errorf("can't get connection: %s", host)
+			}
 			query := fmt.Sprintf("SELECT table, zookeeper_path FROM system.replicas WHERE database='%s'", database)
 			log.Logger.Infof("host %s: query: %s", host, query)
 			var rows *sql.Rows
@@ -136,7 +139,11 @@ func (this *CKRebalance) InitSshConns(database string) (err error) {
 func (this *CKRebalance) GetState(database string, table string) (tbls []*TblPartitions, err error) {
 	tbls = make([]*TblPartitions, 0)
 	for _, host := range this.Hosts {
-		db := this.CKConns[host]
+		db := common.GetConnection(host)
+		if db == nil {
+			err = fmt.Errorf("can't get connection: %s", host)
+			return
+		}
 		var rows *sql.Rows
 		// Skip the newest partition on each host since into which there could by ongoing insertions.
 		query := fmt.Sprintf(`WITH (SELECT argMax(partition, modification_time) FROM system.parts WHERE database='%s' AND table='%s') AS latest_partition SELECT partition, sum(data_compressed_bytes) AS compressed FROM system.parts WHERE database='%s' AND table='%s' AND active=1 AND partition!=latest_partition GROUP BY partition ORDER BY partition;`, database, table, database, table)
@@ -223,7 +230,10 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 
 			// There could be multiple executions on the same dest node and partition.
 			lock.Lock()
-			dstChConn := this.CKConns[dstHost]
+			dstChConn  := common.GetConnection(dstHost)
+			if dstChConn == nil {
+				return fmt.Errorf("can't get connection: %s", dstHost)
+			}
 			dstQuires := []string{
 				fmt.Sprintf("ALTER TABLE %s FETCH PARTITION '%s' FROM '%s'", tbl.Table, patt, tbl.ZooPath),
 				fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt),
@@ -237,7 +247,10 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 			}
 			lock.Unlock()
 
-			srcChConn := this.CKConns[tbl.Host]
+			srcChConn := common.GetConnection(tbl.Host)
+			if srcChConn == nil {
+				return fmt.Errorf("can't get connection: %s", tbl.Host)
+			}
 			query := fmt.Sprintf("ALTER TABLE %s DROP PARTITION '%s'", tbl.Table, patt)
 			if _, err = srcChConn.Exec(query); err != nil {
 				log.Logger.Infof("host %s: query: %s", tbl.Host, query)
@@ -253,8 +266,12 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 	}
 	for patt, dstHost := range tbl.ToMoveOut {
 		srcSshConn := this.SshConns[tbl.Host]
-		srcCkConn := this.CKConns[tbl.Host]
-		dstCkConn := this.CKConns[dstHost]
+		srcCkConn := common.GetConnection(tbl.Host)
+		dstCkConn := common.GetConnection(dstHost)
+		if srcCkConn == nil || dstCkConn == nil {
+			log.Logger.Errorf("can't get connection: %s & %s", tbl.Host, dstHost)
+			return
+		}
 		lock := locks[dstHost]
 		tableName := strings.Split(tbl.Table, ".")[1]
 		dstDir := filepath.Join(this.DataDir, fmt.Sprintf("clickhouse/data/%s/%s/detached", database, tableName))
@@ -304,7 +321,7 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 }
 
 func (this *CKRebalance) DoRebalance() (err error) {
-	this.Pool = common.NewWorkerPool(len(this.Hosts), len(this.CKConns))
+	this.Pool = common.NewWorkerPool(common.MaxWorkersDefault,  2*common.MaxWorkersDefault)
 	for _, database := range this.Databases {
 		tables := this.DBTables[database]
 		for _, table := range tables {

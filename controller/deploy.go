@@ -166,18 +166,15 @@ func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {
 	}
 
 	hosts := make([]string, 0)
-	hostnames := make([]string, 0)
 	for _, shard := range req.ClickHouse.Shards {
 		if len(shard.Replicas) > 1 {
 			conf.IsReplica = true
 		}
 		for _, replica := range shard.Replicas {
 			hosts = append(hosts, replica.Ip)
-			hostnames = append(hostnames, replica.HostName)
 		}
 	}
 	conf.Hosts = hosts
-	conf.Names = hostnames
 
 	conf.Normalize()
 	return conf

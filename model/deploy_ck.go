@@ -68,7 +68,6 @@ type CkImportConfig struct {
 type CKManClickHouseConfig struct {
 	Mode         string            `json:"mode"`
 	Hosts        []string          `json:"hosts"`
-	Names        []string          `json:"names"`
 	Port         int               `json:"port"`
 	HttpPort     int               `json:"httpPort"`
 	User         string            `json:"user"`
