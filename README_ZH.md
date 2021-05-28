@@ -19,5 +19,8 @@ ckman是一款管理和监控`ClickHouse`集群的工具。它通过前端界面
 # 如何升级
 如何升级ckman，详见[升级教程](./docs/guide/upgrade.md)。
 
+# 开发规划
+请点击[规划线路图](https://github.com/housepower/ckman/wiki)。
+
 # 关于我们
 上海擎创信息技术公司是国内智能运维`AIOps`落地解决方案供应商，本产品由擎创公司数据库研发团队主导并开源贡献给社区，大家在使用的过程中有问题可以咨询开发者余志昌(微信号：`wxid_ufym9ehuag3l21`)和陈衍长(微信号：`yudinghou`)，同时也希望大家多提`issue`，贡献代码，共同维护`ckman`，使`ClickHouse`周边生态越来越好。
