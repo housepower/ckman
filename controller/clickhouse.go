@@ -90,7 +90,18 @@ func (ck *ClickHouseController) ImportCluster(c *gin.Context) {
 		return
 	}
 
-	err := clickhouse.GetCkClusterConfig(req, &conf)
+	conf.Hosts = req.Hosts
+	conf.Port = req.Port
+	conf.HttpPort = req.HttpPort
+	conf.Cluster = req.Cluster
+	conf.User = req.User
+	conf.Password = req.Password
+	conf.ZkNodes = req.ZkNodes
+	conf.ZkPort = req.ZkPort
+	conf.ZkStatusPort = req.ZkStatusPort
+	conf.Mode = model.CkClusterImport
+	conf.Normalize()
+	err := clickhouse.GetCkClusterConfig(&conf)
 	if err != nil {
 		model.WrapMsg(c, model.IMPORT_CK_CLUSTER_FAIL, model.GetMsg(c, model.IMPORT_CK_CLUSTER_FAIL), err)
 		return
@@ -149,21 +160,16 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 	if err = ck.syncDownClusters(c); err != nil {
 		return
 	}
-	var cluster *model.CKManClickHouseConfig
-	clickhouse.CkClusters.Range(func(k, v interface{}) bool {
-		switch clus := v.(type) {
-		case model.CKManClickHouseConfig:
-			if k.(string) == clusterName {
-				cluster = &clus
-			}
-		}
-		return true
-	})
-	if cluster != nil {
-		model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), cluster)
-	} else {
+	var cluster model.CKManClickHouseConfig
+	clus, ok := clickhouse.CkClusters.Load(clusterName)
+	if !ok {
 		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, model.GetMsg(c, model.GET_CK_CLUSTER_INFO_FAIL), nil)
 	}
+	cluster = clus.(model.CKManClickHouseConfig)
+	if clus.(model.CKManClickHouseConfig).Mode == model.CkClusterImport {
+		_ = clickhouse.GetCkClusterConfig(&cluster)
+	}
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), cluster)
 }
 
 // @Summary Get config of all ClickHouse cluster
@@ -181,10 +187,21 @@ func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 	clickhouse.CkClusters.Range(func(k, v interface{}) bool {
 		switch clus := v.(type) {
 		case model.CKManClickHouseConfig:
+			if clus.Mode ==  model.CkClusterImport {
+				err = clickhouse.GetCkClusterConfig(&clus)
+				if err != nil {
+					return false
+				}
+			}
 			clustersMap[k.(string)] = clus
 		}
 		return true
 	})
+
+	if err != nil {
+		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, model.GetMsg(c, model.GET_CK_CLUSTER_INFO_FAIL), err)
+		return
+	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), clustersMap)
 }
@@ -663,7 +680,7 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
 		return
 	}
-	defer common.CloseConns(hosts)
+
 	if err = rebalancer.GetTables(); err != nil {
 		log.Logger.Errorf("got error %+v", err)
 		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, model.GetMsg(c, model.REBALANCE_CK_CLUSTER_FAIL), err)
@@ -705,6 +722,13 @@ func (ck *ClickHouseController) GetClusterStatus(c *gin.Context) {
 	}
 
 	conf = con.(model.CKManClickHouseConfig)
+	if conf.Mode == model.CkClusterImport {
+		err := clickhouse.GetCkClusterConfig(&conf)
+		if err != nil {
+			model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST), err)
+			return
+		}
+	}
 	statusList := clickhouse.GetCkClusterStatus(&conf)
 
 	globalStatus := model.CkStatusGreen
@@ -779,7 +803,6 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err)
 		return
 	}
-	defer service.Stop()
 	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
 		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err)
 		return
@@ -823,12 +846,12 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL), err)
 		return
 	}
+	common.CloseConns([]string{ip})
 
 	if err = ck.syncDownClusters(c); err != nil {
 		return
 	}
 	clickhouse.CkClusters.Store(clusterName, conf)
-	common.CloseConns(conf.Hosts)
 	if err = ck.syncUpClusters(c); err != nil {
 		return
 	}
@@ -1061,7 +1084,6 @@ func (ck *ClickHouseController) PurgeTables(c *gin.Context) {
 		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL), err)
 		return
 	}
-	defer common.CloseConns(chHosts)
 	for _, table := range req.Tables {
 		err := p.PurgeTable(table)
 		if err != nil {
@@ -1131,7 +1153,6 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
 		return
 	}
-	defer common.CloseConns(chHosts)
 
 	if err := archive.GetSortingInfo(); err != nil {
 		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, model.GetMsg(c, model.ARCHIVE_TO_HDFS_FAIL), err)
