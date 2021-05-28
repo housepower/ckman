@@ -20,6 +20,9 @@ quickly deploy and start using CKMAN, please click the [deploy document](./docs/
 # How to upgrade
 You can upgrade ckman with [upgrade document](./docs/guide/upgrade.md).
 
+# RoadMap
+Please read [roadmap](https://github.com/housepower/ckman/wiki).
+
 # About us
 EOI Technology Co., Ltd. is a domestic intelligent operation and maintenance and maintenance and land supply provider. This product is dominated by the engineering database R & D team and open source contribution to the community.   
 Everyone can consult the developer Yu Zhichang ( WeChat ID: `wxid_ufym9ehuag3l21`) and YenchangChan ( WeChat ID:` yudinghou`) during the process of use, and I hope everyone will be willing to `Issue`, contribute code, jointly maintained the` ckman`, make the ecology of the `Clickhouse`, is getting better and better. 
