@@ -1,3 +1,7 @@
+# v1.3.5
+- fix `database is closed` issue
+- if mode is import, get cluster info from clickhouse every time
+
 # v1.3.4
 - fix json unmarshal of long request issue
 - fix 'URL is not allowed in config.xml' since 21.4
