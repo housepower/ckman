@@ -56,10 +56,9 @@ func SetConnOptions(conn *sql.DB) {
 
 func CloseConns(hosts []string) {
 	for _, host := range hosts {
-		conn, ok := ConnectPool.Load(host)
+		conn, ok := ConnectPool.LoadAndDelete(host)
 		if ok {
 			_ = conn.(Connection).db.Close()
-			ConnectPool.Delete(host)
 		}
 	}
 }

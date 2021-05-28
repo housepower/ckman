@@ -48,15 +48,6 @@ func NewCkService(config *model.CKManClickHouseConfig) *CkService {
 	return ck
 }
 
-func (ck *CkService) Stop() error {
-	if ck.DB != nil {
-		ck.DB.Close()
-	}
-
-	ck.DB = nil
-	return nil
-}
-
 func (ck *CkService) InitCkService() error {
 	if len(ck.Config.Hosts) == 0 {
 		return errors.Errorf("can't find any host")
@@ -272,29 +263,17 @@ func GetCkNodeService(clusterName string, node string) (*CkService, error) {
 	}
 }
 
-func GetCkClusterConfig(req model.CkImportConfig, conf *model.CKManClickHouseConfig) error {
+func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 	var replicas []model.CkReplica
-	conf.Hosts = req.Hosts
-	conf.Port = req.Port
-	conf.HttpPort = req.HttpPort
-	conf.Cluster = req.Cluster
-	conf.User = req.User
-	conf.Password = req.Password
-	conf.ZkNodes = req.ZkNodes
-	conf.ZkPort = req.ZkPort
-	conf.ZkStatusPort = req.ZkStatusPort
-	conf.Mode = model.CkClusterImport
-	conf.Normalize()
 
 	service := NewCkService(conf)
 	if err := service.InitCkService(); err != nil {
 		return err
 	}
-	defer service.Stop()
 	conf.Hosts = make([]string, 0)
 	conf.Shards = make([]model.CkShard, 0)
 
-	value, err := service.QueryInfo(fmt.Sprintf("SELECT cluster, shard_num, replica_num, host_name, host_address FROM system.clusters WHERE cluster='%s' ORDER BY cluster, shard_num, replica_num", req.Cluster))
+	value, err := service.QueryInfo(fmt.Sprintf("SELECT cluster, shard_num, replica_num, host_name, host_address FROM system.clusters WHERE cluster='%s' ORDER BY cluster, shard_num, replica_num", conf.Cluster))
 	if err != nil {
 		return err
 	}
@@ -363,7 +342,6 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 				statusMap[innerHost] = model.CkStatusGreen
 				lock.Unlock()
 			}
-			_ = service.Stop()
 		})
 	}
 	pool.Wait()
