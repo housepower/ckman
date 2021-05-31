@@ -49,7 +49,7 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 }
 
 func SetConnOptions(conn *sql.DB) {
-	conn.SetMaxOpenConns(1)
+	conn.SetMaxOpenConns(2)
 	conn.SetMaxIdleConns(0)
 	conn.SetConnMaxIdleTime(10 * time.Second)
 }
@@ -65,7 +65,11 @@ func CloseConns(hosts []string) {
 
 func GetConnection(host string) *sql.DB {
 	if conn, ok := ConnectPool.Load(host); ok {
-		return conn.(Connection).db
+		db := conn.(Connection).db
+		err := db.Ping()
+		if err ==  nil {
+			return db
+		}
 	}
 	return nil
 }

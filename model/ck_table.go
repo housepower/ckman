@@ -92,7 +92,8 @@ type CkTableMetrics struct {
 	Columns          uint64      `json:"columns"`
 	Rows             uint64      `json:"rows"`
 	Parts            uint64      `json:"parts"`
-	Space            uint64      `json:"space"`
+	DiskSpace        uint64      `json:"-"`
+	Space            string      `json:"space"`
 	CompletedQueries uint64      `json:"completedQueries"`
 	FailedQueries    uint64      `json:"failedQueries"`
 	QueryCost        CkTableCost `json:"queryCost"`

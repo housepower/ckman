@@ -6,6 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go v1.4.3
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18
 	github.com/choidamdam/gin-static-pkger v0.0.0-20201119021339-c0f138638274
 	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -15,6 +16,7 @@ require (
 	github.com/go-openapi/swag v0.19.15 // indirect
 	github.com/go-playground/validator/v10 v10.5.0 // indirect
 	github.com/go-zookeeper/zk v1.0.2
+	github.com/gobuffalo/here v0.6.2 // indirect
 	github.com/golang/mock v1.4.4 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect

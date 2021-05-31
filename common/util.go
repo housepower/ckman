@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -101,9 +102,39 @@ func EnvBoolVar(value *bool, key string) {
 	}
 }
 
-func MaxInt(x, y int)int{
+func MaxInt(x, y int) int {
 	if x > y {
 		return x
 	}
 	return y
+}
+
+const (
+	_  = iota
+	KB uint64 = 1 << (10 * iota)
+	MB
+	GB
+	TB
+	PB
+)
+
+func ConvertDisk(size uint64) string {
+	if size < KB {
+		return fmt.Sprintf("%.2fB", float64(size)/float64(1))
+	} else if size < MB {
+		return fmt.Sprintf("%.2fKB", float64(size)/float64(KB))
+	} else if size < GB {
+		return fmt.Sprintf("%.2fMB", float64(size)/float64(MB))
+	} else if size < TB {
+		return fmt.Sprintf("%.2fGB", float64(size)/float64(GB))
+	} else if size < PB {
+		return fmt.Sprintf("%.2fTB", float64(size)/float64(TB))
+	} else {
+		return fmt.Sprintf("%.2fPB", float64(size)/float64(PB))
+	}
+}
+
+func Decimal(value float64) float64 {
+	value, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", value), 64)
+	return value
 }

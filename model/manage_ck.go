@@ -18,6 +18,7 @@ type CkClusterNode struct {
 	Status        string `json:"status"`
 	ShardNumber   int    `json:"shardNumber"`
 	ReplicaNumber int    `json:"replicaNumber"`
+	Disk          string `json:"disk"`
 }
 
 type AddNodeReq struct {
@@ -30,7 +31,6 @@ type PingClusterReq struct {
 	User     string `json:"user" example:"ck"`
 	Password string `json:"password" example:"123456"`
 }
-
 
 type PurgerTableReq struct {
 	Database string   `json:"database" example:"default"`
