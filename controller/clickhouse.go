@@ -187,7 +187,7 @@ func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 	clickhouse.CkClusters.Range(func(k, v interface{}) bool {
 		switch clus := v.(type) {
 		case model.CKManClickHouseConfig:
-			if clus.Mode ==  model.CkClusterImport {
+			if clus.Mode == model.CkClusterImport {
 				err = clickhouse.GetCkClusterConfig(&clus)
 				if err != nil {
 					return false
@@ -752,6 +752,7 @@ func (ck *ClickHouseController) GetClusterStatus(c *gin.Context) {
 		Status:  globalStatus,
 		Version: conf.Version,
 		Nodes:   statusList,
+		Mode:    conf.Mode,
 	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), info)
@@ -1075,7 +1076,7 @@ func (ck *ClickHouseController) PurgeTables(c *gin.Context) {
 
 	chHosts, err := common.GetShardAvaliableHosts(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL),err)
+		model.WrapMsg(c, model.PURGER_TABLES_FAIL, model.GetMsg(c, model.PURGER_TABLES_FAIL), err)
 		return
 	}
 	p := business.NewPurgerRange(chHosts, conf.Port, conf.User, conf.Password, req.Database, req.Begin, req.End)
