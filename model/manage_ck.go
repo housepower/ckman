@@ -10,6 +10,7 @@ type CkClusterInfoRsp struct {
 	Status  string          `json:"status"`
 	Version string          `json:"version"`
 	Nodes   []CkClusterNode `json:"nodes"`
+	Mode    string          `json:"mode"`
 }
 
 type CkClusterNode struct {
