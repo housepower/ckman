@@ -51,10 +51,9 @@ func GetZkService(clusterName string) (*ZkService, error) {
 	if ok {
 		return zkService.(*ZkService), nil
 	} else {
-		conf, ok := clickhouse.CkClusters.Load(clusterName)
+		conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
 		if ok {
-			ckConfig := conf.(model.CKManClickHouseConfig)
-			service, err := NewZkService(ckConfig.ZkNodes, ckConfig.ZkPort)
+			service, err := NewZkService(conf.ZkNodes, conf.ZkPort)
 			if err != nil {
 				return nil, err
 			}
