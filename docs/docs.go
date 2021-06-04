@@ -1278,6 +1278,10 @@ var doc = `{
                 "isReplica": {
                     "type": "boolean"
                 },
+                "logic_cluster": {
+                    "type": "string",
+                    "example": "logic_test"
+                },
                 "packageVersion": {
                     "type": "string",
                     "example": "20.8.5.45"

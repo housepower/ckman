@@ -42,6 +42,7 @@ type CkDeployConfig struct {
 	CkTcpPort      int       `json:"ckTcpPort" example:"9000"`
 	CkHttpPort     int       `json:"ckHttpPort" example:"8123"`
 	IsReplica      bool      `json:"isReplica"`
+	LogicCluster   string    `json:"logic_cluster" example:"logic_test"`
 }
 
 type CkShard struct {
@@ -84,6 +85,7 @@ type CKManClickHouseConfig struct {
 	Shards       []CkShard         `json:"shards"`
 	Path         string            `json:"path"`
 	ZooPath      map[string]string `json:"zooPath"`
+	LogicName        string		   `json:"logic"`
 }
 
 func (config *CkDeployConfig) Normalize() {

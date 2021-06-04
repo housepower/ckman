@@ -142,6 +142,15 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		return
 	}
 	clickhouse.CkClusters.SetClusterByName(req.ClickHouse.ClusterName, conf)
+	if req.ClickHouse.LogicCluster != ""{
+		var newLogics []string
+		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(req.ClickHouse.ClusterName)
+		if ok {
+			newLogics = append(newLogics, logics...)
+		}
+		newLogics = append(newLogics, req.ClickHouse.ClusterName)
+		clickhouse.CkClusters.SetLogicClusterByName(req.ClickHouse.ClusterName, newLogics)
+	}
 	if err = d.syncUpClusters(c); err != nil {
 		return
 	}
@@ -163,6 +172,7 @@ func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {
 		SshPort:     req.Port,
 		Shards:      req.ClickHouse.Shards,
 		Path:        req.ClickHouse.Path,
+		LogicName:   req.ClickHouse.LogicCluster,
 	}
 
 	hosts := make([]string, 0)
