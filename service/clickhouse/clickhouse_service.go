@@ -382,6 +382,9 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 		return errors.Errorf("clickhouse service unavailable")
 	}
 
+	ensureDatabaseSql := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s ON CLUSTER %s", params.DB, params.Cluster)
+	_, _ = ck.DB.Exec(ensureDatabaseSql)
+
 	columns := make([]string, 0)
 	for _, value := range params.Fields {
 		columns = append(columns, fmt.Sprintf("`%s` %s %s", value.Name, value.Type, strings.Join(value.Options, " ")))

@@ -182,7 +182,7 @@ func InitCmd() {
 func GetOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		log.Logger.Fatal(err)
+		log.Logger.Fatalf("need to setup the default route: %v", err)
 	}
 	defer conn.Close()
 	localAddr := conn.LocalAddr().(*net.UDPAddr)

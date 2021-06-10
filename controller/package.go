@@ -225,7 +225,7 @@ func GetAllVersions(files []string) []string {
 			versions = append(versions, key)
 		}
 	}
-
+	sort.Sort(sort.Reverse(sort.StringSlice(versions)))
 	return versions
 }
 
