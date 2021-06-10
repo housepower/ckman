@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"github.com/housepower/ckman/service/zookeeper"
 	"io/ioutil"
 	"os"
 	"path"
@@ -13,6 +12,8 @@ import (
 	"sync"
 	"text/template"
 	"time"
+
+	"github.com/housepower/ckman/service/zookeeper"
 
 	"github.com/housepower/ckman/config"
 	"github.com/pkg/errors"
@@ -352,7 +353,7 @@ func (d *CKDeploy) Config() error {
 				return
 			}
 
-			cmd := fmt.Sprintf("rm -rf /etc/clickhouse-server/config.d/* && mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml", macrosFile)
+			cmd := fmt.Sprintf("rm -rf /etc/clickhouse-server/config.d/* && mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml && chown -R clickhouse:clickhouse /etc/clickhouse-server", macrosFile)
 			if _, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd); err != nil {
 				lastError = err
 				return
