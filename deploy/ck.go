@@ -581,21 +581,32 @@ func UpgradeCkCluster(conf *model.CKManClickHouseConfig, version string) error {
 	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, version, model.CkCommonPackageSuffix)
 	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, version, model.CkServerPackageSuffix)
 	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, version, model.CkClientPackageSuffix)
-	deploy := &CKDeploy{
-		DeployBase: DeployBase{
-			Hosts:    conf.Hosts,
-			User:     conf.SshUser,
-			Password: conf.SshPassword,
-			Port:     conf.SshPort,
-			Packages: packages,
-			Pool:     common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
-		},
-		Conf: &model.CkDeployConfig{
-			CkHttpPort: conf.HttpPort,
-			CkTcpPort:  conf.Port,
-			User:       conf.User,
-			Password:   conf.Password,
-		},
+	base := &DeployBase{
+		Hosts:    conf.Hosts,
+		User:     conf.SshUser,
+		Password: conf.SshPassword,
+		Port:     conf.SshPort,
+		Packages: packages,
+		Pool:     common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
+	}
+	con := &model.CkDeployConfig{
+		Path:           conf.Path,
+		User:           conf.User,
+		Password:       conf.Password,
+		ZkNodes:        conf.ZkNodes,
+		ZkPort:         conf.ZkPort,
+		ClusterName:    conf.Cluster,
+		Shards:         conf.Shards,
+		PackageVersion: conf.Version,
+		CkTcpPort:      conf.Port,
+		CkHttpPort:     conf.HttpPort,
+		IsReplica:      conf.IsReplica,
+	}
+
+	deploy := &CKDeploy{}
+
+	if err := deploy.Init(base, con); err != nil {
+		return err
 	}
 	if err := deploy.Stop(); err != nil {
 		return err
