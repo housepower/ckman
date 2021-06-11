@@ -1,3 +1,10 @@
+# v1.3.6
+- fix can't create cluster issue([#93](https://github.com/housepower/ckman/issues/93))
+- fix status always show green on Manage page
+- fix upgrade cluster cause config panic issue
+- Interface beauty
+- show disk information on ckman.
+
 # v1.3.5
 - fix `database is closed` issue
 - if mode is import, get cluster info from clickhouse every time
