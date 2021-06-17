@@ -73,26 +73,125 @@ type CkImportConfig struct {
 }
 
 type CKManClickHouseConfig struct {
-	Mode            string            `json:"mode"`
-	Hosts           []string          `json:"hosts"`
-	Port            int               `json:"port"`
-	HttpPort        int               `json:"httpPort"`
-	User            string            `json:"user"`
-	Password        string            `json:"password"`
-	Cluster         string            `json:"cluster"`
-	ZkNodes         []string          `json:"zkNodes"`
-	ZkPort          int               `json:"zkPort"`
-	ZkStatusPort    int               `json:"zkStatusPort"`
-	IsReplica       bool              `json:"isReplica"`
-	Version         string            `json:"version"`
-	SshUser         string            `json:"sshUser"`
-	SshPassword     string            `json:"sshPassword"`
-	SshPasswordFlag int               `json:"sshPasswdFlag"`
-	SshPort         int               `json:"sshPort"`
-	Shards          []CkShard         `json:"shards"`
-	Path            string            `json:"path"`
-	ZooPath         map[string]string `json:"zooPath"`
-	LogicName       string            `json:"logic_cluster"`
+	Mode            string
+	Hosts           []string
+	Port            int
+	HttpPort        int
+	User            string
+	Password        string
+	Cluster         string
+	ZkNodes         []string
+	ZkPort          int
+	ZkStatusPort    int
+	IsReplica       bool
+	Version         string
+	SshUser         string
+	SshPassword     string
+	SshPasswordFlag int
+	SshPort         int
+	Shards          []CkShard
+	Path            string
+	ZooPath         map[string]string
+	LogicName       string
+	Storage         Storage
+	UsersConf       UsersConf
+}
+
+// Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes
+type Storage struct {
+	Disks    []Disk
+	Policies []Policy
+}
+
+type Disk struct {
+	Name      string
+	Type      string
+	DiskLocal *DiskLocal
+	DiskHdfs  *DiskHdfs
+	DiskS3    *DiskS3
+}
+
+type DiskLocal struct {
+	Path               string
+	KeepFreeSpaceBytes *int64
+}
+
+type DiskHdfs struct {
+	Endpoint string
+}
+
+type DiskS3 struct {
+	Endpoint                  string
+	AccessKeyID               string
+	SecretAccessKey           string
+	Region                    *string
+	UseEnvironmentCredentials *bool
+	Expert                    map[string]string
+}
+
+type Policy struct {
+	Name       string
+	Volumns    []Volumn
+	MoveFactor *float32
+}
+
+type Volumn struct {
+	Name string
+	// Every disk shall be in storage.Disks
+	Disks                []string
+	MaxDataPartSizeBytes *int64
+	PreferNotToMerge     *string
+}
+
+// Refers to https://clickhouse.tech/docs/en/operations/settings/settings-users/
+type UsersConf struct {
+	Users    []User
+	Profiles []Profile
+	Quotas   []Quota
+}
+
+type User struct {
+	Name     string
+	Password string
+	Networks Networks
+	Profile  string // shall be in Profiles
+	Quota    string // shall be in Quotas
+}
+
+type Networks struct {
+	IPs         *[]string
+	Hosts       *[]string
+	HostRegexps *[]string
+}
+
+// https://clickhouse.tech/docs/en/operations/settings/settings-profiles/
+type Profile struct {
+	Name string
+	// https://clickhouse.tech/docs/en/operations/settings/permissions-for-queries/
+	ReadOnly   *int
+	AllowDDL   *int
+	MaxThreads *int
+	// https://clickhouse.tech/docs/en/operations/settings/query-complexity/
+	MaxMemoryUsage              *int64
+	MaxMemoryUsageForAllQueries *int64
+	Expert                      map[string]string
+}
+
+// https://clickhouse.tech/docs/en/operations/quotas/
+type Quota struct {
+	Name      string
+	Intervals []Interval
+}
+
+type Interval struct {
+	Duration      int64
+	Queries       int64
+	QuerySelects  int64
+	QueryInserts  int64
+	Errors        int64
+	ResultRows    int64
+	ReadRows      int64
+	ExecutionTime int64
 }
 
 func (config *CkDeployConfig) Normalize() {
