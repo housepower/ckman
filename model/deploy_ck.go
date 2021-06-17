@@ -84,6 +84,56 @@ type CKManClickHouseConfig struct {
 	Shards       []CkShard         `json:"shards"`
 	Path         string            `json:"path"`
 	ZooPath      map[string]string `json:"zooPath"`
+	Storage      Storage           `json:"storage"`
+}
+
+// Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes
+type Disk struct {
+	Name string
+	Type string
+	//Required parameters if Type="local"
+	Path string
+	//Optinial parameters if Type="local"
+	KeepFreeSpaceBytes int64 `json:"keep_free_space_bytes"`
+	//Required parameters if Type="s3" or "hdfs"
+	Endpoint string
+	//Required parameters if Type="s3"
+	AccessKeyID     string `json:"access_key_id"`
+	SecretAccessKey string `json:"scret_access_key"`
+	//Optinial parameters if Type="s3"
+	Region                                string
+	UseEnvironmentCredentials             bool `json:"use_environment_credentials"`
+	UseInsecureImdsRequest                bool `json:"use_insecure_imds_request"`
+	Proxy                                 []string
+	ConnectTimeoutMs                      int    `json:"connect_timeout_ms"`
+	RequestTimeoutMs                      int    `json:"request_timeout_ms"`
+	RetryAttempts                         int    `json:"retry_attempts"`
+	SingleReadRetries                     int    `json:"single_read_retries"`
+	MinBytesForSeek                       int    `json:"min_bytes_for_seek"`
+	MetadataPath                          string `json:"metadata_path"`
+	CacheEnabled                          bool   `json:"cache_enabled"`
+	CachePath                             string `json:"cache_path"`
+	SkipAccessCheck                       bool   `json:"skip_access_check"`
+	ServerSideEncryptionCustomerKeyBase64 string `json:"server_side_encryption_customer_key_base64"`
+}
+
+type Volumn struct {
+	Name string
+	// Every disk shall be in storage.Disks
+	Disks                []string
+	MaxDataPartSizeBytes int64  `json:"max_data_part_size_bytes"`
+	PreferNotToMerge     string `json:"prefer_not_to_merge"`
+}
+
+type Policy struct {
+	Name       string
+	Volumns    []Volumn
+	MoveFactor float32 `json:"move_factor"`
+}
+
+type Storage struct {
+	Disks    map[string]Disk
+	Policies map[string]Policy
 }
 
 func (config *CkDeployConfig) Normalize() {
