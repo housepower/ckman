@@ -165,6 +165,9 @@ func ScpFiles(files []string, path, user, password, ip string, port int) error {
 	defer sftpClient.Close()
 
 	for _, file := range files {
+		if file == "" {
+			continue
+		}
 		err = SFTPUpload(sftpClient, file, path)
 		if err != nil {
 			return err
@@ -189,7 +192,7 @@ func ScpDownloadFiles(files []string, path, user, password, ip string, port int)
 	return nil
 }
 
-func RemoteExecute(user, password, host string, port int, cmd string)(string, error) {
+func RemoteExecute(user, password, host string, port int, cmd string) (string, error) {
 	client, err := SSHConnect(user, password, host, port)
 	if err != nil {
 		return "", err

@@ -164,6 +164,9 @@ func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
 	for key, value := range clusters.GetClusters() {
 		CkClusters.SetClusterByName(key, value)
 	}
+	for key, value := range clusters.GetLogicClusters() {
+		CkClusters.SetLogicClusterByName(key, value)
+	}
 	CkClusters.FormatVersion = model.CurrentFormatVersion
 	return true, nil
 }

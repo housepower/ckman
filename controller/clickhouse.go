@@ -164,7 +164,7 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 	if !ok {
 		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, model.GetMsg(c, model.GET_CK_CLUSTER_INFO_FAIL), nil)
 	}
-	if cluster.Mode == model.CkClusterImport  {
+	if cluster.Mode == model.CkClusterImport {
 		_ = clickhouse.GetCkClusterConfig(&cluster)
 	}
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), cluster)
@@ -612,6 +612,27 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 	if err = ck.syncDownClusters(c); err != nil {
 		return
 	}
+
+	if conf.LogicName != "" {
+		var newLogics []string
+		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(conf.LogicName)
+		if ok {
+			//need delete logic cluster and reconf other cluster
+			for _, logic := range logics {
+				if logic == clusterName {
+					continue
+				}
+				_ = deploy.ConfigLogicOtherCluster(logic)
+				newLogics = append(newLogics, logic)
+			}
+		}
+		if len(newLogics) == 0 {
+			clickhouse.CkClusters.DeleteLogicClusterByName(conf.LogicName)
+		} else {
+			clickhouse.CkClusters.SetLogicClusterByName(conf.LogicName, newLogics)
+		}
+	}
+
 	clickhouse.CkClusters.DeleteClusterByName(clusterName)
 	common.CloseConns(conf.Hosts)
 	if err = ck.syncUpClusters(c); err != nil {
