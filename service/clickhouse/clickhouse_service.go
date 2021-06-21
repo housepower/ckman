@@ -32,11 +32,15 @@ const (
 	ClickHouseServiceTimeout         int    = 3600
 )
 
-var CkClusters sync.Map
+var CkClusters *model.CkClusters
 
 type CkService struct {
 	Config *model.CKManClickHouseConfig
 	DB     *sql.DB
+}
+
+func init() {
+	CkClusters = model.NewCkClusters()
 }
 
 func NewCkService(config *model.CKManClickHouseConfig) *CkService {
@@ -102,44 +106,14 @@ func UnmarshalClusters(data []byte) (map[string]interface{}, error) {
 	return clustersMap, nil
 }
 
-func AddCkClusterConfigVersion() {
-	version, ok := CkClusters.Load(ClickHouseConfigVersionKey)
-	if !ok {
-		CkClusters.Store(ClickHouseConfigVersionKey, 0)
-	}
-
-	CkClusters.Store(ClickHouseConfigVersionKey, version.(int)+1)
-}
-
-func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
+func convertFormatVersionV2(data []byte) (*model.CkClusters, error) {
 	var ck map[string]interface{}
+	clusters := model.NewCkClusters()
+	var err error
 	ck, err = UnmarshalClusters(data)
 	if err != nil || ck == nil {
-		return
+		return clusters, err
 	}
-
-	srcVersion, ok := ck[ClickHouseConfigVersionKey]
-	if !ok {
-		err = errors.Errorf("can't find source version")
-		return
-	}
-	dstVersion, ok := CkClusters.Load(ClickHouseConfigVersionKey)
-	if !ok {
-		err = errors.Errorf("can't find version")
-		return
-	}
-
-	if int(srcVersion.(float64)) <= dstVersion.(int) {
-		return
-	}
-
-	// delete old CkClusters config
-	CkClusters.Range(func(k, v interface{}) bool {
-		CkClusters.Delete(k)
-		return true
-	})
-
-	// merge new CkClusters config
 	for key, value := range ck {
 		v, ok := value.(map[string]interface{})
 		if ok {
@@ -147,14 +121,51 @@ func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
 			jsonStr, _ := json.Marshal(v)
 			_ = json.Unmarshal(jsonStr, &conf)
 			conf.Normalize()
-			CkClusters.Store(key, conf)
+			clusters.SetClusterByName(key, conf)
 		} else {
-			CkClusters.Store(key, int(value.(float64)))
+			clusters.SetConfigVersion(int(value.(float64)))
 		}
 	}
+	return clusters, nil
+}
 
-	updated = true
-	return
+func AddCkClusterConfigVersion() {
+	version := CkClusters.GetConfigVersion()
+	if version == -1 {
+		CkClusters.SetConfigVersion(0)
+	}
+	CkClusters.SetConfigVersion(version+1)
+}
+
+func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
+	clusters := model.NewCkClusters()
+	err = json.Unmarshal(data, &clusters)
+	if err != nil {
+		return false, err
+	}
+
+	if clusters.FormatVersion != model.CurrentFormatVersion {
+		// need convert to V2
+		log.Logger.Infof("need convert clusters.json to V2")
+		clusters, err = convertFormatVersionV2(data)
+		if err != nil {
+			return false, err
+		}
+	}
+	srcVersion := clusters.GetConfigVersion()
+	dstVersion := CkClusters.GetConfigVersion()
+	if srcVersion <= dstVersion {
+		return false,nil
+	}
+
+	CkClusters.ClearClusters()
+	CkClusters.SetConfigVersion(srcVersion)
+
+	for key, value := range clusters.GetClusters() {
+		CkClusters.SetClusterByName(key, value)
+	}
+	CkClusters.FormatVersion = model.CurrentFormatVersion
+	return true, nil
 }
 
 func ParseCkClusterConfigFile() error {
@@ -164,34 +175,23 @@ func ParseCkClusterConfigFile() error {
 	}
 
 	if data != nil {
-		CkClusters.Store(ClickHouseConfigVersionKey, -1)
+		CkClusters.SetConfigVersion(-1)
 		_, err := UpdateLocalCkClusterConfig(data)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, ok := CkClusters.Load(ClickHouseConfigVersionKey)
-	if !ok {
-		CkClusters.Store(ClickHouseConfigVersionKey, 0)
+	if CkClusters.GetConfigVersion() == -1 {
+		CkClusters.FormatVersion = model.CurrentFormatVersion
+		CkClusters.SetConfigVersion(0)
 	}
 
 	return err
 }
 
 func MarshalClusters() ([]byte, error) {
-	clustersMap := make(map[string]interface{})
-	CkClusters.Range(func(k, v interface{}) bool {
-		if _, ok := v.(model.CKManClickHouseConfig); ok {
-			clustersMap[k.(string)] = v.(model.CKManClickHouseConfig)
-		} else {
-			clustersMap[k.(string)] = v.(int)
-		}
-
-		return true
-	})
-
-	data, err := json.MarshalIndent(clustersMap, "", "  ")
+	data, err := json.MarshalIndent(CkClusters, "", "  ")
 	if err != nil {
 		return nil, errors.Wrapf(err, "")
 	}
@@ -229,10 +229,9 @@ func UpdateCkClusterConfigFile() error {
 }
 
 func GetCkService(clusterName string) (*CkService, error) {
-	conf, ok := CkClusters.Load(clusterName)
+	conf, ok := CkClusters.GetClusterByName(clusterName)
 	if ok {
-		ckConfig := conf.(model.CKManClickHouseConfig)
-		service := NewCkService(&ckConfig)
+		service := NewCkService(&conf)
 		if err := service.InitCkService(); err != nil {
 			return nil, err
 		}
@@ -243,15 +242,14 @@ func GetCkService(clusterName string) (*CkService, error) {
 }
 
 func GetCkNodeService(clusterName string, node string) (*CkService, error) {
-	conf, ok := CkClusters.Load(clusterName)
+	conf, ok := CkClusters.GetClusterByName(clusterName)
 	if ok {
-		ckConfig := conf.(model.CKManClickHouseConfig)
 		tmp := &model.CKManClickHouseConfig{
 			Hosts:    []string{node},
-			Port:     ckConfig.Port,
-			Cluster:  ckConfig.Cluster,
-			User:     ckConfig.User,
-			Password: ckConfig.Password,
+			Port:     conf.Port,
+			Cluster:  conf.Cluster,
+			User:     conf.User,
+			Password: conf.Password,
 		}
 		service := NewCkService(tmp)
 		if err := service.InitCkService(); err != nil {
@@ -943,18 +941,17 @@ func ConvertZooPath(conf *model.CKManClickHouseConfig) []string {
 
 
 func checkTableIfExists(database, name, cluster string)bool{
-	conf, ok := CkClusters.Load(cluster)
+	conf, ok := CkClusters.GetClusterByName(cluster)
 	if !ok {
 		return false
 	}
-	ckConfig := conf.(model.CKManClickHouseConfig)
-	hosts, err := common.GetShardAvaliableHosts(&ckConfig)
+	hosts, err := common.GetShardAvaliableHosts(&conf)
 	if err != nil {
 
 		return false
 	}
 	for _, host := range hosts {
-		tmp := ckConfig
+		tmp := conf
 		tmp.Hosts = []string{host}
 		service := NewCkService(&tmp)
 		if err := service.InitCkService(); err != nil {
