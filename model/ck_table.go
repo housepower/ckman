@@ -9,6 +9,12 @@ type CreateCkTableReq struct {
 	Distinct  bool              `json:"distinct" example:"true"`
 }
 
+type CreateDistTableReq struct {
+	LogicName  string `json:"logic_name" example:"logic_test"`
+	Database   string `json:"database" example:"default"`
+	LocalTable string `json:"table_name" example:"test_table"`
+}
+
 type CkTableNameType struct {
 	Name    string   `json:"name" example:"_timestamp"`
 	Type    string   `json:"type" example:"DateTime"`
@@ -47,6 +53,13 @@ type DeleteCkTableParams struct {
 	Name    string
 	Cluster string
 	DB      string
+}
+
+type CreateDistTblParams struct {
+	Database    string
+	TableName   string
+	ClusterName string
+	LogicName   string
 }
 
 type CkTableNameTypeAfter struct {

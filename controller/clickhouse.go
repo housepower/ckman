@@ -282,6 +282,51 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
+// @Summary Create Distribute Table on logic cluster
+// @Description Create Distribute Table on logic cluster
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(logic_test)
+// @Param req body model.CreateDistTableReq true "request body"
+// @Failure 200 {string} json "{"retCode":5000,"retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":5001,"retMsg":"create ClickHouse table failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":null}"
+// @Router /api/v1/ck/dist_table [post]
+func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context){
+	var req model.CreateDistTableReq
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		return
+	}
+
+	logics, ok := clickhouse.CkClusters.GetLogicClusterByName(req.LogicName)
+	if !ok {
+		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(c, model.CREAT_CK_TABLE_FAIL),
+			fmt.Sprintf("logic cluster %s is not exist", req.LogicName))
+		return
+	}
+
+	for _, cluster := range logics {
+		ckService, err := clickhouse.GetCkService(cluster)
+		if err != nil {
+			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(c, model.CREAT_CK_TABLE_FAIL), err)
+			return
+		}
+		params := model.CreateDistTblParams{
+			Database: req.Database,
+			TableName: req.LocalTable,
+			ClusterName: cluster,
+			LogicName: req.LogicName,
+		}
+		if err = ckService.CreateDistTblOnLogic(&params); err != nil {
+			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(c, model.CREAT_CK_TABLE_FAIL), err)
+			return
+		}
+	}
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
+}
+
 // @Summary Alter Table
 // @Description Alter Table
 // @version 1.0

@@ -23,6 +23,7 @@ import (
 
 const (
 	ClickHouseDistributedTablePrefix string = "dist_"
+	ClickHouseDistTableOnLogicPrefix string = "dist_logic_"
 	ClickHouseQueryStart             string = "QueryStart"
 	ClickHouseQueryFinish            string = "QueryFinish"
 	ClickHouseQueryExStart           string = "ExceptionBeforeStart"
@@ -431,6 +432,21 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 		if ok := checkTableIfExists(params.DB, name, params.Cluster); !ok {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (ck *CkService) CreateDistTblOnLogic (params *model.CreateDistTblParams) error {
+	if !checkTableIfExists(params.Database, params.TableName, params.ClusterName) {
+		return fmt.Errorf("table %s.%s is not exist on cluster %s", params.Database, params.TableName, params.ClusterName)
+	}
+	createSql := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s.%s%s ON CLUSTER %s AS %s.%s ENGINE = Distributed(%s, %s, %s, rand())`,
+		params.Database, ClickHouseDistTableOnLogicPrefix, params.TableName, params.ClusterName,
+		params.Database, params.TableName, params.LogicName, params.Database, params.TableName)
+
+	if _, err := ck.DB.Exec(createSql); err != nil {
+		return err
 	}
 
 	return nil
