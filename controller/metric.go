@@ -78,15 +78,13 @@ func (m *MetricController) Query(c *gin.Context) {
 func (m *MetricController) QueryRange(c *gin.Context) {
 	var params model.MetricQueryRangeReq
 	clusterName := c.Param(ClickHouseClusterPath)
-	var conf model.CKManClickHouseConfig
-	con, ok := clickhouse.CkClusters.Load(clusterName)
+	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
 	if !ok {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
-	conf = con.(model.CKManClickHouseConfig)
 	params.Title = c.Query("title")
 	var hosts []string
 	if params.Title == TITLE_CLICKHOUSE_TABLE || params.Title == TITLE_CLICKHOUSE_NODE {

@@ -32,17 +32,14 @@ func NewZookeeperController() *ZookeeperController {
 // @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":[{"host":"192.168.102.116","version":"3.6.2","server_state":"follower","peer_state":"following - broadcast","avg_latency":0.4929,"approximate_data_size":141979,"znode_count":926}]}"
 // @Router /api/v1/zk/status/{clusterName} [get]
 func (zk *ZookeeperController) GetStatus(c *gin.Context) {
-	var conf model.CKManClickHouseConfig
-
 	clusterName := c.Param(ClickHouseClusterPath)
-	con, ok := clickhouse.CkClusters.Load(clusterName)
+	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
 	if !ok {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
-	conf = con.(model.CKManClickHouseConfig)
 	zkList := make([]model.ZkStatusRsp, len(conf.ZkNodes))
 	for index, node := range conf.ZkNodes {
 		tmp := model.ZkStatusRsp{
@@ -96,16 +93,13 @@ func getZkStatus(host string, port int) ([]byte, error) {
 // @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":{"header":[["vm101106","vm101108"],["vm102114","vm101110"],["vm102116","vm102115"]],"tables":[{"name":"sensor_dt_result_online","values":[["l1846","f1846"],["l1845","f1845"],["l1846","f1846"]]}]}}"
 // @Router /api/v1/zk/replicated_table/{clusterName} [get]
 func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
-	var conf model.CKManClickHouseConfig
-
 	clusterName := c.Param(ClickHouseClusterPath)
-	con, ok := clickhouse.CkClusters.Load(clusterName)
+	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
 	if !ok {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
-	conf = con.(model.CKManClickHouseConfig)
 
 	zkService, err := zookeeper.GetZkService(clusterName)
 	if err != nil {

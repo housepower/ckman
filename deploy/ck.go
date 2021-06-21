@@ -659,6 +659,9 @@ func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 			Port:     conf.SshPort,
 			Pool:     common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 		},
+		Conf: &model.CkDeployConfig{
+			CkTcpPort: conf.Port,
+		},
 	}
 
 	if err := deploy.Start(); err != nil {

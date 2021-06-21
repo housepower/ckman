@@ -141,7 +141,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	if err = d.syncDownClusters(c); err != nil {
 		return
 	}
-	clickhouse.CkClusters.Store(req.ClickHouse.ClusterName, conf)
+	clickhouse.CkClusters.SetClusterByName(req.ClickHouse.ClusterName, conf)
 	if err = d.syncUpClusters(c); err != nil {
 		return
 	}
