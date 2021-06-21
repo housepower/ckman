@@ -165,6 +165,9 @@ func ScpFiles(files []string, path, user, password, ip string, port int) error {
 	defer sftpClient.Close()
 
 	for _, file := range files {
+		if file == "" {
+			continue
+		}
 		err = SFTPUpload(sftpClient, file, path)
 		if err != nil {
 			return err

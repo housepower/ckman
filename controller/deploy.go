@@ -144,12 +144,12 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	clickhouse.CkClusters.SetClusterByName(req.ClickHouse.ClusterName, conf)
 	if req.ClickHouse.LogicCluster != ""{
 		var newLogics []string
-		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(req.ClickHouse.ClusterName)
+		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(req.ClickHouse.LogicCluster)
 		if ok {
 			newLogics = append(newLogics, logics...)
 		}
 		newLogics = append(newLogics, req.ClickHouse.ClusterName)
-		clickhouse.CkClusters.SetLogicClusterByName(req.ClickHouse.ClusterName, newLogics)
+		clickhouse.CkClusters.SetLogicClusterByName(req.ClickHouse.LogicCluster, newLogics)
 	}
 	if err = d.syncUpClusters(c); err != nil {
 		return

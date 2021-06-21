@@ -14,7 +14,7 @@ type CkClusters struct {
 
 func NewCkClusters() *CkClusters {
 	return &CkClusters{
-		FormatVersion: CurrentFormatVersion,
+		FormatVersion: -1,
 		ConfigVersion: -1,
 		Clusters:      make(map[string]CKManClickHouseConfig),
 		LogicCluster:  make(map[string][]string),

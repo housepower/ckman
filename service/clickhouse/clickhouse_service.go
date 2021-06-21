@@ -127,7 +127,6 @@ func convertFormatVersionV2(data []byte) (*model.CkClusters, error) {
 			clusters.SetConfigVersion(int(value.(float64)))
 		}
 	}
-	clusters.FormatVersion = model.CurrentFormatVersion
 	return clusters, nil
 }
 
@@ -148,6 +147,7 @@ func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
 
 	if clusters.FormatVersion != model.CurrentFormatVersion {
 		// need convert to V2
+		log.Logger.Infof("need convert clusters.json to V2")
 		clusters, err = convertFormatVersionV2(data)
 		if err != nil {
 			return false, err
@@ -165,7 +165,7 @@ func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
 	for key, value := range clusters.GetClusters() {
 		CkClusters.SetClusterByName(key, value)
 	}
-
+	CkClusters.FormatVersion = model.CurrentFormatVersion
 	return true, nil
 }
 

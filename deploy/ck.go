@@ -377,7 +377,12 @@ func (d *CKDeploy) Config() error {
 			for _, host := range deploy.Hosts {
 				innerHost := host
 				_ = d.Pool.Submit(func() {
-					if err := common.ScpFiles([]string{m}, "/etc/clickhouse-server/metrika.xml", deploy.User, deploy.Password, innerHost, deploy.Port); err != nil {
+					if err := common.ScpFiles([]string{m}, "/etc/clickhouse-server/", deploy.User, deploy.Password, innerHost, deploy.Port); err != nil {
+						lastError = err
+						return
+					}
+					cmd := fmt.Sprintf("mv /etc/clickhouse-server/%s /etc/clickhouse-server/metrika.xml", metrikaFile)
+					if _, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd); err != nil {
 						lastError = err
 						return
 					}
@@ -563,13 +568,18 @@ func GenerateLogicMetrika(d *CKDeploy) (Cluster, []*CKDeploy) {
 	var deploys []*CKDeploy
 	if ok {
 		for _, logic := range logics {
+			if logic == d.Conf.ClusterName {
+				// if the operation is addNode or deleteNode, we do not use global config
+				continue
+			}
 			c, _ := clickhouse.CkClusters.GetClusterByName(logic)
 			tmp := &model.CkDeployConfig{
-				ZkNodes:   c.ZkNodes,
-				ZkPort:    c.ZkPort,
-				Shards:    c.Shards,
-				CkTcpPort: c.Port,
-				IsReplica: c.IsReplica,
+				ZkNodes:     c.ZkNodes,
+				ZkPort:      c.ZkPort,
+				Shards:      c.Shards,
+				CkTcpPort:   c.Port,
+				IsReplica:   c.IsReplica,
+				ClusterName: c.Cluster,
 			}
 			base := DeployBase{
 				Hosts:    c.Hosts,
@@ -608,7 +618,7 @@ func GenerateLogicMetrika(d *CKDeploy) (Cluster, []*CKDeploy) {
 		}
 	}
 	ck := Cluster{
-		XMLName: xml.Name{Local: d.Conf.ClusterName},
+		XMLName: xml.Name{Local: d.Conf.LogicCluster},
 		Shards:  shards,
 	}
 	return ck, deploys
@@ -791,6 +801,9 @@ func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 			Password: conf.SshPassword,
 			Port:     conf.SshPort,
 			Pool:     common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
+		},
+		Conf: &model.CkDeployConfig{
+			CkTcpPort: conf.Port,
 		},
 	}
 
@@ -1277,9 +1290,8 @@ func ensureHosts(d *CKDeploy) error {
 	return nil
 }
 
-
-func ConfigLogicOtherCluster(clusterName string)error{
-	conf,ok := clickhouse.CkClusters.GetClusterByName(clusterName)
+func ConfigLogicOtherCluster(clusterName string) error {
+	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
 	if !ok {
 		return fmt.Errorf("can't find cluster %s", clusterName)
 	}
@@ -1301,9 +1313,9 @@ func ConfigLogicOtherCluster(clusterName string)error{
 		DeployBase: base,
 		Conf:       ckConf,
 	}
-	metrika,_ := GenerateLogicMetrika(d)
+	metrika, _ := GenerateLogicMetrika(d)
 	logicFile := fmt.Sprintf("metrika_%s.xml", clusterName)
-	m,_ := GenerateMetrikaTemplateWithLogic(logicFile, ckConf, metrika)
+	m, _ := GenerateMetrikaTemplateWithLogic(logicFile, ckConf, metrika)
 	var lastError error
 	for _, host := range d.Hosts {
 		_ = d.Pool.Submit(func() {
