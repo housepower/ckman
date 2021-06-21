@@ -84,6 +84,9 @@ definitions:
         type: string
       isReplica:
         type: boolean
+      logic_cluster:
+        example: logic_test
+        type: string
       packageVersion:
         example: 20.8.5.45
         type: string
