@@ -8,6 +8,8 @@ type ZkStatusRsp struct {
 	AvgLatency          float64 `json:"avg_latency"`
 	ApproximateDataSize float64 `json:"approximate_data_size"`
 	ZnodeCount          float64 `json:"znode_count"`
+	OutstandingRequests float64 `json:"outstanding_requests"`
+	WatchCount          float64 `json:"watch_count"`
 }
 
 type ZkReplicatedTableStatusRsp struct {
