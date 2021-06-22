@@ -85,7 +85,7 @@ type CKManClickHouseConfig struct {
 	Shards       []CkShard         `json:"shards"`
 	Path         string            `json:"path"`
 	ZooPath      map[string]string `json:"zooPath"`
-	LogicName    string            `json:"logic"`
+	LogicName    string            `json:"logic_cluster"`
 }
 
 func (config *CkDeployConfig) Normalize() {
