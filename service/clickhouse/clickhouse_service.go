@@ -135,7 +135,7 @@ func AddCkClusterConfigVersion() {
 	if version == -1 {
 		CkClusters.SetConfigVersion(0)
 	}
-	CkClusters.SetConfigVersion(version+1)
+	CkClusters.SetConfigVersion(version + 1)
 }
 
 func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
@@ -156,7 +156,7 @@ func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
 	srcVersion := clusters.GetConfigVersion()
 	dstVersion := CkClusters.GetConfigVersion()
 	if srcVersion <= dstVersion {
-		return false,nil
+		return false, nil
 	}
 
 	CkClusters.ClearClusters()
@@ -317,7 +317,7 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-func getNodeDisk(service *CkService)string{
+func getNodeDisk(service *CkService) string {
 	query := "SELECT free_space, total_space FROM system.disks"
 	value, err := service.QueryInfo(query)
 	if err != nil {
@@ -437,7 +437,7 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	return nil
 }
 
-func (ck *CkService) CreateDistTblOnLogic (params *model.CreateDistTblParams) error {
+func (ck *CkService) CreateDistTblOnLogic(params *model.CreateDistTblParams) error {
 	if !checkTableIfExists(params.Database, params.TableName, params.ClusterName) {
 		return fmt.Errorf("table %s.%s is not exist on cluster %s", params.Database, params.TableName, params.ClusterName)
 	}
@@ -844,18 +844,27 @@ func getHostSessions(service *CkService, query string) ([]*model.CkSessionInfo, 
 func getCkSessions(conf *model.CKManClickHouseConfig, limit int, query string) ([]*model.CkSessionInfo, error) {
 	list := make([]*model.CkSessionInfo, 0)
 
+	pool := common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault)
+	var lastError error
 	for _, host := range conf.Hosts {
-		service, err := GetCkNodeService(conf.Cluster, host)
-		if err != nil {
-			log.Logger.Warnf("get ck node %s service error: %v", host, err)
-			continue
-		}
+		innerHost := host
+		_ = pool.Submit(func() {
+			service, err := GetCkNodeService(conf.Cluster, innerHost)
+			if err != nil {
+				log.Logger.Warnf("get ck node %s service error: %v", innerHost, err)
+				return
+			}
 
-		sessions, err := getHostSessions(service, query)
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, sessions...)
+			sessions, err := getHostSessions(service, query)
+			if err != nil {
+				lastError = err
+			}
+			list = append(list, sessions...)
+		})
+	}
+	pool.Wait()
+	if lastError != nil {
+		return nil, lastError
 	}
 
 	sort.Sort(model.SessionList(list))
@@ -872,10 +881,10 @@ func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 	return getCkSessions(conf, limit, query)
 }
 
-func GetCkSlowSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.CkSessionInfo, error) {
-	query := fmt.Sprintf("SELECT query_start_time, query_duration_ms, query, initial_user, initial_query_id, initial_address, thread_ids, (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name from system.query_log WHERE tbl_name != '' AND tbl_name != 'query_log' AND tbl_name != 'processes' AND type=2 AND is_initial_query=1 AND query_start_time >= subtractDays(now(), 7) ORDER BY query_duration_ms DESC limit %d", limit)
+func GetCkSlowSessions(conf *model.CKManClickHouseConfig, cond model.SessionCond) ([]*model.CkSessionInfo, error) {
+	query := fmt.Sprintf("SELECT query_start_time, query_duration_ms, query, initial_user, initial_query_id, initial_address, thread_ids, (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(dist_)?(\\w+)')[1])[4] AS tbl_name from system.query_log WHERE tbl_name != '' AND tbl_name != 'query_log' AND tbl_name != 'processes' AND type=2 AND is_initial_query=1 AND query_start_time >= parseDateTimeBestEffort('%d') AND query_start_time <= parseDateTimeBestEffort('%d') ORDER BY query_duration_ms DESC limit %d", cond.StartTime, cond.EndTime, cond.Limit)
 	log.Logger.Debugf("query: %s", query)
-	return getCkSessions(conf, limit, query)
+	return getCkSessions(conf, cond.Limit, query)
 }
 
 func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
@@ -958,8 +967,7 @@ func ConvertZooPath(conf *model.CKManClickHouseConfig) []string {
 	return zooPaths
 }
 
-
-func checkTableIfExists(database, name, cluster string)bool{
+func checkTableIfExists(database, name, cluster string) bool {
 	conf, ok := CkClusters.GetClusterByName(cluster)
 	if !ok {
 		return false
@@ -992,7 +1000,7 @@ func checkTableIfExists(database, name, cluster string)bool{
 	return true
 }
 
-func DropTableIfExists(params model.CreateCkTableParams, ck *CkService){
+func DropTableIfExists(params model.CreateCkTableParams, ck *CkService) {
 	dropSql := fmt.Sprintf("DROP TABLE IF EXISTS %s.%s ON CLUSTER %s", params.DB, params.Name, params.Cluster)
 	log.Logger.Debugf(dropSql)
 	_, _ = ck.DB.Exec(dropSql)

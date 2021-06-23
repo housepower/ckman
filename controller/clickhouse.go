@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"strconv"
+	"time"
 
 	"github.com/housepower/ckman/service/nacos"
 
@@ -292,7 +293,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 // @Failure 200 {string} json "{"retCode":5001,"retMsg":"create ClickHouse table failed","entity":""}"
 // @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/dist_table [post]
-func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context){
+func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 	var req model.CreateDistTableReq
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
@@ -313,10 +314,10 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context){
 			return
 		}
 		params := model.CreateDistTblParams{
-			Database: req.Database,
-			TableName: req.LocalTable,
+			Database:    req.Database,
+			TableName:   req.LocalTable,
 			ClusterName: cluster,
-			LogicName: req.LogicName,
+			LogicName:   req.LogicName,
 		}
 		if err = ckService.CreateDistTblOnLogic(&params); err != nil {
 			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, model.GetMsg(c, model.CREAT_CK_TABLE_FAIL), err)
@@ -983,10 +984,23 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 // @Router /api/v1/ck/slow_sessions/{clusterName} [get]
 func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
-	limit := ClickHouseSessionLimit
-	limitStr := c.Query("limit")
-	if limitStr != "" {
-		limit, _ = strconv.Atoi(limitStr)
+	now := time.Now().Unix()  //second
+	cond := model.SessionCond{
+		StartTime: now - 7*24*3600,   // 7 days before
+		EndTime:   now,
+		Limit:     ClickHouseSessionLimit,
+	}
+	limit := c.Query("limit")
+	if limit != "" {
+		cond.Limit, _ = strconv.Atoi(limit)
+	}
+	startTime := c.Query("start")
+	if startTime != "" {
+		cond.StartTime, _ = strconv.ParseInt(startTime, 10, 64)
+	}
+	endTime := c.Query("end")
+	if endTime != "" {
+		cond.EndTime, _ = strconv.ParseInt(endTime, 10, 64)
 	}
 
 	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
@@ -997,7 +1011,7 @@ func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	}
 
 	var gotError bool
-	sessions, err := clickhouse.GetCkSlowSessions(&conf, limit)
+	sessions, err := clickhouse.GetCkSlowSessions(&conf, cond)
 	if err != nil {
 		gotError = true
 		var exception *client.Exception

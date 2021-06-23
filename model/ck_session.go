@@ -10,6 +10,12 @@ type CkSessionInfo struct {
 	Threads       int    `json:"threads"`
 }
 
+type SessionCond struct {
+	StartTime int64
+	EndTime   int64
+	Limit     int
+}
+
 type SessionList []*CkSessionInfo
 
 func (l SessionList) Len() int {
