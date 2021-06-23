@@ -79,8 +79,9 @@ func (CKDeployFacotry) Create() Deploy {
 
 type CKDeploy struct {
 	DeployBase
-	Conf      *model.CkDeployConfig
-	HostInfos []HostInfo
+	Conf       *model.CkDeployConfig
+	HostInfos  []HostInfo
+	Ipv6Enable bool
 }
 
 type HostInfo struct {
@@ -90,6 +91,7 @@ type HostInfo struct {
 type CkConfigTemplate struct {
 	CkTcpPort         int
 	CkHttpPort        int
+	CkListenHost      string
 	Path              string
 	User              string
 	Password          string
@@ -119,6 +121,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 	HostNameMap := make(map[string]bool)
 	var lock sync.RWMutex
 	var lastError error
+	d.Ipv6Enable = true
 	for index, host := range d.Hosts {
 		innerIndex := index
 		innerHost := host
@@ -141,6 +144,19 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 				MemoryTotal: total,
 			}
 			d.HostInfos[innerIndex] = info
+			if d.Ipv6Enable {
+				cmd2 := "if test -f /proc/net/if_inet6; then echo true; else echo false; fi"
+				output, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd2)
+				if err != nil {
+					lastError = err
+					return
+				}
+
+				ipv6Enable := strings.Trim(output, "\n")
+				if ipv6Enable == "false" {
+					d.Ipv6Enable = false
+				}
+			}
 		})
 	}
 	d.Pool.StopWait()
@@ -310,6 +326,12 @@ func (d *CKDeploy) Config() error {
 		Password:    d.Conf.Password,
 		ClusterName: d.Conf.ClusterName,
 	}
+	if d.Ipv6Enable {
+		configTemplate.CkListenHost = "::"
+	} else {
+		configTemplate.CkListenHost = "0.0.0.0"
+	}
+
 	conf, err := ParseConfigTemplate("config.xml", configTemplate)
 	if err != nil {
 		return err
