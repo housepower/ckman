@@ -111,7 +111,7 @@
     -->
 
     <!-- Listen specified host. use :: (wildcard IPv6 address), if you want to accept connections both with IPv4 and IPv6 from everywhere. -->
-    <listen_host>::</listen_host>
+    <listen_host>{{.CkListenHost}}</listen_host>
     <!-- Same for hosts with disabled ipv6: -->
     <!-- <listen_host>0.0.0.0</listen_host> -->
 
