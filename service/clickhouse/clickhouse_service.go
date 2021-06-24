@@ -720,7 +720,9 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 			for _, table := range tables {
 				tableName := fmt.Sprintf("%s.%s", db, table)
 				if _, ok := metrics[tableName]; !ok {
-					metric := &model.CkTableMetrics{}
+					metric := &model.CkTableMetrics{
+						RWStatus: true,
+					}
 					metrics[tableName] = metric
 				}
 			}
@@ -760,6 +762,23 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 					metric.DiskSpace += value[i][1].(uint64)
 					metric.Parts += value[i][2].(uint64)
 					metric.Rows += value[i][3].(uint64)
+				}
+			}
+
+			// get readwrite_status
+			query = fmt.Sprintf("select table, is_readonly from system.replicas where database = '%s'", database)
+			value, err = service.QueryInfo(query)
+			if err != nil {
+				return nil, err
+			}
+			for i := 1; i < len(value); i++ {
+				table := value[i][0].(string)
+				tableName := fmt.Sprintf("%s.%s", database, table)
+				if metric, ok := metrics[tableName]; ok {
+					isReadonly := value[i][1].(uint8)
+					if isReadonly != 0 {
+						metric.RWStatus = false
+					}
 				}
 			}
 
@@ -1008,4 +1027,14 @@ func DropTableIfExists(params model.CreateCkTableParams, ck *CkService) {
 	dropSql = fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s", params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
 	log.Logger.Debugf(dropSql)
 	_, _ = ck.DB.Exec(dropSql)
+}
+
+func (ck *CkService)ShowCreateTable(tbname, database string) (string, error) {
+	query := fmt.Sprintf("SELECT create_table_query FROM system.tables WHERE database = '%s' AND name = '%s'", database, tbname)
+	value, err := ck.QueryInfo(query)
+	if err != nil {
+		return "", err
+	}
+	schemer := value[1][0].(string)
+	return schemer, nil
 }

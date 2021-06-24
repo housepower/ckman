@@ -107,6 +107,7 @@ type CkTableMetrics struct {
 	Parts            uint64      `json:"parts"`
 	DiskSpace        uint64      `json:"-"`
 	Space            string      `json:"space"`
+	RWStatus         bool        `json:"readwrite_status"`
 	CompletedQueries uint64      `json:"completedQueries"`
 	FailedQueries    uint64      `json:"failedQueries"`
 	QueryCost        CkTableCost `json:"queryCost"`
@@ -120,4 +121,8 @@ type CkTableCost struct {
 
 type CkUpgradeCk struct {
 	PackageVersion string `json:"packageVersion"`
+}
+
+type ShowSchemerRsp struct {
+	CreateTableQuery string `json:"create_table_query"`
 }

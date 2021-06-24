@@ -839,6 +839,44 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/table_schemer/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "show create table",
+                "summary": "show create table",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ArchiveTableReq"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":\"{\\\"create_table_query\\\": \\\"CREATE TABLE default.apache_access_log (` + "`" + `@collectiontime` + "`" + ` DateTime, ` + "`" + `@hostname` + "`" + ` LowCardinality(String), ` + "`" + `@ip` + "`" + ` LowCardinality(String), ` + "`" + `@path` + "`" + ` String, ` + "`" + `@lineno` + "`" + ` Int64, ` + "`" + `@message` + "`" + ` String, ` + "`" + `agent` + "`" + ` String, ` + "`" + `auth` + "`" + ` String, ` + "`" + `bytes` + "`" + ` Int64, ` + "`" + `clientIp` + "`" + ` String, ` + "`" + `device_family` + "`" + ` LowCardinality(String), ` + "`" + `httpversion` + "`" + ` LowCardinality(String), ` + "`" + `ident` + "`" + ` String, ` + "`" + `os_family` + "`" + ` LowCardinality(String), ` + "`" + `os_major` + "`" + ` LowCardinality(String), ` + "`" + `os_minor` + "`" + ` LowCardinality(String), ` + "`" + `referrer` + "`" + ` String, ` + "`" + `request` + "`" + ` String, ` + "`" + `requesttime` + "`" + ` Float64, ` + "`" + `response` + "`" + ` LowCardinality(String), ` + "`" + `timestamp` + "`" + ` DateTime64(3), ` + "`" + `userAgent_family` + "`" + ` LowCardinality(String), ` + "`" + `userAgent_major` + "`" + ` LowCardinality(String), ` + "`" + `userAgent_minor` + "`" + ` LowCardinality(String), ` + "`" + `verb` + "`" + ` LowCardinality(String), ` + "`" + `xforwardfor` + "`" + ` LowCardinality(String)) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, ` + "`" + `@hostname` + "`" + `, ` + "`" + `@path` + "`" + `, ` + "`" + `@lineno` + "`" + `) SETTINGS index_granularity = 8192 │ ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, ` + "`" + `@hostname` + "`" + `, ` + "`" + `@path` + "`" + `, ` + "`" + `@lineno` + "`" + `) SETTINGS index_granularity = 8192\\\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/upgrade/{clusterName}": {
             "put": {
                 "security": [
