@@ -839,7 +839,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v1/ck/table_schemer/{clusterName}": {
+        "/api/v1/ck/table_schema/{clusterName}": {
             "get": {
                 "security": [
                     {

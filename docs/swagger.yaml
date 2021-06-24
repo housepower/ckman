@@ -855,7 +855,7 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Get metrics of MergeTree in ClickHouse
-  /api/v1/ck/table_schemer/{clusterName}:
+  /api/v1/ck/table_schema/{clusterName}:
     get:
       description: show create table
       parameters:
