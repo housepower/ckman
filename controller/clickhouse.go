@@ -1226,9 +1226,9 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 // @Param clusterName path string true "cluster name" default(test)
 // @Failure 200 {string} json "{"retCode":5204, "retMsg":"archive to hdfs failed", "entity":"error"}"
 // @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":"{\"create_table_query\": \"CREATE TABLE default.apache_access_log (`@collectiontime` DateTime, `@hostname` LowCardinality(String), `@ip` LowCardinality(String), `@path` String, `@lineno` Int64, `@message` String, `agent` String, `auth` String, `bytes` Int64, `clientIp` String, `device_family` LowCardinality(String), `httpversion` LowCardinality(String), `ident` String, `os_family` LowCardinality(String), `os_major` LowCardinality(String), `os_minor` LowCardinality(String), `referrer` String, `request` String, `requesttime` Float64, `response` LowCardinality(String), `timestamp` DateTime64(3), `userAgent_family` LowCardinality(String), `userAgent_major` LowCardinality(String), `userAgent_minor` LowCardinality(String), `verb` LowCardinality(String), `xforwardfor` LowCardinality(String)) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, `@hostname`, `@path`, `@lineno`) SETTINGS index_granularity = 8192 │ ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, `@hostname`, `@path`, `@lineno`) SETTINGS index_granularity = 8192\"}"
-// @Router /api/v1/ck/table_schemer/{clusterName} [get]
-func (ck *ClickHouseController) ShowSchemer(c *gin.Context){
-	var schemer model.ShowSchemerRsp
+// @Router /api/v1/ck/table_schema/{clusterName} [get]
+func (ck *ClickHouseController) ShowSchema(c *gin.Context){
+	var schema model.ShowSchemaRsp
 	clusterName := c.Param(ClickHouseClusterPath)
 	database := c.Query("database")
 	tableName := c.Query("tableName")
@@ -1236,20 +1236,20 @@ func (ck *ClickHouseController) ShowSchemer(c *gin.Context){
 		database = model.ClickHouseDefaultDB
 	}
 	if tableName == "" {
-		model.WrapMsg(c, model.SHOW_SCHEMER_ERROR, model.GetMsg(c, model.SHOW_SCHEMER_ERROR),
+		model.WrapMsg(c, model.SHOW_SCHEMA_ERROR, model.GetMsg(c, model.SHOW_SCHEMA_ERROR),
 			fmt.Errorf("table name must not be nil"))
 		return
 	}
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.SHOW_SCHEMER_ERROR, model.GetMsg(c, model.SHOW_SCHEMER_ERROR), err)
+		model.WrapMsg(c, model.SHOW_SCHEMA_ERROR, model.GetMsg(c, model.SHOW_SCHEMA_ERROR), err)
 		return
 	}
-	schemer.CreateTableQuery, err = ckService.ShowCreateTable(tableName, database)
+	schema.CreateTableQuery, err = ckService.ShowCreateTable(tableName, database)
 	if err != nil {
-		model.WrapMsg(c, model.SHOW_SCHEMER_ERROR, model.GetMsg(c, model.SHOW_SCHEMER_ERROR), err)
+		model.WrapMsg(c, model.SHOW_SCHEMA_ERROR, model.GetMsg(c, model.SHOW_SCHEMA_ERROR), err)
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), schemer)
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), schema)
 }

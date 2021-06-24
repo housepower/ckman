@@ -123,6 +123,6 @@ type CkUpgradeCk struct {
 	PackageVersion string `json:"packageVersion"`
 }
 
-type ShowSchemerRsp struct {
+type ShowSchemaRsp struct {
 	CreateTableQuery string `json:"create_table_query"`
 }

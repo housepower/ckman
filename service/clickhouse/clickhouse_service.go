@@ -1035,6 +1035,6 @@ func (ck *CkService)ShowCreateTable(tbname, database string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	schemer := value[1][0].(string)
-	return schemer, nil
+	schema := value[1][0].(string)
+	return schema, nil
 }
