@@ -1,6 +1,6 @@
 # nfpm example config file
 #
-# check https://nfpm.goreleaser.com/configuration for detailed usage
+# check https://nfpm.goreleaser.com/configuration.html for detailed usage
 #
 name: "ckman"
 arch: "amd64"
@@ -43,10 +43,10 @@ contents:
     type: config
   - src: ./resources/ckman.yaml
     dst: /etc/ckman/conf/ckman.yaml
-    type: config
+    type: config|noreplace
   - src: ./resources/password
     dst: /etc/ckman/conf/password
-    type: config
+    type: config|noreplace
   - src: ./resources/ckman.service
     dst: /etc/systemd/system/ckman.service
     type: config
