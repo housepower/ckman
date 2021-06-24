@@ -14,6 +14,7 @@ rpm  -Uvh ckman-x.x.x-x86_64.rpm
 
 重新启动`ckman`：
 ```bash
+systemctl daemon-reload
 systemctl start ckman
 ```
 # tar.gz升级
