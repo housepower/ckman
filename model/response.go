@@ -1,11 +1,11 @@
 package model
 
 import (
-	"net/http"
-
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/log"
+	"github.com/pkg/errors"
+	"net/http"
 )
 
 type ResponseBody struct {
@@ -20,11 +20,14 @@ func WrapMsg(c *gin.Context, retCode int, retMsg string, entity interface{}) {
 
 	if retCode != SUCCESS {
 		log.Logger.Errorf("%s %s return %d, %v", c.Request.Method, c.Request.RequestURI, retCode, entity)
-		if exception, ok := entity.(*clickhouse.Exception); ok {
-			retCode = int(exception.Code)
-			retMsg += ": " + exception.Message
-		} else if exception, ok := entity.(error); ok {
-			retMsg += ": " + exception.Error()
+		if err, ok := entity.(error); ok {
+			var exception *clickhouse.Exception
+			if errors.As(err, &exception) {
+				retCode = int(exception.Code)
+				retMsg += ": " + exception.Message
+			} else {
+				retMsg += ": " + err.Error()
+			}
 		} else if s, ok := entity.(string); ok {
 			retMsg += ": " + s
 		}
