@@ -53,6 +53,7 @@ const (
 	CLUSTER_NOT_EXIST           = 5202
 	PURGER_TABLES_FAIL          = 5203
 	ARCHIVE_TO_HDFS_FAIL        = 5204
+	SHOW_SCHEMER_ERROR          = 5205
 
 	UNKNOWN = 99999
 )

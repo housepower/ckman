@@ -58,6 +58,7 @@ var MsgFlags_zh = map[int]string{
 	CLUSTER_NOT_EXIST:           "集群不存在",
 	PURGER_TABLES_FAIL:          "删除指定时间范围内数据失败",
 	ARCHIVE_TO_HDFS_FAIL:        "归档到HDFS失败",
+	SHOW_SCHEMER_ERROR:          "查看建表语句失败",
 
 	UNKNOWN: "unknown",
 }
@@ -115,6 +116,7 @@ var MsgFlags_en = map[int]string{
 	CLUSTER_NOT_EXIST:           "Cluster does not exist",
 	PURGER_TABLES_FAIL:          "purger tables range failed",
 	ARCHIVE_TO_HDFS_FAIL:        "archive to hdfs failed",
+	SHOW_SCHEMER_ERROR:          "show create table schemer failed",
 	UNKNOWN:                     "unknown",
 }
 
