@@ -909,6 +909,88 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
 }
 
+// @Summary Start ClickHouse node
+// @Description Start ClickHouse node
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":5052,"retMsg":"start node failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
+// @Router /api/v1/ck/node/start/{clusterName} [put]
+func (ck *ClickHouseController) StartNode(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	ip := c.Query("ip")
+	if ip == "" {
+		model.WrapMsg(c, model.START_CK_NODE_FAIL, model.GetMsg(c, model.START_CK_NODE_FAIL),
+			fmt.Errorf("node ip does not exist"))
+		return
+	}
+
+	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	if conf.SshUser == "" || conf.SshPassword == "" {
+		model.WrapMsg(c, model.START_CK_NODE_FAIL, model.GetMsg(c, model.START_CK_NODE_FAIL),
+			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
+		return
+	}
+
+	conf.Hosts = []string{ip}
+
+	err := deploy.StartCkCluster(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.START_CK_NODE_FAIL, model.GetMsg(c, model.START_CK_NODE_FAIL), err)
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
+}
+
+// @Summary Stop ClickHouse node
+// @Description Stop ClickHouse node
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":5053,"retMsg":"stop node failed","entity":""}"
+// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
+// @Router /api/v1/ck/node/stop/{clusterName} [put]
+func (ck *ClickHouseController) StopNode(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	ip := c.Query("ip")
+	if ip == "" {
+		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, model.GetMsg(c, model.STOP_CK_NODE_FAIL),
+			fmt.Errorf("node ip does not exist"))
+		return
+	}
+
+	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
+			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	if conf.SshUser == "" || conf.SshPassword == "" {
+		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, model.GetMsg(c, model.STOP_CK_NODE_FAIL),
+			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
+		return
+	}
+
+	conf.Hosts = []string{ip}
+
+	err := deploy.StopCkCluster(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, model.GetMsg(c, model.STOP_CK_NODE_FAIL), err)
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
+}
+
 // @Summary Get metrics of MergeTree in ClickHouse
 // @Description Get metrics of MergeTree in ClickHouse
 // @version 1.0
@@ -1222,7 +1304,7 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Param req body model.ArchiveTableReq true "request body"
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"retCode":5204, "retMsg":"archive to hdfs failed", "entity":"error"}"
+// @Failure 200 {string} json "{"retCode":5205, "retMsg":"show create table schemer failed", "entity":"error"}"
 // @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":"{\"create_table_query\": \"CREATE TABLE default.apache_access_log (`@collectiontime` DateTime, `@hostname` LowCardinality(String), `@ip` LowCardinality(String), `@path` String, `@lineno` Int64, `@message` String, `agent` String, `auth` String, `bytes` Int64, `clientIp` String, `device_family` LowCardinality(String), `httpversion` LowCardinality(String), `ident` String, `os_family` LowCardinality(String), `os_major` LowCardinality(String), `os_minor` LowCardinality(String), `referrer` String, `request` String, `requesttime` Float64, `response` LowCardinality(String), `timestamp` DateTime64(3), `userAgent_family` LowCardinality(String), `userAgent_major` LowCardinality(String), `userAgent_minor` LowCardinality(String), `verb` LowCardinality(String), `xforwardfor` LowCardinality(String)) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, `@hostname`, `@path`, `@lineno`) SETTINGS index_granularity = 8192 │ ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, `@hostname`, `@path`, `@lineno`) SETTINGS index_granularity = 8192\"}"
 // @Router /api/v1/ck/table_schema/{clusterName} [get]
 func (ck *ClickHouseController) ShowSchema(c *gin.Context){
