@@ -31,7 +31,7 @@ func (j *JWT) CreateToken(claims CustomClaims) (string, error) {
 	return token.SignedString(j.SigningKey)
 }
 
-func (j *JWT) ParserToken(tokenString string) (*CustomClaims, int) {
+func (j *JWT) ParserToken(tokenString string) (*CustomClaims, string) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return j.SigningKey, nil
 	})
