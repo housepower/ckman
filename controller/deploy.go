@@ -25,7 +25,7 @@ func NewDeployController(config *config.CKManConfig, nacosClient *nacos.NacosCli
 	return deploy
 }
 
-func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (int, error) {
+func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (string, error) {
 	log.Logger.Infof("start init deploy")
 	if err := d.Init(base, conf); err != nil {
 		return model.INIT_PACKAGE_FAIL, err

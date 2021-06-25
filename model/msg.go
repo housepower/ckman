@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var MsgFlags_zh = map[int]string{
+var MsgFlags_zh = map[string]string{
 	SUCCESS:                     "ok",
 	INVALID_PARAMS:              "请求参数错误",
 	CREAT_CK_TABLE_FAIL:         "创建ClickHouse表失败",
@@ -65,7 +65,7 @@ var MsgFlags_zh = map[int]string{
 	UNKNOWN: "unknown",
 }
 
-var MsgFlags_en = map[int]string{
+var MsgFlags_en = map[string]string{
 	SUCCESS:                     "ok",
 	INVALID_PARAMS:              "invalid params",
 	CREAT_CK_TABLE_FAIL:         "create ClickHouse table failed",
@@ -124,9 +124,9 @@ var MsgFlags_en = map[int]string{
 	UNKNOWN:                     "unknown",
 }
 
-func GetMsg(c *gin.Context, code int) string {
+func GetMsg(c *gin.Context, code string) string {
 	lang := c.Request.Header.Get("Accept-Language")
-	var MsgFlags map[int]string
+	var MsgFlags map[string]string
 	if strings.Contains(lang, "zh") {
 		MsgFlags = MsgFlags_zh
 	} else {

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/log"
@@ -9,21 +10,21 @@ import (
 )
 
 type ResponseBody struct {
-	RetCode int         `json:"retCode"`
+	RetCode string      `json:"retCode"`
 	RetMsg  string      `json:"retMsg"`
 	Entity  interface{} `json:"entity"`
 }
 
-func WrapMsg(c *gin.Context, retCode int, retMsg string, entity interface{}) {
+func WrapMsg(c *gin.Context, retCode string, retMsg string, entity interface{}) {
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "application/json; charset=utf-8")
 
 	if retCode != SUCCESS {
-		log.Logger.Errorf("%s %s return %d, %v", c.Request.Method, c.Request.RequestURI, retCode, entity)
+		log.Logger.Errorf("%s %s return %s, %v", c.Request.Method, c.Request.RequestURI, retCode, entity)
 		if err, ok := entity.(error); ok {
 			var exception *clickhouse.Exception
 			if errors.As(err, &exception) {
-				retCode = int(exception.Code)
+				retCode = fmt.Sprintf("%04d", exception.Code)
 				retMsg += ": " + exception.Message
 			} else {
 				retMsg += ": " + err.Error()
