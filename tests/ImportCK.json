@@ -1,9 +1,0 @@
-{
-    "hosts": {DOCKER_CLICKHOUSE_HOSTS},
-    "port": 9000,
-    "user": "ck",
-    "password": "123456",
-    "cluster": "aa",
-    "zkNodes": {DOCKER_ZOOKEEPER_HOSTS},
-    "zkPort": 2181
-}

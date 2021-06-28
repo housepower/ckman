@@ -5,17 +5,13 @@
 OUTFILES=/tmp/ckman/conf/docker_env.conf
 
 if [[ ! -d /tmp/ckman ]];then
-    mkdir /tmp/ckman
+    mkdir -p /tmp/ckman/conf
 fi
 
 rm -rf ${OUTFILES}
 
-# be used for test ImportCK
-DOCKER_CLICKHOUSE_HOSTS=""
-
 # be used for test DeployCK
 DOCKER_CLICKHOUSE_NODES=""
-DOCKER_SHARDS_REPLICAS=""
 
 # be used for test AddNode
 DOCKER_CKNODE=""
@@ -23,39 +19,29 @@ DOCKER_CKNODE=""
 #zookeeper host
 DOCKER_ZOOKEEPER_HOSTS=""
 
-#promethues host
-DOCKER_PROM_HOST=""
+node1=$(docker ps -a |grep ckman_cknode_1 |awk '{print $1}')
+DOCKER_NODE1=$(docker exec $node1 cat /etc/hosts |grep $node1| awk '{print $1}')
 
-for ck in $(docker ps -a |grep clickhouse-server |awk '{print $1}')
-do
-    CK_HOST=$(docker inspect ${ck}|grep IPAddress|grep -v \"\" |grep -v null|awk -F : '{print $2}')
-    DOCKER_CLICKHOUSE_HOSTS=${DOCKER_CLICKHOUSE_HOSTS}${CK_HOST}
-done
-DOCKER_CLICKHOUSE_HOSTS=$(echo ${DOCKER_CLICKHOUSE_HOSTS}|sed 's/.$//')
-DOCKER_CLICKHOUSE_HOSTS="["${DOCKER_CLICKHOUSE_HOSTS}"]"
+node2=$(docker ps -a |grep ckman_cknode_2 |awk '{print $1}')
+DOCKER_NODE2=$(docker exec $node2 cat /etc/hosts |grep $node2| awk '{print $1}')
 
-node=$(docker ps -a |grep ckman_cknode_1 |awk '{print $1}')
-DOCKER_CLICKHOUSE_NODE=$(docker inspect ${node}|grep IPAddress|grep -v \"\" |grep -v null|cut -d ':' -f 2 |cut -d ',' -f 1)
-DOCKER_SHARDS_REPLICAS=${DOCKER_CLICKHOUSE_NODE}
-DOCKER_CLICKHOUSE_NODE="["${DOCKER_CLICKHOUSE_NODE}"]"
+node3=$(docker ps -a |grep ckman_cknode_3 |awk '{print $1}')
+DOCKER_NODE3=$(docker exec $node3 cat /etc/hosts |grep $node3| awk '{print $1}')
 
-cknode=$(docker ps -a |grep ckman_cknode_2 |awk '{print $1}')
-DOCKER_CKNODE=$(docker inspect ${cknode}|grep IPAddress|grep -v \"\" |grep -v null|cut -d ':' -f 2 |cut -d ',' -f 1)
 
-for zk in $(docker ps -a |grep zookeeper |awk '{print $1}')
-do
-    ZK_HOST=$(docker inspect ${zk}|grep IPAddress|grep -v \"\" |grep -v null|awk -F : '{print $2}')
-    DOCKER_ZOOKEEPER_HOSTS=${DOCKER_ZOOKEEPER_HOSTS}${ZK_HOST}
-done
-DOCKER_ZOOKEEPER_HOSTS=$(echo ${DOCKER_ZOOKEEPER_HOSTS}|sed 's/.$//')
-DOCKER_ZOOKEEPER_HOSTS="["${DOCKER_ZOOKEEPER_HOSTS}"]"
+node4=$(docker ps -a |grep ckman_cknode_4 |awk '{print $1}')
+DOCKER_NODE4=$(docker exec $node4 cat /etc/hosts |grep $node4| awk '{print $1}')
 
-prom=$(docker ps -a |grep prometheus |awk '{print $1}')
-DOCKER_PROM_HOST=$(docker inspect ${prom}|grep IPAddress|grep -v \"\" |grep -v null|awk -F '"' '{print $(NF-1)}')
+DOCKER_CLICKHOUSE_NODES="[\"${DOCKER_NODE1}\",\"${DOCKER_NODE2}\",\"${DOCKER_NODE3}\",\"${DOCKER_NODE4}\"]"
 
-echo "DOCKER_CLICKHOUSE_HOSTS="${DOCKER_CLICKHOUSE_HOSTS} >> ${OUTFILES}
-echo "DOCKER_CLICKHOUSE_NODE="${DOCKER_CLICKHOUSE_NODE} >> ${OUTFILES}
-echo "DOCKER_SHARDS_REPLICAS="${DOCKER_SHARDS_REPLICAS} >> ${OUTFILES}
-echo "DOCKER_CKNODE="${DOCKER_CKNODE} >> ${OUTFILES}
+zk=$(docker ps -a |grep zookeeper |awk '{print $1}')
+DOCKER_ZOOKEEPER_HOSTS=$(docker exec $zk cat /etc/hosts |grep $zk| awk '{print $1}')
+DOCKER_ZOOKEEPER_HOSTS="[\"${DOCKER_ZOOKEEPER_HOSTS}\"]"
+
+
+echo "DOCKER_NODE1="${DOCKER_NODE1} >> ${OUTFILES}
+echo "DOCKER_NODE2="${DOCKER_NODE2} >> ${OUTFILES}
+echo "DOCKER_NODE3="${DOCKER_NODE3} >> ${OUTFILES}
+echo "DOCKER_NODE4="${DOCKER_NODE4} >> ${OUTFILES}
+echo "DOCKER_CLICKHOUSE_NODES="${DOCKER_CLICKHOUSE_NODES} >> ${OUTFILES}
 echo "DOCKER_ZOOKEEPER_HOSTS="${DOCKER_ZOOKEEPER_HOSTS} >> ${OUTFILES}
-echo "DOCKER_PROM_HOST="${DOCKER_PROM_HOST} >> ${OUTFILES}

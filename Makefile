@@ -99,15 +99,12 @@ deb:build
 .PHONY: test-ci
 test-ci:package
 	@rm -rf /tmp/ckman
-	@tar -xzf ${PKGDIR}-*.Linux.x86_64.tar.gz -C /tmp
+	@tar -xzf ${TARNAME} -C /tmp
 	@cp -r ./tests /tmp/ckman
-	@cp go.test.sh /tmp/ckman/bin
 	@docker-compose stop
 	@docker-compose up -d
-	@docker run --rm -itd --network ckman_default --privileged=true --name ckman -p8808:8808 -w /tmp/ckman -v /tmp/ckman:/tmp/ckman eoitek/ckman-clickhouse:centos-7
 	@bash ./docker_env.sh
-	@docker exec -it ckman /tmp/ckman/bin/go.test.sh
-	@docker stop ckman
+	@bash ./go.test.sh
 	@docker-compose down -v
 
 .PHONY: docker-image
