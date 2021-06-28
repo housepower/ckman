@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
@@ -1010,19 +1009,13 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 	}
 
 	var err error
-	var db *sql.DB
 	shardAvailable := true
 	for _, shard := range conf.Shards {
 		failNum := 0
 		for _, replica := range shard.Replicas {
 			host := replica.Ip
-			db, err = common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
+			_, err = common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
 			if err != nil {
-				log.Logger.Error("err: %+v", err)
-				failNum++
-				continue
-			}
-			if err = db.Ping(); err != nil {
 				log.Logger.Error("err: %+v", err)
 				failNum++
 				continue

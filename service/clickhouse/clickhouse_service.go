@@ -916,7 +916,6 @@ func getReplicaZkPath(db *sql.DB, database, table string) (string, error) {
 		}
 	}
 
-	log.Logger.Debugf("path: %s", path)
 	return path, nil
 }
 
