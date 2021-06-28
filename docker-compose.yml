@@ -1,26 +1,13 @@
 version: "3"
 services:
   zookeeper:
-    image: wurstmeister/zookeeper
+    image: zookeeper:3.7.0
     ports:
-      - "2181:2181"
-
-  clickhouse:
-    image: yandex/clickhouse-server:20.9.3.45
-    volumes:
-      - ./tests/conf:/etc/clickhouse-server
-    deploy:
-      mode: replicated
-      replicas: 3
-
-  prometheus:
-    image: prom/prometheus
-    ports:
-      - "9090:9090"
+      - "12181:2181"
 
   cknode:
     image: eoitek/ckman-clickhouse:centos-7
     privileged: true
     deploy:
       mode: replicated
-      replicas: 2
+      replicas: 4
