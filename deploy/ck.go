@@ -364,8 +364,13 @@ func (d *CKDeploy) Config() error {
 				files[2] = metrika
 			}
 
-			macrosFile := fmt.Sprintf("macros_%s.xml", innerHost)
-			macros, err := GenerateMacrosTemplate(macrosFile, d.Conf, innerHost)
+			macrosFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "macros")
+			if err != nil {
+				lastError = err
+				return
+			}
+			defer os.Remove(macrosFile.FullName)
+			macros, err := GenerateMacrosTemplate(macrosFile.BaseName, d.Conf, innerHost)
 			if err != nil {
 				lastError = err
 				return
@@ -377,7 +382,7 @@ func (d *CKDeploy) Config() error {
 				return
 			}
 
-			cmd := fmt.Sprintf("rm -rf /etc/clickhouse-server/config.d/* && mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml && chown -R clickhouse:clickhouse /etc/clickhouse-server", macrosFile)
+			cmd := fmt.Sprintf("rm -rf /etc/clickhouse-server/config.d/macros* && mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml && chown -R clickhouse:clickhouse /etc/clickhouse-server", macrosFile.BaseName)
 			if _, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd); err != nil {
 				lastError = err
 				return
@@ -392,29 +397,29 @@ func (d *CKDeploy) Config() error {
 	if d.Conf.LogicCluster != "" {
 		logicMetrika, deploys := GenerateLogicMetrika(d)
 		for _, deploy := range deploys {
-			metrikaFile := fmt.Sprintf("metrika_%s.xml", deploy.Conf.ClusterName)
-			m, err := GenerateMetrikaTemplateWithLogic(metrikaFile, deploy.Conf, logicMetrika)
+			metrikaFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "metrika")
+			if err != nil {
+				return err
+			}
+			defer os.Remove(metrikaFile.FullName)
+			m, err := GenerateMetrikaTemplateWithLogic(metrikaFile.BaseName, deploy.Conf, logicMetrika)
 			if err != nil {
 				return err
 			}
 			for _, host := range deploy.Hosts {
 				innerHost := host
+				deploy := deploy
 				_ = d.Pool.Submit(func() {
-					if err := common.ScpFiles([]string{m}, "/etc/clickhouse-server/", deploy.User, deploy.Password, innerHost, deploy.Port); err != nil {
-						lastError = err
-						return
-					}
-					cmd := fmt.Sprintf("mv /etc/clickhouse-server/%s /etc/clickhouse-server/metrika.xml", metrikaFile)
-					if _, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd); err != nil {
+					if err := common.ScpFile(m, "/etc/clickhouse-server/metrika.xml", deploy.User, deploy.Password, innerHost, deploy.Port); err != nil {
 						lastError = err
 						return
 					}
 				})
 			}
-		}
-		d.Pool.Wait()
-		if lastError != nil {
-			return lastError
+			d.Pool.Wait()
+			if lastError != nil {
+				return lastError
+			}
 		}
 	}
 	log.Logger.Infof("config done")
@@ -597,18 +602,19 @@ func GenerateLogicMetrika(d *CKDeploy) (Cluster, []*CKDeploy) {
 			}
 			c, _ := clickhouse.CkClusters.GetClusterByName(logic)
 			tmp := &model.CkDeployConfig{
-				ZkNodes:     c.ZkNodes,
-				ZkPort:      c.ZkPort,
-				Shards:      c.Shards,
-				CkTcpPort:   c.Port,
-				IsReplica:   c.IsReplica,
-				ClusterName: c.Cluster,
+				ZkNodes:      c.ZkNodes,
+				ZkPort:       c.ZkPort,
+				Shards:       c.Shards,
+				CkTcpPort:    c.Port,
+				IsReplica:    c.IsReplica,
+				ClusterName:  c.Cluster,
+				LogicCluster: c.LogicName,
 			}
 			base := DeployBase{
 				Hosts:    c.Hosts,
-				User:     c.User,
-				Password: c.Password,
-				Port:     c.Port,
+				User:     c.SshUser,
+				Password: c.SshPassword,
+				Port:     c.SshPort,
 				Pool:     common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 			}
 			deploy := &CKDeploy{
@@ -1283,7 +1289,6 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 func ensureHosts(d *CKDeploy) error {
 	addresses := make([]string, 0)
 	hosts := make([]string, 0)
-	tmplFile := path.Join(config.GetWorkDirectory(), "package", "hosts")
 
 	for _, shard := range d.Conf.Shards {
 		for _, replica := range shard.Replicas {
@@ -1297,11 +1302,18 @@ func ensureHosts(d *CKDeploy) error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		_ = d.Pool.Submit(func() {
-			if err := common.ScpDownloadFiles([]string{"/etc/hosts"}, path.Join(config.GetWorkDirectory(), "package"), d.User, d.Password, innerHost, d.Port); err != nil {
+			tmplFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "hosts")
+			if err != nil {
 				lastError = err
 				return
 			}
-			h, err := common.NewHosts(tmplFile, tmplFile)
+			defer os.Remove(tmplFile.FullName)
+
+			if err := common.ScpDownloadFile("/etc/hosts", tmplFile.FullName, d.User, d.Password, innerHost, d.Port); err != nil {
+				lastError = err
+				return
+			}
+			h, err := common.NewHosts(tmplFile.FullName, tmplFile.FullName)
 			if err != nil {
 				lastError = err
 				return
@@ -1311,7 +1323,7 @@ func ensureHosts(d *CKDeploy) error {
 				return
 			}
 			_ = common.Save(h)
-			if err := common.ScpFiles([]string{tmplFile}, "/etc/", d.User, d.Password, innerHost, d.Port); err != nil {
+			if err := common.ScpFile(tmplFile.FullName, "/etc/hosts", d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}
@@ -1330,38 +1342,48 @@ func ConfigLogicOtherCluster(clusterName string) error {
 		return fmt.Errorf("can't find cluster %s", clusterName)
 	}
 	ckConf := &model.CkDeployConfig{
-		ZkNodes:   conf.ZkNodes,
-		ZkPort:    conf.ZkPort,
-		Shards:    conf.Shards,
-		CkTcpPort: conf.Port,
-		IsReplica: conf.IsReplica,
+		ZkNodes:      conf.ZkNodes,
+		ZkPort:       conf.ZkPort,
+		Shards:       conf.Shards,
+		CkTcpPort:    conf.Port,
+		IsReplica:    conf.IsReplica,
+		LogicCluster: conf.LogicName,
+		ClusterName:  clusterName,
 	}
 	base := DeployBase{
 		Hosts:    conf.Hosts,
-		User:     conf.User,
-		Password: conf.Password,
-		Port:     conf.Port,
+		User:     conf.SshUser,
+		Password: conf.SshPassword,
+		Port:     conf.SshPort,
 		Pool:     common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 	}
 	d := &CKDeploy{
 		DeployBase: base,
 		Conf:       ckConf,
 	}
-	metrika, _ := GenerateLogicMetrika(d)
-	logicFile := fmt.Sprintf("metrika_%s.xml", clusterName)
-	m, _ := GenerateMetrikaTemplateWithLogic(logicFile, ckConf, metrika)
-	var lastError error
-	for _, host := range d.Hosts {
-		_ = d.Pool.Submit(func() {
-			if err := common.ScpFiles([]string{m}, "/etc/clickhouse-server/metrika.xml", d.User, d.Password, host, d.Port); err != nil {
-				lastError = err
-				return
-			}
-		})
-	}
-	d.Pool.Wait()
-	if lastError != nil {
-		return nil
+	metrika, deploys := GenerateLogicMetrika(d)
+	for _, deploy := range deploys {
+		logicFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "metrika")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(logicFile.FullName)
+		m, _ := GenerateMetrikaTemplateWithLogic(logicFile.BaseName, deploy.Conf, metrika)
+		var lastError error
+		for _, host := range d.Hosts {
+			host := host
+			deploy := deploy
+			_ = d.Pool.Submit(func() {
+				if err := common.ScpFile(m, "/etc/clickhouse-server/metrika.xml", deploy.User, deploy.Password, host, deploy.Port); err != nil {
+					lastError = err
+					return
+				}
+			})
+		}
+		d.Pool.Wait()
+		if lastError != nil {
+			return nil
+		}
 	}
 	return nil
 }

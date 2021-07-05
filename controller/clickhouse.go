@@ -667,7 +667,6 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 				if logic == clusterName {
 					continue
 				}
-				_ = deploy.ConfigLogicOtherCluster(logic)
 				newLogics = append(newLogics, logic)
 			}
 		}
@@ -675,6 +674,12 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 			clickhouse.CkClusters.DeleteLogicClusterByName(conf.LogicName)
 		} else {
 			clickhouse.CkClusters.SetLogicClusterByName(conf.LogicName, newLogics)
+			for _, newLogic := range newLogics {
+				if err = deploy.ConfigLogicOtherCluster(newLogic); err != nil {
+					model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(c, model.DESTROY_CK_CLUSTER_FAIL), err)
+					return
+				}
+			}
 		}
 	}
 
