@@ -2,7 +2,9 @@ package common
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -110,7 +112,7 @@ func MaxInt(x, y int) int {
 }
 
 const (
-	_  = iota
+	_         = iota
 	KB uint64 = 1 << (10 * iota)
 	MB
 	GB
@@ -137,4 +139,22 @@ func ConvertDisk(size uint64) string {
 func Decimal(value float64) float64 {
 	value, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", value), 64)
 	return value
+}
+
+type TempFile struct {
+	BaseName string
+	FullName string
+}
+
+func NewTempFile(dir, prefix string) (TempFile, error) {
+	f, err := ioutil.TempFile(dir, prefix)
+	if err != nil {
+		return TempFile{}, err
+	}
+	defer f.Close()
+	file := TempFile{
+		BaseName: path.Base(f.Name()),
+		FullName: f.Name(),
+	}
+	return file, nil
 }
