@@ -174,7 +174,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 		}
 	}
 
-	d.Pool.StopWait()
+	d.Pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
@@ -340,8 +340,13 @@ func (d *CKDeploy) Config() error {
 			}
 			files[2] = metrika
 
-			macrosFile := fmt.Sprintf("macros_%s.xml", innerHost)
-			macros, err := GenerateMacrosTemplate(macrosFile, d.Conf, innerHost)
+			macrosFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "macros")
+			if err != nil {
+				lastError = err
+				return
+			}
+			defer os.Remove(macrosFile.FullName)
+			macros, err := GenerateMacrosTemplate(macrosFile.BaseName, d.Conf, innerHost)
 			if err != nil {
 				lastError = err
 				return
@@ -353,7 +358,7 @@ func (d *CKDeploy) Config() error {
 				return
 			}
 
-			cmd := fmt.Sprintf("rm -rf /etc/clickhouse-server/config.d/* && mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml && chown -R clickhouse:clickhouse /etc/clickhouse-server", macrosFile)
+			cmd := fmt.Sprintf("rm -rf /etc/clickhouse-server/config.d/* && mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml && chown -R clickhouse:clickhouse /etc/clickhouse-server", macrosFile.BaseName)
 			if _, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd); err != nil {
 				lastError = err
 				return
@@ -1100,7 +1105,6 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 func ensureHosts(d *CKDeploy) error {
 	addresses := make([]string, 0)
 	hosts := make([]string, 0)
-	tmplFile := path.Join(config.GetWorkDirectory(), "package", "hosts")
 
 	for _, shard := range d.Conf.Shards {
 		for _, replica := range shard.Replicas {
@@ -1114,11 +1118,17 @@ func ensureHosts(d *CKDeploy) error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		_ = d.Pool.Submit(func() {
-			if err := common.ScpDownloadFiles([]string{"/etc/hosts"}, path.Join(config.GetWorkDirectory(), "package"), d.User, d.Password, innerHost, d.Port); err != nil {
+			tmplFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "hosts")
+			if err != nil {
 				lastError = err
 				return
 			}
-			h, err := common.NewHosts(tmplFile, tmplFile)
+			defer os.Remove(tmplFile.FullName)
+			if err := common.ScpDownloadFile("etc/hosts", tmplFile.FullName, d.User, d.Password, innerHost, d.Port); err != nil {
+				lastError = err
+				return
+			}
+			h, err := common.NewHosts(tmplFile.FullName, tmplFile.FullName)
 			if err != nil {
 				lastError = err
 				return
@@ -1128,7 +1138,7 @@ func ensureHosts(d *CKDeploy) error {
 				return
 			}
 			_ = common.Save(h)
-			if err := common.ScpFiles([]string{tmplFile}, "/etc/", d.User, d.Password, innerHost, d.Port); err != nil {
+			if err := common.ScpFile(tmplFile.FullName, "/etc/hosts", d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}
