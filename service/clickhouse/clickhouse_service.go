@@ -163,6 +163,10 @@ func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
 	CkClusters.SetConfigVersion(srcVersion)
 
 	for key, value := range clusters.GetClusters() {
+		value.Password = common.DesDecrypt(value.Password)
+		if value.SshPassword != "" {
+			value.SshPassword = common.DesDecrypt(value.SshPassword)
+		}
 		CkClusters.SetClusterByName(key, value)
 	}
 	for key, value := range clusters.GetLogicClusters() {
@@ -195,7 +199,16 @@ func ParseCkClusterConfigFile() error {
 }
 
 func MarshalClusters() ([]byte, error) {
-	data, err := json.MarshalIndent(CkClusters, "", "  ")
+	tmp := model.NewCkClusters()
+	_ = common.DeepCopyByGob(tmp, CkClusters)
+	for key, value := range tmp.GetClusters() {
+		value.Password = common.DesEncrypt(value.Password)
+		if value.SshPassword != "" {
+			value.SshPassword = common.DesEncrypt(value.SshPassword)
+		}
+		tmp.SetClusterByName(key, value)
+	}
+	data, err := json.MarshalIndent(tmp, "", "  ")
 	if err != nil {
 		return nil, errors.Wrapf(err, "")
 	}
