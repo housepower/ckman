@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/housepower/ckman/log"
 	"net"
@@ -146,16 +147,20 @@ func SSHRun(client *ssh.Client, shell string) (result string, err error) {
 		return
 	}
 	defer session.Close()
-	if buf, err = session.CombinedOutput(shell); err != nil {
-		result = strings.TrimRight(string(buf), "\n")
-		err = errors.Wrapf(err, result)
+	var stdout, stderr bytes.Buffer
+	session.Stdout = &stdout
+	session.Stderr = &stderr
+	if err = session.Run(shell); err != nil {
+		errMsg := stderr.Bytes()
+		err = errors.Wrapf(err, strings.TrimRight(string(errMsg), "\n"))
 		return
 	}
+	buf = stdout.Bytes()
 	result = strings.TrimRight(string(buf), "\n")
 	return
 }
 
-func ScpFiles(files []string, remotePath, user, password, ip string, port int) error {
+func ScpUploadFiles(files []string, remotePath, user, password, ip string, port int) error {
 	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
 		return err
@@ -175,7 +180,7 @@ func ScpFiles(files []string, remotePath, user, password, ip string, port int) e
 	return nil
 }
 
-func ScpFile(localFile, remoteFile, user, password, ip string, port int) error {
+func ScpUploadFile(localFile, remoteFile, user, password, ip string, port int) error {
 	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
 		return err

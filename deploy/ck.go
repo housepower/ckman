@@ -217,7 +217,7 @@ func (d *CKDeploy) Prepare() error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		_ = d.Pool.Submit(func() {
-			if err := common.ScpFiles(files, TmpWorkDirectory, d.User, d.Password, innerHost, d.Port); err != nil {
+			if err := common.ScpUploadFiles(files, TmpWorkDirectory, d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}
@@ -377,7 +377,7 @@ func (d *CKDeploy) Config() error {
 			}
 			files[3] = macros
 
-			if err := common.ScpFiles(files, "/etc/clickhouse-server/", d.User, d.Password, innerHost, d.Port); err != nil {
+			if err := common.ScpUploadFiles(files, "/etc/clickhouse-server/", d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}
@@ -410,7 +410,7 @@ func (d *CKDeploy) Config() error {
 				innerHost := host
 				deploy := deploy
 				_ = d.Pool.Submit(func() {
-					if err := common.ScpFile(m, "/etc/clickhouse-server/metrika.xml", deploy.User, deploy.Password, innerHost, deploy.Port); err != nil {
+					if err := common.ScpUploadFile(m, "/etc/clickhouse-server/metrika.xml", deploy.User, deploy.Password, innerHost, deploy.Port); err != nil {
 						lastError = err
 						return
 					}
@@ -1279,7 +1279,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 //	if _, err := localFd.Write(data); err != nil {
 //		return err
 //	}
-//	if err := common.ScpFiles([]string{tmplFile}, confFile, user, password, host, sshPort); err != nil {
+//	if err := common.ScpUploadFiles([]string{tmplFile}, confFile, user, password, host, sshPort); err != nil {
 //		return err
 //	}
 //
@@ -1323,7 +1323,7 @@ func ensureHosts(d *CKDeploy) error {
 				return
 			}
 			_ = common.Save(h)
-			if err := common.ScpFile(tmplFile.FullName, "/etc/hosts", d.User, d.Password, innerHost, d.Port); err != nil {
+			if err := common.ScpUploadFile(tmplFile.FullName, "/etc/hosts", d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}
@@ -1374,7 +1374,7 @@ func ConfigLogicOtherCluster(clusterName string) error {
 			host := host
 			deploy := deploy
 			_ = d.Pool.Submit(func() {
-				if err := common.ScpFile(m, "/etc/clickhouse-server/metrika.xml", deploy.User, deploy.Password, host, deploy.Port); err != nil {
+				if err := common.ScpUploadFile(m, "/etc/clickhouse-server/metrika.xml", deploy.User, deploy.Password, host, deploy.Port); err != nil {
 					lastError = err
 					return
 				}
