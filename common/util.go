@@ -1,6 +1,8 @@
 package common
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -157,4 +159,12 @@ func NewTempFile(dir, prefix string) (TempFile, error) {
 		FullName: f.Name(),
 	}
 	return file, nil
+}
+
+func DeepCopyByGob(dst, src interface{}) error {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(src); err != nil {
+		return err
+	}
+	return gob.NewDecoder(bytes.NewBuffer(buf.Bytes())).Decode(dst)
 }
