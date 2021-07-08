@@ -106,6 +106,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	var factory deploy.DeployFactory
 	packages := make([]string, 3)
 
+	req.SavePassword = true   //save password default
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
@@ -122,12 +123,13 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	factory = deploy.CKDeployFacotry{}
 	ckDeploy := factory.Create()
 	base := &deploy.DeployBase{
-		Hosts:    req.Hosts,
-		Packages: packages,
-		User:     req.User,
-		Password: req.Password,
-		Port:     req.Port,
-		Pool:     common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
+		Hosts:        req.Hosts,
+		Packages:     packages,
+		User:         req.User,
+		Password:     req.Password,
+		PasswordFlag: getSshPasswdFlag(req.SavePassword, req.UsePubKey),
+		Port:         req.Port,
+		Pool:         common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 	}
 
 	code, err := DeployPackage(ckDeploy, base, &req.ClickHouse)
@@ -159,20 +161,21 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {
 	conf := model.CKManClickHouseConfig{
-		Port:        req.ClickHouse.CkTcpPort,
-		HttpPort:    req.ClickHouse.CkHttpPort,
-		User:        req.ClickHouse.User,
-		Password:    req.ClickHouse.Password,
-		Cluster:     req.ClickHouse.ClusterName,
-		ZkNodes:     req.ClickHouse.ZkNodes,
-		ZkPort:      req.ClickHouse.ZkPort,
-		Version:     req.ClickHouse.PackageVersion,
-		SshUser:     req.User,
-		SshPassword: req.Password,
-		SshPort:     req.Port,
-		Shards:      req.ClickHouse.Shards,
-		Path:        req.ClickHouse.Path,
-		LogicName:   req.ClickHouse.LogicCluster,
+		Port:            req.ClickHouse.CkTcpPort,
+		HttpPort:        req.ClickHouse.CkHttpPort,
+		User:            req.ClickHouse.User,
+		Password:        req.ClickHouse.Password,
+		Cluster:         req.ClickHouse.ClusterName,
+		ZkNodes:         req.ClickHouse.ZkNodes,
+		ZkPort:          req.ClickHouse.ZkPort,
+		Version:         req.ClickHouse.PackageVersion,
+		SshUser:         req.User,
+		SshPassword:     req.Password,
+		SshPasswordFlag: getSshPasswdFlag(req.SavePassword, req.UsePubKey),
+		SshPort:         req.Port,
+		Shards:          req.ClickHouse.Shards,
+		Path:            req.ClickHouse.Path,
+		LogicName:       req.ClickHouse.LogicCluster,
 	}
 
 	hosts := make([]string, 0)
@@ -188,4 +191,14 @@ func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {
 
 	conf.Normalize()
 	return conf
+}
+
+func getSshPasswdFlag(savePasswd, usePubkey bool) int {
+	if usePubkey {
+		return model.SshPasswordUsePubkey
+	}
+	if savePasswd {
+		return model.SshPasswordSave
+	}
+	return model.SshPasswordNotSave
 }

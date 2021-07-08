@@ -99,6 +99,7 @@ func (ck *ClickHouseController) ImportCluster(c *gin.Context) {
 	conf.ZkNodes = req.ZkNodes
 	conf.ZkPort = req.ZkPort
 	conf.ZkStatusPort = req.ZkStatusPort
+	conf.SshPasswordFlag = model.SshPasswordNotSave
 	conf.Mode = model.CkClusterImport
 	conf.Normalize()
 	err := clickhouse.GetCkClusterConfig(&conf)
@@ -167,6 +168,10 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 	if cluster.Mode == model.CkClusterImport {
 		_ = clickhouse.GetCkClusterConfig(&cluster)
 	}
+	cluster.Password = common.DesEncrypt(cluster.Password)
+	if cluster.SshPassword != "" {
+		cluster.SshPassword = common.DesEncrypt(cluster.SshPassword)
+	}
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), cluster)
 }
 
@@ -190,8 +195,12 @@ func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 				model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, model.GetMsg(c, model.GET_CK_CLUSTER_INFO_FAIL), err)
 				return
 			}
-			clusters[key] = cluster
 		}
+		cluster.Password = common.DesEncrypt(cluster.Password)
+		if cluster.SshPassword != "" {
+			cluster.SshPassword = common.DesEncrypt(cluster.SshPassword)
+		}
+		clusters[key] = cluster
 	}
 
 	if err != nil {
@@ -513,9 +522,8 @@ func (ck *ClickHouseController) UpgradeCluster(c *gin.Context) {
 		return
 	}
 
-	if conf.SshUser == "" || conf.SshPassword == "" {
-		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPGRADE_CK_CLUSTER_FAIL),
-			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
+	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
+		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPGRADE_CK_CLUSTER_FAIL), err)
 		return
 	}
 
@@ -556,9 +564,8 @@ func (ck *ClickHouseController) StartCluster(c *gin.Context) {
 		return
 	}
 
-	if conf.SshUser == "" || conf.SshPassword == "" {
-		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(c, model.START_CK_CLUSTER_FAIL),
-			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
+	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
+		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, model.GetMsg(c, model.START_CK_CLUSTER_FAIL), err)
 		return
 	}
 
@@ -589,9 +596,8 @@ func (ck *ClickHouseController) StopCluster(c *gin.Context) {
 		return
 	}
 
-	if conf.SshUser == "" || conf.SshPassword == "" {
-		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL),
-			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
+	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
+		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, model.GetMsg(c, model.STOP_CK_CLUSTER_FAIL), err)
 		return
 	}
 
@@ -644,9 +650,8 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 		return
 	}
 
-	if conf.SshUser == "" || conf.SshPassword == "" {
-		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(c, model.DESTROY_CK_CLUSTER_FAIL),
-			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
+	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
+		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, model.GetMsg(c, model.DESTROY_CK_CLUSTER_FAIL), err)
 		return
 	}
 
@@ -801,11 +806,17 @@ func (ck *ClickHouseController) GetClusterStatus(c *gin.Context) {
 		}
 	}
 
+	needPassword := false
+	if conf.SshPasswordFlag == model.SshPasswordNotSave {
+		needPassword = true
+	}
+
 	info := model.CkClusterInfoRsp{
-		Status:  globalStatus,
-		Version: conf.Version,
-		Nodes:   statusList,
-		Mode:    conf.Mode,
+		Status:       globalStatus,
+		Version:      conf.Version,
+		Nodes:        statusList,
+		Mode:         conf.Mode,
+		NeedPassword: needPassword,
 	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), info)
@@ -833,6 +844,11 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	if !ok {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
 			fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL), err)
 		return
 	}
 
@@ -891,6 +907,11 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 		return
 	}
 
+	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
+		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL), err)
+		return
+	}
+
 	err := deploy.DeleteCkClusterNode(&conf, ip)
 	if err != nil {
 		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, model.GetMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL), err)
@@ -933,9 +954,8 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 		return
 	}
 
-	if conf.SshUser == "" || conf.SshPassword == "" {
-		model.WrapMsg(c, model.START_CK_NODE_FAIL, model.GetMsg(c, model.START_CK_NODE_FAIL),
-			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
+	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
+		model.WrapMsg(c, model.START_CK_NODE_FAIL, model.GetMsg(c, model.START_CK_NODE_FAIL), err)
 		return
 	}
 
@@ -974,9 +994,8 @@ func (ck *ClickHouseController) StopNode(c *gin.Context) {
 		return
 	}
 
-	if conf.SshUser == "" || conf.SshPassword == "" {
-		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, model.GetMsg(c, model.STOP_CK_NODE_FAIL),
-			fmt.Sprintf("can't find ssh username/passowrd for cluster %s", clusterName))
+	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
+		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, model.GetMsg(c, model.STOP_CK_NODE_FAIL), err)
 		return
 	}
 
@@ -1070,9 +1089,9 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 // @Router /api/v1/ck/slow_sessions/{clusterName} [get]
 func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
-	now := time.Now().Unix()  //second
+	now := time.Now().Unix() //second
 	cond := model.SessionCond{
-		StartTime: now - 7*24*3600,   // 7 days before
+		StartTime: now - 7*24*3600, // 7 days before
 		EndTime:   now,
 		Limit:     ClickHouseSessionLimit,
 	}
@@ -1307,7 +1326,7 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 // @Failure 200 {string} json "{"retCode":5205, "retMsg":"show create table schemer failed", "entity":"error"}"
 // @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":"{\"create_table_query\": \"CREATE TABLE default.apache_access_log (`@collectiontime` DateTime, `@hostname` LowCardinality(String), `@ip` LowCardinality(String), `@path` String, `@lineno` Int64, `@message` String, `agent` String, `auth` String, `bytes` Int64, `clientIp` String, `device_family` LowCardinality(String), `httpversion` LowCardinality(String), `ident` String, `os_family` LowCardinality(String), `os_major` LowCardinality(String), `os_minor` LowCardinality(String), `referrer` String, `request` String, `requesttime` Float64, `response` LowCardinality(String), `timestamp` DateTime64(3), `userAgent_family` LowCardinality(String), `userAgent_major` LowCardinality(String), `userAgent_minor` LowCardinality(String), `verb` LowCardinality(String), `xforwardfor` LowCardinality(String)) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, `@hostname`, `@path`, `@lineno`) SETTINGS index_granularity = 8192 │ ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, `@hostname`, `@path`, `@lineno`) SETTINGS index_granularity = 8192\"}"
 // @Router /api/v1/ck/table_schema/{clusterName} [get]
-func (ck *ClickHouseController) ShowSchema(c *gin.Context){
+func (ck *ClickHouseController) ShowSchema(c *gin.Context) {
 	var schema model.ShowSchemaRsp
 	clusterName := c.Param(ClickHouseClusterPath)
 	database := c.Query("database")
@@ -1332,4 +1351,27 @@ func (ck *ClickHouseController) ShowSchema(c *gin.Context){
 	}
 
 	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), schema)
+}
+
+func verifySshPassword(c *gin.Context, conf *model.CKManClickHouseConfig, sshUser, sshPassword string) error {
+	if conf.Mode == model.CkClusterImport {
+		return fmt.Errorf("not support this operate with import mode")
+	}
+
+	if sshUser == "" {
+		return fmt.Errorf("sshUser must not be null")
+	}
+
+	if conf.SshPasswordFlag == model.SshPasswordSave && sshPassword == "" {
+		return fmt.Errorf("expect sshPassword but got null")
+	}
+
+	if conf.SshPasswordFlag == model.SshPasswordNotSave {
+		password := c.Query("password")
+		if password == "" {
+			return fmt.Errorf("expect sshPassword but got null")
+		}
+		conf.SshPassword = password
+	}
+	return nil
 }

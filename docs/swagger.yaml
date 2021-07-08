@@ -263,9 +263,15 @@ definitions:
       password:
         example: "123456"
         type: string
+      savePassword:
+        example: true
+        type: boolean
       sshPort:
         example: 22
         type: integer
+      usePubkey:
+        example: false
+        type: boolean
       user:
         example: root
         type: string
@@ -558,6 +564,42 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Add ClickHouse node
+  /api/v1/ck/node/start/{clusterName}:
+    put:
+      description: Start ClickHouse node
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":0,"retMsg":"success","entity":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Start ClickHouse node
+  /api/v1/ck/node/stop/{clusterName}:
+    put:
+      description: Stop ClickHouse node
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":0,"retMsg":"success","entity":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Stop ClickHouse node
   /api/v1/ck/open_sessions/{clusterName}:
     get:
       description: Get open sessions

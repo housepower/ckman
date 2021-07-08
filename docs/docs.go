@@ -305,6 +305,64 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/node/start/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Start ClickHouse node",
+                "summary": "Start ClickHouse node",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/node/stop/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Stop ClickHouse node",
+                "summary": "Stop ClickHouse node",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/node/{clusterName}": {
             "post": {
                 "security": [
@@ -1604,9 +1662,17 @@ var doc = `{
                     "type": "string",
                     "example": "123456"
                 },
+                "savePassword": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "sshPort": {
                     "type": "integer",
                     "example": 22
+                },
+                "usePubkey": {
+                    "type": "boolean",
+                    "example": false
                 },
                 "user": {
                     "type": "string",
