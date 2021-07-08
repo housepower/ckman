@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/housepower/ckman/log"
-	"net"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -15,23 +15,55 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+func sshConnectwithPassword(user, password string) (*ssh.ClientConfig, error) {
+	return &ssh.ClientConfig{
+		User: user,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(password),
+		},
+		Timeout: 30 * time.Second,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}, nil
+}
+
+func sshConnectwithPublickKey(user string) (*ssh.ClientConfig, error) {
+	homePath, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	key, err := ioutil.ReadFile(path.Join(homePath, ".ssh", "id_rsa"))
+	if err != nil {
+		return nil, err
+	}
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		return nil, err
+	}
+	return &ssh.ClientConfig{
+		User: user,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		Timeout:         30 * time.Second,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}, nil
+}
+
 func SSHConnect(user, password, host string, port int) (*ssh.Client, error) {
 	var (
-		auth         []ssh.AuthMethod
 		addr         string
 		clientConfig *ssh.ClientConfig
 		client       *ssh.Client
 		err          error
 	)
-	// get auth method
-	auth = make([]ssh.AuthMethod, 0)
-	auth = append(auth, ssh.Password(password))
 
-	clientConfig = &ssh.ClientConfig{
-		User:            user,
-		Auth:            auth,
-		Timeout:         30 * time.Second,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	if password == "" {
+		clientConfig,err  = sshConnectwithPublickKey(user)
+	} else {
+		clientConfig,err  = sshConnectwithPassword(user, password)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	// connet to ssh
@@ -47,24 +79,20 @@ func SSHConnect(user, password, host string, port int) (*ssh.Client, error) {
 
 func SFTPConnect(user, password, host string, port int) (*sftp.Client, error) {
 	var (
-		auth         []ssh.AuthMethod
 		addr         string
 		clientConfig *ssh.ClientConfig
 		sshClient    *ssh.Client
 		sftpClient   *sftp.Client
 		err          error
 	)
-	// get auth method
-	auth = make([]ssh.AuthMethod, 0)
-	auth = append(auth, ssh.Password(password))
 
-	clientConfig = &ssh.ClientConfig{
-		User:    user,
-		Auth:    auth,
-		Timeout: 30 * time.Second,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
+	if password == "" {
+		clientConfig,err  = sshConnectwithPublickKey(user)
+	} else {
+		clientConfig,err  = sshConnectwithPassword(user, password)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	// connet to ssh

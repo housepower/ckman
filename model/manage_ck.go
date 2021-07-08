@@ -7,10 +7,11 @@ const (
 )
 
 type CkClusterInfoRsp struct {
-	Status  string          `json:"status"`
-	Version string          `json:"version"`
-	Nodes   []CkClusterNode `json:"nodes"`
-	Mode    string          `json:"mode"`
+	Status       string          `json:"status"`
+	Version      string          `json:"version"`
+	Nodes        []CkClusterNode `json:"nodes"`
+	Mode         string          `json:"mode"`
+	NeedPassword bool            `json:"needPassword"`
 }
 
 type CkClusterNode struct {

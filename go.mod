@@ -13,7 +13,7 @@ require (
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-zookeeper/zk v1.0.2
-	github.com/json-iterator/go v1.1.11
+	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect

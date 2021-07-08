@@ -19,14 +19,20 @@ const (
 	ClickHouseDefaultZkPort   int    = 2181
 	ZkStatusDefaultPort       int    = 8080
 	SshDefaultPort            int    = 22
+
+	SshPasswordSave      int = 0
+	SshPasswordNotSave   int = 1
+	SshPasswordUsePubkey int = 2
 )
 
 type DeployCkReq struct {
-	Hosts      []string       `json:"hosts" example:"192.168.101.105"`
-	User       string         `json:"user" example:"root"`
-	Password   string         `json:"password" example:"123456"`
-	Port       int            `json:"sshPort" example:"22"`
-	ClickHouse CkDeployConfig `json:"clickhouse"`
+	Hosts        []string       `json:"hosts" example:"192.168.101.105"`
+	User         string         `json:"user" example:"root"`
+	UsePubKey    bool           `json:"usePubkey" example:"false"`
+	SavePassword bool           `json:"savePassword" example:"true"`
+	Password     string         `json:"password" example:"123456"`
+	Port         int            `json:"sshPort" example:"22"`
+	ClickHouse   CkDeployConfig `json:"clickhouse"`
 }
 
 type CkDeployConfig struct {
@@ -67,25 +73,26 @@ type CkImportConfig struct {
 }
 
 type CKManClickHouseConfig struct {
-	Mode         string            `json:"mode"`
-	Hosts        []string          `json:"hosts"`
-	Port         int               `json:"port"`
-	HttpPort     int               `json:"httpPort"`
-	User         string            `json:"user"`
-	Password     string            `json:"password"`
-	Cluster      string            `json:"cluster"`
-	ZkNodes      []string          `json:"zkNodes"`
-	ZkPort       int               `json:"zkPort"`
-	ZkStatusPort int               `json:"zkStatusPort"`
-	IsReplica    bool              `json:"isReplica"`
-	Version      string            `json:"version"`
-	SshUser      string            `json:"sshUser"`
-	SshPassword  string            `json:"sshPassword"`
-	SshPort      int               `json:"sshPort"`
-	Shards       []CkShard         `json:"shards"`
-	Path         string            `json:"path"`
-	ZooPath      map[string]string `json:"zooPath"`
-	LogicName    string            `json:"logic_cluster"`
+	Mode            string            `json:"mode"`
+	Hosts           []string          `json:"hosts"`
+	Port            int               `json:"port"`
+	HttpPort        int               `json:"httpPort"`
+	User            string            `json:"user"`
+	Password        string            `json:"password"`
+	Cluster         string            `json:"cluster"`
+	ZkNodes         []string          `json:"zkNodes"`
+	ZkPort          int               `json:"zkPort"`
+	ZkStatusPort    int               `json:"zkStatusPort"`
+	IsReplica       bool              `json:"isReplica"`
+	Version         string            `json:"version"`
+	SshUser         string            `json:"sshUser"`
+	SshPassword     string            `json:"sshPassword"`
+	SshPasswordFlag int               `json:"sshPasswdFlag"`
+	SshPort         int               `json:"sshPort"`
+	Shards          []CkShard         `json:"shards"`
+	Path            string            `json:"path"`
+	ZooPath         map[string]string `json:"zooPath"`
+	LogicName       string            `json:"logic_cluster"`
 }
 
 func (config *CkDeployConfig) Normalize() {

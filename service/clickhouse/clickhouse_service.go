@@ -204,6 +204,9 @@ func MarshalClusters() ([]byte, error) {
 	_ = common.DeepCopyByGob(tmp, CkClusters)
 	for key, value := range tmp.GetClusters() {
 		value.Password = common.DesEncrypt(value.Password)
+		if value.SshPasswordFlag == model.SshPasswordNotSave || value.SshPasswordFlag == model.SshPasswordUsePubkey {
+			value.SshPassword = ""
+		}
 		if value.SshPassword != "" {
 			value.SshPassword = common.DesEncrypt(value.SshPassword)
 		}
