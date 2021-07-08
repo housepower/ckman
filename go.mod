@@ -6,6 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go v1.4.5
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
+	github.com/bytedance/sonic v0.0.0-20210706135127-4937f48f3c86
 	github.com/choidamdam/gin-static-pkger v0.0.0-20201119021339-c0f138638274
 	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible

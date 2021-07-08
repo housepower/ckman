@@ -10,11 +10,9 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/zookeeper"
-	jsoniter "github.com/json-iterator/go"
+	json "github.com/bytedance/sonic"
 	"github.com/pkg/errors"
 )
-
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type ZookeeperController struct {
 }
