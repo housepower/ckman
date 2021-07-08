@@ -2,9 +2,10 @@ package clickhouse
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"github.com/MakeNowJust/heredoc"
+	json "github.com/bytedance/sonic"
+	"github.com/bytedance/sonic/encoder"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
@@ -208,7 +209,7 @@ func MarshalClusters() ([]byte, error) {
 		}
 		tmp.SetClusterByName(key, value)
 	}
-	data, err := json.MarshalIndent(tmp, "", "  ")
+	data, err := encoder.EncodeIndented(tmp, "", "  ")
 	if err != nil {
 		return nil, errors.Wrapf(err, "")
 	}

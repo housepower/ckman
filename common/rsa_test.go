@@ -1,8 +1,8 @@
 package common
 
 import (
-	"encoding/json"
 	"fmt"
+	json "github.com/bytedance/sonic"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
