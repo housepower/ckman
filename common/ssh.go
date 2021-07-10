@@ -1,18 +1,24 @@
 package common
 
 import (
-	"bytes"
+	"bufio"
 	"fmt"
 	"github.com/housepower/ckman/log"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+)
+
+const (
+	TmpWorkDirectory string = "/tmp"
 )
 
 func sshConnectwithPassword(user, password string) (*ssh.ClientConfig, error) {
@@ -21,7 +27,7 @@ func sshConnectwithPassword(user, password string) (*ssh.ClientConfig, error) {
 		Auth: []ssh.AuthMethod{
 			ssh.Password(password),
 		},
-		Timeout: 30 * time.Second,
+		Timeout:         30 * time.Second,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}, nil
 }
@@ -58,9 +64,9 @@ func SSHConnect(user, password, host string, port int) (*ssh.Client, error) {
 	)
 
 	if password == "" {
-		clientConfig,err  = sshConnectwithPublickKey(user)
+		clientConfig, err = sshConnectwithPublickKey(user)
 	} else {
-		clientConfig,err  = sshConnectwithPassword(user, password)
+		clientConfig, err = sshConnectwithPassword(user, password)
 	}
 	if err != nil {
 		return nil, err
@@ -87,9 +93,9 @@ func SFTPConnect(user, password, host string, port int) (*sftp.Client, error) {
 	)
 
 	if password == "" {
-		clientConfig,err  = sshConnectwithPublickKey(user)
+		clientConfig, err = sshConnectwithPublickKey(user)
 	} else {
-		clientConfig,err  = sshConnectwithPassword(user, password)
+		clientConfig, err = sshConnectwithPassword(user, password)
 	}
 	if err != nil {
 		return nil, err
@@ -166,7 +172,7 @@ func SFTPDownload(sftpClient *sftp.Client, remoteFilePath, localFilePath string)
 	return nil
 }
 
-func SSHRun(client *ssh.Client, shell string) (result string, err error) {
+func SSHRun(client *ssh.Client, password, shell string) (result string, err error) {
 	var session *ssh.Session
 	var buf []byte
 	// create session
@@ -175,16 +181,69 @@ func SSHRun(client *ssh.Client, shell string) (result string, err error) {
 		return
 	}
 	defer session.Close()
-	var stdout, stderr bytes.Buffer
-	session.Stdout = &stdout
-	session.Stderr = &stderr
-	if err = session.Run(shell); err != nil {
-		errMsg := stderr.Bytes()
-		err = errors.Wrapf(err, strings.TrimRight(string(errMsg), "\n"))
-		return
+
+	log.Logger.Debugf("shell: %s", shell)
+
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          0,     // disable echoing
+		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
-	buf = stdout.Bytes()
+	err = session.RequestPty("xterm", 80, 40, modes)
+	if err != nil {
+		return "", err
+	}
+	in, err := session.StdinPipe()
+	if err != nil {
+		return "", err
+	}
+
+	out, err := session.StdoutPipe()
+	if err != nil {
+		return "", err
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func(in io.WriteCloser, out io.Reader, output *[]byte) {
+		defer wg.Done()
+		var (
+			line string
+			r    = bufio.NewReader(out)
+		)
+
+		for {
+			b, err := r.ReadByte()
+			if err != nil {
+				break
+			}
+			*output = append(*output, b)
+			if b == byte('\n') {
+				line = ""
+				continue
+			}
+			line += string(b)
+			//TODO I have no idea to slove this problem: "xxx is not in the sudoers file.  This incident will be reported."
+			if strings.HasPrefix(line, "[sudo] password for ") && strings.HasSuffix(line, ": ") {
+				_, err = in.Write([]byte(password + "\n"))
+				if err != nil {
+					break
+				}
+			}
+		}
+	}(in, out, &buf)
+
+	_, err = session.Output(shell)
+	if err != nil {
+		return "", err
+	}
+	wg.Wait()
 	result = strings.TrimRight(string(buf), "\n")
+	result = strings.TrimRight(result, "\r")
+	if strings.HasPrefix(result, "[sudo] password for ") {
+		result = result[strings.Index(result, "\n")+1:]
+	}
+	log.Logger.Debugf("output:%s", result)
 	return
 }
 
@@ -199,8 +258,8 @@ func ScpUploadFiles(files []string, remotePath, user, password, ip string, port 
 		if file == "" {
 			continue
 		}
-		baseName := path.Base(file)
-		err = SFTPUpload(sftpClient, file, path.Join(remotePath, baseName))
+		remoteFile := path.Join(remotePath, path.Base(file))
+		err = ScpUploadFile(file, remoteFile, user, password, ip, port )
 		if err != nil {
 			return err
 		}
@@ -214,11 +273,26 @@ func ScpUploadFile(localFile, remoteFile, user, password, ip string, port int) e
 		return err
 	}
 	defer sftpClient.Close()
-
-	err = SFTPUpload(sftpClient, localFile, remoteFile)
+	//delete remote file first, beacuse maybe the remote file exists and created by root
+	cmd := fmt.Sprintf("rm -rf %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)))
+	_, err = RemoteExecute(user, password, ip, port, cmd)
 	if err != nil {
 		return err
 	}
+
+	err = SFTPUpload(sftpClient, localFile, path.Join(TmpWorkDirectory, path.Base(remoteFile)))
+	if err != nil {
+		return err
+	}
+
+	if path.Dir(remoteFile) != TmpWorkDirectory {
+		cmd := fmt.Sprintf("cp %s %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)), remoteFile)
+		_, err = RemoteExecute(user, password, ip, port, cmd)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -259,10 +333,41 @@ func RemoteExecute(user, password, host string, port int, cmd string) (string, e
 		return "", err
 	}
 	defer client.Close()
+
+	finalScript := genFinalScript(user, cmd)
 	var output string
-	if output, err = SSHRun(client, cmd); err != nil {
+	if output, err = SSHRun(client, password, finalScript); err != nil {
 		log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
 		return "", err
 	}
 	return output, nil
 }
+
+func genFinalScript(user, cmd string) string {
+	var shell string
+	if user != "root" {
+		cmds := strings.Split(cmd, ";")
+		for index, command := range cmds {
+			cmds[index] = fmt.Sprintf("sudo %s", command)
+		}
+		cmd = strings.Join(cmds, ";")
+
+		/* if LANG=zh_CN.UTF-8, maybe print message like this:
+		我们信任您已经从系统管理员那里了解了日常注意事项。
+		总结起来无外乎这三点：
+
+		    #1) 尊重别人的隐私。
+		    #2) 输入前要先考虑(后果和风险)。
+		    #3) 权力越大，责任越大。
+
+		[sudo] username 的密码：
+		so we need convert charset first.
+		*/
+
+		shell = fmt.Sprintf("export LANG=en_US.UTF-8; %s", cmd)
+	} else {
+		shell = cmd
+	}
+	return shell
+}
+

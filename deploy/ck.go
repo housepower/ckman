@@ -24,12 +24,6 @@ import (
 	"github.com/housepower/ckman/service/clickhouse"
 )
 
-const (
-	TmpWorkDirectory    string = "/tmp/"
-	CkClusterNodeAdd    int    = 1
-	CkClusterNodeDelete int    = 2
-)
-
 type Metrika struct {
 	XMLName   xml.Name  `xml:"yandex"`
 	ZkServers []Node    `xml:"zookeeper-servers>Node"`
@@ -145,7 +139,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 			}
 			d.HostInfos[innerIndex] = info
 			if d.Ipv6Enable {
-				cmd2 := "if test -f /proc/net/if_inet6; then echo true; else echo false; fi"
+				cmd2 := "test -f /proc/net/if_inet6; echo $?"
 				output, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd2)
 				if err != nil {
 					lastError = err
@@ -153,7 +147,7 @@ func (d *CKDeploy) Init(base *DeployBase, conf interface{}) error {
 				}
 
 				ipv6Enable := strings.Trim(output, "\n")
-				if ipv6Enable == "false" {
+				if ipv6Enable == "1" {
 					d.Ipv6Enable = false
 				}
 			}
@@ -217,7 +211,7 @@ func (d *CKDeploy) Prepare() error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		_ = d.Pool.Submit(func() {
-			if err := common.ScpUploadFiles(files, TmpWorkDirectory, d.User, d.Password, innerHost, d.Port); err != nil {
+			if err := common.ScpUploadFiles(files, common.TmpWorkDirectory, d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}
@@ -234,8 +228,7 @@ func (d *CKDeploy) Prepare() error {
 
 func (d *CKDeploy) Install() error {
 	cmds := make([]string, 0)
-	cmds = append(cmds, fmt.Sprintf("cd %s", TmpWorkDirectory))
-	cmds = append(cmds, fmt.Sprintf("rpm --force -ivh %s %s %s", d.Packages[0], d.Packages[1], d.Packages[2]))
+	cmds = append(cmds, fmt.Sprintf("rpm --force -ivh %s %s %s", path.Join(common.TmpWorkDirectory,d.Packages[0]), path.Join(common.TmpWorkDirectory, d.Packages[1]), path.Join(common.TmpWorkDirectory, d.Packages[2])))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("mkdir -p %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
@@ -247,7 +240,7 @@ func (d *CKDeploy) Install() error {
 			cmd1 := "systemctl stop clickhouse-server"
 			_, _ = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd1)
 
-			cmd2 := strings.Join(cmds, " && ")
+			cmd2 := strings.Join(cmds, ";")
 			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd2)
 			if err != nil {
 				lastError = err
@@ -278,7 +271,7 @@ func (d *CKDeploy) Uninstall() error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		_ = d.Pool.Submit(func() {
-			cmd := strings.Join(cmds, " && ")
+			cmd := strings.Join(cmds, ";")
 			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd)
 			if err != nil {
 				lastError = err
@@ -296,7 +289,7 @@ func (d *CKDeploy) Uninstall() error {
 }
 
 func (d *CKDeploy) Upgrade() error {
-	cmd := fmt.Sprintf("cd %s && rpm --force -Uvh %s %s %s", TmpWorkDirectory, d.Packages[0], d.Packages[1], d.Packages[2])
+	cmd := fmt.Sprintf("rpm --force -Uvh %s %s %s", path.Join(common.TmpWorkDirectory,d.Packages[0]), path.Join(common.TmpWorkDirectory, d.Packages[1]), path.Join(common.TmpWorkDirectory, d.Packages[2]))
 	var lastError error
 	for _, host := range d.Hosts {
 		innerHost := host
@@ -382,7 +375,7 @@ func (d *CKDeploy) Config() error {
 				return
 			}
 
-			cmd := fmt.Sprintf("rm -rf /etc/clickhouse-server/config.d/macros* && mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml && chown -R clickhouse:clickhouse /etc/clickhouse-server", macrosFile.BaseName)
+			cmd := fmt.Sprintf("rm -rf /etc/clickhouse-server/config.d/macros* ; mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml ; chown -R clickhouse:clickhouse /etc/clickhouse-server", macrosFile.BaseName)
 			if _, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd); err != nil {
 				lastError = err
 				return
