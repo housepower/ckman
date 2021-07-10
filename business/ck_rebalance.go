@@ -123,10 +123,10 @@ func (this *CKRebalance) InitSshConns(database string) (err error) {
 				continue
 			}
 			sshConn := this.SshConns[srcHost]
-			cmd := fmt.Sprintf("ssh -o StrictHostKeyChecking=false %s ls %s/clickhouse/data/%s", dstHost, this.DataDir, database)
+			cmd := fmt.Sprintf("sudo ssh -o StrictHostKeyChecking=false %s ls %s/clickhouse/data/%s", dstHost, this.DataDir, database)
 			log.Logger.Infof("host: %s, command: %s", srcHost, cmd)
 			var out string
-			if out, err = common.SSHRun(sshConn, cmd); err != nil {
+			if out, err = common.SSHRun(sshConn, this.OsPassword, cmd); err != nil {
 				err = errors.Wrapf(err, "output: %s", out)
 				return
 			}
@@ -287,13 +287,13 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 		// There could be multiple executions on the same dest node and partition.
 		lock.Lock()
 		cmds := []string{
-			fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, srcDir, dstHost, dstDir),
-			fmt.Sprintf("rm -fr %s", srcDir),
+			fmt.Sprintf(`sudo rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, srcDir, dstHost, dstDir),
+			fmt.Sprintf("sudo rm -fr %s", srcDir),
 		}
 		for _, cmd := range cmds {
 			log.Logger.Infof("host: %s, command: %s", tbl.Host, cmd)
 			var out string
-			if out, err = common.SSHRun(srcSshConn, cmd); err != nil {
+			if out, err = common.SSHRun(srcSshConn, this.OsPassword, cmd); err != nil {
 				err = errors.Wrapf(err, "output: %s", out)
 				lock.Unlock()
 				return
