@@ -1,3 +1,19 @@
+
+# v2.0.0.beta1
+- support logic cluster
+- monitor `outstanding_requests` and `watch_count` in zookeeper
+- use `0.0.0.0` instead of `::` if node doesn't support ipv6
+- do not replace ckman.yaml when upgrade ckman
+- metadata manage
+- get slow_session with condition
+- fix ensureHosts issue
+- encript password when write cluster config into disk 
+
+
+# v1.3.7
+- fix ensureHosts issue
+- fix wrap error issue
+
 # v1.3.6
 - fix can't create cluster issue([#93](https://github.com/housepower/ckman/issues/93))
 - fix status always show green on Manage page
