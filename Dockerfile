@@ -13,6 +13,8 @@ ADD ./resources/config.xml /etc/ckman/template/config.xml
 ADD ./resources/users.xml /etc/ckman/template/users.xml
 ADD ./resources/ckman.yaml /etc/ckman/conf
 ADD ./resources/password /etc/ckman/conf/password
+ADD ./resources/server.key /etc/ckman/conf/server.key
+ADD ./resources/server.crt /etc/ckman/conf/server.crt
 
 WORKDIR /etc/ckman
 ENTRYPOINT ["bin/ckman"]

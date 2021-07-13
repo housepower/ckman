@@ -67,6 +67,8 @@ package:build
 	@cp ${SHDIR}/resources/users.xml ${PKGFULLDIR_TMP}/template
 	@cp ${SHDIR}/resources/ckman.yaml ${PKGFULLDIR_TMP}/conf/ckman.yaml
 	@cp ${SHDIR}/resources/password ${PKGFULLDIR_TMP}/conf/password
+	@cp ${SHDIR}/resources/server.key ${PKGFULLDIR_TMP}/conf/server.key
+	@cp ${SHDIR}/resources/server.crt ${PKGFULLDIR_TMP}/conf/server.crt
 	@cp ${SHDIR}/README.md ${PKGFULLDIR_TMP}
 	@test ! -f resources/eoi_public_key.pub || (sed -i "s|#public_key:|${PUB_KEY}|" ${PKGFULLDIR_TMP}/conf/ckman.yaml)
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}

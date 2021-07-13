@@ -66,29 +66,31 @@ make rpm VERSION=x.x.x
 
 `ckman`的配置文件在`ckman` 的工作目录下的`conf/ckman.yml`。
 
-| 一级选项     | 二级选项          | 默认值                             | 说明                                                     |
-| ------------ | ----------------- | ---------------------------------- | -------------------------------------------------------- |
-| `server`     | `id`              | `1`                                | `ckman`集群`id`，同一个集群的`ckman`的`id`号配置必须不同 |
-|              | `port`            | `8808`                             | `ckman`默认的`http`端口                                  |
-|              | `https`           | `false`                            | 是否支持`https`，默认为不支持                            |
-|              | `pprof`           | `true`                             | 是否支持`pprof`监控，默认支持                            |
-|              | `session_timeout` | `3600`                             | 会话超时（`token`失效）时间，默认为`1`个小时             |
-|              | `publick_key`     |                                    | 接入擎创统一门户用来解析`token`的公钥                    |
-|              | `swagger_enable`  | `false`                            | 是否开启`swagger`文档，默认不开启                        |
-| `log`        | `level`           | `INFO`                             | 日志级别，默认为`INFO`                                   |
-|              | `max_count`       | `5`                                | 滚动日志数量                                             |
-|              | `max_size`        | `10`                               | 单个日志大小，默认为`10M`                                |
-|              | `max_age`         | `10`                               | 日志有效生命周期，默认为`10`天                           |
-| `prometheus` | `hosts`           | `127.0.0.1:9090`                   | 普罗米修斯监控的`ip`和端口                               |
-|              | `timeout`         | `10`                               | 普罗米修斯的超时时间                                     |
-| `nacos`      | `enabled`         | `true`                             | 是否开启`nacos`，默认为`true`                            |
-|              | `hosts`           | `127.0.0.1`                        | `nacos`服务的`ip`                                        |
-|              | `port`            | `8848`                             | `nacos`服务的端口                                        |
-|              | `user_name`       | `nacos`                            | 登录`nacos`的用户名                                      |
-|              | `password`        | `0192023A7BBD73250516F069DF18B500` | 登录`nacos`的密码                                        |
-|              | `namespace`       |                                    | 指定`nacos`的`namespace`，默认为`DEFAULT`                |
-|              | `group`           | `DEFAULT_GROUP`                    | 向`nacos`注册的服务所处的组                              |
-|              | `data_id`         | `ckman`                            | 向`nacos`注册的服务名称、数据项名称                      |
+| 一级选项     | 二级选项          | 默认值                             | 说明                                                         |
+| ------------ | ----------------- | ---------------------------------- | ------------------------------------------------------------ |
+| `server`     | `id`              | `1`                                | `ckman`集群`id`，同一个集群的`ckman`的`id`号配置必须不同     |
+|              | `port`            | `8808`                             | `ckman`默认的监听端口                                        |
+|              | `https`           | `false`                            | 是否监听`https`，默认为不监听                                |
+|              | `certfile`        |                                    | `https`的证书文件，如果开启了`https`， 默认使用`conf`下的`server.crt` |
+|              | `keyfile`         |                                    | `https`的`key`文件， ，如果开启了`https`， 默认使用`conf`下的`server.key` |
+|              | `pprof`           | `true`                             | 是否支持`pprof`监控，默认支持                                |
+|              | `session_timeout` | `3600`                             | 会话超时（`token`失效）时间，默认为`1`个小时                 |
+|              | `publick_key`     |                                    | 接入擎创统一门户用来解析`token`的公钥                        |
+|              | `swagger_enable`  | `false`                            | 是否开启`swagger`文档，默认不开启                            |
+| `log`        | `level`           | `INFO`                             | 日志级别，默认为`INFO`                                       |
+|              | `max_count`       | `5`                                | 滚动日志数量                                                 |
+|              | `max_size`        | `10`                               | 单个日志大小，默认为`10M`                                    |
+|              | `max_age`         | `10`                               | 日志有效生命周期，默认为`10`天                               |
+| `prometheus` | `hosts`           | `127.0.0.1:9090`                   | 普罗米修斯监控的`ip`和端口                                   |
+|              | `timeout`         | `10`                               | 普罗米修斯的超时时间                                         |
+| `nacos`      | `enabled`         | `true`                             | 是否开启`nacos`，默认为`true`                                |
+|              | `hosts`           | `127.0.0.1`                        | `nacos`服务的`ip`                                            |
+|              | `port`            | `8848`                             | `nacos`服务的端口                                            |
+|              | `user_name`       | `nacos`                            | 登录`nacos`的用户名                                          |
+|              | `password`        | `0192023A7BBD73250516F069DF18B500` | 登录`nacos`的密码                                            |
+|              | `namespace`       |                                    | 指定`nacos`的`namespace`，默认为`DEFAULT`                    |
+|              | `group`           | `DEFAULT_GROUP`                    | 向`nacos`注册的服务所处的组                                  |
+|              | `data_id`         | `ckman`                            | 向`nacos`注册的服务名称、数据项名称                          |
 
 # ckman功能说明
 

@@ -2,6 +2,8 @@ server:
   id: 1
   port: 8808
   https: false
+  #certfile:
+  #keyfile:
   pprof: true
   session_timeout: 3600
   #public_key:
