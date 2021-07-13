@@ -2,11 +2,13 @@ package common
 
 import (
 	"fmt"
-	json "github.com/bytedance/sonic"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 const (
 	//fake key for test

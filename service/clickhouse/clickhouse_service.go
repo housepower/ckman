@@ -4,12 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/MakeNowJust/heredoc"
-	json "github.com/bytedance/sonic"
-	"github.com/bytedance/sonic/encoder"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"net"
@@ -34,6 +33,7 @@ const (
 	ClickHouseServiceTimeout         int    = 3600
 )
 
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 var CkClusters *model.CkClusters
 
 type CkService struct {
@@ -212,7 +212,7 @@ func MarshalClusters() ([]byte, error) {
 		}
 		tmp.SetClusterByName(key, value)
 	}
-	data, err := encoder.EncodeIndented(tmp, "", "  ")
+	data, err := json.MarshalIndent(tmp, "", "  ")
 	if err != nil {
 		return nil, errors.Wrapf(err, "")
 	}
