@@ -2,7 +2,6 @@ package model
 
 import (
 	"github.com/ClickHouse/clickhouse-go"
-	json "github.com/bytedance/sonic"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/log"
 	"github.com/pkg/errors"

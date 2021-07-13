@@ -6,14 +6,13 @@ require (
 	github.com/ClickHouse/clickhouse-go v1.4.5
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
-	github.com/bytedance/sonic v0.0.0-20210706135127-4937f48f3c86
 	github.com/choidamdam/gin-static-pkger v0.0.0-20201119021339-c0f138638274
 	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-zookeeper/zk v1.0.2
-	github.com/json-iterator/go v1.1.11 // indirect
+	github.com/json-iterator/go v1.1.11
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect

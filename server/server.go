@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
-	json "github.com/bytedance/sonic"
+	jsoniter "github.com/json-iterator/go"
 	"io"
 	"net/http"
 	"os"
@@ -28,6 +28,8 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 const ENV_CKMAN_SWAGGER string = "ENV_CKMAN_SWAGGER"
 
