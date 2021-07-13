@@ -47,6 +47,12 @@ contents:
   - src: ./resources/password
     dst: /etc/ckman/conf/password
     type: config|noreplace
+  - src: ./resources/server.key
+    dst: /etc/ckman/conf/server.key
+    type: config|noreplace
+  - src: ./resources/server.crt
+    dst: /etc/ckman/conf/server.crt
+    type: config|noreplace
   - src: ./resources/ckman.service
     dst: /etc/systemd/system/ckman.service
     type: config

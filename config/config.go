@@ -3,6 +3,7 @@ package config
 import (
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -34,6 +35,8 @@ type CKManServerConfig struct {
 	Ip             string
 	Port           int
 	Https          bool
+	CertFile       string	`yaml:"certfile"`
+	KeyFile        string	`yaml:"keyfile"`
 	Pprof          bool
 	SessionTimeout int    `yaml:"session_timeout"`
 	SwaggerEnable  bool   `yaml:"swagger_enable"`
@@ -81,9 +84,11 @@ func fillDefault(c *CKManConfig) {
 	c.Prometheus.Timeout = 10
 	c.Nacos.Group = "DEFAULT_GROUP"
 	c.Nacos.DataID = "ckman"
+	c.Server.CertFile = path.Join(GetWorkDirectory(), "conf", "server.crt")
+	c.Server.KeyFile = path.Join(GetWorkDirectory(), "conf", "server.key")
 }
 
-func ParseConfigFile(path,version string) error {
+func ParseConfigFile(path, version string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -95,13 +100,14 @@ func ParseConfigFile(path,version string) error {
 		return err
 	}
 
+	GlobalConfig.ConfigFile = path
+	GlobalConfig.Version = version
+
 	fillDefault(&GlobalConfig)
 	err = yaml.Unmarshal(data, &GlobalConfig)
 	if err != nil {
 		return err
 	}
-	GlobalConfig.ConfigFile = path
-	GlobalConfig.Version = version
 	return nil
 }
 

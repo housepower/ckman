@@ -97,9 +97,8 @@ func (server *ApiServer) Start() error {
 	}
 
 	if server.config.Server.Https {
-		// FIXME certFile and keyFile are incorrect
 		go func() {
-			if err := server.svr.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+			if err := server.svr.ListenAndServeTLS(server.config.Server.CertFile, server.config.Server.KeyFile); err != nil && err != http.ErrServerClosed {
 				log.Logger.Fatalf("start https server fail: %s", err.Error())
 			}
 		}()
