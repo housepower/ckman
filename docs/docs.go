@@ -954,12 +954,13 @@ var doc = `{
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "default": "20.8.5.45",
-                        "description": "package version",
-                        "name": "packageVersion",
-                        "in": "query",
-                        "required": true
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CkUpgradeCkReq"
+                        }
                     }
                 ],
                 "responses": {
@@ -1588,6 +1589,23 @@ var doc = `{
                     "description": "0 split partition by day\n1 split partition by week\n2 split partition by month",
                     "type": "integer",
                     "example": 0
+                }
+            }
+        },
+        "model.CkUpgradeCkReq": {
+            "type": "object",
+            "properties": {
+                "packageVersion": {
+                    "type": "string",
+                    "example": "20.9.3.45"
+                },
+                "policy": {
+                    "type": "string",
+                    "example": "Rolling"
+                },
+                "skip": {
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },

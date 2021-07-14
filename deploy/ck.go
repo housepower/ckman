@@ -752,13 +752,50 @@ func GenerateMacrosTemplate(templateFile string, conf *model.CkDeployConfig, hos
 	return tmplFile, nil
 }
 
-func UpgradeCkCluster(conf *model.CKManClickHouseConfig, version string) error {
+
+func UpgradeCkCluster(conf *model.CKManClickHouseConfig, req model.CkUpgradeCkReq) error {
 	packages := make([]string, 3)
-	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, version, model.CkCommonPackageSuffix)
-	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, version, model.CkServerPackageSuffix)
-	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, version, model.CkClientPackageSuffix)
+	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, req.PackageVersion, model.CkCommonPackageSuffix)
+	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, req.PackageVersion, model.CkServerPackageSuffix)
+	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, req.PackageVersion, model.CkClientPackageSuffix)
+
+	var chHosts []string
+	if req.SkipSameVersion {
+		for _, host := range conf.Hosts{
+			version, err := clickhouse.GetCKVersion(conf, host)
+			if err == nil && version == req.PackageVersion{
+				continue
+			}
+			chHosts = append(chHosts, host)
+		}
+	} else {
+		chHosts = conf.Hosts
+	}
+
+	if len(chHosts) == 0 {
+		log.Logger.Infof("there is nothing to be upgrade")
+		return nil
+	}
+
+	switch req.Policy {
+	case model.UpgradePolicyRolling:
+		for _, host := range chHosts {
+			if err := upgradePackage(conf, []string{host}, packages); err != nil {
+				return err
+			}
+		}
+	case model.UpgradePolicyFull:
+		return upgradePackage(conf, chHosts, packages)
+	default:
+		return fmt.Errorf("not support policy %s yet", req.Policy)
+	}
+
+	return nil
+}
+
+func upgradePackage(conf *model.CKManClickHouseConfig, hosts []string, packages []string)error {
 	base := &DeployBase{
-		Hosts:    conf.Hosts,
+		Hosts:    hosts,
 		User:     conf.SshUser,
 		Password: conf.SshPassword,
 		Port:     conf.SshPort,

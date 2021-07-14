@@ -37,6 +37,9 @@ const (
 	ClickHouseDefaultReplicaEngine   string = "ReplicatedMergeTree"
 	ClickHouseReplacingEngine        string = "ReplacingMergeTree"
 	ClickHouseReplicaReplacingEngine string = "ReplicatedReplacingMergeTree"
+
+	UpgradePolicyFull    string = "Full"
+	UpgradePolicyRolling string = "Rolling"
 )
 
 type CreateCkTableParams struct {
@@ -119,8 +122,10 @@ type CkTableCost struct {
 	Max          float64 `json:"max"`
 }
 
-type CkUpgradeCk struct {
-	PackageVersion string `json:"packageVersion"`
+type CkUpgradeCkReq struct {
+	PackageVersion  string `json:"packageVersion" example:"20.9.3.45"`
+	Policy          string `json:"policy" example:"Rolling"`
+	SkipSameVersion bool   `json:"skip" example:"true"`
 }
 
 type ShowSchemaRsp struct {
