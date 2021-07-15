@@ -289,12 +289,17 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 	if err := service.InitCkService(); err != nil {
 		return err
 	}
+	hosts := conf.Hosts
 	conf.Hosts = make([]string, 0)
 	conf.Shards = make([]model.CkShard, 0)
 
 	value, err := service.QueryInfo(fmt.Sprintf("SELECT cluster, shard_num, replica_num, host_name, host_address FROM system.clusters WHERE cluster='%s' ORDER BY cluster, shard_num, replica_num", conf.Cluster))
 	if err != nil {
 		return err
+	}
+	if len(value) == 1 {
+		err := fmt.Errorf("cluster %s is not exist, or hosts %v is not in cluster %s", conf.Cluster, hosts, conf.Cluster)
+		return errors.Wrap(err, "")
 	}
 	shardNum := uint32(0)
 	for i := 1; i < len(value); i++ {
