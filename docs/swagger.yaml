@@ -214,6 +214,18 @@ definitions:
         example: 0
         type: integer
     type: object
+  model.CkUpgradeCkReq:
+    properties:
+      packageVersion:
+        example: 20.9.3.45
+        type: string
+      policy:
+        example: Rolling
+        type: string
+      skip:
+        example: true
+        type: boolean
+    type: object
   model.CreateCkTableReq:
     properties:
       database:
@@ -946,12 +958,12 @@ paths:
         name: clusterName
         required: true
         type: string
-      - default: 20.8.5.45
-        description: package version
-        in: query
-        name: packageVersion
+      - description: request body
+        in: body
+        name: req
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/model.CkUpgradeCkReq'
       responses:
         "200":
           description: '{"retCode":0,"retMsg":"success","entity":null}'

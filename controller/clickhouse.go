@@ -500,20 +500,20 @@ func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Param packageVersion query string true "package version" default(20.8.5.45)
+// @Param req body model.CkUpgradeCkReq true "request body"
 // @Failure 200 {string} json "{"retCode":5060,"retMsg":"upgrade ClickHouse cluster failed","entity":""}"
 // @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
 // @Router /api/v1/ck/upgrade/{clusterName} [put]
 func (ck *ClickHouseController) UpgradeCluster(c *gin.Context) {
-	var req model.CkUpgradeCk
+	var req model.CkUpgradeCkReq
 	clusterName := c.Param(ClickHouseClusterPath)
 
+	req.SkipSameVersion = true // skip the same version default
+	req.Policy = model.UpgradePolicyFull // use full policy default
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
 		return
 	}
-
-	packageVersion := req.PackageVersion
 
 	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
 	if !ok {
@@ -527,14 +527,13 @@ func (ck *ClickHouseController) UpgradeCluster(c *gin.Context) {
 		return
 	}
 
-	common.CloseConns(conf.Hosts)
-	err := deploy.UpgradeCkCluster(&conf, packageVersion)
+	err := deploy.UpgradeCkCluster(&conf, req)
 	if err != nil {
 		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, model.GetMsg(c, model.UPGRADE_CK_CLUSTER_FAIL), err)
 		return
 	}
 
-	conf.Version = packageVersion
+	conf.Version = req.PackageVersion
 	if err = ck.syncDownClusters(c); err != nil {
 		return
 	}

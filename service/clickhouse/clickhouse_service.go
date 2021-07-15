@@ -1054,3 +1054,18 @@ func (ck *CkService)ShowCreateTable(tbname, database string) (string, error) {
 	schema := value[1][0].(string)
 	return schema, nil
 }
+
+func GetCKVersion(conf *model.CKManClickHouseConfig, host string)(string, error) {
+	tmp := *conf
+	tmp.Hosts = []string{host}
+	service, err := GetCkService(conf.Cluster)
+	if err != nil {
+		return "", err
+	}
+	value, err := service.QueryInfo("SELECT version()")
+	if err != nil {
+		return "", err
+	}
+	version := value[1][0].(string)
+	return version, nil
+}
