@@ -174,7 +174,22 @@ func InitCmd() {
 	rootCmd.PersistentFlags().BoolVarP(&Daemon, "daemon", "d", false, "Run as daemon")
 	rootCmd.AddCommand(VersionCmd)
 
+	rootCmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		return nil
+	})
+	rootCmd.SetHelpCommand(&cobra.Command{
+		Use:   "help",
+		Short: "Help about any command",
+		Long:  "Help about any command",
+		Run: func(cmd *cobra.Command, args []string) {
+			rootCmd.SetUsageFunc(nil)
+			_ = rootCmd.Help()
+			os.Exit(0)
+		},
+	})
 	_ = rootCmd.Execute()
+	fmt.Printf("ckman-%v is running...\n", Version)
+	fmt.Printf("See more information in %s\n", LogFilePath)
 }
 
 // GetOutboundIP get preferred outbound ip of this machine
