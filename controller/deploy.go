@@ -92,14 +92,14 @@ func (d *DeployController) syncUpClusters(c *gin.Context) (err error) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param req body model.DeployCkReq true "request body"
-// @Failure 200 {string} json "{"retCode":5000,"retMsg":"invalid params","entity":""}"
-// @Failure 200 {string} json "{"retCode":5011,"retMsg":"init package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":5012,"retMsg":"prepare package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":5013,"retMsg":"install package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":5014,"retMsg":"config package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":5015,"retMsg":"start package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":5016,"retMsg":"check package failed","entity":""}"
-// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5011","retMsg":"init package failed","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5012","retMsg":"prepare package failed","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5013","retMsg":"install package failed","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5014","retMsg":"config package failed","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5015","retMsg":"start package failed","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5016","retMsg":"check package failed","entity":""}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Router /api/v1/deploy/ck [post]
 func (d *DeployController) DeployCk(c *gin.Context) {
 	var req model.DeployCkReq

@@ -39,9 +39,9 @@ func NewMetricController(config *config.CKManConfig, promService *prometheus.Pro
 // @Security ApiKeyAuth
 // @Param metric query string true "metric name" default(ClickHouseMetrics_Read)
 // @Param time query string true "metric time" default(1606290000)
-// @Failure 200 {string} json "{"retCode":5000,"retMsg":"invalid params","entity":""}"
-// @Failure 200 {string} json "{"retCode":5050,"retMsg":"get query metric failed","entity":""}"
-// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"value":[1606290000,"2"]}]}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5050","retMsg":"get query metric failed","entity":""}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"value":[1606290000,"2"]}]}"
 // @Router /api/v1/metric/query [get]
 func (m *MetricController) Query(c *gin.Context) {
 	var params model.MetricQueryReq
@@ -71,9 +71,9 @@ func (m *MetricController) Query(c *gin.Context) {
 // @Param start query string true "start time" default(1606290000)
 // @Param end query string true "end time" default(1606290120)
 // @Param step query string true "step window" default(60)
-// @Failure 200 {string} json "{"retCode":5000,"retMsg":"invalid params","entity":""}"
-// @Failure 200 {string} json "{"retCode":5051,"retMsg":"get range-metric failed","entity":""}"
-// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"values":[[1606290000,"2"],[1606290060,"2"],[1606290120,"2"]]}]}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5051","retMsg":"get range-metric failed","entity":""}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"values":[[1606290000,"2"],[1606290060,"2"],[1606290120,"2"]]}]}"
 // @Router /api/v1/metric/query_range [get]
 func (m *MetricController) QueryRange(c *gin.Context) {
 	var params model.MetricQueryRangeReq

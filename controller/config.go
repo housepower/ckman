@@ -24,9 +24,9 @@ func NewConfigController(ch chan os.Signal) *ConfigController {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param req body model.UpdateConfigReq true "request body"
-// @Failure 200 {string} json "{"retCode":5000,"retMsg":"invalid params","entity":""}"
-// @Failure 200 {string} json "{"retCode":5070,"retMsg":"update config failed","entity":""}"
-// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5070","retMsg":"update config failed","entity":""}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Router /api/v1/config [put]
 func (cf *ConfigController) UpdateConfig(c *gin.Context) {
 	var req model.UpdateConfigReq
@@ -51,7 +51,7 @@ func (cf *ConfigController) UpdateConfig(c *gin.Context) {
 // @Description Get Config
 // @version 1.0
 // @Security ApiKeyAuth
-// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":{"peers":null,"prometheus":["192.168.101.105:19090"],"alertManagers":null}}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{"peers":null,"prometheus":["192.168.101.105:19090"],"alertManagers":null}}"
 // @Router /api/v1/config [get]
 func (cf *ConfigController) GetConfig(c *gin.Context) {
 	var req model.UpdateConfigReq
@@ -65,7 +65,7 @@ func (cf *ConfigController) GetConfig(c *gin.Context) {
 // @Description Get Version
 // @version 1.0
 // @Security ApiKeyAuth
-// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":"v1.3.1"}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":"v1.3.1"}"
 // @Router /api/v1/version [get]
 func (cf ConfigController) GetVersion(c *gin.Context) {
 	version := strings.Split(config.GlobalConfig.Version, "-")[0]
