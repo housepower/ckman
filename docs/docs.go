@@ -41,7 +41,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":{\"username\":\"ckman\",\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\"}}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":{\"username\":\"ckman\",\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\"}}",
                         "schema": {
                             "type": "string"
                         }
@@ -60,7 +60,7 @@ var doc = `{
                 "summary": "Logout",
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":nil}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":nil}",
                         "schema": {
                             "type": "string"
                         }
@@ -98,7 +98,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":\"\"}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":\"\"}",
                         "schema": {
                             "type": "string"
                         }
@@ -117,7 +117,7 @@ var doc = `{
                 "summary": "Get config of all ClickHouse cluster",
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\", \"entity\":{\"test\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\", \"entity\":{\"test\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}}",
                         "schema": {
                             "type": "string"
                         }
@@ -145,7 +145,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -174,7 +174,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\", \"entity\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\", \"entity\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}",
                         "schema": {
                             "type": "string"
                         }
@@ -201,7 +201,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -226,11 +226,17 @@ var doc = `{
                         "name": "clusterName",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -268,7 +274,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -297,7 +303,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":{\"test\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}}}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":{\"test\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}}}",
                         "schema": {
                             "type": "string"
                         }
@@ -322,11 +328,17 @@ var doc = `{
                         "name": "clusterName",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -351,11 +363,17 @@ var doc = `{
                         "name": "clusterName",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -382,6 +400,12 @@ var doc = `{
                         "required": true
                     },
                     {
+                        "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query"
+                    },
+                    {
                         "description": "request body",
                         "name": "req",
                         "in": "body",
@@ -393,7 +417,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -419,6 +443,12 @@ var doc = `{
                     },
                     {
                         "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "default": "192.168.101.105",
                         "description": "node ip address",
                         "name": "ip",
@@ -428,7 +458,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -464,7 +494,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":[{\"startTime\":1609997894,\"queryDuration\":1,\"query\":\"SELECT DISTINCT name FROM system.tables\",\"user\":\"eoi\",\"queryId\":\"62dce71d-9294-4e47-9d9b-cf298f73233d\",\"address\":\"192.168.21.73\",\"threads\":2}]}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[{\"startTime\":1609997894,\"queryDuration\":1,\"query\":\"SELECT DISTINCT name FROM system.tables\",\"user\":\"eoi\",\"queryId\":\"62dce71d-9294-4e47-9d9b-cf298f73233d\",\"address\":\"192.168.21.73\",\"threads\":2}]}",
                         "schema": {
                             "type": "string"
                         }
@@ -502,7 +532,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":\"\"}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":nil}",
                         "schema": {
                             "type": "string"
                         }
@@ -540,7 +570,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":\"\"}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":\"\"}",
                         "schema": {
                             "type": "string"
                         }
@@ -577,7 +607,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":[[\"name\"],[\"default\"],[\"system\"]]}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[[\"name\"],[\"default\"],[\"system\"]]}",
                         "schema": {
                             "type": "string"
                         }
@@ -606,7 +636,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -638,11 +668,23 @@ var doc = `{
                         "description": "sessions limit",
                         "name": "limit",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "sessions limit",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "sessions limit",
+                        "name": "end",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":[{\"startTime\":1609986493,\"queryDuration\":145,\"query\":\"select * from dist_sensor_dt_result_online limit 10000\",\"user\":\"default\",\"queryId\":\"8aa3de08-92c4-4102-a83d-2f5d88569dab\",\"address\":\"::1\",\"threads\":2}]}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[{\"startTime\":1609986493,\"queryDuration\":145,\"query\":\"select * from dist_sensor_dt_result_online limit 10000\",\"user\":\"default\",\"queryId\":\"8aa3de08-92c4-4102-a83d-2f5d88569dab\",\"address\":\"::1\",\"threads\":2}]}",
                         "schema": {
                             "type": "string"
                         }
@@ -667,11 +709,17 @@ var doc = `{
                         "name": "clusterName",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -696,11 +744,17 @@ var doc = `{
                         "name": "clusterName",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -745,7 +799,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":[{\"name\":\"_timestamp\",\"type\":\"DateTime\",\"defaultType\":\"\",\"defaultExpression\":\"\",\"comment\":\"\",\"codecExpression\":\"\",\"ttlExpression\":\"\"}]}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[{\"name\":\"_timestamp\",\"type\":\"DateTime\",\"defaultType\":\"\",\"defaultExpression\":\"\",\"comment\":\"\",\"codecExpression\":\"\",\"ttlExpression\":\"\"}]}",
                         "schema": {
                             "type": "string"
                         }
@@ -781,7 +835,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":null}",
+                        "description": "{\"retCode\":\"5003\",\"retMsg\":\"alter ClickHouse table failed\",\"entity\":\"\"}",
                         "schema": {
                             "type": "string"
                         }
@@ -817,7 +871,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -860,7 +914,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -889,7 +943,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":{\"sensor_dt_result_online\":{\"columns\":22,\"rows\":1381742496,\"parts\":192,\"space\":54967700946,\"completedQueries\":5,\"failedQueries\":0,\"queryCost\":{\"middle\":130,\"secondaryMax\":160.76,\"max\":162}}}}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":{\"sensor_dt_result_online\":{\"columns\":22,\"rows\":1381742496,\"parts\":192,\"space\":54967700946,\"completedQueries\":5,\"failedQueries\":0,\"queryCost\":{\"middle\":130,\"secondaryMax\":160.76,\"max\":162}}}}",
                         "schema": {
                             "type": "string"
                         }
@@ -927,7 +981,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":\"{\\\"create_table_query\\\": \\\"CREATE TABLE default.apache_access_log (` + "`" + `@collectiontime` + "`" + ` DateTime, ` + "`" + `@hostname` + "`" + ` LowCardinality(String), ` + "`" + `@ip` + "`" + ` LowCardinality(String), ` + "`" + `@path` + "`" + ` String, ` + "`" + `@lineno` + "`" + ` Int64, ` + "`" + `@message` + "`" + ` String, ` + "`" + `agent` + "`" + ` String, ` + "`" + `auth` + "`" + ` String, ` + "`" + `bytes` + "`" + ` Int64, ` + "`" + `clientIp` + "`" + ` String, ` + "`" + `device_family` + "`" + ` LowCardinality(String), ` + "`" + `httpversion` + "`" + ` LowCardinality(String), ` + "`" + `ident` + "`" + ` String, ` + "`" + `os_family` + "`" + ` LowCardinality(String), ` + "`" + `os_major` + "`" + ` LowCardinality(String), ` + "`" + `os_minor` + "`" + ` LowCardinality(String), ` + "`" + `referrer` + "`" + ` String, ` + "`" + `request` + "`" + ` String, ` + "`" + `requesttime` + "`" + ` Float64, ` + "`" + `response` + "`" + ` LowCardinality(String), ` + "`" + `timestamp` + "`" + ` DateTime64(3), ` + "`" + `userAgent_family` + "`" + ` LowCardinality(String), ` + "`" + `userAgent_major` + "`" + ` LowCardinality(String), ` + "`" + `userAgent_minor` + "`" + ` LowCardinality(String), ` + "`" + `verb` + "`" + ` LowCardinality(String), ` + "`" + `xforwardfor` + "`" + ` LowCardinality(String)) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, ` + "`" + `@hostname` + "`" + `, ` + "`" + `@path` + "`" + `, ` + "`" + `@lineno` + "`" + `) SETTINGS index_granularity = 8192 │ ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, ` + "`" + `@hostname` + "`" + `, ` + "`" + `@path` + "`" + `, ` + "`" + `@lineno` + "`" + `) SETTINGS index_granularity = 8192\\\"}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":\"{\\\"create_table_query\\\": \\\"CREATE TABLE default.apache_access_log (` + "`" + `@collectiontime` + "`" + ` DateTime, ` + "`" + `@hostname` + "`" + ` LowCardinality(String), ` + "`" + `@ip` + "`" + ` LowCardinality(String), ` + "`" + `@path` + "`" + ` String, ` + "`" + `@lineno` + "`" + ` Int64, ` + "`" + `@message` + "`" + ` String, ` + "`" + `agent` + "`" + ` String, ` + "`" + `auth` + "`" + ` String, ` + "`" + `bytes` + "`" + ` Int64, ` + "`" + `clientIp` + "`" + ` String, ` + "`" + `device_family` + "`" + ` LowCardinality(String), ` + "`" + `httpversion` + "`" + ` LowCardinality(String), ` + "`" + `ident` + "`" + ` String, ` + "`" + `os_family` + "`" + ` LowCardinality(String), ` + "`" + `os_major` + "`" + ` LowCardinality(String), ` + "`" + `os_minor` + "`" + ` LowCardinality(String), ` + "`" + `referrer` + "`" + ` String, ` + "`" + `request` + "`" + ` String, ` + "`" + `requesttime` + "`" + ` Float64, ` + "`" + `response` + "`" + ` LowCardinality(String), ` + "`" + `timestamp` + "`" + ` DateTime64(3), ` + "`" + `userAgent_family` + "`" + ` LowCardinality(String), ` + "`" + `userAgent_major` + "`" + ` LowCardinality(String), ` + "`" + `userAgent_minor` + "`" + ` LowCardinality(String), ` + "`" + `verb` + "`" + ` LowCardinality(String), ` + "`" + `xforwardfor` + "`" + ` LowCardinality(String)) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, ` + "`" + `@hostname` + "`" + `, ` + "`" + `@path` + "`" + `, ` + "`" + `@lineno` + "`" + `) SETTINGS index_granularity = 8192 │ ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, ` + "`" + `@hostname` + "`" + `, ` + "`" + `@path` + "`" + `, ` + "`" + `@lineno` + "`" + `) SETTINGS index_granularity = 8192\\\"}",
                         "schema": {
                             "type": "string"
                         }
@@ -954,6 +1008,12 @@ var doc = `{
                         "required": true
                     },
                     {
+                        "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query"
+                    },
+                    {
                         "description": "request body",
                         "name": "req",
                         "in": "body",
@@ -965,7 +1025,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -984,7 +1044,7 @@ var doc = `{
                 "summary": "Get Config",
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":{\"peers\":null,\"prometheus\":[\"192.168.101.105:19090\"],\"alertManagers\":null}}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":{\"peers\":null,\"prometheus\":[\"192.168.101.105:19090\"],\"alertManagers\":null}}",
                         "schema": {
                             "type": "string"
                         }
@@ -1012,7 +1072,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":nil}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":nil}",
                         "schema": {
                             "type": "string"
                         }
@@ -1042,7 +1102,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":nil}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":nil}",
                         "schema": {
                             "type": "string"
                         }
@@ -1079,7 +1139,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":[{\"metric\":{\"__name__\":\"ClickHouseMetrics_Read\",\"instance\":\"192.168.101.105:9363\",\"job\":\"clickhouse_exporter\"},\"value\":[1606290000,\"2\"]}]}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[{\"metric\":{\"__name__\":\"ClickHouseMetrics_Read\",\"instance\":\"192.168.101.105:9363\",\"job\":\"clickhouse_exporter\"},\"value\":[1606290000,\"2\"]}]}",
                         "schema": {
                             "type": "string"
                         }
@@ -1132,7 +1192,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":[{\"metric\":{\"__name__\":\"ClickHouseMetrics_Read\",\"instance\":\"192.168.101.105:9363\",\"job\":\"clickhouse_exporter\"},\"values\":[[1606290000,\"2\"],[1606290060,\"2\"],[1606290120,\"2\"]]}]}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[{\"metric\":{\"__name__\":\"ClickHouseMetrics_Read\",\"instance\":\"192.168.101.105:9363\",\"job\":\"clickhouse_exporter\"},\"values\":[[1606290000,\"2\"],[1606290060,\"2\"],[1606290120,\"2\"]]}]}",
                         "schema": {
                             "type": "string"
                         }
@@ -1151,7 +1211,7 @@ var doc = `{
                 "summary": "Get package list",
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":[\"20.8.5.45\"]}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[\"20.8.5.45\"]}",
                         "schema": {
                             "type": "string"
                         }
@@ -1180,7 +1240,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -1207,7 +1267,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"success\",\"entity\":null}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -1226,7 +1286,7 @@ var doc = `{
                 "summary": "Get Version",
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":\"v1.3.1\"}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":\"v1.3.1\"}",
                         "schema": {
                             "type": "string"
                         }
@@ -1255,7 +1315,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":{\"header\":[[\"vm101106\",\"vm101108\"],[\"vm102114\",\"vm101110\"],[\"vm102116\",\"vm102115\"]],\"tables\":[{\"name\":\"sensor_dt_result_online\",\"values\":[[\"l1846\",\"f1846\"],[\"l1845\",\"f1845\"],[\"l1846\",\"f1846\"]]}]}}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":{\"header\":[[\"vm101106\",\"vm101108\"],[\"vm102114\",\"vm101110\"],[\"vm102116\",\"vm102115\"]],\"tables\":[{\"name\":\"sensor_dt_result_online\",\"values\":[[\"l1846\",\"f1846\"],[\"l1845\",\"f1845\"],[\"l1846\",\"f1846\"]]}]}}",
                         "schema": {
                             "type": "string"
                         }
@@ -1284,7 +1344,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":0,\"retMsg\":\"ok\",\"entity\":[{\"host\":\"192.168.102.116\",\"version\":\"3.6.2\",\"server_state\":\"follower\",\"peer_state\":\"following - broadcast\",\"avg_latency\":0.4929,\"approximate_data_size\":141979,\"znode_count\":926}]}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[{\"host\":\"192.168.102.116\",\"version\":\"3.6.2\",\"server_state\":\"follower\",\"peer_state\":\"following - broadcast\",\"avg_latency\":0.4929,\"approximate_data_size\":141979,\"znode_count\":926}]}",
                         "schema": {
                             "type": "string"
                         }

@@ -42,8 +42,8 @@ func NewPackageController(config *config.CKManConfig) *PackageController {
 // @Security ApiKeyAuth
 // @accept multipart/form-data
 // @Param package formData file true "package"
-// @Failure 200 {string} json "{"retCode":5004,"retMsg":"upload local package failed","entity":""}"
-// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
+// @Failure 200 {string} json "{"retCode":"5004","retMsg":"upload local package failed","entity":""}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":null}"
 // @Router /api/v1/package [post]
 func (p *PackageController) Upload(c *gin.Context) {
 	localFile, err := ParserFormData(c.Request)
@@ -156,8 +156,8 @@ func UploadFileByURL(url string, localFile string) error {
 // @Description Get package list
 // @version 1.0
 // @Security ApiKeyAuth
-// @Failure 200 {string} json "{"retCode":5005,"retMsg":"get package list failed","entity":""}"
-// @Success 200 {string} json "{"retCode":0,"retMsg":"ok","entity":["20.8.5.45"]}"
+// @Failure 200 {string} json "{"retCode":"5005","retMsg":"get package list failed","entity":""}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":["20.8.5.45"]}"
 // @Router /api/v1/package [get]
 func (p *PackageController) List(c *gin.Context) {
 	files, err := GetAllFiles(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory))
@@ -234,8 +234,8 @@ func GetAllVersions(files []string) []string {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param packageVersion query string true "package version" default(20.8.5.45)
-// @Failure 200 {string} json "{"retCode":5002,"retMsg":"delete local package failed","entity":""}"
-// @Success 200 {string} json "{"retCode":0,"retMsg":"success","entity":null}"
+// @Failure 200 {string} json "{"retCode":"5002","retMsg":"delete local package failed","entity":""}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":null}"
 // @Router /api/v1/package [delete]
 func (p *PackageController) Delete(c *gin.Context) {
 	packageVersion := c.Query("packageVersion")
