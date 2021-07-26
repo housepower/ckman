@@ -49,18 +49,18 @@ func (m *MetricController) Query(c *gin.Context) {
 	params.Metric = c.Query("metric")
 	time, err := strconv.ParseInt(c.Query("time"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 	params.Time = time
 
 	value, err := m.promService.QueryMetric(&params)
 	if err != nil {
-		model.WrapMsg(c, model.QUERY_METRIC_FAIL, model.GetMsg(c, model.QUERY_METRIC_FAIL), err)
+		model.WrapMsg(c, model.QUERY_METRIC_FAIL, err)
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), value)
+	model.WrapMsg(c, model.SUCCESS, value)
 }
 
 // @Summary Query Range
@@ -80,8 +80,7 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
-			fmt.Sprintf("cluster %s does not exist", clusterName))
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
@@ -93,7 +92,7 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 		hosts = conf.ZkNodes
 	} else {
 		err := errors.Wrap(nil, fmt.Sprintf("title %s invalid", params.Title))
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 	templHosts := "(" + strings.Join(hosts, "|") + "):.*"
@@ -103,13 +102,13 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 	replace["hosts"] = templHosts
 	t, err := template.New("T1").Parse(metric)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 	buf := new(bytes.Buffer)
 	err = t.Execute(buf, replace)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 
@@ -117,17 +116,17 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 	log.Logger.Debugf("metric: %s", params.Metric)
 	start, err := strconv.ParseInt(c.Query("start"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 	end, err := strconv.ParseInt(c.Query("end"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 	step, err := strconv.ParseInt(c.Query("step"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 	params.Start = start
@@ -136,9 +135,9 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 
 	value, err := m.promService.QueryRangeMetric(&params)
 	if err != nil {
-		model.WrapMsg(c, model.QUERY_RANGE_METRIC_FAIL, model.GetMsg(c, model.QUERY_RANGE_METRIC_FAIL), err)
+		model.WrapMsg(c, model.QUERY_RANGE_METRIC_FAIL, err)
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), value)
+	model.WrapMsg(c, model.SUCCESS, value)
 }

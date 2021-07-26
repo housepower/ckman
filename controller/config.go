@@ -32,18 +32,18 @@ func (cf *ConfigController) UpdateConfig(c *gin.Context) {
 	var req model.UpdateConfigReq
 
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 
 	config.GlobalConfig.Prometheus.Hosts = req.Prometheus
 
 	if err := config.MarshConfigFile(); err != nil {
-		model.WrapMsg(c, model.UPDATE_CONFIG_FAIL, model.GetMsg(c, model.UPDATE_CONFIG_FAIL), err)
+		model.WrapMsg(c, model.UPDATE_CONFIG_FAIL, err)
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, nil)
 	cf.signal <- syscall.SIGHUP
 }
 
@@ -58,7 +58,7 @@ func (cf *ConfigController) GetConfig(c *gin.Context) {
 
 	req.Prometheus = config.GlobalConfig.Prometheus.Hosts
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), req)
+	model.WrapMsg(c, model.SUCCESS, req)
 }
 
 // @Summary Get Version
@@ -69,5 +69,5 @@ func (cf *ConfigController) GetConfig(c *gin.Context) {
 // @Router /api/v1/version [get]
 func (cf ConfigController) GetVersion(c *gin.Context) {
 	version := strings.Split(config.GlobalConfig.Version, "-")[0]
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), version)
+	model.WrapMsg(c, model.SUCCESS, version)
 }

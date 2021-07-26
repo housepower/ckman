@@ -62,7 +62,7 @@ func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (
 func (d *DeployController) syncDownClusters(c *gin.Context) (err error) {
 	data, err := d.nacosClient.GetConfig()
 	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, model.GetMsg(c, model.GET_NACOS_CONFIG_FAIL), err)
+		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, err)
 		return
 	}
 	if data != "" {
@@ -81,7 +81,7 @@ func (d *DeployController) syncUpClusters(c *gin.Context) (err error) {
 	_ = clickhouse.WriteClusterConfigFile(buf)
 	err = d.nacosClient.PublishConfig(string(buf))
 	if err != nil {
-		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, model.GetMsg(c, model.PUB_NACOS_CONFIG_FAIL), err)
+		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, err)
 		return
 	}
 	return
@@ -108,12 +108,12 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 	req.SavePassword = true   //save password default
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 
 	if req.ClickHouse.User == model.ClickHouseRetainUser {
-		model.WrapMsg(c, model.DEPLOY_USER_RETAIN_ERROR, model.GetMsg(c, model.DEPLOY_USER_RETAIN_ERROR), nil)
+		model.WrapMsg(c, model.DEPLOY_USER_RETAIN_ERROR, nil)
 		return
 	}
 
@@ -134,7 +134,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 	code, err := DeployPackage(ckDeploy, base, &req.ClickHouse)
 	if err != nil {
-		model.WrapMsg(c, code, model.GetMsg(c, code), err)
+		model.WrapMsg(c, code, err)
 		return
 	}
 
@@ -156,7 +156,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	if err = d.syncUpClusters(c); err != nil {
 		return
 	}
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
 func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {

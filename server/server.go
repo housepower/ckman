@@ -141,7 +141,7 @@ func embedStaticHandler(embedPath, contentType string) gin.HandlerFunc {
 // Log runtime error stack to make debug easy.
 func handlePanic(c *gin.Context, err interface{}) {
 	log.Logger.Errorf("server panic: %+v\n%v", err, string(debug.Stack()))
-	model.WrapMsg(c, model.UNKNOWN, model.GetMsg(c, model.UNKNOWN), err)
+	model.WrapMsg(c, model.UNKNOWN, err)
 }
 
 // Replace gin.Logger middleware to customize log format.
@@ -188,7 +188,7 @@ func ginJWTAuth() gin.HandlerFunc {
 			var rsaEncrypt common.RSAEncryption
 			decode, err := rsaEncrypt.Decode([]byte(uEnc), config.GlobalConfig.Server.PublicKey)
 			if err != nil {
-				model.WrapMsg(c, model.JWT_TOKEN_INVALID, model.GetMsg(c, model.JWT_TOKEN_INVALID), nil)
+				model.WrapMsg(c, model.JWT_TOKEN_INVALID, nil)
 				c.Abort()
 				return
 			}
@@ -196,12 +196,12 @@ func ginJWTAuth() gin.HandlerFunc {
 			var userToken common.UserTokenModel
 			err = json.Unmarshal(decode, &userToken)
 			if err != nil {
-				model.WrapMsg(c, model.JWT_TOKEN_INVALID, model.GetMsg(c, model.JWT_TOKEN_INVALID), nil)
+				model.WrapMsg(c, model.JWT_TOKEN_INVALID, nil)
 				c.Abort()
 				return
 			}
 			if time.Now().UnixNano()/1e6-userToken.Timestamp > userToken.Duration*1000 {
-				model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, model.GetMsg(c, model.JWT_TOKEN_EXPIRED), nil)
+				model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, nil)
 				c.Abort()
 				return
 			}
@@ -211,7 +211,7 @@ func ginJWTAuth() gin.HandlerFunc {
 		// jwt
 		token := c.Request.Header.Get("token")
 		if token == "" {
-			model.WrapMsg(c, model.JWT_TOKEN_NONE, model.GetMsg(c, model.JWT_TOKEN_NONE), nil)
+			model.WrapMsg(c, model.JWT_TOKEN_NONE, nil)
 			c.Abort()
 			return
 		}
@@ -219,21 +219,21 @@ func ginJWTAuth() gin.HandlerFunc {
 		j := common.NewJWT()
 		claims, code := j.ParserToken(token)
 		if code != model.SUCCESS {
-			model.WrapMsg(c, code, model.GetMsg(c, code), nil)
+			model.WrapMsg(c, code, nil)
 			c.Abort()
 			return
 		}
 
 		// Verify Expires
 		if _, ok := controller.TokenCache.Get(token); !ok {
-			model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, model.GetMsg(c, model.JWT_TOKEN_EXPIRED), nil)
+			model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, nil)
 			c.Abort()
 			return
 		}
 
 		// Verify client ip
 		if claims.ClientIP != c.ClientIP() {
-			model.WrapMsg(c, model.JWT_TOKEN_IP_MISMATCH, model.GetMsg(c, model.JWT_TOKEN_IP_MISMATCH), nil)
+			model.WrapMsg(c, model.JWT_TOKEN_IP_MISMATCH, nil)
 			c.Abort()
 			return
 		}
