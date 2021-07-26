@@ -963,7 +963,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		return errors.Errorf("It's not allow to add replica node for shard%d while IsReplica is false", req.Shard)
 	}
 
-	if conf.Mode == model.CkClusterImport && len(req.Ips) > 1 {
+	if !conf.IsReplica && len(req.Ips) > 1 {
 		return errors.Errorf("import mode can only add 1 node once")
 	}
 
