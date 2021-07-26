@@ -94,7 +94,14 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 				continue
 			}
 			sort.Strings(leaderElection)
+			// fix out of range cause panic issue
+			if len(leaderElection) == 0 {
+				continue
+			}
 			leaderBytes, _, _ := z.Conn.Get(fmt.Sprintf("%s/%s", path, leaderElection[0]))
+			if len(leaderBytes) == 0 {
+				continue
+			}
 			leader := strings.Split(string(leaderBytes), " ")[0]
 
 			for replicaIndex, replica := range shard.Replicas {

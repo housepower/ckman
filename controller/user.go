@@ -40,24 +40,24 @@ func (d *UserController) Login(c *gin.Context) {
 	var req model.LoginReq
 	c.Request.Header.Get("")
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, model.GetMsg(c, model.INVALID_PARAMS), err)
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 
 	if req.Username != common.DefaultUserName {
-		model.WrapMsg(c, model.USER_VERIFY_FAIL, model.GetMsg(c, model.USER_VERIFY_FAIL), nil)
+		model.WrapMsg(c, model.USER_VERIFY_FAIL, nil)
 		return
 	}
 
 	passwordFile := path.Join(filepath.Dir(d.config.ConfigFile), "password")
 	data, err := ioutil.ReadFile(passwordFile)
 	if err != nil {
-		model.WrapMsg(c, model.GET_USER_PASSWORD_FAIL, model.GetMsg(c, model.GET_USER_PASSWORD_FAIL), err)
+		model.WrapMsg(c, model.GET_USER_PASSWORD_FAIL, err)
 		return
 	}
 
 	if pass := common.ComparePassword(string(data), req.Password); !pass {
-		model.WrapMsg(c, model.PASSWORD_VERIFY_FAIL, model.GetMsg(c, model.PASSWORD_VERIFY_FAIL), nil)
+		model.WrapMsg(c, model.PASSWORD_VERIFY_FAIL, nil)
 		return
 	}
 
@@ -72,7 +72,7 @@ func (d *UserController) Login(c *gin.Context) {
 	}
 	token, err := j.CreateToken(claims)
 	if err != nil {
-		model.WrapMsg(c, model.CREAT_TOKEN_FAIL, model.GetMsg(c, model.CREAT_TOKEN_FAIL), err)
+		model.WrapMsg(c, model.CREAT_TOKEN_FAIL, err)
 		return
 	}
 
@@ -82,7 +82,7 @@ func (d *UserController) Login(c *gin.Context) {
 	}
 	TokenCache.SetDefault(token, time.Now().Add(time.Second * time.Duration(d.config.Server.SessionTimeout)).Unix())
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), rsp)
+	model.WrapMsg(c, model.SUCCESS, rsp)
 }
 
 // @Summary Logout
@@ -98,5 +98,5 @@ func (d *UserController) Logout(c *gin.Context) {
 		c.Set("token", "")
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), nil)
+	model.WrapMsg(c, model.SUCCESS, nil)
 }

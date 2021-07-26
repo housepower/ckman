@@ -126,6 +126,8 @@ bin/start
 
 ![image-20210305134653422](../img/image-20210305134653422.png)
 
+`ckman`默认的登录用户为`ckman`，密码为`Ckman123456!`。
+
 ## docker启动
 
 从`v1.2.7`版本开始，`ckman`支持从`docker`镜像启动。启动命令如下所示：

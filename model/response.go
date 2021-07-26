@@ -15,10 +15,11 @@ type ResponseBody struct {
 	Entity  interface{} `json:"entity"`
 }
 
-func WrapMsg(c *gin.Context, retCode string, retMsg string, entity interface{}) {
+func WrapMsg(c *gin.Context, retCode string, entity interface{}) {
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "application/json; charset=utf-8")
 
+	retMsg := GetMsg(c, retCode)
 	if retCode != SUCCESS {
 		log.Logger.Errorf("%s %s return %s, %v", c.Request.Method, c.Request.RequestURI, retCode, entity)
 		if err, ok := entity.(error); ok {

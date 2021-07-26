@@ -35,8 +35,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
-			fmt.Sprintf("cluster %s does not exist", clusterName))
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
@@ -47,8 +46,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 		}
 		body, err := getZkStatus(node, conf.ZkStatusPort)
 		if err != nil {
-			model.WrapMsg(c, model.GET_ZK_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_STATUS_FAIL),
-				fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
+			model.WrapMsg(c, model.GET_ZK_STATUS_FAIL, fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
 			return
 		}
 		_ = json.Unmarshal(body, &tmp)
@@ -56,7 +54,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 		zkList[index] = tmp
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), zkList)
+	model.WrapMsg(c, model.SUCCESS, zkList)
 }
 
 func getZkStatus(host string, port int) ([]byte, error) {
@@ -96,21 +94,19 @@ func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
 	if !ok {
-		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, model.GetMsg(c, model.CLUSTER_NOT_EXIST),
-			fmt.Sprintf("cluster %s does not exist", clusterName))
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
 	zkService, err := zookeeper.GetZkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_TABLE_STATUS_FAIL),
-			fmt.Sprintf("get zookeeper service fail: %v", err))
+		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, fmt.Sprintf("get zookeeper service fail: %v", err))
 		return
 	}
 
 	tables, err := zkService.GetReplicatedTableStatus(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, model.GetMsg(c, model.GET_ZK_TABLE_STATUS_FAIL), err)
+		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, err)
 		return
 	}
 
@@ -127,5 +123,5 @@ func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 		Tables: tables,
 	}
 
-	model.WrapMsg(c, model.SUCCESS, model.GetMsg(c, model.SUCCESS), resp)
+	model.WrapMsg(c, model.SUCCESS, resp)
 }
