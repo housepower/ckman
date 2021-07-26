@@ -2,7 +2,7 @@
 ENGLISH|[简体中文](./README_ZH.md)
 
 # About ckman
-This is a tool which used to manage and monitor ClickHouse database. It visits the cluster's related information through the front-end interface, which can be easily deployed, upgraded, and the node increases to the cluster. For more information, please read [document](./docs/Ckman_Document_zh.md).
+This is a tool which used to manage and monitor ClickHouse database. It visits the cluster's related information through the front-end interface, which can be easily deployed, upgraded, and the node increases to the cluster. For more information, please read [document](./docs/ckman_v2.0.0.md).
 
 # Quik Start 
 quickly deploy and start using CKMAN, please click the [deploy document](./docs/guide/deploy.md). 

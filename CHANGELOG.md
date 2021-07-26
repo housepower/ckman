@@ -1,3 +1,11 @@
+# v2.0.0
+- single node online & offline
+- do not save sshPassword if necessary
+- support public key to deploy and manage cluster
+- support normal user to deploy and manage cluster
+- support https
+- support rolling update
+- when cluster is not exist, do not allow to import
 
 # v2.0.0.beta1
 - support logic cluster

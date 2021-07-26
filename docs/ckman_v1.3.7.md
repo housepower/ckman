@@ -438,21 +438,6 @@ make rpm VERSION=x.x.x
 | `jvm_gc_collection_seconds_count` | `jvm` `gc`的次数     |
 | `jvm_gc_collection_seconds_sum`   | `jvm` `gc`花费的时间 |
 
-### 数据加载监控
-
-点击主页的`Data Loader Management`按钮，就可以进入数据加载管理页面，从此处可以看到`clickhouse-sinker`的一些指标。
-
-![image-20210301155735285](img/image-20210301155735285.png)
-
-| 指标                                                         | 说明                                               |
-| ------------------------------------------------------------ | -------------------------------------------------- |
-| `sum by(task)(rate(clickhouse_sinker_consume_msgs_total[1m]))` | `clickhouse_sinker`消费`Kafka`消息的速率(个/秒)    |
-| `sum by(task) (rate(clickhouse_sinker_flush_msgs_total[1m]))` | `clickhouse_sinker`写`ClickHouse`的速率(行/秒)     |
-| `sum by(task) (clickhouse_sinker_shard_msgs)`                | `clickhouse_sinker shard buffer`当前包含的消息数目 |
-| `sum by(task) (clickhouse_sinker_ring_msgs)`                 | `clickhouse_sinker ring buffer`当前包含的消息数目  |
-| `sum by(task)(clickhouse_sinker_parsing_pool_backlog)`       | `clickhouse_sinker` 解析协程池当前积压的消息数目   |
-| `sum by(task) (clickhouse_sinker_writing_pool_backlog)`      | `clickhouse_sinker` 输出协程池当前积压的批数目     |
-
 ## 表管理
 
 表管理主要分为`Table Metrics`、`Table Replication Status`、以及`Zookeeper Status`。
