@@ -151,17 +151,28 @@ type UsersConf struct {
 }
 
 type User struct {
-	Name     string
-	Password string
-	Networks Networks
-	Profile  string // shall be in Profiles
-	Quota    string // shall be in Quotas
+	Name         string
+	Password     string
+	Profile      string        // shall be in Profiles
+	Quota        string        // shall be in Quotas
+	Networks     Networks      // List of networks from which the user can connect to the ClickHouse server.
+	DbRowPolices []DbRowPolicy // For the given database.table, only rows pass the filter are granted. For other database. tables, all rows are granted.
 }
 
 type Networks struct {
 	IPs         *[]string
 	Hosts       *[]string
 	HostRegexps *[]string
+}
+
+type DbRowPolicy struct {
+	Database       string
+	TblRowPolicies []TblRowPolicy
+}
+
+type TblRowPolicy struct {
+	Table  string
+	Filter string // Empty means 0
 }
 
 // https://clickhouse.tech/docs/en/operations/settings/settings-profiles/
