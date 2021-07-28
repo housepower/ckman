@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/valyala/fastjson"
 )
 
 // Considering the following scenario:
@@ -25,13 +26,13 @@ import (
 
 // Parameter - Name: field name
 type Parameter struct {
-	Label              string
-	Description        string
-	Candidates         []string
-	DefaultValue       string
-	Range              string
-	AvailableCondition string //empty means: true(available)
-	RequiredCondition  string //empty means: true(required) iff field type is Ptr
+	Label        string
+	Description  string
+	Candidates   []string
+	DefaultValue string
+	Range        string
+	Visiable     string //empty means: true(visiable)
+	Required     string //empty means: true(required) iff field type is Ptr
 }
 
 func MarshalConfigSchema(v interface{}, params map[string]*Parameter) (data string, err error) {
@@ -136,19 +137,19 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 	sb.WriteString(`, "range": `)
 	sb.WriteString(nullableString(param.Range))
 	sb.WriteString(`, "availableCondition": `)
-	if param.AvailableCondition == "" {
-		param.AvailableCondition = "true"
+	if param.Visiable == "" {
+		param.Visiable = "true"
 	}
-	sb.WriteString(nullableString(param.AvailableCondition))
-	if param.RequiredCondition == "" {
+	sb.WriteString(nullableString(param.Visiable))
+	if param.Required == "" {
 		if rt.Kind() == reflect.Ptr {
-			param.RequiredCondition = "false"
+			param.Required = "false"
 		} else {
-			param.RequiredCondition = "true"
+			param.Required = "true"
 		}
 	}
 	sb.WriteString(`, "requireCondition": `)
-	sb.WriteString(nullableString(param.RequiredCondition))
+	sb.WriteString(nullableString(param.Required))
 	for rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
 	}
@@ -302,6 +303,234 @@ func marshalConfigRecursive(params map[string]*Parameter, rv reflect.Value, sb *
 		return
 	}
 	return
+}
+
+func UnmarshalConfig(data string, v interface{}, params map[string]*Parameter) (err error) {
+	var fjv *fastjson.Value
+	if fjv, err = fastjson.Parse(data); err != nil {
+		err = errors.Wrapf(err, "")
+		return
+	}
+	rv := reflect.ValueOf(v)
+	rt := reflect.TypeOf(v)
+	for rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+		rv = rv.Elem()
+	}
+	size := rv.NumField()
+	prefix := rt.PkgPath() + "." + rt.Name() + "."
+	var num_fields int
+	for i := 0; i < size; i++ {
+		rvf := rv.Field(i)
+		fieldName := rt.Field(i).Name
+		key := prefix + fieldName
+		if _, ok := params[key]; ok {
+			num_fields++
+			if err = unmarshalConfigRecursive(params, rvf, fjv.Get(fieldName)); err != nil {
+				return
+			}
+		}
+	}
+	if num_fields <= 0 {
+		err = errors.Errorf("Cannot use %s.%s as a paratemter", rt.PkgPath(), rt.Name())
+		return
+	}
+	return
+}
+
+func unmarshalConfigRecursive(params map[string]*Parameter, rv reflect.Value, fjv *fastjson.Value) (err error) {
+	if fjv == nil || fjv.Type() == fastjson.TypeNull {
+		rv = indirect(rv, true)
+		switch rv.Kind() {
+		case reflect.Interface, reflect.Ptr, reflect.Map, reflect.Slice:
+			rv.Set(reflect.Zero(rv.Type()))
+			// otherwise, ignore null for primitives/string
+		}
+		return
+	}
+	rv = indirect(rv, false)
+	rt := rv.Type()
+	switch rt.Kind() {
+	case reflect.Bool:
+		switch fjv.Type() {
+		case fastjson.TypeTrue:
+			rv.SetBool(true)
+		case fastjson.TypeFalse:
+			rv.SetBool(false)
+		default:
+			err = errors.Errorf("unmarshal error")
+			return
+		}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		var val int64
+		if val, err = fjv.Int64(); err != nil {
+			err = errors.Wrapf(err, "unmarshal error")
+			return
+		}
+		rv.SetInt(val)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		var val uint64
+		if val, err = fjv.Uint64(); err != nil {
+			err = errors.Wrapf(err, "unmarshal error")
+			return
+		}
+		rv.SetUint(val)
+	case reflect.Float32, reflect.Float64:
+		var val float64
+		if val, err = fjv.Float64(); err != nil {
+			err = errors.Wrapf(err, "unmarshal error")
+			return
+		}
+		rv.SetFloat(val)
+	case reflect.String:
+		var val []byte
+		if val, err = fjv.StringBytes(); err != nil {
+			err = errors.Wrapf(err, "unmarshal error")
+			return
+		}
+		rv.SetString(string(val))
+	case reflect.Array, reflect.Slice:
+		var fja []*fastjson.Value
+		if fja, err = fjv.Array(); err != nil {
+			err = errors.Wrapf(err, "unmarshal error")
+			return
+		}
+		rv.Set(reflect.MakeSlice(rt, len(fja), len(fja)))
+		for i := 0; i < len(fja); i++ {
+			if err = unmarshalConfigRecursive(params, rv.Index(i), fja[i]); err != nil {
+				return
+			}
+		}
+	case reflect.Map:
+		var fjo *fastjson.Object
+		if fjo, err = fjv.Object(); err != nil {
+			err = errors.Wrapf(err, "unmarshal error")
+			return
+		}
+		rv.Set(reflect.MakeMapWithSize(rt, fjo.Len()))
+		// refers to encoding/json/decode.go#772, (*decodeState).object
+		kt := rt.Key()
+		fjo.Visit(func(key []byte, v *fastjson.Value) {
+			var rvk reflect.Value
+			str_key := string(key)
+			switch kt.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				var val int64
+				if val, err = strconv.ParseInt(str_key, 10, 64); err != nil {
+					err = errors.Wrapf(err, "unmarshal error")
+					return
+				}
+				rvk = reflect.ValueOf(val).Convert(kt)
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				var val uint64
+				if val, err = strconv.ParseUint(str_key, 10, 64); err != nil {
+					err = errors.Wrapf(err, "unmarshal error")
+					return
+				}
+				rvk = reflect.ValueOf(val).Convert(kt)
+			case reflect.String:
+				rvk = reflect.ValueOf(str_key).Convert(kt)
+			default:
+				err = errors.Errorf("unmarshal error")
+				return
+			}
+			rvv := reflect.New(rt.Elem())
+			if err = unmarshalConfigRecursive(params, rvv, v); err != nil {
+				return
+			}
+			rv.SetMapIndex(rvk, rvv.Elem())
+		})
+	case reflect.Struct:
+		prefix := rt.PkgPath() + "." + rt.Name() + "."
+		var num_fields int
+		for i := 0; i < rv.NumField(); i++ {
+			rtf := rt.Field(i)
+			rvf := rv.FieldByName(rtf.Name)
+			key := prefix + rtf.Name
+			if _, ok := params[key]; ok {
+				num_fields++
+				if err = unmarshalConfigRecursive(params, rvf, fjv.Get(rtf.Name)); err != nil {
+					return
+				}
+			}
+		}
+		if num_fields <= 0 {
+			err = errors.Errorf("Cannot use %s.%s as a paratemter", rt.PkgPath(), rt.Name())
+			return
+		}
+	default:
+		err = errors.Errorf("Cannot use %s.%s as a paratemter", rt.PkgPath(), rt.Name())
+		return
+	}
+	return
+}
+
+// refers to encoding/json/decode.go#425, indirect
+// indirect walks down v allocating pointers as needed,
+// until it gets to a non-pointer.
+// If decodingNull is true, indirect stops at the first settable pointer so it
+// can be set to nil.
+func indirect(v reflect.Value, decodingNull bool) reflect.Value {
+	// Issue #24153 indicates that it is generally not a guaranteed property
+	// that you may round-trip a reflect.Value by calling Value.Addr().Elem()
+	// and expect the value to still be settable for values derived from
+	// unexported embedded struct fields.
+	//
+	// The logic below effectively does this when it first addresses the value
+	// (to satisfy possible pointer methods) and continues to dereference
+	// subsequent pointers as necessary.
+	//
+	// After the first round-trip, we set v back to the original value to
+	// preserve the original RW flags contained in reflect.Value.
+	v0 := v
+	haveAddr := false
+
+	// If v is a named type and is addressable,
+	// start with its address, so that if the type has pointer methods,
+	// we find them.
+	if v.Kind() != reflect.Ptr && v.Type().Name() != "" && v.CanAddr() {
+		haveAddr = true
+		v = v.Addr()
+	}
+	for {
+		// Load value from interface, but only if the result will be
+		// usefully addressable.
+		if v.Kind() == reflect.Interface && !v.IsNil() {
+			e := v.Elem()
+			if e.Kind() == reflect.Ptr && !e.IsNil() && (!decodingNull || e.Elem().Kind() == reflect.Ptr) {
+				haveAddr = false
+				v = e
+				continue
+			}
+		}
+
+		if v.Kind() != reflect.Ptr {
+			break
+		}
+
+		if decodingNull && v.CanSet() {
+			break
+		}
+
+		// Prevent infinite loop if v is an interface pointing to its own address:
+		//     var v interface{}
+		//     v = &v
+		if v.Elem().Kind() == reflect.Interface && v.Elem().Elem() == v {
+			v = v.Elem()
+			break
+		}
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+
+		if haveAddr {
+			v = v0 // restore original value after round-trip Value.Addr().Elem()
+			haveAddr = false
+		} else {
+			v = v.Elem()
+		}
+	}
+	return v
 }
 
 func CompareConfig(v1, v2 interface{}, params map[string]*Parameter) (equals bool, first_diff string) {

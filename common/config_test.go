@@ -57,10 +57,10 @@ type CKManClickHouseConfig struct {
 	Mode         string
 	Cluster      string
 	Version      string
-	SshUser      string
-	SshPassword  string
-	IsReplica    bool
-	ManualShards bool // one of Hosts, Shards is required
+	SshUser      string `json:"ssh_user"`
+	SshPassword  string `json:"ssh_password"`
+	IsReplica    bool   `json:"is_replica"`
+	ManualShards bool   // one of Hosts, Shards is required
 	Hosts        *[]string
 	Shards       *[][]Replica
 	Port         int
@@ -90,19 +90,19 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 		Description: "生产环境建议每个shard为两副本",
 	}
 	params[typCKManClickHouseConfig+"ManualShards"] = &Parameter{
-		Label:              "手工指定各结点分配到shard",
-		Description:        "由ckman完成或者手工指定各结点分配到shard",
-		AvailableCondition: `IsReplica == true`,
+		Label:       "手工指定各结点分配到shard",
+		Description: "由ckman完成或者手工指定各结点分配到shard",
+		Visiable:    `IsReplica == true`,
 	}
 	params[typCKManClickHouseConfig+"Hosts"] = &Parameter{
-		Label:             "集群结点IP地址列表",
-		Description:       "由ckman完成各结点分配到shard。逗号分隔，每段为单个IP，或者IP范围，或者网段掩码",
-		RequiredCondition: "ManualShards == false",
+		Label:       "集群结点IP地址列表",
+		Description: "由ckman完成各结点分配到shard。逗号分隔，每段为单个IP，或者IP范围，或者网段掩码",
+		Required:    "ManualShards == false",
 	}
 	params[typCKManClickHouseConfig+"Shards"] = &Parameter{
-		Label:             "集群结点IP地址列表",
-		Description:       "手工指定各结点分配到shard",
-		RequiredCondition: "ManualShards == true",
+		Label:       "集群结点IP地址列表",
+		Description: "手工指定各结点分配到shard",
+		Required:    "ManualShards == true",
 	}
 	params[typCKManClickHouseConfig+"Port"] = &Parameter{
 		Label:        "集群数据库监听TCP端口",
@@ -123,9 +123,9 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 		Description: "副本IP地址",
 	}
 	params[typReplica+"Hostname"] = &Parameter{
-		Label:              "副本hostname",
-		Description:        "副本hostname",
-		AvailableCondition: "false",
+		Label:       "副本hostname",
+		Description: "副本hostname",
+		Visiable:    "false",
 	}
 
 	typStorage := PkgPath + ".Storage."
@@ -146,19 +146,19 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 		Candidates:   []string{"local", "s3", "hdfs"},
 	}
 	params[typDisk+"DiskLocal"] = &Parameter{
-		Label:              "DiskLocal",
-		Description:        "本地硬盘",
-		AvailableCondition: `type == "local"`,
+		Label:       "DiskLocal",
+		Description: "本地硬盘",
+		Visiable:    `type == "local"`,
 	}
 	params[typDisk+"DiskS3"] = &Parameter{
-		Label:              "DiskS3",
-		Description:        "AWS S3",
-		AvailableCondition: `type == "s3"`,
+		Label:       "DiskS3",
+		Description: "AWS S3",
+		Visiable:    `type == "s3"`,
 	}
 	params[typDisk+"DiskHdfs"] = &Parameter{
-		Label:              "DiskHdfs",
-		Description:        "HDFS",
-		AvailableCondition: `type == "hdfs"`,
+		Label:       "DiskHdfs",
+		Description: "HDFS",
+		Visiable:    `type == "hdfs"`,
 	}
 
 	typDiskLocal := PkgPath + ".DiskLocal."
@@ -324,7 +324,8 @@ func (su *ConfigTestSuite) TestConfigCodec() {
 	fmt.Println()
 
 	var c2 CKManClickHouseConfig
-	err = json.Unmarshal([]byte(data), &c2)
+	//err = json.Unmarshal([]byte(data), &c2)
+	err = UnmarshalConfig(data, &c2, su.params)
 	require.Nil(t, err)
 	fmt.Printf("create cluster config(params, unmarshal) %+v\n", spew.Sdump(c2))
 	equals, first_diff := CompareConfig(c, c2, su.params)
