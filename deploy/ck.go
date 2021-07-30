@@ -228,7 +228,7 @@ func (d *CKDeploy) Prepare() error {
 
 func (d *CKDeploy) Install() error {
 	cmds := make([]string, 0)
-	cmds = append(cmds, fmt.Sprintf("rpm --force -ivh %s %s %s", path.Join(common.TmpWorkDirectory,d.Packages[0]), path.Join(common.TmpWorkDirectory, d.Packages[1]), path.Join(common.TmpWorkDirectory, d.Packages[2])))
+	cmds = append(cmds, fmt.Sprintf("DEBIAN_FRONTEND=noninteractive rpm --force -ivh %s %s %s", path.Join(common.TmpWorkDirectory,d.Packages[0]), path.Join(common.TmpWorkDirectory, d.Packages[1]), path.Join(common.TmpWorkDirectory, d.Packages[2])))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("mkdir -p %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
@@ -289,7 +289,7 @@ func (d *CKDeploy) Uninstall() error {
 }
 
 func (d *CKDeploy) Upgrade() error {
-	cmd := fmt.Sprintf("rpm --force -Uvh %s %s %s", path.Join(common.TmpWorkDirectory,d.Packages[0]), path.Join(common.TmpWorkDirectory, d.Packages[1]), path.Join(common.TmpWorkDirectory, d.Packages[2]))
+	cmd := fmt.Sprintf("DEBIAN_FRONTEND=noninteractive rpm --force -Uvh %s %s %s", path.Join(common.TmpWorkDirectory,d.Packages[0]), path.Join(common.TmpWorkDirectory, d.Packages[1]), path.Join(common.TmpWorkDirectory, d.Packages[2]))
 	var lastError error
 	for _, host := range d.Hosts {
 		innerHost := host
