@@ -74,102 +74,102 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	PkgPath := "github.com/housepower/ckman/common"
 	typCKManClickHouseConfig := PkgPath + ".CKManClickHouseConfig."
 	params[typCKManClickHouseConfig+"Cluster"] = &Parameter{
-		Label:       "物理集群名",
+		LabelZH:     "物理集群名",
 		Description: "不得与本ckman管理的其他集群名重复",
 	}
 	params[typCKManClickHouseConfig+"SshUser"] = &Parameter{
-		Label:       "系统账户名",
+		LabelZH:     "系统账户名",
 		Description: "必须有root或者sudo权限",
 	}
 	params[typCKManClickHouseConfig+"SshPassword"] = &Parameter{
-		Label:       "系统账户密码",
+		LabelZH:     "系统账户密码",
 		Description: "不得为空",
 	}
 	params[typCKManClickHouseConfig+"IsReplica"] = &Parameter{
-		Label:       "物理集群的每个shard是否为多副本",
+		LabelZH:     "物理集群的每个shard是否为多副本",
 		Description: "生产环境建议每个shard为两副本",
 	}
 	params[typCKManClickHouseConfig+"ManualShards"] = &Parameter{
-		Label:       "手工指定各结点分配到shard",
+		LabelZH:     "手工指定各结点分配到shard",
 		Description: "由ckman完成或者手工指定各结点分配到shard",
 		Visiable:    `IsReplica == true`,
 	}
 	params[typCKManClickHouseConfig+"Hosts"] = &Parameter{
-		Label:       "集群结点IP地址列表",
+		LabelZH:     "集群结点IP地址列表",
 		Description: "由ckman完成各结点分配到shard。逗号分隔，每段为单个IP，或者IP范围，或者网段掩码",
 		Required:    "ManualShards == false",
 	}
 	params[typCKManClickHouseConfig+"Shards"] = &Parameter{
-		Label:       "集群结点IP地址列表",
+		LabelZH:     "集群结点IP地址列表",
 		Description: "手工指定各结点分配到shard",
 		Required:    "ManualShards == true",
 	}
 	params[typCKManClickHouseConfig+"Port"] = &Parameter{
-		Label:        "集群数据库监听TCP端口",
+		LabelZH:      "集群数据库监听TCP端口",
 		DefaultValue: "9000",
 	}
 	params[typCKManClickHouseConfig+"ZkNodes"] = &Parameter{
-		Label:       "ZooKeeper集群结点列表",
+		LabelZH:     "ZooKeeper集群结点列表",
 		Description: "逗号分隔，每段为单个IP，或者IP范围，或者网段掩码",
 	}
 	params[typCKManClickHouseConfig+"Storage"] = &Parameter{
-		Label:       "集群存储配置",
+		LabelZH:     "集群存储配置",
 		Description: "由disks, policies两部分构成。policies提到的disk名必须在disks中定义。ClickHouse内置了名为default的policy和disk。",
 	}
 
 	typReplica := PkgPath + ".Replica."
 	params[typReplica+"Ip"] = &Parameter{
-		Label:       "副本IP地址",
+		LabelZH:     "副本IP地址",
 		Description: "副本IP地址",
 	}
 	params[typReplica+"Hostname"] = &Parameter{
-		Label:       "副本hostname",
+		LabelZH:     "副本hostname",
 		Description: "副本hostname",
 		Visiable:    "false",
 	}
 
 	typStorage := PkgPath + ".Storage."
 	params[typStorage+"Disks"] = &Parameter{
-		Label:       "硬盘列表",
+		LabelZH:     "硬盘列表",
 		Description: "定义的disks，后续在policies中用到",
 	}
 	params[typStorage+"Policies"] = &Parameter{
-		Label:       "存储策略列表",
+		LabelZH:     "存储策略列表",
 		Description: "存储策略列表",
 	}
 
 	typDisk := PkgPath + ".Disk."
 	params[typDisk+"Type"] = &Parameter{
-		Label:        "disk type",
+		LabelZH:      "disk type",
 		Description:  "硬盘类型",
 		DefaultValue: "local",
 		Candidates:   []string{"local", "s3", "hdfs"},
 	}
 	params[typDisk+"DiskLocal"] = &Parameter{
-		Label:       "DiskLocal",
+		LabelZH:     "DiskLocal",
 		Description: "本地硬盘",
 		Visiable:    `type == "local"`,
 	}
 	params[typDisk+"DiskS3"] = &Parameter{
-		Label:       "DiskS3",
+		LabelZH:     "DiskS3",
 		Description: "AWS S3",
 		Visiable:    `type == "s3"`,
 	}
 	params[typDisk+"DiskHdfs"] = &Parameter{
-		Label:       "DiskHdfs",
+		LabelZH:     "DiskHdfs",
 		Description: "HDFS",
 		Visiable:    `type == "hdfs"`,
 	}
 
 	typDiskLocal := PkgPath + ".DiskLocal."
 	params[typDiskLocal+"Path"] = &Parameter{
-		Label:       "挂载路径",
+		LabelZH:     "挂载路径",
 		Description: "挂载路径",
 	}
 
 	typDiskS3 := PkgPath + ".DiskS3."
 	params[typDiskS3+"Endpoint"] = &Parameter{
-		Label:       "S3端点URI",
+		LabelZH:     "S3端点URI",
 		Description: "S3端点URI",
 	}
 	params[typDiskS3+"AccessKeyID"] = &Parameter{}
@@ -177,7 +177,7 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	params[typDiskS3+"Region"] = &Parameter{}
 	params[typDiskS3+"UseEnvironmentCredentials"] = &Parameter{}
 	params[typDiskS3+"Expert"] = &Parameter{
-		Label:       "专家模式",
+		LabelZH:     "专家模式",
 		Description: "专家模式的S3参数",
 	}
 
@@ -187,7 +187,7 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	typPolicy := PkgPath + ".Policy."
 	params[typPolicy+"Volumes"] = &Parameter{}
 	params[typPolicy+"MoveFactor"] = &Parameter{
-		Label:       "空闲占比阈值",
+		LabelZH:     "空闲占比阈值",
 		Description: "当一个volume空闲空间占比小于此值时，移动部分parts到下一个volume",
 	}
 

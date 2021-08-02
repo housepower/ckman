@@ -26,7 +26,9 @@ import (
 
 // Parameter - Name: field name
 type Parameter struct {
-	Label        string
+	// https://meta.wikimedia.org/wiki/Template:List_of_language_names_ordered_by_code
+	LabelEN      string
+	LabelZH      string
 	Description  string
 	Candidates   []string
 	DefaultValue string
@@ -116,8 +118,10 @@ func nullableString(s string) string {
 
 func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param *Parameter, sb *strings.Builder) (err error) {
 	sb.WriteByte(byte('{'))
-	sb.WriteString(`"label": `)
-	sb.WriteString(nullableString(param.Label))
+	sb.WriteString(`"label_en": `)
+	sb.WriteString(nullableString(param.LabelEN))
+	sb.WriteString(`"label_zh": `)
+	sb.WriteString(nullableString(param.LabelZH))
 	sb.WriteString(`, "description": `)
 	sb.WriteString(nullableString(param.Description))
 	if len(param.Candidates) == 0 {
@@ -136,7 +140,7 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 	sb.WriteString(nullableString(param.DefaultValue))
 	sb.WriteString(`, "range": `)
 	sb.WriteString(nullableString(param.Range))
-	sb.WriteString(`, "availableCondition": `)
+	sb.WriteString(`, "visiable": `)
 	if param.Visiable == "" {
 		param.Visiable = "true"
 	}
@@ -148,7 +152,7 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 			param.Required = "true"
 		}
 	}
-	sb.WriteString(`, "requireCondition": `)
+	sb.WriteString(`, "required": `)
 	sb.WriteString(nullableString(param.Required))
 	for rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
