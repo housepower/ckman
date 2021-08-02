@@ -27,15 +27,15 @@ import (
 // Parameter - Name: field name
 type Parameter struct {
 	// https://meta.wikimedia.org/wiki/Template:List_of_language_names_ordered_by_code
-	LabelEN      string
-	LabelZH      string
-	Description  string
-	Visiable     string //empty means: true(visiable)
-	Required     string //empty means: true(required) iff field type is Ptr
-	InputType    string
-	Candidates   []string
-	DefaultValue string
-	Range        string
+	LabelEN     string
+	LabelZH     string
+	Description string
+	Visiable    string //empty means: true(visiable)
+	Required    string //empty means: true(required) iff field type is Ptr
+	InputType   string
+	Candidates  []string
+	Default     string
+	Range       string
 }
 
 const (
@@ -171,8 +171,8 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 			}
 			sb.WriteByte(byte(']'))
 		}
-		sb.WriteString(`, "defaultValue": `)
-		sb.WriteString(nullableString(param.DefaultValue))
+		sb.WriteString(`, "default": `)
+		sb.WriteString(nullableString(param.Default))
 		sb.WriteString(`, "range": `)
 		sb.WriteString(nullableString(param.Range))
 	}

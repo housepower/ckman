@@ -101,7 +101,7 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	}
 	params[typCKManClickHouseConfig+"Hosts"] = &Parameter{
 		LabelZH:     "集群结点IP地址列表",
-		Description: "由ckman完成各结点分配到shard。逗号分隔，每段为单个IP，或者IP范围，或者网段掩码",
+		Description: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
 		Required:    "ManualShards == false",
 	}
 	params[typCKManClickHouseConfig+"Shards"] = &Parameter{
@@ -110,8 +110,8 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 		Required:    "ManualShards == true",
 	}
 	params[typCKManClickHouseConfig+"Port"] = &Parameter{
-		LabelZH:      "集群数据库监听TCP端口",
-		DefaultValue: "9000",
+		LabelZH: "集群数据库监听TCP端口",
+		Default: "9000",
 	}
 	params[typCKManClickHouseConfig+"ZkNodes"] = &Parameter{
 		LabelZH:     "ZooKeeper集群结点列表",
@@ -151,10 +151,10 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 
 	typDisk := PkgPath + ".Disk."
 	params[typDisk+"Type"] = &Parameter{
-		LabelZH:      "disk type",
-		Description:  "硬盘类型",
-		DefaultValue: "local",
-		Candidates:   []string{"local", "s3", "hdfs"},
+		LabelZH:     "disk type",
+		Description: "硬盘类型",
+		Default:     "local",
+		Candidates:  []string{"local", "s3", "hdfs"},
 	}
 	params[typDisk+"DiskLocal"] = &Parameter{
 		LabelZH:     "DiskLocal",
