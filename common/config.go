@@ -30,12 +30,19 @@ type Parameter struct {
 	LabelEN      string
 	LabelZH      string
 	Description  string
+	Visiable     string //empty means: true(visiable)
+	Required     string //empty means: true(required) iff field type is Ptr
+	InputType    string
 	Candidates   []string
 	DefaultValue string
 	Range        string
-	Visiable     string //empty means: true(visiable)
-	Required     string //empty means: true(required) iff field type is Ptr
 }
+
+const (
+	InputText     = "text"
+	InputTextArea = "textarea"
+	InputPassword = "password"
+)
 
 func MarshalConfigSchema(v interface{}, params map[string]*Parameter) (data string, err error) {
 	rt := reflect.TypeOf(v)
@@ -95,7 +102,7 @@ func getType(rt reflect.Type) (str_type string, typ_struct reflect.Type, err err
 		str_type = "struct"
 		typ_struct = rt
 	default:
-		err = errors.Errorf("Type %s.%s kind %s, unsupported", rt.PkgPath(), rt.Name(), rt.Kind().String())
+		err = errors.Errorf("Cannot use %s.%s as a paratemter， unsupported kind %s", rt.PkgPath(), rt.Name(), rt.Kind().String())
 		return
 	}
 	if has_elem {
@@ -120,26 +127,10 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 	sb.WriteByte(byte('{'))
 	sb.WriteString(`"label_en": `)
 	sb.WriteString(nullableString(param.LabelEN))
-	sb.WriteString(`"label_zh": `)
+	sb.WriteString(`, "label_zh": `)
 	sb.WriteString(nullableString(param.LabelZH))
 	sb.WriteString(`, "description": `)
 	sb.WriteString(nullableString(param.Description))
-	if len(param.Candidates) == 0 {
-		sb.WriteString(`, "candinates": null`)
-	} else {
-		sb.WriteString(`, "candinates": [`)
-		for i, cand := range param.Candidates {
-			if i != 0 {
-				sb.WriteString(", ")
-			}
-			sb.WriteString(nullableString(cand))
-		}
-		sb.WriteByte(byte(']'))
-	}
-	sb.WriteString(`, "defaultValue": `)
-	sb.WriteString(nullableString(param.DefaultValue))
-	sb.WriteString(`, "range": `)
-	sb.WriteString(nullableString(param.Range))
 	sb.WriteString(`, "visiable": `)
 	if param.Visiable == "" {
 		param.Visiable = "true"
@@ -162,6 +153,29 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 	if str_type, typ_struct, err = getType(rt); err != nil {
 		return
 	}
+	if str_type == "string" || str_type == "number" {
+		sb.WriteString(`, "input_type": `)
+		if len(param.InputType) == 0 {
+			param.InputType = InputText
+		}
+		sb.WriteString(nullableString(param.InputType))
+		if len(param.Candidates) == 0 {
+			sb.WriteString(`, "candinates": null`)
+		} else {
+			sb.WriteString(`, "candinates": [`)
+			for i, cand := range param.Candidates {
+				if i != 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(nullableString(cand))
+			}
+			sb.WriteByte(byte(']'))
+		}
+		sb.WriteString(`, "defaultValue": `)
+		sb.WriteString(nullableString(param.DefaultValue))
+		sb.WriteString(`, "range": `)
+		sb.WriteString(nullableString(param.Range))
+	}
 	sb.WriteString(`, "type": `)
 	sb.WriteString(nullableString(str_type))
 	if typ_struct != nil {
@@ -183,7 +197,7 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 			}
 		}
 		if num_fields <= 0 {
-			err = errors.Errorf("Cannot use %s.%s as a paratemter", typ_struct.PkgPath(), typ_struct.Name())
+			err = errors.Errorf("Type %s.%s has no fields registered as a paratemter", typ_struct.PkgPath(), typ_struct.Name())
 			return
 		}
 		sb.WriteByte(byte('}'))
@@ -221,7 +235,7 @@ func MarshalConfig(v interface{}, params map[string]*Parameter) (data string, er
 		}
 	}
 	if num_fields <= 0 {
-		err = errors.Errorf("Cannot use %s.%s as a paratemter", rt.PkgPath(), rt.Name())
+		err = errors.Errorf("Type %s.%s has no fields registered as a paratemter", rt.PkgPath(), rt.Name())
 		return
 	}
 	bs.WriteByte(byte('}'))
@@ -301,9 +315,13 @@ func marshalConfigRecursive(params map[string]*Parameter, rv reflect.Value, sb *
 				}
 			}
 		}
+		if num_fields <= 0 {
+			err = errors.Errorf("Type %s.%s has no fields registered as a paratemter", rt.PkgPath(), rt.Name())
+			return
+		}
 		sb.WriteByte(byte('}'))
 	default:
-		err = errors.Errorf("Cannot use %s.%s as a paratemter", rt.PkgPath(), rt.Name())
+		err = errors.Errorf("Cannot use %s.%s as a paratemter， unsupported kind %s", rt.PkgPath(), rt.Name(), rt.Kind().String())
 		return
 	}
 	return
@@ -336,7 +354,7 @@ func UnmarshalConfig(data string, v interface{}, params map[string]*Parameter) (
 		}
 	}
 	if num_fields <= 0 {
-		err = errors.Errorf("Cannot use %s.%s as a paratemter", rt.PkgPath(), rt.Name())
+		err = errors.Errorf("Type %s.%s has no fields registered as a paratemter", rt.PkgPath(), rt.Name())
 		return
 	}
 	return
@@ -459,11 +477,11 @@ func unmarshalConfigRecursive(params map[string]*Parameter, rv reflect.Value, fj
 			}
 		}
 		if num_fields <= 0 {
-			err = errors.Errorf("Cannot use %s.%s as a paratemter", rt.PkgPath(), rt.Name())
+			err = errors.Errorf("Type %s.%s has no fields registered as a paratemter", rt.PkgPath(), rt.Name())
 			return
 		}
 	default:
-		err = errors.Errorf("Cannot use %s.%s as a paratemter", rt.PkgPath(), rt.Name())
+		err = errors.Errorf("Cannot use %s.%s as a paratemter， unsupported kind %s", rt.PkgPath(), rt.Name(), rt.Kind().String())
 		return
 	}
 	return

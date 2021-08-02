@@ -9,6 +9,10 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+type Shard struct {
+	Replicas []Replica
+}
+
 type Replica struct {
 	Ip       string
 	HostName string
@@ -62,7 +66,7 @@ type CKManClickHouseConfig struct {
 	IsReplica    bool   `json:"is_replica"`
 	ManualShards bool   // one of Hosts, Shards is required
 	Hosts        *[]string
-	Shards       *[][]Replica
+	Shards       *[]Shard
 	Port         int
 	ZkNodes      []string
 	Storage      Storage
@@ -84,6 +88,7 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	params[typCKManClickHouseConfig+"SshPassword"] = &Parameter{
 		LabelZH:     "系统账户密码",
 		Description: "不得为空",
+		InputType:   InputPassword,
 	}
 	params[typCKManClickHouseConfig+"IsReplica"] = &Parameter{
 		LabelZH:     "物理集群的每个shard是否为多副本",
@@ -115,6 +120,12 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	params[typCKManClickHouseConfig+"Storage"] = &Parameter{
 		LabelZH:     "集群存储配置",
 		Description: "由disks, policies两部分构成。policies提到的disk名必须在disks中定义。ClickHouse内置了名为default的policy和disk。",
+	}
+
+	typShard := PkgPath + ".Shard."
+	params[typShard+"Replicas"] = &Parameter{
+		LabelZH:     "Shard",
+		Description: "Shard内结点IP列表",
 	}
 
 	typReplica := PkgPath + ".Replica."
@@ -229,14 +240,12 @@ func (su *ConfigTestSuite) TestConfigCodec() {
 
 	china := "china"
 	hosts := []string{"192.168.1.1", "192.168.1.2", "192.168.1.3", "192.168.1.4"}
-	shards := [][]Replica{
+	shards := []Shard{
 		{
-			{"192.168.1.1", "node1"},
-			{"192.168.1.2", "node2"},
+			[]Replica{{"192.168.1.1", "node1"}, {"192.168.1.2", "node2"}},
 		},
 		{
-			{"192.168.1.3", "node3"},
-			{"192.168.1.4", "node4"},
+			[]Replica{{"192.168.1.3", "node3"}, {"192.168.1.4", "node4"}},
 		},
 	}
 	move_factor := float32(0.2)
