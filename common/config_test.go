@@ -154,7 +154,7 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 		LabelZH:       "disk type",
 		DescriptionZH: "硬盘类型",
 		Default:       "local",
-		Candidates:    []string{"local", "s3", "hdfs"},
+		Candidates:    []Candidate{{Value: "local"}, {Value: "s3"}, {Value: "hdfs"}},
 	}
 	params[typDisk+"DiskLocal"] = &Parameter{
 		LabelZH:       "DiskLocal",
@@ -201,6 +201,7 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	params[typPolicy+"MoveFactor"] = &Parameter{
 		LabelZH:       "空闲占比阈值",
 		DescriptionZH: "当一个volume空闲空间占比小于此值时，移动部分parts到下一个volume",
+		Range:         &Range{0.0, 1.0, 0.1},
 	}
 
 	typVolume := PkgPath + ".Volume."

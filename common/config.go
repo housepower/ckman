@@ -34,9 +34,9 @@ type Parameter struct {
 	Visiable      string //empty means: true(visiable)
 	Required      string //empty means: true(required) iff field type is Ptr
 	InputType     string
-	Candidates    []string
+	Candidates    []Candidate
 	Default       string
-	Range         string
+	Range         *Range
 }
 
 const (
@@ -44,6 +44,18 @@ const (
 	InputTextArea = "textarea"
 	InputPassword = "password"
 )
+
+type Range struct {
+	Begin float64
+	End   float64
+	Step  float64
+}
+
+type Candidate struct {
+	Value   string
+	LabelEN string
+	LabelZH string
+}
 
 func MarshalConfigSchema(v interface{}, params map[string]*Parameter) (data string, err error) {
 	rt := reflect.TypeOf(v)
@@ -156,6 +168,8 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 	if str_type, typ_struct, err = getType(rt); err != nil {
 		return
 	}
+	sb.WriteString(`, "type": `)
+	sb.WriteString(nullableString(str_type))
 	if str_type == "string" || str_type == "number" {
 		sb.WriteString(`, "input_type": `)
 		if len(param.InputType) == 0 {
@@ -163,25 +177,27 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 		}
 		sb.WriteString(nullableString(param.InputType))
 		if len(param.Candidates) == 0 {
-			sb.WriteString(`, "candinates": null`)
+			sb.WriteString(`, "candidates": null`)
 		} else {
-			sb.WriteString(`, "candinates": [`)
+			sb.WriteString(`, "candidates": [`)
 			for i, cand := range param.Candidates {
 				if i != 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(nullableString(cand))
+				if cand.Value == "" {
+					err = errors.Errorf("Type %s.%s candidate %v value shall not be empty", rt.PkgPath(), rt.Name(), i)
+					return
+				}
+				sb.WriteString(fmt.Sprintf(`{"label_en": %v, "label_zh": %v, "value": %v}`, nullableString(cand.LabelEN), nullableString(cand.LabelZH), nullableString(cand.Value)))
 			}
 			sb.WriteByte(byte(']'))
 		}
 		sb.WriteString(`, "default": `)
 		sb.WriteString(nullableString(param.Default))
-		sb.WriteString(`, "range": `)
-		sb.WriteString(nullableString(param.Range))
-	}
-	sb.WriteString(`, "type": `)
-	sb.WriteString(nullableString(str_type))
-	if typ_struct != nil {
+		if str_type == "number" && param.Range != nil {
+			sb.WriteString(fmt.Sprintf(`, "range": {"begin": %v, "end": %v, "step": %v}`, param.Range.Begin, param.Range.End, param.Range.Step))
+		}
+	} else if typ_struct != nil {
 		sb.WriteString(`, "struct": {`)
 		prefix := typ_struct.PkgPath() + "." + typ_struct.Name() + "."
 		var num_fields int
