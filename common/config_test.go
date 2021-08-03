@@ -39,7 +39,7 @@ type DiskS3 struct {
 	Expert                    map[string]string
 }
 
-type Volumn struct {
+type Volume struct {
 	Name string
 	// Every disk shall be in storage.Disks
 	Disks  []string
@@ -48,7 +48,7 @@ type Volumn struct {
 
 type Policy struct {
 	Name       string
-	Volumns    []Volumn
+	Volumes    []Volume
 	MoveFactor *float32
 }
 
@@ -196,6 +196,7 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	params[typDiskHdfs+"Endpoint"] = &Parameter{}
 
 	typPolicy := PkgPath + ".Policy."
+	params[typPolicy+"Name"] = &Parameter{}
 	params[typPolicy+"Volumes"] = &Parameter{}
 	params[typPolicy+"MoveFactor"] = &Parameter{
 		LabelZH:       "空闲占比阈值",
@@ -203,9 +204,9 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	}
 
 	typVolume := PkgPath + ".Volume."
-	params[typVolume+".Disks"] = &Parameter{}
-	params[typVolume+".MaxDataPartSizeBytes"] = &Parameter{}
-	params[typVolume+".Expert"] = &Parameter{}
+	params[typVolume+"Disks"] = &Parameter{}
+	params[typVolume+"MaxDataPartSizeBytes"] = &Parameter{}
+	params[typVolume+"Expert"] = &Parameter{}
 	return
 }
 
@@ -288,7 +289,7 @@ func (su *ConfigTestSuite) TestConfigCodec() {
 			Policies: []Policy{
 				{
 					Name: "tiered2",
-					Volumns: []Volumn{
+					Volumes: []Volume{
 						{
 							Name:  "t1",
 							Disks: []string{"default"},
@@ -302,7 +303,7 @@ func (su *ConfigTestSuite) TestConfigCodec() {
 				},
 				{
 					Name: "tiered3",
-					Volumns: []Volumn{
+					Volumes: []Volume{
 						{
 							Name:  "t1",
 							Disks: []string{"default"},
