@@ -78,118 +78,118 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	PkgPath := "github.com/housepower/ckman/common"
 	typCKManClickHouseConfig := PkgPath + ".CKManClickHouseConfig."
 	params[typCKManClickHouseConfig+"Cluster"] = &Parameter{
-		LabelZH:     "物理集群名",
-		Description: "不得与本ckman管理的其他集群名重复",
+		LabelZH:       "物理集群名",
+		DescriptionZH: "不得与本ckman管理的其他集群名重复",
 	}
 	params[typCKManClickHouseConfig+"SshUser"] = &Parameter{
-		LabelZH:     "系统账户名",
-		Description: "必须有root或者sudo权限",
+		LabelZH:       "系统账户名",
+		DescriptionZH: "必须有root或者sudo权限",
 	}
 	params[typCKManClickHouseConfig+"SshPassword"] = &Parameter{
-		LabelZH:     "系统账户密码",
-		Description: "不得为空",
-		InputType:   InputPassword,
+		LabelZH:       "系统账户密码",
+		DescriptionZH: "不得为空",
+		InputType:     InputPassword,
 	}
 	params[typCKManClickHouseConfig+"IsReplica"] = &Parameter{
-		LabelZH:     "物理集群的每个shard是否为多副本",
-		Description: "生产环境建议每个shard为两副本",
+		LabelZH:       "物理集群的每个shard是否为多副本",
+		DescriptionZH: "生产环境建议每个shard为两副本",
 	}
 	params[typCKManClickHouseConfig+"ManualShards"] = &Parameter{
-		LabelZH:     "手工指定各结点分配到shard",
-		Description: "由ckman完成或者手工指定各结点分配到shard",
-		Visiable:    `IsReplica == true`,
+		LabelZH:       "手工指定各结点分配到shard",
+		DescriptionZH: "由ckman完成或者手工指定各结点分配到shard",
+		Visiable:      `IsReplica == true`,
 	}
 	params[typCKManClickHouseConfig+"Hosts"] = &Parameter{
-		LabelZH:     "集群结点IP地址列表",
-		Description: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
-		Required:    "ManualShards == false",
+		LabelZH:       "集群结点IP地址列表",
+		DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
+		Required:      "ManualShards == false",
 	}
 	params[typCKManClickHouseConfig+"Shards"] = &Parameter{
-		LabelZH:     "集群结点IP地址列表",
-		Description: "手工指定各结点分配到shard",
-		Required:    "ManualShards == true",
+		LabelZH:       "集群结点IP地址列表",
+		DescriptionZH: "手工指定各结点分配到shard",
+		Required:      "ManualShards == true",
 	}
 	params[typCKManClickHouseConfig+"Port"] = &Parameter{
 		LabelZH: "集群数据库监听TCP端口",
 		Default: "9000",
 	}
 	params[typCKManClickHouseConfig+"ZkNodes"] = &Parameter{
-		LabelZH:     "ZooKeeper集群结点列表",
-		Description: "逗号分隔，每段为单个IP，或者IP范围，或者网段掩码",
+		LabelZH:       "ZooKeeper集群结点列表",
+		DescriptionZH: "逗号分隔，每段为单个IP，或者IP范围，或者网段掩码",
 	}
 	params[typCKManClickHouseConfig+"Storage"] = &Parameter{
-		LabelZH:     "集群存储配置",
-		Description: "由disks, policies两部分构成。policies提到的disk名必须在disks中定义。ClickHouse内置了名为default的policy和disk。",
+		LabelZH:       "集群存储配置",
+		DescriptionZH: "由disks, policies两部分构成。policies提到的disk名必须在disks中定义。ClickHouse内置了名为default的policy和disk。",
 	}
 
 	typShard := PkgPath + ".Shard."
 	params[typShard+"Replicas"] = &Parameter{
-		LabelZH:     "Shard",
-		Description: "Shard内结点IP列表",
+		LabelZH:       "Shard",
+		DescriptionZH: "Shard内结点IP列表",
 	}
 
 	typReplica := PkgPath + ".Replica."
 	params[typReplica+"Ip"] = &Parameter{
-		LabelZH:     "副本IP地址",
-		Description: "副本IP地址",
+		LabelZH:       "副本IP地址",
+		DescriptionZH: "副本IP地址",
 	}
 	params[typReplica+"Hostname"] = &Parameter{
-		LabelZH:     "副本hostname",
-		Description: "副本hostname",
-		Visiable:    "false",
+		LabelZH:       "副本hostname",
+		DescriptionZH: "副本hostname",
+		Visiable:      "false",
 	}
 
 	typStorage := PkgPath + ".Storage."
 	params[typStorage+"Disks"] = &Parameter{
-		LabelZH:     "硬盘列表",
-		Description: "定义的disks，后续在policies中用到",
+		LabelZH:       "硬盘列表",
+		DescriptionZH: "定义的disks，后续在policies中用到",
 	}
 	params[typStorage+"Policies"] = &Parameter{
-		LabelZH:     "存储策略列表",
-		Description: "存储策略列表",
+		LabelZH:       "存储策略列表",
+		DescriptionZH: "存储策略列表",
 	}
 
 	typDisk := PkgPath + ".Disk."
 	params[typDisk+"Type"] = &Parameter{
-		LabelZH:     "disk type",
-		Description: "硬盘类型",
-		Default:     "local",
-		Candidates:  []string{"local", "s3", "hdfs"},
+		LabelZH:       "disk type",
+		DescriptionZH: "硬盘类型",
+		Default:       "local",
+		Candidates:    []string{"local", "s3", "hdfs"},
 	}
 	params[typDisk+"DiskLocal"] = &Parameter{
-		LabelZH:     "DiskLocal",
-		Description: "本地硬盘",
-		Visiable:    `type == "local"`,
+		LabelZH:       "DiskLocal",
+		DescriptionZH: "本地硬盘",
+		Visiable:      `type == "local"`,
 	}
 	params[typDisk+"DiskS3"] = &Parameter{
-		LabelZH:     "DiskS3",
-		Description: "AWS S3",
-		Visiable:    `type == "s3"`,
+		LabelZH:       "DiskS3",
+		DescriptionZH: "AWS S3",
+		Visiable:      `type == "s3"`,
 	}
 	params[typDisk+"DiskHdfs"] = &Parameter{
-		LabelZH:     "DiskHdfs",
-		Description: "HDFS",
-		Visiable:    `type == "hdfs"`,
+		LabelZH:       "DiskHdfs",
+		DescriptionZH: "HDFS",
+		Visiable:      `type == "hdfs"`,
 	}
 
 	typDiskLocal := PkgPath + ".DiskLocal."
 	params[typDiskLocal+"Path"] = &Parameter{
-		LabelZH:     "挂载路径",
-		Description: "挂载路径",
+		LabelZH:       "挂载路径",
+		DescriptionZH: "挂载路径",
 	}
 
 	typDiskS3 := PkgPath + ".DiskS3."
 	params[typDiskS3+"Endpoint"] = &Parameter{
-		LabelZH:     "S3端点URI",
-		Description: "S3端点URI",
+		LabelZH:       "S3端点URI",
+		DescriptionZH: "S3端点URI",
 	}
 	params[typDiskS3+"AccessKeyID"] = &Parameter{}
 	params[typDiskS3+"SecretAccessKey"] = &Parameter{}
 	params[typDiskS3+"Region"] = &Parameter{}
 	params[typDiskS3+"UseEnvironmentCredentials"] = &Parameter{}
 	params[typDiskS3+"Expert"] = &Parameter{
-		LabelZH:     "专家模式",
-		Description: "专家模式的S3参数",
+		LabelZH:       "专家模式",
+		DescriptionZH: "专家模式的S3参数",
 	}
 
 	typDiskHdfs := PkgPath + ".DiskHdfs."
@@ -198,8 +198,8 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	typPolicy := PkgPath + ".Policy."
 	params[typPolicy+"Volumes"] = &Parameter{}
 	params[typPolicy+"MoveFactor"] = &Parameter{
-		LabelZH:     "空闲占比阈值",
-		Description: "当一个volume空闲空间占比小于此值时，移动部分parts到下一个volume",
+		LabelZH:       "空闲占比阈值",
+		DescriptionZH: "当一个volume空闲空间占比小于此值时，移动部分parts到下一个volume",
 	}
 
 	typVolume := PkgPath + ".Volume."

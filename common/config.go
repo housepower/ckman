@@ -27,15 +27,16 @@ import (
 // Parameter - Name: field name
 type Parameter struct {
 	// https://meta.wikimedia.org/wiki/Template:List_of_language_names_ordered_by_code
-	LabelEN     string
-	LabelZH     string
-	Description string
-	Visiable    string //empty means: true(visiable)
-	Required    string //empty means: true(required) iff field type is Ptr
-	InputType   string
-	Candidates  []string
-	Default     string
-	Range       string
+	LabelEN       string
+	LabelZH       string
+	DescriptionEN string
+	DescriptionZH string
+	Visiable      string //empty means: true(visiable)
+	Required      string //empty means: true(required) iff field type is Ptr
+	InputType     string
+	Candidates    []string
+	Default       string
+	Range         string
 }
 
 const (
@@ -129,8 +130,10 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 	sb.WriteString(nullableString(param.LabelEN))
 	sb.WriteString(`, "label_zh": `)
 	sb.WriteString(nullableString(param.LabelZH))
-	sb.WriteString(`, "description": `)
-	sb.WriteString(nullableString(param.Description))
+	sb.WriteString(`, "description_en": `)
+	sb.WriteString(nullableString(param.DescriptionEN))
+	sb.WriteString(`, "description_zh": `)
+	sb.WriteString(nullableString(param.DescriptionZH))
 	sb.WriteString(`, "visiable": `)
 	if param.Visiable == "" {
 		param.Visiable = "true"
