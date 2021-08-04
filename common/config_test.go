@@ -6,7 +6,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 )
 
 type Shard struct {
@@ -159,17 +158,17 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	params[typDisk+"DiskLocal"] = &Parameter{
 		LabelZH:       "DiskLocal",
 		DescriptionZH: "本地硬盘",
-		Visiable:      `type == "local"`,
+		Visiable:      `Type == 'local'`,
 	}
 	params[typDisk+"DiskS3"] = &Parameter{
 		LabelZH:       "DiskS3",
 		DescriptionZH: "AWS S3",
-		Visiable:      `type == "s3"`,
+		Visiable:      `Type == 's3'`,
 	}
 	params[typDisk+"DiskHdfs"] = &Parameter{
 		LabelZH:       "DiskHdfs",
 		DescriptionZH: "HDFS",
-		Visiable:      `type == "hdfs"`,
+		Visiable:      `Type == 'hdfs'`,
 	}
 
 	typDiskLocal := PkgPath + ".DiskLocal."
@@ -211,31 +210,18 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	return
 }
 
-type ConfigTestSuite struct {
-	suite.Suite
-	params map[string]*Parameter
-}
-
-func (su *ConfigTestSuite) SetupTest() {
-	su.params = getParamsForAPICreateCluster()
-}
-
-func TestConfigTestSuite(t *testing.T) {
-	suite.Run(t, new(ConfigTestSuite))
-}
-
-func (su *ConfigTestSuite) TestConfigSchema() {
-	t := su.T()
+func TestConfigSchema(t *testing.T) {
+	params := getParamsForAPICreateCluster()
 	var c CKManClickHouseConfig
-	data, err := MarshalConfigSchema(c, su.params)
+	data, err := MarshalConfigSchema(c, params)
 	require.Nil(t, err)
 	fmt.Printf("schema %+v\n", data)
 }
 
-func (su *ConfigTestSuite) TestConfigCodec() {
-	t := su.T()
+func TestConfigCodec(t *testing.T) {
+	params := getParamsForAPICreateCluster()
 	var c CKManClickHouseConfig
-	data, err := MarshalConfig(c, su.params)
+	data, err := MarshalConfig(c, params)
 	require.Nil(t, err)
 	fmt.Printf("empty config %+v\n", data)
 	fmt.Println()
@@ -329,17 +315,17 @@ func (su *ConfigTestSuite) TestConfigCodec() {
 	fmt.Printf("create cluster config(original) %+v\n", string(bs))
 	fmt.Println()
 
-	data, err = MarshalConfig(c, su.params)
+	data, err = MarshalConfig(c, params)
 	require.Nil(t, err)
 	fmt.Printf("create cluster config(params, marshal) %+v\n", data)
 	fmt.Println()
 
 	var c2 CKManClickHouseConfig
 	//err = json.Unmarshal([]byte(data), &c2)
-	err = UnmarshalConfig(data, &c2, su.params)
+	err = UnmarshalConfig(data, &c2, params)
 	require.Nil(t, err)
 	fmt.Printf("create cluster config(params, unmarshal) %+v\n", spew.Sdump(c2))
-	equals, first_diff := CompareConfig(c, c2, su.params)
+	equals, first_diff := CompareConfig(c, c2, params)
 	require.Equalf(t, true, equals, first_diff)
 
 	c2.Storage.Disks = append(c2.Storage.Disks, Disk{
@@ -347,6 +333,6 @@ func (su *ConfigTestSuite) TestConfigCodec() {
 		Type:      "local",
 		DiskLocal: &DiskLocal{Path: "/data03/clickhouse"},
 	})
-	equals, first_diff = CompareConfig(c, c2, su.params)
+	equals, first_diff = CompareConfig(c, c2, params)
 	require.Equalf(t, false, equals, first_diff)
 }
