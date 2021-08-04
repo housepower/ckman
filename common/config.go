@@ -73,7 +73,7 @@ func (params ConfigParams) MustRegister(v interface{}, field string, param *Para
 	return
 }
 
-func MarshalConfigSchema(v interface{}, params ConfigParams) (data string, err error) {
+func (params ConfigParams) MarshalSchema(v interface{}) (data string, err error) {
 	rt := reflect.TypeOf(v)
 	for rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
@@ -270,7 +270,7 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 }
 
 // Inspired by https://stackoverflow.com/a/31302688/319936
-func MarshalConfig(v interface{}, params ConfigParams) (data string, err error) {
+func (params ConfigParams) MarshalConfig(v interface{}) (data string, err error) {
 	rv := reflect.ValueOf(v)
 	rt := reflect.TypeOf(v)
 	for rt.Kind() == reflect.Ptr {
@@ -390,7 +390,7 @@ func marshalConfigRecursive(params map[string]*Parameter, rv reflect.Value, sb *
 	return
 }
 
-func UnmarshalConfig(data string, v interface{}, params ConfigParams) (err error) {
+func (params ConfigParams) UnmarshalConfig(data string, v interface{}) (err error) {
 	var fjv *fastjson.Value
 	if fjv, err = fastjson.Parse(data); err != nil {
 		err = errors.Wrapf(err, "")
@@ -618,7 +618,7 @@ func indirect(v reflect.Value, decodingNull bool) reflect.Value {
 	return v
 }
 
-func CompareConfig(v1, v2 interface{}, params ConfigParams) (equals bool, first_diff string) {
+func (params ConfigParams) CompareConfig(v1, v2 interface{}) (equals bool, first_diff string) {
 	equals, first_diff = compareConfigRecursive(v1, v2, params, "")
 	return
 }

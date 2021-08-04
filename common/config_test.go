@@ -210,7 +210,7 @@ func getParamsForAPICreateCluster() (params ConfigParams) {
 func TestConfigSchema(t *testing.T) {
 	params := getParamsForAPICreateCluster()
 	var c CKManClickHouseConfig
-	data, err := MarshalConfigSchema(c, params)
+	data, err := params.MarshalSchema(c)
 	require.Nil(t, err)
 	fmt.Printf("schema %+v\n", data)
 }
@@ -218,7 +218,7 @@ func TestConfigSchema(t *testing.T) {
 func TestConfigCodec(t *testing.T) {
 	params := getParamsForAPICreateCluster()
 	var c CKManClickHouseConfig
-	data, err := MarshalConfig(c, params)
+	data, err := params.MarshalConfig(c)
 	require.Nil(t, err)
 	fmt.Printf("empty config %+v\n", data)
 	fmt.Println()
@@ -312,17 +312,17 @@ func TestConfigCodec(t *testing.T) {
 	fmt.Printf("create cluster config(original) %+v\n", string(bs))
 	fmt.Println()
 
-	data, err = MarshalConfig(c, params)
+	data, err = params.MarshalConfig(c)
 	require.Nil(t, err)
 	fmt.Printf("create cluster config(params, marshal) %+v\n", data)
 	fmt.Println()
 
 	var c2 CKManClickHouseConfig
 	//err = json.Unmarshal([]byte(data), &c2)
-	err = UnmarshalConfig(data, &c2, params)
+	err = params.UnmarshalConfig(data, &c2)
 	require.Nil(t, err)
 	fmt.Printf("create cluster config(params, unmarshal) %+v\n", spew.Sdump(c2))
-	equals, first_diff := CompareConfig(c, c2, params)
+	equals, first_diff := params.CompareConfig(c, c2)
 	require.Equalf(t, true, equals, first_diff)
 
 	c2.Storage.Disks = append(c2.Storage.Disks, Disk{
@@ -330,6 +330,6 @@ func TestConfigCodec(t *testing.T) {
 		Type:      "local",
 		DiskLocal: &DiskLocal{Path: "/data03/clickhouse"},
 	})
-	equals, first_diff = CompareConfig(c, c2, params)
+	equals, first_diff = params.CompareConfig(c, c2)
 	require.Equalf(t, false, equals, first_diff)
 }
