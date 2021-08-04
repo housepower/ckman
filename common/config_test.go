@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -66,7 +67,7 @@ type CKManClickHouseConfig struct {
 	ManualShards bool   // one of Hosts, Shards is required
 	Hosts        *[]string
 	Shards       *[]Shard
-	Port         int
+	Port         int16
 	ZkNodes      []string
 	Storage      Storage
 	ZooPath      map[string]string
@@ -175,6 +176,11 @@ func getParamsForAPICreateCluster() (params map[string]*Parameter) {
 	params[typDiskLocal+"Path"] = &Parameter{
 		LabelZH:       "挂载路径",
 		DescriptionZH: "挂载路径",
+	}
+	params[typDiskLocal+"KeepFreeSpaceBytes"] = &Parameter{
+		LabelZH:       "保持空闲空间",
+		DescriptionZH: "保持空闲空间",
+		Range:         &Range{0, math.MaxInt32, 1},
 	}
 
 	typDiskS3 := PkgPath + ".DiskS3."

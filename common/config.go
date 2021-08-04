@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -46,9 +47,9 @@ const (
 )
 
 type Range struct {
-	Begin float64
-	End   float64
-	Step  float64
+	Min  float64
+	Max  float64
+	Step float64
 }
 
 type Candidate struct {
@@ -97,8 +98,10 @@ func getType(rt reflect.Type) (str_type string, typ_struct reflect.Type, err err
 	switch rt.Kind() {
 	case reflect.Bool:
 		str_type = "bool"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64:
-		str_type = "number"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		str_type = "int"
+	case reflect.Float32, reflect.Float64:
+		str_type = "float"
 	case reflect.String:
 		str_type = "string"
 	case reflect.Map:
@@ -170,7 +173,7 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 	}
 	sb.WriteString(`, "type": `)
 	sb.WriteString(nullableString(str_type))
-	if str_type == "string" || str_type == "number" {
+	if str_type == "string" || str_type == "int" || str_type == "float" {
 		sb.WriteString(`, "input_type": `)
 		if len(param.InputType) == 0 {
 			param.InputType = InputText
@@ -194,8 +197,34 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 		}
 		sb.WriteString(`, "default": `)
 		sb.WriteString(nullableString(param.Default))
-		if str_type == "number" && param.Range != nil {
-			sb.WriteString(fmt.Sprintf(`, "range": {"begin": %v, "end": %v, "step": %v}`, param.Range.Begin, param.Range.End, param.Range.Step))
+		if str_type == "int" || str_type == "float" {
+			if param.Range == nil {
+				switch rt.Kind() {
+				case reflect.Int8:
+					param.Range = &Range{math.MinInt8, math.MaxInt8, 1}
+				case reflect.Int16:
+					param.Range = &Range{math.MinInt16, math.MaxInt16, 1}
+				case reflect.Int32:
+					param.Range = &Range{math.MinInt32, math.MaxInt32, 1}
+				case reflect.Int64:
+					param.Range = &Range{math.MinInt64, math.MaxInt64, 1}
+				case reflect.Uint8:
+					param.Range = &Range{0, math.MaxUint8, 1}
+				case reflect.Uint16:
+					param.Range = &Range{0, math.MaxUint16, 1}
+				case reflect.Uint32:
+					param.Range = &Range{0, math.MaxUint32, 1}
+				case reflect.Uint64:
+					param.Range = &Range{0, math.MaxUint64, 1}
+				case reflect.Float32:
+					param.Range = &Range{-math.MaxFloat32, math.MaxFloat32, 1}
+				case reflect.Float64:
+					param.Range = &Range{-math.MaxFloat64, math.MaxFloat64, 1}
+				}
+			}
+			if param.Range != nil {
+				sb.WriteString(fmt.Sprintf(`, "range": {"min": %v, "max": %v, "step": %v}`, param.Range.Min, param.Range.Max, param.Range.Step))
+			}
 		}
 	} else if typ_struct != nil {
 		sb.WriteString(`, "struct": {`)
