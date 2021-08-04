@@ -42,8 +42,9 @@ type DiskS3 struct {
 type Volume struct {
 	Name string
 	// Every disk shall be in storage.Disks
-	Disks  []string
-	Expert map[string]string
+	Disks                []string
+	MaxDataPartSizeBytes *int64
+	Expert               map[string]string
 }
 
 type Policy struct {
@@ -73,146 +74,136 @@ type CKManClickHouseConfig struct {
 	ZooPath      map[string]string
 }
 
-func getParamsForAPICreateCluster() (params map[string]*Parameter) {
+func getParamsForAPICreateCluster() (params ConfigParams) {
 	params = make(map[string]*Parameter)
-	PkgPath := "github.com/housepower/ckman/common"
-	typCKManClickHouseConfig := PkgPath + ".CKManClickHouseConfig."
-	params[typCKManClickHouseConfig+"Cluster"] = &Parameter{
+	var cfg CKManClickHouseConfig
+	params.MustRegister(cfg, "Cluster", &Parameter{
 		LabelZH:       "物理集群名",
 		DescriptionZH: "不得与本ckman管理的其他集群名重复",
-	}
-	params[typCKManClickHouseConfig+"SshUser"] = &Parameter{
+	})
+	params.MustRegister(cfg, "SshUser", &Parameter{
 		LabelZH:       "系统账户名",
 		DescriptionZH: "必须有root或者sudo权限",
-	}
-	params[typCKManClickHouseConfig+"SshPassword"] = &Parameter{
+	})
+	params.MustRegister(cfg, "SshPassword", &Parameter{
 		LabelZH:       "系统账户密码",
 		DescriptionZH: "不得为空",
 		InputType:     InputPassword,
-	}
-	params[typCKManClickHouseConfig+"IsReplica"] = &Parameter{
+	})
+	params.MustRegister(cfg, "IsReplica", &Parameter{
 		LabelZH:       "物理集群的每个shard是否为多副本",
 		DescriptionZH: "生产环境建议每个shard为两副本",
-	}
-	params[typCKManClickHouseConfig+"ManualShards"] = &Parameter{
+	})
+	params.MustRegister(cfg, "ManualShards", &Parameter{
 		LabelZH:       "手工指定各结点分配到shard",
 		DescriptionZH: "由ckman完成或者手工指定各结点分配到shard",
 		Visiable:      `IsReplica == true`,
-	}
-	params[typCKManClickHouseConfig+"Hosts"] = &Parameter{
+	})
+	params.MustRegister(cfg, "Hosts", &Parameter{
 		LabelZH:       "集群结点IP地址列表",
 		DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
 		Required:      "ManualShards == false",
-	}
-	params[typCKManClickHouseConfig+"Shards"] = &Parameter{
+	})
+	params.MustRegister(cfg, "Shards", &Parameter{
 		LabelZH:       "集群结点IP地址列表",
 		DescriptionZH: "手工指定各结点分配到shard",
 		Required:      "ManualShards == true",
-	}
-	params[typCKManClickHouseConfig+"Port"] = &Parameter{
+	})
+	params.MustRegister(cfg, "Port", &Parameter{
 		LabelZH: "集群数据库监听TCP端口",
 		Default: "9000",
-	}
-	params[typCKManClickHouseConfig+"ZkNodes"] = &Parameter{
+	})
+	params.MustRegister(cfg, "ZkNodes", &Parameter{
 		LabelZH:       "ZooKeeper集群结点列表",
 		DescriptionZH: "逗号分隔，每段为单个IP，或者IP范围，或者网段掩码",
-	}
-	params[typCKManClickHouseConfig+"Storage"] = &Parameter{
+	})
+	params.MustRegister(cfg, "Storage", &Parameter{
 		LabelZH:       "集群存储配置",
 		DescriptionZH: "由disks, policies两部分构成。policies提到的disk名必须在disks中定义。ClickHouse内置了名为default的policy和disk。",
-	}
+	})
 
-	typShard := PkgPath + ".Shard."
-	params[typShard+"Replicas"] = &Parameter{
+	params.MustRegister(Shard{}, "Replicas", &Parameter{
 		LabelZH:       "Shard",
 		DescriptionZH: "Shard内结点IP列表",
-	}
+	})
 
-	typReplica := PkgPath + ".Replica."
-	params[typReplica+"Ip"] = &Parameter{
+	var replica Replica
+	params.MustRegister(replica, "Ip", &Parameter{
 		LabelZH:       "副本IP地址",
 		DescriptionZH: "副本IP地址",
-	}
-	params[typReplica+"Hostname"] = &Parameter{
+	})
+	params.MustRegister(replica, "HostName", &Parameter{
 		LabelZH:       "副本hostname",
 		DescriptionZH: "副本hostname",
 		Visiable:      "false",
-	}
+	})
 
-	typStorage := PkgPath + ".Storage."
-	params[typStorage+"Disks"] = &Parameter{
+	var storage Storage
+	params.MustRegister(storage, "Disks", &Parameter{
 		LabelZH:       "硬盘列表",
 		DescriptionZH: "定义的disks，后续在policies中用到",
-	}
-	params[typStorage+"Policies"] = &Parameter{
+	})
+	params.MustRegister(storage, "Policies", &Parameter{
 		LabelZH:       "存储策略列表",
 		DescriptionZH: "存储策略列表",
-	}
+	})
 
-	typDisk := PkgPath + ".Disk."
-	params[typDisk+"Type"] = &Parameter{
+	var disk Disk
+	params.MustRegister(disk, "Type", &Parameter{
 		LabelZH:       "disk type",
 		DescriptionZH: "硬盘类型",
 		Default:       "local",
 		Candidates:    []Candidate{{Value: "local"}, {Value: "s3"}, {Value: "hdfs"}},
-	}
-	params[typDisk+"DiskLocal"] = &Parameter{
+	})
+	params.MustRegister(disk, "DiskLocal", &Parameter{
 		LabelZH:       "DiskLocal",
 		DescriptionZH: "本地硬盘",
 		Visiable:      `Type == 'local'`,
-	}
-	params[typDisk+"DiskS3"] = &Parameter{
+	})
+	params.MustRegister(disk, "DiskS3", &Parameter{
 		LabelZH:       "DiskS3",
 		DescriptionZH: "AWS S3",
 		Visiable:      `Type == 's3'`,
-	}
-	params[typDisk+"DiskHdfs"] = &Parameter{
-		LabelZH:       "DiskHdfs",
-		DescriptionZH: "HDFS",
-		Visiable:      `Type == 'hdfs'`,
-	}
+	})
 
-	typDiskLocal := PkgPath + ".DiskLocal."
-	params[typDiskLocal+"Path"] = &Parameter{
+	var diskLocal DiskLocal
+	params.MustRegister(diskLocal, "Path", &Parameter{
 		LabelZH:       "挂载路径",
 		DescriptionZH: "挂载路径",
-	}
-	params[typDiskLocal+"KeepFreeSpaceBytes"] = &Parameter{
+	})
+	params.MustRegister(diskLocal, "KeepFreeSpaceBytes", &Parameter{
 		LabelZH:       "保持空闲空间",
 		DescriptionZH: "保持空闲空间",
 		Range:         &Range{0, math.MaxInt32, 1},
-	}
+	})
 
-	typDiskS3 := PkgPath + ".DiskS3."
-	params[typDiskS3+"Endpoint"] = &Parameter{
+	var diskS3 DiskS3
+	params.MustRegister(diskS3, "Endpoint", &Parameter{
 		LabelZH:       "S3端点URI",
 		DescriptionZH: "S3端点URI",
-	}
-	params[typDiskS3+"AccessKeyID"] = &Parameter{}
-	params[typDiskS3+"SecretAccessKey"] = &Parameter{}
-	params[typDiskS3+"Region"] = &Parameter{}
-	params[typDiskS3+"UseEnvironmentCredentials"] = &Parameter{}
-	params[typDiskS3+"Expert"] = &Parameter{
+	})
+	params.MustRegister(diskS3, "AccessKeyID", &Parameter{})
+	params.MustRegister(diskS3, "SecretAccessKey", &Parameter{})
+	params.MustRegister(diskS3, "Region", &Parameter{})
+	params.MustRegister(diskS3, "UseEnvironmentCredentials", &Parameter{})
+	params.MustRegister(diskS3, "Expert", &Parameter{
 		LabelZH:       "专家模式",
 		DescriptionZH: "专家模式的S3参数",
-	}
+	})
 
-	typDiskHdfs := PkgPath + ".DiskHdfs."
-	params[typDiskHdfs+"Endpoint"] = &Parameter{}
-
-	typPolicy := PkgPath + ".Policy."
-	params[typPolicy+"Name"] = &Parameter{}
-	params[typPolicy+"Volumes"] = &Parameter{}
-	params[typPolicy+"MoveFactor"] = &Parameter{
+	var policy Policy
+	params.MustRegister(policy, "Name", &Parameter{})
+	params.MustRegister(policy, "Volumes", &Parameter{})
+	params.MustRegister(policy, "MoveFactor", &Parameter{
 		LabelZH:       "空闲占比阈值",
 		DescriptionZH: "当一个volume空闲空间占比小于此值时，移动部分parts到下一个volume",
 		Range:         &Range{0.0, 1.0, 0.1},
-	}
+	})
 
-	typVolume := PkgPath + ".Volume."
-	params[typVolume+"Disks"] = &Parameter{}
-	params[typVolume+"MaxDataPartSizeBytes"] = &Parameter{}
-	params[typVolume+"Expert"] = &Parameter{}
+	var volume Volume
+	params.MustRegister(volume, "Disks", &Parameter{})
+	params.MustRegister(volume, "MaxDataPartSizeBytes", &Parameter{})
+	params.MustRegister(volume, "Expert", &Parameter{})
 	return
 }
 

@@ -58,7 +58,22 @@ type Candidate struct {
 	LabelZH string
 }
 
-func MarshalConfigSchema(v interface{}, params map[string]*Parameter) (data string, err error) {
+type ConfigParams map[string]*Parameter
+
+func (params ConfigParams) MustRegister(v interface{}, field string, param *Parameter) {
+	rt := reflect.TypeOf(v)
+	for rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+	}
+	if _, found := rt.FieldByName(field); !found {
+		panic(fmt.Sprintf("%s.%s has no field named %s", rt.PkgPath(), rt.Name(), field))
+	}
+	pth := fmt.Sprintf("%s.%s.%s", rt.PkgPath(), rt.Name(), field)
+	params[pth] = param
+	return
+}
+
+func MarshalConfigSchema(v interface{}, params ConfigParams) (data string, err error) {
 	rt := reflect.TypeOf(v)
 	for rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
@@ -255,7 +270,7 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 }
 
 // Inspired by https://stackoverflow.com/a/31302688/319936
-func MarshalConfig(v interface{}, params map[string]*Parameter) (data string, err error) {
+func MarshalConfig(v interface{}, params ConfigParams) (data string, err error) {
 	rv := reflect.ValueOf(v)
 	rt := reflect.TypeOf(v)
 	for rt.Kind() == reflect.Ptr {
@@ -375,7 +390,7 @@ func marshalConfigRecursive(params map[string]*Parameter, rv reflect.Value, sb *
 	return
 }
 
-func UnmarshalConfig(data string, v interface{}, params map[string]*Parameter) (err error) {
+func UnmarshalConfig(data string, v interface{}, params ConfigParams) (err error) {
 	var fjv *fastjson.Value
 	if fjv, err = fastjson.Parse(data); err != nil {
 		err = errors.Wrapf(err, "")
@@ -603,7 +618,7 @@ func indirect(v reflect.Value, decodingNull bool) reflect.Value {
 	return v
 }
 
-func CompareConfig(v1, v2 interface{}, params map[string]*Parameter) (equals bool, first_diff string) {
+func CompareConfig(v1, v2 interface{}, params ConfigParams) (equals bool, first_diff string) {
 	equals, first_diff = compareConfigRecursive(v1, v2, params, "")
 	return
 }
