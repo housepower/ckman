@@ -19,6 +19,8 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *pr
 	metricController := controller.NewMetricController(config, prom)
 	configController := controller.NewConfigController(signal)
 	zkController := controller.NewZookeeperController()
+	uiController := controller.NewSchemaUIController()
+	uiController.RegistSchemaInstance()
 
 	groupV1.POST("/ck/cluster", ckController.ImportCluster)
 	groupV1.GET("/ck/cluster", ckController.GetClusters)
@@ -58,4 +60,5 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *pr
 	groupV1.PUT("/config", configController.UpdateConfig)
 	groupV1.GET("/config", configController.GetConfig)
 	groupV1.GET("/version", configController.GetVersion)
+	groupV1.GET("/ui/schema", uiController.GetUISchema)
 }

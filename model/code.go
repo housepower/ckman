@@ -56,6 +56,7 @@ const (
 	PURGER_TABLES_FAIL          = "5203"
 	ARCHIVE_TO_HDFS_FAIL        = "5204"
 	SHOW_SCHEMA_ERROR           = "5205"
+	GET_SCHEMA_UI_FAILED        = "5206"
 
 	UNKNOWN                     = "9999"
 )

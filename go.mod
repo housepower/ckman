@@ -12,6 +12,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.7.2
+	github.com/go-errors/errors v1.0.1
 	github.com/go-zookeeper/zk v1.0.2
 	github.com/json-iterator/go v1.1.11
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
@@ -29,7 +30,7 @@ require (
 	github.com/swaggo/gin-swagger v1.3.0
 	github.com/swaggo/swag v1.7.0
 	github.com/txn2/txeh v1.3.0
-	github.com/valyala/fastjson v1.6.3 // indirect
+	github.com/valyala/fastjson v1.6.3
 	go.uber.org/zap v1.17.0
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 	golang.org/x/term v0.0.0-20210503060354-a79de5458b56

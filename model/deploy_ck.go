@@ -73,28 +73,31 @@ type CkImportConfig struct {
 }
 
 type CKManClickHouseConfig struct {
-	Mode            string
-	Hosts           []string
-	Port            int
-	HttpPort        int
-	User            string
-	Password        string
-	Cluster         string
-	ZkNodes         []string
-	ZkPort          int
-	ZkStatusPort    int
-	IsReplica       bool
-	Version         string
-	SshUser         string
-	SshPassword     string
-	SshPasswordFlag int
-	SshPort         int
-	Shards          []CkShard
-	Path            string
-	ZooPath         map[string]string
-	LogicName       string
-	Storage         Storage
-	UsersConf       UsersConf
+	Version         string  `json:"version"`
+	Cluster         string  `json:"cluster"`
+	LogicCluster    *string `json:"logic_cluster"`
+	Port            int     `json:"port"`
+	IsReplica        bool      `json:"isReplica"`
+	ManualShards     bool      `json:"-"`
+	Hosts            []string  `json:"hosts"`
+	Shards           []CkShard `json:"shards"`
+	ZkNodes          []string  `json:"zkNodes"`
+	ZkPort           int       `json:"zkPort"`
+	ZkStatusPort     int       `json:"zkStatusPort"`
+	User             string    `json:"user"`
+	Password         string    `json:"password"`
+	Path             string    `json:"path"`
+	SshUser          string    `json:"sshUser"`
+	AuthenticateType int       `json:"sshPasswdFlag"`
+	SshPassword      string    `json:"sshPassword"`
+	SshPort          int       `json:"sshPort"`
+	Storage          Storage
+	UsersConf        UsersConf
+
+	// don't need to regist to schema
+	Mode     string            `json:"mode"`
+	HttpPort int               `json:"httpPort"`
+	ZooPath  map[string]string `json:"zooPath"`
 }
 
 // Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes

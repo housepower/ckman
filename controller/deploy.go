@@ -161,21 +161,21 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {
 	conf := model.CKManClickHouseConfig{
-		Port:            req.ClickHouse.CkTcpPort,
-		HttpPort:        req.ClickHouse.CkHttpPort,
-		User:            req.ClickHouse.User,
-		Password:        req.ClickHouse.Password,
-		Cluster:         req.ClickHouse.ClusterName,
-		ZkNodes:         req.ClickHouse.ZkNodes,
-		ZkPort:          req.ClickHouse.ZkPort,
-		Version:         req.ClickHouse.PackageVersion,
-		SshUser:         req.User,
-		SshPassword:     req.Password,
-		SshPasswordFlag: getSshPasswdFlag(req.SavePassword, req.UsePubKey),
-		SshPort:         req.Port,
-		Shards:          req.ClickHouse.Shards,
-		Path:            req.ClickHouse.Path,
-		LogicName:       req.ClickHouse.LogicCluster,
+		Port:             req.ClickHouse.CkTcpPort,
+		HttpPort:         req.ClickHouse.CkHttpPort,
+		User:             req.ClickHouse.User,
+		Password:         req.ClickHouse.Password,
+		Cluster:          req.ClickHouse.ClusterName,
+		ZkNodes:          req.ClickHouse.ZkNodes,
+		ZkPort:           req.ClickHouse.ZkPort,
+		Version:          req.ClickHouse.PackageVersion,
+		SshUser:          req.User,
+		SshPassword:      req.Password,
+		AuthenticateType: getSshPasswdFlag(req.SavePassword, req.UsePubKey),
+		SshPort:          req.Port,
+		Shards:           req.ClickHouse.Shards,
+		Path:             req.ClickHouse.Path,
+		LogicCluster:     &req.ClickHouse.LogicCluster,
 	}
 
 	hosts := make([]string, 0)

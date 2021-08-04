@@ -98,7 +98,7 @@ func (ck *ClickHouseController) ImportCluster(c *gin.Context) {
 	conf.ZkNodes = req.ZkNodes
 	conf.ZkPort = req.ZkPort
 	conf.ZkStatusPort = req.ZkStatusPort
-	conf.SshPasswordFlag = model.SshPasswordNotSave
+	conf.AuthenticateType = model.SshPasswordNotSave
 	conf.Mode = model.CkClusterImport
 	conf.Normalize()
 	err := clickhouse.GetCkClusterConfig(&conf)
@@ -652,9 +652,9 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 		return
 	}
 
-	if conf.LogicName != "" {
+	if *conf.LogicCluster != "" {
 		var newLogics []string
-		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(conf.LogicName)
+		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*conf.LogicCluster)
 		if ok {
 			//need delete logic cluster and reconf other cluster
 			for _, logic := range logics {
@@ -665,9 +665,9 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 			}
 		}
 		if len(newLogics) == 0 {
-			clickhouse.CkClusters.DeleteLogicClusterByName(conf.LogicName)
+			clickhouse.CkClusters.DeleteLogicClusterByName(*conf.LogicCluster)
 		} else {
-			clickhouse.CkClusters.SetLogicClusterByName(conf.LogicName, newLogics)
+			clickhouse.CkClusters.SetLogicClusterByName(*conf.LogicCluster, newLogics)
 			for _, newLogic := range newLogics {
 				if err = deploy.ConfigLogicOtherCluster(newLogic); err != nil {
 					model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
@@ -794,7 +794,7 @@ func (ck *ClickHouseController) GetClusterStatus(c *gin.Context) {
 	}
 
 	needPassword := false
-	if conf.SshPasswordFlag == model.SshPasswordNotSave {
+	if conf.AuthenticateType == model.SshPasswordNotSave {
 		needPassword = true
 	}
 
@@ -1343,11 +1343,11 @@ func verifySshPassword(c *gin.Context, conf *model.CKManClickHouseConfig, sshUse
 		return fmt.Errorf("sshUser must not be null")
 	}
 
-	if conf.SshPasswordFlag == model.SshPasswordSave && sshPassword == "" {
+	if conf.AuthenticateType == model.SshPasswordSave && sshPassword == "" {
 		return fmt.Errorf("expect sshPassword but got null")
 	}
 
-	if conf.SshPasswordFlag == model.SshPasswordNotSave {
+	if conf.AuthenticateType == model.SshPasswordNotSave {
 		password := c.Query("password")
 		if password == "" {
 			return fmt.Errorf("expect sshPassword but got null")
