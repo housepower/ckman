@@ -601,7 +601,7 @@ func GenerateLogicMetrika(d *CKDeploy) (Cluster, []*CKDeploy) {
 				CkTcpPort:    c.Port,
 				IsReplica:    c.IsReplica,
 				ClusterName:  c.Cluster,
-				LogicCluster: c.LogicName,
+				LogicCluster: *c.LogicCluster,
 			}
 			base := DeployBase{
 				Hosts:    c.Hosts,
@@ -814,7 +814,7 @@ func upgradePackage(conf *model.CKManClickHouseConfig, hosts []string, packages 
 		CkTcpPort:      conf.Port,
 		CkHttpPort:     conf.HttpPort,
 		IsReplica:      conf.IsReplica,
-		LogicCluster:   conf.LogicName,
+		LogicCluster:   *conf.LogicCluster,
 	}
 
 	deploy := &CKDeploy{}
@@ -1027,7 +1027,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		CkTcpPort:      conf.Port,
 		CkHttpPort:     conf.HttpPort,
 		IsReplica:      conf.IsReplica,
-		LogicCluster:   conf.LogicName,
+		LogicCluster:   *conf.LogicCluster,
 	}
 	if err := deploy.Init(base, con); err != nil {
 		return err
@@ -1069,7 +1069,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 		CkTcpPort:      conf.Port,
 		CkHttpPort:     conf.HttpPort,
 		IsReplica:      conf.IsReplica,
-		LogicCluster:   conf.LogicName,
+		LogicCluster:   *conf.LogicCluster,
 	}
 	if err := deploy.Init(base, con); err != nil {
 		return err
@@ -1217,7 +1217,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 		CkTcpPort:      conf.Port,
 		CkHttpPort:     conf.HttpPort,
 		IsReplica:      conf.IsReplica,
-		LogicCluster:   conf.LogicName,
+		LogicCluster:   *conf.LogicCluster,
 	}
 	if err := deploy.Init(base, con); err != nil {
 		return err
@@ -1392,7 +1392,7 @@ func ConfigLogicOtherCluster(clusterName string) error {
 		Shards:       conf.Shards,
 		CkTcpPort:    conf.Port,
 		IsReplica:    conf.IsReplica,
-		LogicCluster: conf.LogicName,
+		LogicCluster: *conf.LogicCluster,
 		ClusterName:  clusterName,
 	}
 	base := DeployBase{

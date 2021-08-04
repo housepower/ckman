@@ -61,6 +61,7 @@ var MsgFlags_zh = map[string]string{
 	PURGER_TABLES_FAIL:          "删除指定时间范围内数据失败",
 	ARCHIVE_TO_HDFS_FAIL:        "归档到HDFS失败",
 	SHOW_SCHEMA_ERROR:           "查看建表语句失败",
+	GET_SCHEMA_UI_FAILED:        "获取前端schema失败",
 
 	UNKNOWN: "unknown",
 }
@@ -121,6 +122,7 @@ var MsgFlags_en = map[string]string{
 	PURGER_TABLES_FAIL:          "purger tables range failed",
 	ARCHIVE_TO_HDFS_FAIL:        "archive to hdfs failed",
 	SHOW_SCHEMA_ERROR:           "show create table schemer failed",
+	GET_SCHEMA_UI_FAILED:        "ger ui schema fialed",
 	UNKNOWN:                     "unknown",
 }
 

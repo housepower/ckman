@@ -8,7 +8,7 @@ type CkClusters struct {
 	FormatVersion int                              `json:"FORMAT_VERSION"`
 	ConfigVersion int                              `json:"ck_cluster_config_version"`
 	Clusters      map[string]CKManClickHouseConfig `json:"clusters"`
-	LogicCluster  map[string][]string              `json:"logic_clusters"`
+	LogicClusters map[string][]string              `json:"logic_clusters"`
 	lock          sync.RWMutex                     `json:"-"`
 }
 
@@ -17,7 +17,7 @@ func NewCkClusters() *CkClusters {
 		FormatVersion: -1,
 		ConfigVersion: -1,
 		Clusters:      make(map[string]CKManClickHouseConfig),
-		LogicCluster:  make(map[string][]string),
+		LogicClusters: make(map[string][]string),
 	}
 }
 
@@ -71,33 +71,33 @@ func (this *CkClusters) ClearClusters() {
 func (this *CkClusters) GetLogicClusterByName(logicName string) ([]string, bool) {
 	this.lock.RLock()
 	defer this.lock.RUnlock()
-	logic, ok := this.LogicCluster[logicName]
+	logic, ok := this.LogicClusters[logicName]
 	return logic, ok
 }
 
 func (this *CkClusters) SetLogicClusterByName(logicName string, logicCluster []string) {
 	this.lock.Lock()
 	defer this.lock.Unlock()
-	this.LogicCluster[logicName] = logicCluster
+	this.LogicClusters[logicName] = logicCluster
 }
 
 func (this *CkClusters) DeleteLogicClusterByName(logicName string) {
 	this.lock.Lock()
 	defer this.lock.Unlock()
-	delete(this.LogicCluster, logicName)
+	delete(this.LogicClusters, logicName)
 }
 
 func (this *CkClusters) ClearLogicClusters() {
 	this.lock.Lock()
 	defer this.lock.Unlock()
-	this.LogicCluster = make(map[string][]string)
+	this.LogicClusters = make(map[string][]string)
 }
 
 func (this *CkClusters) GetLogicClusters() map[string][]string {
 	this.lock.RLock()
 	defer this.lock.RUnlock()
 	logicMap := make(map[string][]string)
-	for key, value := range this.LogicCluster {
+	for key, value := range this.LogicClusters {
 		logicMap[key] = value
 		}
 	return logicMap

@@ -73,26 +73,139 @@ type CkImportConfig struct {
 }
 
 type CKManClickHouseConfig struct {
-	Mode            string            `json:"mode"`
-	Hosts           []string          `json:"hosts"`
-	Port            int               `json:"port"`
-	HttpPort        int               `json:"httpPort"`
-	User            string            `json:"user"`
-	Password        string            `json:"password"`
-	Cluster         string            `json:"cluster"`
-	ZkNodes         []string          `json:"zkNodes"`
-	ZkPort          int               `json:"zkPort"`
-	ZkStatusPort    int               `json:"zkStatusPort"`
-	IsReplica       bool              `json:"isReplica"`
-	Version         string            `json:"version"`
-	SshUser         string            `json:"sshUser"`
-	SshPassword     string            `json:"sshPassword"`
-	SshPasswordFlag int               `json:"sshPasswdFlag"`
-	SshPort         int               `json:"sshPort"`
-	Shards          []CkShard         `json:"shards"`
-	Path            string            `json:"path"`
-	ZooPath         map[string]string `json:"zooPath"`
-	LogicName       string            `json:"logic_cluster"`
+	Version         string  `json:"version"`
+	Cluster         string  `json:"cluster"`
+	LogicCluster    *string `json:"logic_cluster"`
+	Port            int     `json:"port"`
+	IsReplica        bool      `json:"isReplica"`
+	ManualShards     bool      `json:"-"`
+	Hosts            []string  `json:"hosts"`
+	Shards           []CkShard `json:"shards"`
+	ZkNodes          []string  `json:"zkNodes"`
+	ZkPort           int       `json:"zkPort"`
+	ZkStatusPort     int       `json:"zkStatusPort"`
+	User             string    `json:"user"`
+	Password         string    `json:"password"`
+	Path             string    `json:"path"`
+	SshUser          string    `json:"sshUser"`
+	AuthenticateType int       `json:"sshPasswdFlag"`
+	SshPassword      string    `json:"sshPassword"`
+	SshPort          int       `json:"sshPort"`
+	Storage          Storage
+	UsersConf        UsersConf
+
+	// don't need to regist to schema
+	Mode     string            `json:"mode"`
+	HttpPort int               `json:"httpPort"`
+	ZooPath  map[string]string `json:"zooPath"`
+}
+
+// Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes
+type Storage struct {
+	Disks    []Disk
+	Policies []Policy
+}
+
+type Disk struct {
+	Name      string
+	Type      string
+	DiskLocal *DiskLocal
+	DiskHdfs  *DiskHdfs
+	DiskS3    *DiskS3
+}
+
+type DiskLocal struct {
+	Path               string
+	KeepFreeSpaceBytes *int64
+}
+
+type DiskHdfs struct {
+	Endpoint string
+}
+
+type DiskS3 struct {
+	Endpoint                  string
+	AccessKeyID               string
+	SecretAccessKey           string
+	Region                    *string
+	UseEnvironmentCredentials *bool
+	Expert                    map[string]string
+}
+
+type Policy struct {
+	Name       string
+	Volumns    []Volumn
+	MoveFactor *float32
+}
+
+type Volumn struct {
+	Name string
+	// Every disk shall be in storage.Disks
+	Disks                []string
+	MaxDataPartSizeBytes *int64
+	PreferNotToMerge     *string
+}
+
+// Refers to https://clickhouse.tech/docs/en/operations/settings/settings-users/
+type UsersConf struct {
+	Users    []User
+	Profiles []Profile
+	Quotas   []Quota
+}
+
+type User struct {
+	Name         string
+	Password     string
+	Profile      string        // shall be in Profiles
+	Quota        string        // shall be in Quotas
+	Networks     Networks      // List of networks from which the user can connect to the ClickHouse server.
+	DbRowPolices []DbRowPolicy // For the given database.table, only rows pass the filter are granted. For other database. tables, all rows are granted.
+}
+
+type Networks struct {
+	IPs         *[]string
+	Hosts       *[]string
+	HostRegexps *[]string
+}
+
+type DbRowPolicy struct {
+	Database       string
+	TblRowPolicies []TblRowPolicy
+}
+
+type TblRowPolicy struct {
+	Table  string
+	Filter string // Empty means 0
+}
+
+// https://clickhouse.tech/docs/en/operations/settings/settings-profiles/
+type Profile struct {
+	Name string
+	// https://clickhouse.tech/docs/en/operations/settings/permissions-for-queries/
+	ReadOnly   *int
+	AllowDDL   *int
+	MaxThreads *int
+	// https://clickhouse.tech/docs/en/operations/settings/query-complexity/
+	MaxMemoryUsage              *int64
+	MaxMemoryUsageForAllQueries *int64
+	Expert                      map[string]string
+}
+
+// https://clickhouse.tech/docs/en/operations/quotas/
+type Quota struct {
+	Name      string
+	Intervals []Interval
+}
+
+type Interval struct {
+	Duration      int64
+	Queries       int64
+	QuerySelects  int64
+	QueryInserts  int64
+	Errors        int64
+	ResultRows    int64
+	ReadRows      int64
+	ExecutionTime int64
 }
 
 func (config *CkDeployConfig) Normalize() {
