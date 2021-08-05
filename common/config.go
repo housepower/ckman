@@ -70,7 +70,6 @@ func (params ConfigParams) MustRegister(v interface{}, field string, param *Para
 	}
 	pth := fmt.Sprintf("%s.%s.%s", rt.PkgPath(), rt.Name(), field)
 	params[pth] = param
-	return
 }
 
 func (params ConfigParams) MarshalSchema(v interface{}) (data string, err error) {
