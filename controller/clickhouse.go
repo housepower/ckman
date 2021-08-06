@@ -652,7 +652,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 		return
 	}
 
-	if *conf.LogicCluster != "" {
+	if conf.LogicCluster != nil {
 		var newLogics []string
 		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*conf.LogicCluster)
 		if ok {

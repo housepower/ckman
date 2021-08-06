@@ -10,7 +10,7 @@ type ZKDeploy struct {
 	DeployBase
 }
 
-func (d *ZKDeploy) Init(base *DeployBase, conf interface{}) error {
+func (d *ZKDeploy) Init() error {
 	return nil
 }
 

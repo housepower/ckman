@@ -193,10 +193,10 @@
 
 
     <!-- Path to data directory, with trailing slash. -->
-    <path>{{.Path}}/clickhouse/</path>
+    <path>{{.Path}}clickhouse/</path>
 
     <!-- Path to temporary data for processing hard queries. -->
-    <tmp_path>{{.Path}}/clickhouse/tmp/</tmp_path>
+    <tmp_path>{{.Path}}clickhouse/tmp/</tmp_path>
 
     <!-- Policy from the <storage_configuration> for the temporary files.
          If not set <tmp_path> is used, otherwise <tmp_path> is ignored.
@@ -210,10 +210,10 @@
     <!-- <tmp_policy>tmp</tmp_policy> -->
 
     <!-- Directory with user provided files that are accessible by 'file' table function. -->
-    <user_files_path>{{.Path}}/clickhouse/user_files/</user_files_path>
+    <user_files_path>{{.Path}}clickhouse/user_files/</user_files_path>
 
     <!-- Path to folder where users and roles created by SQL commands are stored. -->
-    <access_control_path>{{.Path}}/clickhouse/access/</access_control_path>
+    <access_control_path>{{.Path}}clickhouse/access/</access_control_path>
 
     <!-- External user directories (LDAP). -->
     <ldap_servers>
@@ -685,7 +685,7 @@
     <!-- Directory in <clickhouse-path> containing schema files for various input formats.
          The directory will be created if it doesn't exist.
       -->
-    <format_schema_path>{{.Path}}/clickhouse/format_schemas/</format_schema_path>
+    <format_schema_path>{{.Path}}clickhouse/format_schemas/</format_schema_path>
 
     <!-- Uncomment to use query masking rules.
         name - name for the rule (optional)
@@ -748,4 +748,8 @@
     <!-- <disable_internal_dns_cache>1</disable_internal_dns_cache> -->
     <default_replica_path>/clickhouse/tables/{cluster}/{shard}/{database}/{table}</default_replica_path>
     <default_replica_name>{replica}</default_replica_name>
+
+    <merge_tree>
+        <allow_remote_fs_zero_copy_replication>1</allow_remote_fs_zero_copy_replication>
+    </merge_tree>
 </yandex>

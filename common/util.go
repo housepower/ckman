@@ -168,3 +168,13 @@ func DeepCopyByGob(dst, src interface{}) error {
 	}
 	return gob.NewDecoder(bytes.NewBuffer(buf.Bytes())).Decode(dst)
 }
+
+
+func ArraySearch(target string, str_array []string) bool {
+	for _, str := range str_array {
+		if target == str {
+			return true
+		}
+ 	}
+	return false
+}

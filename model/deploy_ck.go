@@ -25,30 +25,21 @@ const (
 	SshPasswordUsePubkey int = 2
 )
 
-type DeployCkReq struct {
-	Hosts        []string       `json:"hosts" example:"192.168.101.105"`
-	User         string         `json:"user" example:"root"`
-	UsePubKey    bool           `json:"usePubkey" example:"false"`
-	SavePassword bool           `json:"savePassword" example:"true"`
-	Password     string         `json:"password" example:"123456"`
-	Port         int            `json:"sshPort" example:"22"`
-	ClickHouse   CkDeployConfig `json:"clickhouse"`
-}
-
 type CkDeployConfig struct {
-	Path           string    `json:"path" example:"/data01/"`
-	User           string    `json:"user" example:"ck"`
-	Password       string    `json:"password" example:"123456"`
-	ZkNodes        []string  `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
-	ZkPort         int       `json:"zkPort" example:"2181"`
-	ZkStatusPort   int       `json:"zkStatusPort" example:"8080"`
-	ClusterName    string    `json:"clusterName" example:"test"`
-	Shards         []CkShard `json:"shards"`
-	PackageVersion string    `json:"packageVersion" example:"20.8.5.45"`
-	CkTcpPort      int       `json:"ckTcpPort" example:"9000"`
-	CkHttpPort     int       `json:"ckHttpPort" example:"8123"`
-	IsReplica      bool      `json:"isReplica"`
-	LogicCluster   string    `json:"logic_cluster" example:"logic_test"`
+	Path           string
+	User           string
+	Password       string
+	ZkNodes        []string
+	ZkPort         int
+	ZkStatusPort   int
+	ClusterName    string
+	Shards         []CkShard
+	PackageVersion string
+	CkTcpPort      int
+	CkHttpPort     int
+	IsReplica      bool
+	LogicCluster   *string
+	Storage        *Storage
 }
 
 type CkShard struct {
@@ -78,7 +69,6 @@ type CKManClickHouseConfig struct {
 	LogicCluster    *string `json:"logic_cluster"`
 	Port            int     `json:"port"`
 	IsReplica        bool      `json:"isReplica"`
-	ManualShards     bool      `json:"-"`
 	Hosts            []string  `json:"hosts"`
 	Shards           []CkShard `json:"shards"`
 	ZkNodes          []string  `json:"zkNodes"`
@@ -91,7 +81,7 @@ type CKManClickHouseConfig struct {
 	AuthenticateType int       `json:"sshPasswdFlag"`
 	SshPassword      string    `json:"sshPassword"`
 	SshPort          int       `json:"sshPort"`
-	Storage          Storage
+	Storage          *Storage
 	UsersConf        UsersConf
 
 	// don't need to regist to schema
