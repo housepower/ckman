@@ -33,10 +33,11 @@ type Parameter struct {
 	DescriptionEN string
 	DescriptionZH string
 	Visiable      string //empty means: true(visiable)
-	Required      string //empty means: true(required) iff field type is Ptr
+	Required      string //empty means: false(optional) iff field type is Ptr
 	InputType     string
 	Candidates    []Candidate
 	Default       string
+	Regexp        string
 	Range         *Range
 }
 
@@ -211,7 +212,10 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 		}
 		sb.WriteString(`, "default": `)
 		sb.WriteString(nullableString(param.Default))
-		if str_type == "int" || str_type == "float" {
+		if str_type == "string" {
+			sb.WriteString(`, "regexp": `)
+			sb.WriteString(nullableString(param.Regexp))
+		} else {
 			if param.Range == nil {
 				switch rt.Kind() {
 				case reflect.Int8:

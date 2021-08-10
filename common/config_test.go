@@ -170,6 +170,7 @@ func getParamsForAPICreateCluster() (params ConfigParams) {
 	params.MustRegister(diskLocal, "Path", &Parameter{
 		LabelZH:       "挂载路径",
 		DescriptionZH: "挂载路径",
+		Regexp:        "^/.+/$",
 	})
 	params.MustRegister(diskLocal, "KeepFreeSpaceBytes", &Parameter{
 		LabelZH:       "保持空闲空间",
