@@ -1,7 +1,7 @@
 package deploy
 
 type Deploy interface {
-	Init(base *DeployBase, conf interface{}) error
+	Init() error
 	Prepare() error
 	Install() error
 	Config() error

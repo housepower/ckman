@@ -2,15 +2,19 @@ package controller
 
 import (
 	"fmt"
-	"github.com/housepower/ckman/common"
-
 	"github.com/gin-gonic/gin"
+	"github.com/go-errors/errors"
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/nacos"
+	"io/ioutil"
+	"path"
+	"strconv"
+	"strings"
 )
 
 type DeployController struct {
@@ -25,9 +29,9 @@ func NewDeployController(config *config.CKManConfig, nacosClient *nacos.NacosCli
 	return deploy
 }
 
-func DeployPackage(d deploy.Deploy, base *deploy.DeployBase, conf interface{}) (string, error) {
+func DeployPackage(d deploy.Deploy) (string, error) {
 	log.Logger.Infof("start init deploy")
-	if err := d.Init(base, conf); err != nil {
+	if err := d.Init(); err != nil {
 		return model.INIT_PACKAGE_FAIL, err
 	}
 
@@ -102,103 +106,207 @@ func (d *DeployController) syncUpClusters(c *gin.Context) (err error) {
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Router /api/v1/deploy/ck [post]
 func (d *DeployController) DeployCk(c *gin.Context) {
-	var req model.DeployCkReq
-	var factory deploy.DeployFactory
-	packages := make([]string, 3)
-
-	req.SavePassword = true   //save password default
-	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+	var conf model.CKManClickHouseConfig
+	params := GetSchemaParams(GET_SCHEMA_UI_DEPLOY, conf)
+	if params == nil {
+		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not regist", GET_SCHEMA_UI_DEPLOY))
+		return
+	}
+	body, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+	err = params.UnmarshalConfig(string(body), &conf)
+	if err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 
-	if req.ClickHouse.User == model.ClickHouseRetainUser {
-		model.WrapMsg(c, model.DEPLOY_USER_RETAIN_ERROR, nil)
+	if err := checkDeployParams(&conf); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 
-	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, req.ClickHouse.PackageVersion, model.CkCommonPackageSuffix)
-	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, req.ClickHouse.PackageVersion, model.CkServerPackageSuffix)
-	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, req.ClickHouse.PackageVersion, model.CkClientPackageSuffix)
-	factory = deploy.CKDeployFacotry{}
-	ckDeploy := factory.Create()
-	base := &deploy.DeployBase{
-		Hosts:        req.Hosts,
-		Packages:     packages,
-		User:         req.User,
-		Password:     req.Password,
-		PasswordFlag: getSshPasswdFlag(req.SavePassword, req.UsePubKey),
-		Port:         req.Port,
-		Pool:         common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
-	}
-
-	code, err := DeployPackage(ckDeploy, base, &req.ClickHouse)
+	packages := make([]string, 3)
+	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, conf.Version, model.CkCommonPackageSuffix)
+	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, conf.Version, model.CkServerPackageSuffix)
+	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, conf.Version, model.CkClientPackageSuffix)
+	tmp := deploy.ConvertCKDeploy(&conf)
+	tmp.Packages = packages
+	code, err := DeployPackage(tmp)
 	if err != nil {
 		model.WrapMsg(c, code, err)
 		return
 	}
 
-	conf := convertCkConfig(&req)
-	conf.Mode = model.CkClusterDeploy
-	if err = d.syncDownClusters(c); err != nil {
+	if err := d.syncDownClusters(c); err != nil {
 		return
 	}
-	clickhouse.CkClusters.SetClusterByName(req.ClickHouse.ClusterName, conf)
-	if req.ClickHouse.LogicCluster != "" {
+	clickhouse.CkClusters.SetClusterByName(conf.Cluster, conf)
+	if conf.LogicCluster != nil {
 		var newLogics []string
-		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(req.ClickHouse.LogicCluster)
+		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*conf.LogicCluster)
 		if ok {
 			newLogics = append(newLogics, logics...)
 		}
-		newLogics = append(newLogics, req.ClickHouse.ClusterName)
-		clickhouse.CkClusters.SetLogicClusterByName(req.ClickHouse.LogicCluster, newLogics)
+		newLogics = append(newLogics, conf.Cluster)
+		clickhouse.CkClusters.SetLogicClusterByName(*conf.LogicCluster, newLogics)
 	}
-	if err = d.syncUpClusters(c); err != nil {
+	if err := d.syncUpClusters(c); err != nil {
 		return
 	}
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
-func convertCkConfig(req *model.DeployCkReq) model.CKManClickHouseConfig {
-	conf := model.CKManClickHouseConfig{
-		Port:             req.ClickHouse.CkTcpPort,
-		HttpPort:         req.ClickHouse.CkHttpPort,
-		User:             req.ClickHouse.User,
-		Password:         req.ClickHouse.Password,
-		Cluster:          req.ClickHouse.ClusterName,
-		ZkNodes:          req.ClickHouse.ZkNodes,
-		ZkPort:           req.ClickHouse.ZkPort,
-		Version:          req.ClickHouse.PackageVersion,
-		SshUser:          req.User,
-		SshPassword:      req.Password,
-		AuthenticateType: getSshPasswdFlag(req.SavePassword, req.UsePubKey),
-		SshPort:          req.Port,
-		Shards:           req.ClickHouse.Shards,
-		Path:             req.ClickHouse.Path,
-		LogicCluster:     &req.ClickHouse.LogicCluster,
+func checkDeployParams(conf *model.CKManClickHouseConfig) error {
+	var err error
+	if _, ok := clickhouse.CkClusters.GetClusterByName(conf.Cluster); ok {
+		return errors.Errorf("cluster %s is exist", conf.Cluster)
 	}
 
-	hosts := make([]string, 0)
-	for _, shard := range req.ClickHouse.Shards {
-		if len(shard.Replicas) > 1 {
-			conf.IsReplica = true
+	if len(conf.Hosts) == 0 {
+		return errors.Errorf("can't find any host")
+	}
+	if conf.Hosts, err = common.ParseHosts(conf.Hosts); err != nil {
+		return err
+	}
+	if conf.IsReplica && len(conf.Hosts)%2 == 1 {
+		return errors.Errorf("When supporting replica, the number of nodes must be even")
+	}
+	conf.Shards = GetShardsbyHosts(conf.Hosts, conf.IsReplica)
+	if len(conf.ZkNodes) == 0 {
+		return errors.Errorf("zookeeper nodes must not be empty")
+	}
+	if conf.ZkNodes, err = common.ParseHosts(conf.ZkNodes); err != nil {
+		return err
+	}
+	if conf.User == "" || conf.Password == "" {
+		return errors.Errorf("user or password must not be empty")
+	}
+	if conf.User == model.ClickHouseRetainUser {
+		return errors.Errorf("clickhouse user must not be default")
+	}
+
+	if conf.SshUser == "" {
+		return errors.Errorf("ssh user must not be empty")
+	}
+
+	if conf.AuthenticateType != model.SshPasswordUsePubkey && conf.SshPassword == "" {
+		return errors.Errorf("ssh password must not be empty")
+	}
+	if !strings.HasSuffix(conf.Path, "/") {
+		return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.Path))
+	}
+
+	disks := make([]string, 0)
+	disks = append(disks, "default")
+	if conf.Storage != nil {
+		for _, disk := range conf.Storage.Disks {
+			disks = append(disks, disk.Name)
+			switch disk.Type {
+			case "local":
+				if !strings.HasSuffix(disk.DiskLocal.Path, "/") {
+					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+				}
+				if err := checkAccess(disk.DiskLocal.Path, conf); err != nil {
+					return err
+				}
+			case "hdfs":
+				if !strings.HasSuffix(disk.DiskHdfs.Endpoint, "/") {
+					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+				}
+				vers := strings.Split(conf.Version, ".")
+				major, err := strconv.Atoi(vers[0])
+				if err != nil {
+					return err
+				}
+				minor, err := strconv.Atoi(vers[1])
+				if err != nil {
+					return err
+				}
+				if major < 21 || (major == 21 && minor < 9) {
+					return errors.Errorf("clickhouse do not support hdfs storage policy while version < 21.9 ")
+				}
+			case "s3":
+				if !strings.HasSuffix(disk.DiskS3.Endpoint, "/") {
+					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+				}
+			default:
+				return errors.Errorf("unsupport disk type %s", disk.Type)
+			}
 		}
-		for _, replica := range shard.Replicas {
-			hosts = append(hosts, replica.Ip)
+		for _, policy := range conf.Storage.Policies {
+			for _, vol := range policy.Volumns {
+				for _, disk := range vol.Disks {
+					if !common.ArraySearch(disk, disks) {
+						return errors.Errorf("invalid disk in policy %s", disk)
+					}
+				}
+			}
 		}
 	}
-	conf.Hosts = hosts
 
+	conf.Mode = model.CkClusterDeploy
 	conf.Normalize()
-	return conf
+	return nil
 }
 
-func getSshPasswdFlag(savePasswd, usePubkey bool) int {
-	if usePubkey {
-		return model.SshPasswordUsePubkey
+func GetShardsbyHosts(hosts []string, isReplica bool) []model.CkShard {
+	var shards []model.CkShard
+	if isReplica {
+		var shard model.CkShard
+		for _, host := range hosts {
+			replica := model.CkReplica{Ip: host}
+			shard.Replicas = append(shard.Replicas, replica)
+			if len(shard.Replicas) == 2 {
+				shards = append(shards, shard)
+				shard.Replicas = make([]model.CkReplica, 0)
+			}
+		}
+	} else {
+		for _, host := range hosts {
+			shard := model.CkShard{Replicas: []model.CkReplica{{Ip: host}}}
+			shards = append(shards, shard)
+		}
 	}
-	if savePasswd {
-		return model.SshPasswordSave
+	return shards
+}
+
+func checkAccess(localPath string, conf *model.CKManClickHouseConfig)error {
+	cmd := fmt.Sprintf("ls -l %s |grep %s", path.Dir(path.Dir(localPath)), path.Base(path.Dir(localPath)))
+	for _, host := range conf.Hosts {
+		out, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd)
+		if err != nil {
+			return err
+		}
+		outputs := strings.Split(out, " ")
+		results := make([]string, 0)
+		for _, output := range outputs {
+			if output != "" {
+				results = append(results, output)
+			}
+		}
+		access := results[0]
+		username := results[2]
+		groupname := results[3]
+		owner := access[1:4]
+		group := access[4:7]
+		other := access[7:10]
+
+		if username == "clickhouse" {
+			if !strings.HasPrefix(owner, "rw") {
+				return errors.Errorf("local path %s have no access to read and write", localPath)
+			}
+		} else if groupname == "clickhouse" {
+			if !strings.HasPrefix(group, "rw") {
+				return errors.Errorf("local path %s have no access to read and write", localPath)
+			}
+		}else {
+			if !strings.HasPrefix(other, "rw") {
+				return errors.Errorf("local path %s have no access to read and write", localPath)
+			}
+		}
 	}
-	return model.SshPasswordNotSave
+	return nil
 }
