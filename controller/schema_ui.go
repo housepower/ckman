@@ -202,8 +202,8 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(disklocal, "Path", &common.Parameter{
 		LabelZH: "挂载路径",
 		LabelEN: "Amount Path",
-		DescriptionZH: "必须存在，clickhouse用户可访问， 且必须以'/'结尾",
-		DescriptionEN: "need exist, can be accessed by clickhouse, and must end with '/'",
+		DescriptionZH: "必须存在，clickhouse用户可访问， 且必须以'/'开头和结尾",
+		DescriptionEN: "need exist, can be accessed by clickhouse, and must begin and end with '/'",
 		Regexp:  "^/.+/$",
 	})
 	params.MustRegister(disklocal, "KeepFreeSpaceBytes", &common.Parameter{
@@ -215,7 +215,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(disks3, "Endpoint", &common.Parameter{
 		LabelZH: "S3端点URI",
 		LabelEN: "Endpoint",
-		Regexp:  "/$",
+		Regexp:  "^(http|https)://.+/$",
 	})
 
 	params.MustRegister(disks3, "AccessKeyID", &common.Parameter{
@@ -245,6 +245,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(diskhdfs, "Endpoint", &common.Parameter{
 		LabelZH: "HDFS端点URI",
 		LabelEN: "Endpoint",
+		Default: "hdfs://",
 		Regexp:  "^hdfs://.+/$",
 	})
 

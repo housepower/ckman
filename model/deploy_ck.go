@@ -64,30 +64,30 @@ type CkImportConfig struct {
 }
 
 type CKManClickHouseConfig struct {
-	Version         string  `json:"version"`
-	Cluster         string  `json:"cluster"`
-	LogicCluster    *string `json:"logic_cluster"`
-	Port            int     `json:"port"`
-	IsReplica        bool      `json:"isReplica"`
-	Hosts            []string  `json:"hosts"`
-	Shards           []CkShard `json:"shards"`
-	ZkNodes          []string  `json:"zkNodes"`
-	ZkPort           int       `json:"zkPort"`
-	ZkStatusPort     int       `json:"zkStatusPort"`
-	User             string    `json:"user"`
-	Password         string    `json:"password"`
-	Path             string    `json:"path"`
-	SshUser          string    `json:"sshUser"`
-	AuthenticateType int       `json:"sshPasswdFlag"`
-	SshPassword      string    `json:"sshPassword"`
-	SshPort          int       `json:"sshPort"`
+	Version          string    `json:"version" example:"21.9.1.7647"`
+	Cluster          string    `json:"cluster" example:"test"`
+	LogicCluster     *string   `json:"logic_cluster" example:"logic_test"`
+	Port             int       `json:"port" example:"9000"`
+	IsReplica        bool      `json:"isReplica" example:"true"`
+	Hosts            []string  `json:"hosts" example:"192.168.0.1,192.168.0.2,192.168.0.3,192.168.0.4"`
+	Shards           []CkShard `json:"shards" swaggerignore:"true"`
+	ZkNodes          []string  `json:"zkNodes" example:"192.168.0.1,192.168.0.2,192.168.0.3"`
+	ZkPort           int       `json:"zkPort" example:"2181"`
+	ZkStatusPort     int       `json:"zkStatusPort" example:"8080"`
+	User             string    `json:"user" example:"ck"`
+	Password         string    `json:"password" example:"123456"`
+	Path             string    `json:"path" example:"/var/lib/"`
+	SshUser          string    `json:"sshUser" example:"root"`
+	AuthenticateType int       `json:"sshPasswdFlag" example:"0"`
+	SshPassword      string    `json:"sshPassword" example:"123456"`
+	SshPort          int       `json:"sshPort" example:"22"`
 	Storage          *Storage
-	UsersConf        UsersConf
+	UsersConf        UsersConf `swaggerignore:"true"`
 
 	// don't need to regist to schema
-	Mode     string            `json:"mode"`
-	HttpPort int               `json:"httpPort"`
-	ZooPath  map[string]string `json:"zooPath"`
+	Mode     string            `json:"mode" swaggerignore:"true"`
+	HttpPort int               `json:"httpPort" swaggerignore:"true"`
+	ZooPath  map[string]string `json:"zooPath" swaggerignore:"true"`
 }
 
 // Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes
@@ -97,11 +97,11 @@ type Storage struct {
 }
 
 type Disk struct {
-	Name      string
-	Type      string
-	DiskLocal *DiskLocal
+	Name      string `example:"hdfs1"`
+	Type      string `example:"hdfs"`
+	DiskLocal *DiskLocal `swaggerignore:"true"`
 	DiskHdfs  *DiskHdfs
-	DiskS3    *DiskS3
+	DiskS3    *DiskS3	`swaggerignore:"true"`
 }
 
 type DiskLocal struct {
@@ -110,7 +110,7 @@ type DiskLocal struct {
 }
 
 type DiskHdfs struct {
-	Endpoint string
+	Endpoint string `example:"hdfs://localhost:8020/clickhouse/data/test/"`
 }
 
 type DiskS3 struct {
@@ -123,17 +123,17 @@ type DiskS3 struct {
 }
 
 type Policy struct {
-	Name       string
+	Name       string `example:"hdfs_only"`
 	Volumns    []Volumn
-	MoveFactor *float32
+	MoveFactor *float32 `example:"0.1"`
 }
 
 type Volumn struct {
-	Name string
+	Name string `example:"main"`
 	// Every disk shall be in storage.Disks
-	Disks                []string
-	MaxDataPartSizeBytes *int64
-	PreferNotToMerge     *string
+	Disks                []string `example:"default,hdfs1"`
+	MaxDataPartSizeBytes *int64   `example:"10000000"`
+	PreferNotToMerge     *string  `example:"true"`
 }
 
 // Refers to https://clickhouse.tech/docs/en/operations/settings/settings-users/
