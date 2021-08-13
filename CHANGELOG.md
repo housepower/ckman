@@ -1,3 +1,8 @@
+# v2.1.0
+- newly frontend ui in create cluster
+- support storage policy
+- fix since v21.6.6.51, install clickhouse will ask for password with default issue
+
 # v2.0.0
 - single node online & offline
 - do not save sshPassword if necessary
