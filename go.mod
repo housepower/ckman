@@ -5,7 +5,6 @@ go 1.16
 require (
 	github.com/ClickHouse/clickhouse-go v1.4.5
 	github.com/MakeNowJust/heredoc v1.0.0
-	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/choidamdam/gin-static-pkger v0.0.0-20201119021339-c0f138638274
 	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/davecgh/go-spew v1.1.1
@@ -28,7 +27,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.0
 	github.com/swaggo/gin-swagger v1.3.0
-	github.com/swaggo/swag v1.7.0
+	github.com/swaggo/swag v1.7.1
 	github.com/txn2/txeh v1.3.0
 	github.com/valyala/fastjson v1.6.3
 	go.uber.org/zap v1.17.0

@@ -95,7 +95,7 @@ func (d *DeployController) syncUpClusters(c *gin.Context) (err error) {
 // @Description Deploy clickhouse
 // @version 1.0
 // @Security ApiKeyAuth
-// @Param req body model.DeployCkReq true "request body"
+// @Param req body model.CKManClickHouseConfig true "request body"
 // @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
 // @Failure 200 {string} json "{"retCode":"5011","retMsg":"init package failed","entity":""}"
 // @Failure 200 {string} json "{"retCode":"5012","retMsg":"prepare package failed","entity":""}"

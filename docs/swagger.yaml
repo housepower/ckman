@@ -71,43 +71,60 @@ definitions:
           type: string
         type: array
     type: object
-  model.CkDeployConfig:
+  model.CKManClickHouseConfig:
     properties:
-      ckHttpPort:
-        example: 8123
-        type: integer
-      ckTcpPort:
-        example: 9000
-        type: integer
-      clusterName:
+      cluster:
         example: test
         type: string
+      hosts:
+        example:
+        - 192.168.0.1
+        - 192.168.0.2
+        - 192.168.0.3
+        - 192.168.0.4
+        items:
+          type: string
+        type: array
       isReplica:
+        example: true
         type: boolean
       logic_cluster:
         example: logic_test
-        type: string
-      packageVersion:
-        example: 20.8.5.45
         type: string
       password:
         example: "123456"
         type: string
       path:
-        example: /data01/
+        example: /var/lib/
         type: string
-      shards:
-        items:
-          $ref: '#/definitions/model.CkShard'
-        type: array
+      port:
+        example: 9000
+        type: integer
+      sshPasswdFlag:
+        example: 0
+        type: integer
+      sshPassword:
+        example: "123456"
+        type: string
+      sshPort:
+        example: 22
+        type: integer
+      sshUser:
+        example: root
+        type: string
+      storage:
+        $ref: '#/definitions/model.Storage'
       user:
         example: ck
         type: string
+      version:
+        example: 21.9.1.7647
+        type: string
       zkNodes:
         example:
-        - 192.168.101.102
-        - 192.168.101.105
-        - 192.168.101.107
+        - 192.168.0.1
+        - 192.168.0.2
+        - 192.168.0.3
         items:
           type: string
         type: array
@@ -156,19 +173,6 @@ definitions:
       zkStatusPort:
         example: 8080
         type: integer
-    type: object
-  model.CkReplica:
-    properties:
-      ip:
-        example: 192.168.101.105
-        type: string
-    type: object
-  model.CkShard:
-    properties:
-      replicas:
-        items:
-          $ref: '#/definitions/model.CkReplica'
-        type: array
     type: object
   model.CkTableNameType:
     properties:
@@ -262,30 +266,21 @@ definitions:
         example: test_table
         type: string
     type: object
-  model.DeployCkReq:
+  model.Disk:
     properties:
-      clickhouse:
-        $ref: '#/definitions/model.CkDeployConfig'
-      hosts:
-        example:
-        - 192.168.101.105
-        items:
-          type: string
-        type: array
-      password:
-        example: "123456"
+      diskHdfs:
+        $ref: '#/definitions/model.DiskHdfs'
+      name:
+        example: hdfs1
         type: string
-      savePassword:
-        example: true
-        type: boolean
-      sshPort:
-        example: 22
-        type: integer
-      usePubkey:
-        example: false
-        type: boolean
-      user:
-        example: root
+      type:
+        example: hdfs
+        type: string
+    type: object
+  model.DiskHdfs:
+    properties:
+      endpoint:
+        example: hdfs://localhost:8020/clickhouse/data/test/
         type: string
     type: object
   model.LoginReq:
@@ -309,6 +304,19 @@ definitions:
         example: ck
         type: string
     type: object
+  model.Policy:
+    properties:
+      moveFactor:
+        example: 0.1
+        type: number
+      name:
+        example: hdfs_only
+        type: string
+      volumns:
+        items:
+          $ref: '#/definitions/model.Volumn'
+        type: array
+    type: object
   model.PurgerTableReq:
     properties:
       begin:
@@ -327,6 +335,17 @@ definitions:
         - t3
         items:
           type: string
+        type: array
+    type: object
+  model.Storage:
+    properties:
+      disks:
+        items:
+          $ref: '#/definitions/model.Disk'
+        type: array
+      policies:
+        items:
+          $ref: '#/definitions/model.Policy'
         type: array
     type: object
   model.UpdateConfigReq:
@@ -349,6 +368,26 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  model.Volumn:
+    properties:
+      disks:
+        description: Every disk shall be in storage.Disks
+        example:
+        - default
+        - hdfs1
+        items:
+          type: string
+        type: array
+      maxDataPartSizeBytes:
+        example: 10000000
+        type: integer
+      name:
+        example: main
+        type: string
+      preferNotToMerge:
+        example: "true"
+        type: string
     type: object
 info:
   contact: {}
@@ -1049,7 +1088,7 @@ paths:
         name: req
         required: true
         schema:
-          $ref: '#/definitions/model.DeployCkReq'
+          $ref: '#/definitions/model.CKManClickHouseConfig'
       responses:
         "200":
           description: '{"retCode":"0000","retMsg":"success","entity":nil}'
@@ -1164,6 +1203,17 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Upload package
+  /api/v1/ui/schema:
+    get:
+      description: Get ui schema
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Get ui schema
   /api/v1/version:
     get:
       description: Get Version

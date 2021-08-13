@@ -1079,7 +1079,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DeployCkReq"
+                            "$ref": "#/definitions/model.CKManClickHouseConfig"
                         }
                     }
                 ],
@@ -1251,6 +1251,25 @@
                 "responses": {
                     "200": {
                         "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ui/schema": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get ui schema",
+                "summary": "Get ui schema",
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "type": "string"
                         }
@@ -1438,31 +1457,32 @@
                 }
             }
         },
-        "model.CkDeployConfig": {
+        "model.CKManClickHouseConfig": {
             "type": "object",
             "properties": {
-                "ckHttpPort": {
-                    "type": "integer",
-                    "example": 8123
-                },
-                "ckTcpPort": {
-                    "type": "integer",
-                    "example": 9000
-                },
-                "clusterName": {
+                "cluster": {
                     "type": "string",
                     "example": "test"
                 },
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.0.1",
+                        "192.168.0.2",
+                        "192.168.0.3",
+                        "192.168.0.4"
+                    ]
+                },
                 "isReplica": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "logic_cluster": {
                     "type": "string",
                     "example": "logic_test"
-                },
-                "packageVersion": {
-                    "type": "string",
-                    "example": "20.8.5.45"
                 },
                 "password": {
                     "type": "string",
@@ -1470,17 +1490,38 @@
                 },
                 "path": {
                     "type": "string",
-                    "example": "/data01/"
+                    "example": "/var/lib/"
                 },
-                "shards": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.CkShard"
-                    }
+                "port": {
+                    "type": "integer",
+                    "example": 9000
+                },
+                "sshPasswdFlag": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "sshPassword": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "sshPort": {
+                    "type": "integer",
+                    "example": 22
+                },
+                "sshUser": {
+                    "type": "string",
+                    "example": "root"
+                },
+                "storage": {
+                    "$ref": "#/definitions/model.Storage"
                 },
                 "user": {
                     "type": "string",
                     "example": "ck"
+                },
+                "version": {
+                    "type": "string",
+                    "example": "21.9.1.7647"
                 },
                 "zkNodes": {
                     "type": "array",
@@ -1488,9 +1529,9 @@
                         "type": "string"
                     },
                     "example": [
-                        "192.168.101.102",
-                        "192.168.101.105",
-                        "192.168.101.107"
+                        "192.168.0.1",
+                        "192.168.0.2",
+                        "192.168.0.3"
                     ]
                 },
                 "zkPort": {
@@ -1554,26 +1595,6 @@
                 "zkStatusPort": {
                     "type": "integer",
                     "example": 8080
-                }
-            }
-        },
-        "model.CkReplica": {
-            "type": "object",
-            "properties": {
-                "ip": {
-                    "type": "string",
-                    "example": "192.168.101.105"
-                }
-            }
-        },
-        "model.CkShard": {
-            "type": "object",
-            "properties": {
-                "replicas": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.CkReplica"
-                    }
                 }
             }
         },
@@ -1704,40 +1725,28 @@
                 }
             }
         },
-        "model.DeployCkReq": {
+        "model.Disk": {
             "type": "object",
             "properties": {
-                "clickhouse": {
-                    "$ref": "#/definitions/model.CkDeployConfig"
+                "diskHdfs": {
+                    "$ref": "#/definitions/model.DiskHdfs"
                 },
-                "hosts": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "192.168.101.105"
-                    ]
-                },
-                "password": {
+                "name": {
                     "type": "string",
-                    "example": "123456"
+                    "example": "hdfs1"
                 },
-                "savePassword": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "sshPort": {
-                    "type": "integer",
-                    "example": 22
-                },
-                "usePubkey": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "user": {
+                "type": {
                     "type": "string",
-                    "example": "root"
+                    "example": "hdfs"
+                }
+            }
+        },
+        "model.DiskHdfs": {
+            "type": "object",
+            "properties": {
+                "endpoint": {
+                    "type": "string",
+                    "example": "hdfs://localhost:8020/clickhouse/data/test/"
                 }
             }
         },
@@ -1771,6 +1780,25 @@
                 }
             }
         },
+        "model.Policy": {
+            "type": "object",
+            "properties": {
+                "moveFactor": {
+                    "type": "number",
+                    "example": 0.1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "hdfs_only"
+                },
+                "volumns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Volumn"
+                    }
+                }
+            }
+        },
         "model.PurgerTableReq": {
             "type": "object",
             "properties": {
@@ -1796,6 +1824,23 @@
                         "t2",
                         "t3"
                     ]
+                }
+            }
+        },
+        "model.Storage": {
+            "type": "object",
+            "properties": {
+                "disks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Disk"
+                    }
+                },
+                "policies": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Policy"
+                    }
                 }
             }
         },
@@ -1828,6 +1873,34 @@
                     "example": [
                         "192.168.101.105:19090"
                     ]
+                }
+            }
+        },
+        "model.Volumn": {
+            "type": "object",
+            "properties": {
+                "disks": {
+                    "description": "Every disk shall be in storage.Disks",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "default",
+                        "hdfs1"
+                    ]
+                },
+                "maxDataPartSizeBytes": {
+                    "type": "integer",
+                    "example": 10000000
+                },
+                "name": {
+                    "type": "string",
+                    "example": "main"
+                },
+                "preferNotToMerge": {
+                    "type": "string",
+                    "example": "true"
                 }
             }
         }
