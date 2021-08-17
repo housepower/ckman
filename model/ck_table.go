@@ -131,3 +131,8 @@ type CkUpgradeCkReq struct {
 type ShowSchemaRsp struct {
 	CreateTableQuery string `json:"create_table_query"`
 }
+
+type GetConfigRsp struct {
+	Mode   string `json:"mode"`
+	Config string `json:"config"`
+}

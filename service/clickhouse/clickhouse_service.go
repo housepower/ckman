@@ -222,6 +222,7 @@ func MarshalClusters() ([]byte, error) {
 
 func WriteClusterConfigFile(data []byte) error {
 	localFile := path.Join(config.GetWorkDirectory(), "conf", ClickHouseClustersFile)
+	_ = os.Rename(localFile, fmt.Sprintf("%s.last", localFile))
 	localFd, err := os.OpenFile(localFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return errors.Wrapf(err, "")

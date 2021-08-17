@@ -6,5 +6,7 @@ type Deploy interface {
 	Install() error
 	Config() error
 	Start() error
+	Stop() error
+	Restart() error
 	Check() error
 }

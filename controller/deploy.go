@@ -109,7 +109,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
 	params := GetSchemaParams(GET_SCHEMA_UI_DEPLOY, conf)
 	if params == nil {
-		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not regist", GET_SCHEMA_UI_DEPLOY))
+		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not registered", GET_SCHEMA_UI_DEPLOY))
 		return
 	}
 	body, err := ioutil.ReadAll(c.Request.Body)

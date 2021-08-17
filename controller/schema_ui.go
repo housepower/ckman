@@ -237,7 +237,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(disks3, "Expert", &common.Parameter{
 		LabelZH:       "专家模式",
 		LabelEN:       "Expert Mode",
-		DescriptionZH: "专家模式的S3参数",
+		DescriptionZH: "专家模式的S3参数, 请参考: https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-s3",
 		DescriptionEN: "configure S3 params by yourself",
 	})
 
@@ -245,7 +245,6 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(diskhdfs, "Endpoint", &common.Parameter{
 		LabelZH: "HDFS端点URI",
 		LabelEN: "Endpoint",
-		Default: "hdfs://",
 		Regexp:  "^hdfs://.+/$",
 	})
 
@@ -282,7 +281,187 @@ func RegistCreateClusterSchema() common.ConfigParams {
 }
 
 func RegistUpdateConfigSchema() common.ConfigParams {
-	return nil
+	var params common.ConfigParams = make(map[string]*common.Parameter)
+	var conf model.CKManClickHouseConfig
+	params.MustRegister(conf, "SshUser", &common.Parameter{
+		LabelZH:       "系统账户名",
+		LabelEN:       "SSH Username",
+		DescriptionZH: "必须有root或者sudo权限",
+		DescriptionEN: "must have permission with root or sudo",
+	})
+	params.MustRegister(conf, "AuthenticateType", &common.Parameter{
+		LabelZH:       "认证方式",
+		LabelEN:       "Authenticate Type",
+		DescriptionZH: "SSH 访问节点的方式，可使用公钥或者密码",
+		DescriptionEN: "Authenticate type of connect node",
+		Candidates: []common.Candidate{
+			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)",},
+			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)",},
+			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证",},
+		},
+	})
+	params.MustRegister(conf, "SshPassword", &common.Parameter{
+		LabelZH:       "系统账户密码",
+		LabelEN:       "SSH Password",
+		DescriptionZH: "不得为空",
+		DescriptionEN: "can't be empty",
+		Visiable:      "AuthenticateType != '2'",
+		InputType:     common.InputPassword,
+	})
+	params.MustRegister(conf, "SshPort", &common.Parameter{
+		LabelZH:       "SSH 端口",
+		LabelEN:       "SSH Port",
+		DescriptionZH: "不得为空",
+	})
+	params.MustRegister(conf, "User", &common.Parameter{
+		LabelZH:       "ClickHouse 用户名",
+		LabelEN:       "ClickHouse Username",
+		DescriptionZH: "不能是default用户",
+		DescriptionEN: "can not be default",
+	})
+	params.MustRegister(conf, "Password", &common.Parameter{
+		LabelZH:       "ClickHouse 用户密码",
+		LabelEN:       "ClickHouse Password",
+		DescriptionZH: "不能为空",
+		DescriptionEN: "can't be empty",
+		InputType:     common.InputPassword,
+	})
+	params.MustRegister(conf, "Port", &common.Parameter{
+		LabelZH: "TCP端口",
+		LabelEN: "TCPPort",
+	})
+	params.MustRegister(conf, "Storage", &common.Parameter{
+		LabelZH:       "集群存储配置",
+		LabelEN:       "Storage Policy",
+		DescriptionZH: "由disks, policies两部分构成。policies提到的disk名必须在disks中定义。ClickHouse内置了名为default的policy和disk。",
+		DescriptionEN: "Composed of Disks, Policies. The Disk name mentioned by Policies must be defined in Disks. Clickhouse has built-in Policy and Disk named Default. ",
+	})
+
+	var storage model.Storage
+	params.MustRegister(storage, "Disks", &common.Parameter{
+		LabelZH:       "硬盘列表",
+		LabelEN:       "Disk List",
+		DescriptionZH: "定义的disks，如果磁盘中有数据，则不允许删除该磁盘",
+		DescriptionEN: "defined Disks, it's not allow to detele disk which have data yet",
+		Required:      "false",
+	})
+	params.MustRegister(storage, "Policies", &common.Parameter{
+		LabelZH: "存储策略列表",
+		LabelEN: "Policies List",
+		Required:"false",
+	})
+
+	var disk model.Disk
+	params.MustRegister(disk, "Name", &common.Parameter{
+		LabelZH: "磁盘名称",
+		LabelEN: "Name",
+	})
+	params.MustRegister(disk, "Type", &common.Parameter{
+		LabelZH: "硬盘类型",
+		LabelEN: "Disk Type",
+		Default: "local",
+		Candidates: []common.Candidate{
+			{Value: "local", LabelEN: "Local", LabelZH: "本地磁盘"},
+			{Value: "s3", LabelEN: "AWS S3", LabelZH: "AWS S3"},
+			{Value: "hdfs", LabelEN: "HDFS", LabelZH: "HDFS"},
+		},
+	})
+	params.MustRegister(disk, "DiskLocal", &common.Parameter{
+		LabelZH:  "本地硬盘",
+		LabelEN:  "Local",
+		Visiable: "Type == 'local'",
+	})
+	params.MustRegister(disk, "DiskS3", &common.Parameter{
+		LabelZH:  "AWS S3",
+		LabelEN:  "AWS S3",
+		Visiable: "Type == 's3'",
+	})
+	params.MustRegister(disk, "DiskHdfs", &common.Parameter{
+		LabelZH:  "HDFS",
+		LabelEN:  "HDFS",
+		Visiable: "Type == 'hdfs'",
+	})
+
+	var disklocal model.DiskLocal
+	params.MustRegister(disklocal, "Path", &common.Parameter{
+		LabelZH: "挂载路径",
+		LabelEN: "Amount Path",
+		DescriptionZH: "必须存在，clickhouse用户可访问， 且必须以'/'开头和结尾",
+		DescriptionEN: "need exist, can be accessed by clickhouse, and must begin and end with '/'",
+		Regexp:  "^/.+/$",
+	})
+	params.MustRegister(disklocal, "KeepFreeSpaceBytes", &common.Parameter{
+		LabelZH: "保留空闲空间大小",
+		LabelEN: "KeepFreeSpaceBytes",
+	})
+
+	var disks3 model.DiskS3
+	params.MustRegister(disks3, "Endpoint", &common.Parameter{
+		LabelZH: "S3端点URI",
+		LabelEN: "Endpoint",
+		Regexp:  "^(http|https)://.+/$",
+	})
+
+	params.MustRegister(disks3, "AccessKeyID", &common.Parameter{
+		LabelZH: "AccessKeyID",
+		LabelEN: "AccessKeyID",
+	})
+	params.MustRegister(disks3, "SecretAccessKey", &common.Parameter{
+		LabelZH: "SecretAccessKey",
+		LabelEN: "SecretAccessKey",
+	})
+	params.MustRegister(disks3, "Region", &common.Parameter{
+		LabelZH: "Region",
+		LabelEN: "Region",
+	})
+	params.MustRegister(disks3, "UseEnvironmentCredentials", &common.Parameter{
+		LabelZH: "UseEnvironmentCredentials",
+		LabelEN: "UseEnvironmentCredentials",
+	})
+	params.MustRegister(disks3, "Expert", &common.Parameter{
+		LabelZH:       "专家模式",
+		LabelEN:       "Expert Mode",
+		DescriptionZH: "专家模式的S3参数, 请参考: https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-s3",
+		DescriptionEN: "configure S3 params by yourself",
+	})
+
+	var diskhdfs model.DiskHdfs
+	params.MustRegister(diskhdfs, "Endpoint", &common.Parameter{
+		LabelZH: "HDFS端点URI",
+		LabelEN: "Endpoint",
+		Regexp:  "^hdfs://.+/$",
+	})
+
+	var policy model.Policy
+	params.MustRegister(policy, "Name", &common.Parameter{
+		LabelZH: "策略名称",
+		LabelEN: "Name",
+	})
+	params.MustRegister(policy, "Volumns", &common.Parameter{
+		LabelZH: "卷",
+		LabelEN: "Volumns",
+	})
+	params.MustRegister(policy, "MoveFactor", &common.Parameter{
+		LabelZH:       "空闲占比阈值",
+		DescriptionZH: "当一个volume空闲空间占比小于此值时，移动部分parts到下一个volume",
+		Range:         &common.Range{Min: 0.0, Max: 1.0, Step: 0.1},
+	})
+
+	var vol model.Volumn
+	params.MustRegister(vol, "Name", &common.Parameter{
+		LabelZH: "卷名称",
+		LabelEN: "Name",
+	})
+	params.MustRegister(vol, "Disks", &common.Parameter{
+		LabelZH: "磁盘",
+		LabelEN: "Disks",
+	})
+	params.MustRegister(vol, "MaxDataPartSizeBytes", &common.Parameter{
+		LabelZH: "MaxDataPartSizeBytes",
+		LabelEN: "MaxDataPartSizeBytes",
+	})
+
+	return params
 }
 
 func (ui *SchemaUIController) RegistSchemaInstance() {
@@ -326,13 +505,15 @@ func GetSchemaParams(typo string, conf model.CKManClickHouseConfig)common.Config
 		return nil
 	}
 
-	// get version list every time
-	params.MustRegister(conf, "Version", &common.Parameter{
-		LabelZH:       "ClickHouse版本",
-		LabelEN:       "Package Version",
-		DescriptionZH: "需要部署的ClickHouse集群的版本号，需提前上传安装包",
-		DescriptionEN: "which version of clickhouse will deployed, need upload rpm package before",
-		Candidates: getVersionLists(),
-	})
+	if typo == GET_SCHEMA_UI_DEPLOY {
+		// get version list every time
+		params.MustRegister(conf, "Version", &common.Parameter{
+			LabelZH:       "ClickHouse版本",
+			LabelEN:       "Package Version",
+			DescriptionZH: "需要部署的ClickHouse集群的版本号，需提前上传安装包",
+			DescriptionEN: "which version of clickhouse will deployed, need upload rpm package before",
+			Candidates:    getVersionLists(),
+		})
+	}
 	return params
 }
