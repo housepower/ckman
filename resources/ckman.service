@@ -4,6 +4,7 @@ Requires=network-online.target
 After=network-online.target
 
 [Service]
+Environment="HOME=%h"
 Type=forking
 Restart=always
 RestartSec=30
