@@ -22,7 +22,7 @@ ckman支持多中心部署，使用nacos进行配置同步，可以对多个集�
 
 ### 编译命令
 
-`ckman`依赖`golang`(推荐`1.16`)，需要提前安装好, `Linux`和`MacOS`下编译命令都是一样的：
+`ckman`依赖`golang`(推荐`1.17`)，需要提前安装好, `Linux`和`MacOS`下编译命令都是一样的：
 
 ```bash
 make package VERSION=x.x.x   

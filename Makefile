@@ -36,8 +36,8 @@ backend:
 .PHONY: pre
 pre:
 	go mod tidy
-	go get github.com/markbates/pkger/cmd/pkger
-	go get github.com/swaggo/swag/cmd/swag
+	go install github.com/markbates/pkger/cmd/pkger@v0.17.1
+	go install github.com/swaggo/swag/cmd/swag@v1.7.1
 
 .PHONY: build
 build:pre
@@ -80,11 +80,11 @@ package:build
 .PHONY: docker-build
 docker-build:
 	rm -rf ${PKGDIR}-*.tar.gz
-	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct eoitek/ckman-build:go-1.16 make package VERSION=${VERSION}
+	docker run --rm -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct eoitek/ckman-build:go-1.17 make package VERSION=${VERSION}
 
 .PHONY: docker-sh
 docker-sh:
-	docker run --rm  -it -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct eoitek/ckman-build:go-1.16 bash
+	docker run --rm  -it -v "$$PWD":/var/ckman -w /var/ckman -e GO111MODULE=on -e GOPROXY=https://goproxy.cn,direct eoitek/ckman-build:go-1.17 bash
 
 .PHONY: rpm
 rpm:build
