@@ -2,15 +2,16 @@ package controller
 
 import (
 	"fmt"
-	"github.com/housepower/ckman/business"
-	"github.com/housepower/ckman/common"
-	"github.com/pkg/errors"
-	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/housepower/ckman/business"
+	"github.com/housepower/ckman/common"
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/housepower/ckman/service/nacos"
 
@@ -145,7 +146,7 @@ func (ck *ClickHouseController) DeleteCluster(c *gin.Context) {
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS,  nil)
+	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
 // @Summary Get config of a ClickHouse cluster
@@ -502,7 +503,7 @@ func (ck *ClickHouseController) UpgradeCluster(c *gin.Context) {
 	var req model.CkUpgradeCkReq
 	clusterName := c.Param(ClickHouseClusterPath)
 
-	req.SkipSameVersion = true // skip the same version default
+	req.SkipSameVersion = true           // skip the same version default
 	req.Policy = model.UpgradePolicyFull // use full policy default
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
@@ -1369,7 +1370,7 @@ func verifySshPassword(c *gin.Context, conf *model.CKManClickHouseConfig, sshUse
 // @Failure 200 {string} json "{"retCode":"5017", "retMsg":"config cluster failed", "entity":"error"}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":nil}"
 // @Router /api/v1/ck/config/{clusterName} [post]
-func (ck *ClickHouseController) ClusterSetting(c *gin.Context){
+func (ck *ClickHouseController) ClusterSetting(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
 	params := GetSchemaParams(GET_SCHEMA_UI_DEPLOY, conf)
 	if params == nil {
@@ -1424,7 +1425,7 @@ func (ck *ClickHouseController) ClusterSetting(c *gin.Context){
 // @Failure 200 {string} json "{"retCode":"5065", "retMsg":"get ClickHouse cluster information failed", "entity":"error"}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":nil}"
 // @Router /api/v1/ck/config/{clusterName} [get]
-func (ck *ClickHouseController)GetConfig(c *gin.Context){
+func (ck *ClickHouseController) GetConfig(c *gin.Context) {
 	var err error
 	var resp model.GetConfigRsp
 	params, ok := SchemaUIMapping[GET_SCHEMA_UI_CONFIG]
@@ -1451,7 +1452,7 @@ func (ck *ClickHouseController)GetConfig(c *gin.Context){
 	model.WrapMsg(c, model.SUCCESS, resp)
 }
 
-func checkConfigParams(conf *model.CKManClickHouseConfig)error{
+func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	con, ok := clickhouse.CkClusters.GetClusterByName(conf.Cluster)
 	if !ok {
 		return errors.Errorf("cluster %s is not exist", conf.Cluster)
@@ -1522,7 +1523,7 @@ func checkConfigParams(conf *model.CKManClickHouseConfig)error{
 	return nil
 }
 
-func mergeClickhouseConfig(conf *model.CKManClickHouseConfig)(bool, error){
+func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	restart := false
 	cluster, ok := clickhouse.CkClusters.GetClusterByName(conf.Cluster)
 	if !ok {
@@ -1549,13 +1550,15 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig)(bool, error){
 		if err != nil {
 			return false, err
 		}
-		for i := 1; i < len(data); i++{
-			disk,_ := data[i][0].(string)
-			used,_ := data[i][1].(int64)
+		for i := 1; i < len(data); i++ {
+			disk, _ := data[i][0].(string)
+			used, _ := data[i][1].(int64)
 			diskMapping[disk] = used
 		}
-		for _, disk := range conf.Storage.Disks {
-			delete(diskMapping, disk.Name)
+		if conf.Storage != nil {
+			for _, disk := range conf.Storage.Disks {
+				delete(diskMapping, disk.Name)
+			}
 		}
 		//if still in the map, means will delete it
 		for k, v := range diskMapping {
