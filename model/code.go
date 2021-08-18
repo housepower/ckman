@@ -17,6 +17,7 @@ const (
 	CONFIG_PACKAGE_FAIL         = "5014"
 	START_PACKAGE_FAIL          = "5015"
 	CHECK_PACKAGE_FAIL          = "5016"
+	CONFIG_CLUSTER_FAIL         = "5017"
 	JWT_TOKEN_EXPIRED           = "5020"
 	JWT_TOKEN_INVALID           = "5021"
 	JWT_TOKEN_NONE              = "5022"
@@ -58,5 +59,5 @@ const (
 	SHOW_SCHEMA_ERROR           = "5205"
 	GET_SCHEMA_UI_FAILED        = "5206"
 
-	UNKNOWN                     = "9999"
+	UNKNOWN = "9999"
 )

@@ -424,6 +424,28 @@ func (d *CKDeploy) Stop() error {
 	return nil
 }
 
+func (d *CKDeploy) Restart() error {
+	var lastError error
+	for _, host := range d.Hosts {
+		innerHost := host
+		_ = d.Pool.Submit(func() {
+			cmd := "systemctl restart clickhouse-server"
+			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd)
+			if err != nil {
+				lastError = err
+				return
+			}
+			log.Logger.Debugf("host %s restart done", innerHost)
+		})
+	}
+	d.Pool.Wait()
+	if lastError != nil {
+		return lastError
+	}
+	log.Logger.Infof("restart done")
+	return nil
+}
+
 func (d *CKDeploy) Check() error {
 	time.Sleep(5 * time.Second)
 
@@ -845,6 +867,26 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 
 	conf.Hosts = hosts
 	conf.Shards = shards
+	return nil
+}
+
+func ConfigCkCluster(conf *model.CKManClickHouseConfig, restart bool)error {
+	d := ConvertCKDeploy(conf)
+	if err := d.Init(); err != nil {
+		return err
+	}
+	if err := d.Config(); err != nil {
+		return err
+	}
+
+	if restart {
+		if err := d.Restart(); err != nil {
+			return err
+		}
+		if err := d.Check(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

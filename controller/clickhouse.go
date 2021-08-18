@@ -6,7 +6,10 @@ import (
 	"github.com/housepower/ckman/common"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
+	"io/ioutil"
+	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/housepower/ckman/service/nacos"
@@ -1355,4 +1358,229 @@ func verifySshPassword(c *gin.Context, conf *model.CKManClickHouseConfig, sshUse
 		conf.SshPassword = password
 	}
 	return nil
+}
+
+// @Summary  cluster setting
+// @Description update cluster config
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param req body model.ArchiveTableReq true "request body"
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":"5017", "retMsg":"config cluster failed", "entity":"error"}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":nil}"
+// @Router /api/v1/ck/config/{clusterName} [post]
+func (ck *ClickHouseController) ClusterSetting(c *gin.Context){
+	var conf model.CKManClickHouseConfig
+	params := GetSchemaParams(GET_SCHEMA_UI_DEPLOY, conf)
+	if params == nil {
+		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not registered", GET_SCHEMA_UI_DEPLOY))
+		return
+	}
+	body, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf.Cluster = clusterName
+	err = params.UnmarshalConfig(string(body), &conf)
+	if err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+
+	if err := checkConfigParams(&conf); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+
+	if err = ck.syncDownClusters(c); err != nil {
+		return
+	}
+	restart, err := mergeClickhouseConfig(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.CONFIG_CLUSTER_FAIL, err)
+		return
+	}
+
+	if err = deploy.ConfigCkCluster(&conf, restart); err != nil {
+		model.WrapMsg(c, model.CONFIG_CLUSTER_FAIL, err)
+		return
+	}
+	clickhouse.CkClusters.SetClusterByName(conf.Cluster, conf)
+	if err = ck.syncUpClusters(c); err != nil {
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, nil)
+}
+
+// @Summary  get cluster config
+// @Description get cluster config
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param req body model.ArchiveTableReq true "request body"
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":"5065", "retMsg":"get ClickHouse cluster information failed", "entity":"error"}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":nil}"
+// @Router /api/v1/ck/config/{clusterName} [get]
+func (ck *ClickHouseController)GetConfig(c *gin.Context){
+	var err error
+	var resp model.GetConfigRsp
+	params, ok := SchemaUIMapping[GET_SCHEMA_UI_CONFIG]
+	if !ok {
+		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s does not registered", GET_SCHEMA_UI_CONFIG))
+	}
+	clusterName := c.Param(ClickHouseClusterPath)
+	if err = ck.syncDownClusters(c); err != nil {
+		return
+	}
+	var cluster model.CKManClickHouseConfig
+	cluster, ok = clickhouse.CkClusters.GetClusterByName(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, nil)
+		return
+	}
+	data, err := params.MarshalConfig(cluster)
+	if err != nil {
+		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, nil)
+		return
+	}
+	resp.Mode = cluster.Mode
+	resp.Config = data
+	model.WrapMsg(c, model.SUCCESS, resp)
+}
+
+func checkConfigParams(conf *model.CKManClickHouseConfig)error{
+	con, ok := clickhouse.CkClusters.GetClusterByName(conf.Cluster)
+	if !ok {
+		return errors.Errorf("cluster %s is not exist", conf.Cluster)
+	}
+	if conf.User == "" || conf.Password == "" {
+		return errors.Errorf("user or password must not be empty")
+	}
+	if conf.User == model.ClickHouseRetainUser {
+		return errors.Errorf("clickhouse user must not be default")
+	}
+
+	if conf.SshUser == "" {
+		return errors.Errorf("ssh user must not be empty")
+	}
+
+	if conf.AuthenticateType != model.SshPasswordUsePubkey && conf.SshPassword == "" {
+		return errors.Errorf("ssh password must not be empty")
+	}
+
+	disks := make([]string, 0)
+	disks = append(disks, "default")
+	if conf.Storage != nil {
+		for _, disk := range conf.Storage.Disks {
+			disks = append(disks, disk.Name)
+			switch disk.Type {
+			case "local":
+				if !strings.HasSuffix(disk.DiskLocal.Path, "/") {
+					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+				}
+				if err := checkAccess(disk.DiskLocal.Path, conf); err != nil {
+					return err
+				}
+			case "hdfs":
+				if !strings.HasSuffix(disk.DiskHdfs.Endpoint, "/") {
+					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+				}
+				vers := strings.Split(con.Version, ".")
+				major, err := strconv.Atoi(vers[0])
+				if err != nil {
+					return err
+				}
+				minor, err := strconv.Atoi(vers[1])
+				if err != nil {
+					return err
+				}
+				if major < 21 || (major == 21 && minor < 9) {
+					return errors.Errorf("clickhouse do not support hdfs storage policy while version < 21.9 ")
+				}
+			case "s3":
+				if !strings.HasSuffix(disk.DiskS3.Endpoint, "/") {
+					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+				}
+			default:
+				return errors.Errorf("unsupport disk type %s", disk.Type)
+			}
+		}
+		for _, policy := range conf.Storage.Policies {
+			for _, vol := range policy.Volumns {
+				for _, disk := range vol.Disks {
+					if !common.ArraySearch(disk, disks) {
+						return errors.Errorf("invalid disk in policy %s", disk)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func mergeClickhouseConfig(conf *model.CKManClickHouseConfig)(bool, error){
+	restart := false
+	cluster, ok := clickhouse.CkClusters.GetClusterByName(conf.Cluster)
+	if !ok {
+		return false, errors.Errorf("cluster %s is not exist", conf.Cluster)
+	}
+	storageChanged := !reflect.DeepEqual(cluster.Storage, conf.Storage)
+	if cluster.Port == conf.Port &&
+		cluster.AuthenticateType == conf.AuthenticateType &&
+		cluster.SshUser == conf.SshUser &&
+		cluster.SshPassword == conf.SshPassword &&
+		cluster.SshPort == conf.SshPort &&
+		cluster.User == conf.User &&
+		cluster.Password == conf.Password && !storageChanged {
+		return false, errors.Errorf("all config are the same, it's no need to update")
+	}
+	if storageChanged {
+		diskMapping := make(map[string]int64)
+		query := "SELECT disk_name, SUM(bytes_on_disk) AS used FROM system.parts WHERE disk_name != 'default' GROUP BY disk_name"
+		svr := clickhouse.NewCkService(&cluster)
+		if err := svr.InitCkService(); err != nil {
+			return false, err
+		}
+		data, err := svr.QueryInfo(query)
+		if err != nil {
+			return false, err
+		}
+		for i := 1; i < len(data); i++{
+			disk,_ := data[i][0].(string)
+			used,_ := data[i][1].(int64)
+			diskMapping[disk] = used
+		}
+		for _, disk := range conf.Storage.Disks {
+			delete(diskMapping, disk.Name)
+		}
+		//if still in the map, means will delete it
+		for k, v := range diskMapping {
+			if v > 0 {
+				return false, errors.Errorf("There's data on disk %v, can't delete it", k)
+			}
+		}
+	}
+
+	//merge conf
+	cluster.Port = conf.Port
+	cluster.AuthenticateType = conf.AuthenticateType
+	cluster.SshUser = conf.SshUser
+	cluster.SshPassword = conf.SshPassword
+	cluster.SshPort = conf.SshPort
+	cluster.User = conf.User
+	cluster.Password = conf.Password
+	cluster.Storage = conf.Storage
+	if err := common.DeepCopyByGob(conf, cluster); err != nil {
+		return false, err
+	}
+
+	//need restart
+	if cluster.Port != conf.Port || storageChanged {
+		restart = true
+	}
+	return restart, nil
 }

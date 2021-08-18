@@ -49,6 +49,8 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, prom *pr
 	groupV1.POST(fmt.Sprintf("/ck/ping/:%s", controller.ClickHouseClusterPath), ckController.PingCluster)
 	groupV1.POST(fmt.Sprintf("/ck/purge_tables/:%s", controller.ClickHouseClusterPath), ckController.PurgeTables)
 	groupV1.POST(fmt.Sprintf("/ck/archive/:%s", controller.ClickHouseClusterPath), ckController.ArchiveToHDFS)
+	groupV1.GET(fmt.Sprintf("/ck/config/:%s", controller.ClickHouseClusterPath), ckController.GetConfig)
+	groupV1.POST(fmt.Sprintf("/ck/config/:%s", controller.ClickHouseClusterPath), ckController.ClusterSetting)
 	groupV1.GET(fmt.Sprintf("/zk/status/:%s", controller.ClickHouseClusterPath), zkController.GetStatus)
 	groupV1.GET(fmt.Sprintf("/zk/replicated_table/:%s", controller.ClickHouseClusterPath), zkController.GetReplicatedTableStatus)
 	groupV1.POST("/package", packageController.Upload)
