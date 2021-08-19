@@ -296,11 +296,22 @@ func (d *CKDeploy) Config() error {
 		}
 	}
 
+	if d.Conf.MergeTreeConf != nil {
+		mergetree, err := GenerateMergeTreeXML(path.Join(config.GetWorkDirectory(), "package", "merge_tree.xml"), d.Conf.MergeTreeConf)
+		if err != nil {
+			return err
+		}
+		if mergetree != "" {
+			files = append(files, mergetree)
+		}
+	}
+
 	var lastError error
 	for index, host := range d.Hosts {
 		innerIndex := index
 		innerHost := host
 		_ = d.Pool.Submit(func() {
+			files := files
 			configTemplate.MaxMemoryPerQuery = int64((d.HostInfos[innerIndex].MemoryTotal / 2) * 1e3)
 			configTemplate.MaxMemoryAllQuery = int64(((d.HostInfos[innerIndex].MemoryTotal * 3) / 4) * 1e3)
 			configTemplate.MaxBytesGroupBy = int64((d.HostInfos[innerIndex].MemoryTotal / 4) * 1e3)
@@ -334,6 +345,9 @@ func (d *CKDeploy) Config() error {
 			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml", macrosFile.BaseName))
 			if d.Conf.Storage != nil {
 				cmds = append(cmds, "mv /etc/clickhouse-server/storage.xml /etc/clickhouse-server/config.d/storage.xml")
+			}
+			if d.Conf.MergeTreeConf != nil {
+				cmds = append(cmds, "mv /etc/clickhouse-server/merge_tree.xml /etc/clickhouse-server/config.d/merge_tree.xml")
 			}
 			cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
 			cmd := strings.Join(cmds, ";")
@@ -999,6 +1013,7 @@ func ConvertCKDeploy(conf *model.CKManClickHouseConfig) *CKDeploy {
 			IsReplica:      conf.IsReplica,
 			LogicCluster:   conf.LogicCluster,
 			Storage:        conf.Storage,
+			MergeTreeConf:  conf.MergeTreeConf,
 		},
 	}
 

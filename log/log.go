@@ -16,7 +16,7 @@ func InitLogger(path string, config *config.CKManLogConfig) {
 	_ = level.UnmarshalText([]byte(config.Level))
 	core := zapcore.NewCore(encoder, writeSyncer, level)
 
-	logger := zap.New(core, zap.AddCaller())
+	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
 	Logger = logger.Sugar()
 }
 

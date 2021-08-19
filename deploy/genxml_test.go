@@ -33,12 +33,12 @@ func TestGenerateStorageXML(t *testing.T) {
 				},
 			}},
 		},
-		Policies:[]model.Policy{
+		Policies: []model.Policy{
 			{
 				Name: "hdfs_only",
-				Volumns:[]model.Volumn{{
-					Name: "main",
-					Disks: []string{"hdfs1"},
+				Volumns: []model.Volumn{{
+					Name:                 "main",
+					Disks:                []string{"hdfs1"},
 					MaxDataPartSizeBytes: &MaxDataPartSizeBytes,
 				}},
 				MoveFactor: &MoveFactor,
@@ -46,14 +46,14 @@ func TestGenerateStorageXML(t *testing.T) {
 			{
 				Name: "default",
 				Volumns: []model.Volumn{{
-					Name: "local",
+					Name:  "local",
 					Disks: []string{"ssd"},
 				}},
 			},
 			{
 				Name: "s3_only",
 				Volumns: []model.Volumn{{
-					Name: "replica",
+					Name:  "replica",
 					Disks: []string{"s3"},
 				}},
 			},
@@ -64,18 +64,17 @@ func TestGenerateStorageXML(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-
 func TestGenerateMacrosXML(t *testing.T) {
 	conf := &model.CkDeployConfig{
 		ClusterName: "abc",
 		Shards: []model.CkShard{
 			{[]model.CkReplica{
-				{Ip:"192.168.101.40", HostName: "vm10140"},
-				{Ip:"192.168.101.41", HostName: "vm10141"},
+				{Ip: "192.168.101.40", HostName: "vm10140"},
+				{Ip: "192.168.101.41", HostName: "vm10141"},
 			}},
 			{[]model.CkReplica{
-				{Ip:"192.168.101.42", HostName: "vm10142"},
-				{Ip:"192.168.101.43", HostName: "vm10143"},
+				{Ip: "192.168.101.42", HostName: "vm10142"},
+				{Ip: "192.168.101.43", HostName: "vm10143"},
 			}},
 		},
 	}
@@ -88,19 +87,50 @@ func TestGenerateMetrikaXML(t *testing.T) {
 		ClusterName: "abc",
 		Shards: []model.CkShard{
 			{[]model.CkReplica{
-				{Ip:"192.168.101.40", HostName: "vm10140"},
-				{Ip:"192.168.101.41", HostName: "vm10141"},
+				{Ip: "192.168.101.40", HostName: "vm10140"},
+				{Ip: "192.168.101.41", HostName: "vm10141"},
 			}},
 			{[]model.CkReplica{
-				{Ip:"192.168.101.42", HostName: "vm10142"},
-				{Ip:"192.168.101.43", HostName: "vm10143"},
+				{Ip: "192.168.101.42", HostName: "vm10142"},
+				{Ip: "192.168.101.43", HostName: "vm10143"},
 			}},
 		},
-		ZkNodes:[]string{"192.168.101.40", "192.168.101.41", "192.168.101.42"},
-		ZkPort: 2181,
+		ZkNodes:   []string{"192.168.101.40", "192.168.101.41", "192.168.101.42"},
+		ZkPort:    2181,
 		CkTcpPort: 9000,
 		IsReplica: true,
 	}
 	_, err := GenerateMetrikaXML("metrika.xml", conf)
+	assert.Nil(t, err)
+}
+
+func TestGenerateMergeTreeXML(t *testing.T) {
+	conf := model.MergeTreeConf{
+		Expert: map[string]string{
+			"max_suspicious_broken_parts":                "5",
+			"parts_to_throw_insert":                      "300",
+			"parts_to_delay_insert":                      "150",
+			"inactive_parts_to_throw_insert":             "0",
+			"inactive_parts_to_delay_insert":             "0",
+			"max_delay_to_insert":                        "1",
+			"max_parts_in_total":                         "100000",
+			"replicated_deduplication_window":            "100",
+			"non_replicated_deduplication_window":        "0",
+			"replicated_deduplication_window_seconds":    "604800",
+			"replicated_fetches_http_connection_timeout": "0",
+			"replicated_fetches_http_send_timeout":       "0",
+			"replicated_fetches_http_receive_timeout":    "0",
+			"old_parts_lifetime":                         "480",
+			"max_bytes_to_merge_at_max_space_in_pool":    "161061273600",
+			"max_bytes_to_merge_at_min_space_in_pool":    "1048576",
+			"merge_max_block_size":                       "8192",
+			"max_part_loading_threads":                   "auto",
+			"max_partitions_to_read":                     "-1",
+			"allow_floating_point_partition_key":         "0",
+			"check_sample_column_is_correct":             "true",
+			"allow_remote_fs_zero_copy_replication":      "1",
+		},
+	}
+	_, err := GenerateMergeTreeXML("merge_tree.xml", &conf)
 	assert.Nil(t, err)
 }
