@@ -1574,6 +1574,9 @@ var doc = `{
                     "type": "string",
                     "example": "logic_test"
                 },
+                "mergeTreeConf": {
+                    "$ref": "#/definitions/model.MergeTreeConf"
+                },
                 "password": {
                     "type": "string",
                     "example": "123456"
@@ -1850,6 +1853,17 @@ var doc = `{
                 "username": {
                     "type": "string",
                     "example": "ckman"
+                }
+            }
+        },
+        "model.MergeTreeConf": {
+            "type": "object",
+            "properties": {
+                "expert": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },

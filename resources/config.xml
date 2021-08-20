@@ -748,8 +748,4 @@
     <!-- <disable_internal_dns_cache>1</disable_internal_dns_cache> -->
     <default_replica_path>/clickhouse/tables/{cluster}/{shard}/{database}/{table}</default_replica_path>
     <default_replica_name>{replica}</default_replica_name>
-
-    <merge_tree>
-        <allow_remote_fs_zero_copy_replication>1</allow_remote_fs_zero_copy_replication>
-    </merge_tree>
 </yandex>

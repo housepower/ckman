@@ -1530,13 +1530,14 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		return false, errors.Errorf("cluster %s is not exist", conf.Cluster)
 	}
 	storageChanged := !reflect.DeepEqual(cluster.Storage, conf.Storage)
+	mergetreeChanged := !reflect.DeepEqual(cluster.MergeTreeConf, conf.MergeTreeConf)
 	if cluster.Port == conf.Port &&
 		cluster.AuthenticateType == conf.AuthenticateType &&
 		cluster.SshUser == conf.SshUser &&
 		cluster.SshPassword == conf.SshPassword &&
 		cluster.SshPort == conf.SshPort &&
 		cluster.User == conf.User &&
-		cluster.Password == conf.Password && !storageChanged {
+		cluster.Password == conf.Password && !storageChanged && !mergetreeChanged {
 		return false, errors.Errorf("all config are the same, it's no need to update")
 	}
 	if storageChanged {
@@ -1577,12 +1578,12 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	cluster.User = conf.User
 	cluster.Password = conf.Password
 	cluster.Storage = conf.Storage
+	cluster.MergeTreeConf = conf.MergeTreeConf
 	if err := common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err
 	}
-
 	//need restart
-	if cluster.Port != conf.Port || storageChanged {
+	if cluster.Port != conf.Port || storageChanged || mergetreeChanged {
 		restart = true
 	}
 	return restart, nil

@@ -194,3 +194,21 @@ func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 	xml.XMLEnd(*d.Conf.LogicCluster, 2)
 	return xml.GetContext(), deploys
 }
+
+func GenerateMergeTreeXML(filename string, mergetree *model.MergeTreeConf)(string, error){
+	if mergetree == nil {
+		return "", nil
+	}
+	xml := common.NewXmlFile(filename)
+	xml.XMLBegin("yandex", 0)
+	xml.XMLBegin("merge_tree", 1)
+	for k, v := range mergetree.Expert {
+		xml.XMLWrite(k, v, 2)
+	}
+	xml.XMLEnd("merge_tree", 1)
+	xml.XMLEnd("yandex", 0)
+	if err := xml.XMLDump(); err != nil {
+		return "", err
+	}
+	return filename, nil
+}
