@@ -12,7 +12,6 @@ import (
 	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/nacos"
 	"io/ioutil"
-	"path"
 	"strconv"
 	"strings"
 )
@@ -198,6 +197,9 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 	if !strings.HasSuffix(conf.Path, "/") {
 		return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.Path))
 	}
+	if err = checkAccess(conf.Path, conf); err != nil {
+		return err
+	}
 
 	disks := make([]string, 0)
 	disks = append(disks, "default")
@@ -274,38 +276,15 @@ func GetShardsbyHosts(hosts []string, isReplica bool) []model.CkShard {
 }
 
 func checkAccess(localPath string, conf *model.CKManClickHouseConfig)error {
-	cmd := fmt.Sprintf("ls -l %s |grep %s", path.Dir(path.Dir(localPath)), path.Base(path.Dir(localPath)))
+	cmd := fmt.Sprintf(`su sshd -s /bin/bash -c "cd %s; echo $?"`, localPath)
 	for _, host := range conf.Hosts {
-		out, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd)
+		output, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd)
 		if err != nil {
 			return err
 		}
-		outputs := strings.Split(out, " ")
-		results := make([]string, 0)
-		for _, output := range outputs {
-			if output != "" {
-				results = append(results, output)
-			}
-		}
-		access := results[0]
-		username := results[2]
-		groupname := results[3]
-		owner := access[1:4]
-		group := access[4:7]
-		other := access[7:10]
-
-		if username == "clickhouse" {
-			if !strings.HasPrefix(owner, "rw") {
-				return errors.Errorf("local path %s have no access to read and write", localPath)
-			}
-		} else if groupname == "clickhouse" {
-			if !strings.HasPrefix(group, "rw") {
-				return errors.Errorf("local path %s have no access to read and write", localPath)
-			}
-		}else {
-			if !strings.HasPrefix(other, "rw") {
-				return errors.Errorf("local path %s have no access to read and write", localPath)
-			}
+		access := strings.Trim(output, "\n")
+		if access == "1" {
+			return errors.Errorf("local path %s have no access to read and write", localPath)
 		}
 	}
 	return nil
