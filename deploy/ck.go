@@ -1,15 +1,13 @@
 package deploy
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
+	"github.com/housepower/ckman/ckconfig"
 	"os"
 	"path"
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/housepower/ckman/service/zookeeper"
@@ -26,25 +24,7 @@ import (
 type CKDeploy struct {
 	DeployBase
 	Conf       *model.CkDeployConfig
-	HostInfos  []HostInfo
-	Ipv6Enable bool
-}
-
-type HostInfo struct {
-	MemoryTotal int
-}
-
-type CkConfigTemplate struct {
-	CkTcpPort         int
-	CkHttpPort        int
-	CkListenHost      string
-	Path              string
-	User              string
-	Password          string
-	ClusterName       string
-	MaxMemoryPerQuery int64
-	MaxMemoryAllQuery int64
-	MaxBytesGroupBy   int64
+	HostInfos  []ckconfig.HostInfo
 }
 
 type CkUpdateNodeParam struct {
@@ -56,11 +36,11 @@ type CkUpdateNodeParam struct {
 
 func (d *CKDeploy) Init() error {
 	d.Conf.Normalize()
-	d.HostInfos = make([]HostInfo, len(d.Hosts))
+	d.HostInfos = make([]ckconfig.HostInfo, len(d.Hosts))
 	HostNameMap := make(map[string]bool)
 	var lock sync.RWMutex
 	var lastError error
-	d.Ipv6Enable = true
+	d.Conf.Ipv6Enable = true
 	for index, host := range d.Hosts {
 		innerIndex := index
 		innerHost := host
@@ -79,11 +59,11 @@ func (d *CKDeploy) Init() error {
 				return
 			}
 
-			info := HostInfo{
+			info := ckconfig.HostInfo{
 				MemoryTotal: total,
 			}
 			d.HostInfos[innerIndex] = info
-			if d.Ipv6Enable {
+			if d.Conf.Ipv6Enable {
 				cmd2 := "test -f /proc/net/if_inet6; echo $?"
 				output, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd2)
 				if err != nil {
@@ -93,7 +73,7 @@ func (d *CKDeploy) Init() error {
 
 				ipv6Enable := strings.Trim(output, "\n")
 				if ipv6Enable == "1" {
-					d.Ipv6Enable = false
+					d.Conf.Ipv6Enable = false
 				}
 			}
 		})
@@ -256,71 +236,47 @@ func (d *CKDeploy) Upgrade() error {
 }
 
 func (d *CKDeploy) Config() error {
-	configTemplate := CkConfigTemplate{
-		CkTcpPort:   d.Conf.CkTcpPort,
-		CkHttpPort:  d.Conf.CkHttpPort,
-		Path:        d.Conf.Path,
-		User:        d.Conf.User,
-		Password:    d.Conf.Password,
-		ClusterName: d.Conf.ClusterName,
-	}
-	if d.Ipv6Enable {
-		configTemplate.CkListenHost = "::"
-	} else {
-		configTemplate.CkListenHost = "0.0.0.0"
+	confFiles := make([]string, 0)
+	userFiles := make([]string, 0)
+
+	if d.Conf.LogicCluster == nil {
+		metrika, err := ckconfig.GenerateMetrikaXML(path.Join(config.GetWorkDirectory(), "package", "metrika.xml"), d.Conf)
+		if err != nil {
+			return err
+		}
+		confFiles = append(confFiles, metrika)
 	}
 
-	files := make([]string, 0)
-	conf, err := ParseConfigTemplate("config.xml", configTemplate)
+	custom, err := ckconfig.GenerateCustomXML(path.Join(config.GetWorkDirectory(), "package", "custom.xml"), d.Conf)
 	if err != nil {
 		return err
 	}
-	files = append(files, conf)
+	confFiles = append(confFiles, custom)
 
-	metrika := ""
-	if d.Conf.LogicCluster == nil {
-		metrika, err = GenerateMetrikaXML(path.Join(config.GetWorkDirectory(), "package", "metrika.xml"), d.Conf)
-		if err != nil {
-			return err
-		}
-		files = append(files, metrika)
+	users,err := ckconfig.GenerateUsersXML(path.Join(config.GetWorkDirectory(), "package", fmt.Sprintf("users_%s.xml", d.Conf.ClusterName)), d.Conf)
+	if err != nil {
+		return err
 	}
-
-	if d.Conf.Storage != nil {
-		storage, err := GenerateStorageXML(path.Join(config.GetWorkDirectory(), "package", "storage.xml"), *d.Conf.Storage)
-		if err != nil {
-			return err
-		}
-		if storage != "" {
-			files = append(files, storage)
-		}
-	}
-
-	if d.Conf.MergeTreeConf != nil {
-		mergetree, err := GenerateMergeTreeXML(path.Join(config.GetWorkDirectory(), "package", "merge_tree.xml"), d.Conf.MergeTreeConf)
-		if err != nil {
-			return err
-		}
-		if mergetree != "" {
-			files = append(files, mergetree)
-		}
-	}
+	userFiles = append(userFiles, users)
 
 	var lastError error
 	for index, host := range d.Hosts {
 		innerIndex := index
 		innerHost := host
 		_ = d.Pool.Submit(func() {
-			files := files
-			configTemplate.MaxMemoryPerQuery = int64((d.HostInfos[innerIndex].MemoryTotal / 2) * 1e3)
-			configTemplate.MaxMemoryAllQuery = int64(((d.HostInfos[innerIndex].MemoryTotal * 3) / 4) * 1e3)
-			configTemplate.MaxBytesGroupBy = int64((d.HostInfos[innerIndex].MemoryTotal / 4) * 1e3)
-			user, err := ParseConfigTemplate("users.xml", configTemplate)
+			confFiles := confFiles
+			userFiles := userFiles
+			profilesFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "profiles")
 			if err != nil {
 				lastError = err
 				return
 			}
-			files = append(files, user)
+			profiles, err := ckconfig.GenerateProfilesXML(profilesFile.FullName, d.HostInfos[innerIndex])
+			if err != nil {
+				lastError = err
+				return
+			}
+			userFiles = append(userFiles, profiles)
 
 			macrosFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "macros")
 			if err != nil {
@@ -328,28 +284,27 @@ func (d *CKDeploy) Config() error {
 				return
 			}
 			defer os.Remove(macrosFile.FullName)
-			macros, err := GenerateMacrosXML(macrosFile.FullName, d.Conf, innerHost)
+			macros, err := ckconfig.GenerateMacrosXML(macrosFile.FullName, d.Conf, innerHost)
 			if err != nil {
 				lastError = err
 				return
 			}
-			files = append(files, macros)
+			confFiles = append(confFiles, macros)
 
-			if err := common.ScpUploadFiles(files, "/etc/clickhouse-server/", d.User, d.Password, innerHost, d.Port); err != nil {
+			if err := common.ScpUploadFiles(confFiles, "/etc/clickhouse-server/config.d/", d.User, d.Password, innerHost, d.Port); err != nil {
+				lastError = err
+				return
+			}
+			if err := common.ScpUploadFiles(userFiles, "/etc/clickhouse-server/users.d/", d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
 				return
 			}
 
 			cmds := make([]string, 0)
-			cmds = append(cmds, "rm -rf /etc/clickhouse-server/config.d/*")
-			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/%s /etc/clickhouse-server/config.d/macros.xml", macrosFile.BaseName))
-			if d.Conf.Storage != nil {
-				cmds = append(cmds, "mv /etc/clickhouse-server/storage.xml /etc/clickhouse-server/config.d/storage.xml")
-			}
-			if d.Conf.MergeTreeConf != nil {
-				cmds = append(cmds, "mv /etc/clickhouse-server/merge_tree.xml /etc/clickhouse-server/config.d/merge_tree.xml")
-			}
+			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/config.d/%s /etc/clickhouse-server/config.d/macros.xml", macrosFile.BaseName))
+			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/users.d/%s /etc/clickhouse-server/users.d/profiles.xml", profilesFile.BaseName))
 			cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
+
 			cmd := strings.Join(cmds, ";")
 			if _, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd); err != nil {
 				lastError = err
@@ -370,7 +325,7 @@ func (d *CKDeploy) Config() error {
 				return err
 			}
 			defer os.Remove(metrikaFile.FullName)
-			m, err := GenerateMetrikaXMLwithLogic(metrikaFile.FullName, deploy.Conf, logicMetrika)
+			m, err := ckconfig.GenerateMetrikaXMLwithLogic(metrikaFile.FullName, deploy.Conf, logicMetrika)
 			if err != nil {
 				return err
 			}
@@ -378,7 +333,7 @@ func (d *CKDeploy) Config() error {
 				innerHost := host
 				deploy := deploy
 				_ = d.Pool.Submit(func() {
-					if err := common.ScpUploadFile(m, "/etc/clickhouse-server/metrika.xml", deploy.User, deploy.Password, innerHost, deploy.Port); err != nil {
+					if err := common.ScpUploadFile(m, "/etc/clickhouse-server/config.d/metrika.xml", deploy.User, deploy.Password, innerHost, deploy.Port); err != nil {
 						lastError = err
 						return
 					}
@@ -486,37 +441,6 @@ func (d *CKDeploy) Check() error {
 	}
 	log.Logger.Infof("check done")
 	return nil
-}
-
-func ParseConfigTemplate(templateFile string, conf CkConfigTemplate) (string, error) {
-	localPath := path.Join(config.GetWorkDirectory(), "template", templateFile)
-
-	data, err := ioutil.ReadFile(localPath)
-	if err != nil {
-		return "", err
-	}
-
-	buf := new(bytes.Buffer)
-	tmpl, err := template.New("tmpl").Parse(string(data))
-	if err != nil {
-		return "", err
-	}
-	if err := tmpl.Execute(buf, conf); err != nil {
-		return "", err
-	}
-
-	tmplFile := path.Join(config.GetWorkDirectory(), "package", templateFile)
-	localFd, err := os.OpenFile(tmplFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return "", err
-	}
-	defer localFd.Close()
-
-	if _, err := localFd.Write(buf.Bytes()); err != nil {
-		return "", err
-	}
-
-	return tmplFile, nil
 }
 
 func UpgradeCkCluster(conf *model.CKManClickHouseConfig, req model.CkUpgradeCkReq) error {
@@ -968,7 +892,7 @@ func ConfigLogicOtherCluster(clusterName string) error {
 			return err
 		}
 		defer os.Remove(logicFile.FullName)
-		m, _ := GenerateMetrikaXMLwithLogic(logicFile.FullName, deploy.Conf, metrika)
+		m, _ := ckconfig.GenerateMetrikaXMLwithLogic(logicFile.FullName, deploy.Conf, metrika)
 		var lastError error
 		for _, host := range d.Hosts {
 			host := host
@@ -1018,4 +942,38 @@ func ConvertCKDeploy(conf *model.CKManClickHouseConfig) *CKDeploy {
 	}
 
 	return deploy
+}
+
+func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
+	var deploys []*CKDeploy
+	xml := common.NewXmlFile("")
+	xml.XMLBegin(*d.Conf.LogicCluster, 2)
+	logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*d.Conf.LogicCluster)
+	if ok {
+		for _, logic := range logics {
+			if logic == d.Conf.ClusterName {
+				// if the operation is addNode or deleteNode, we do not use global config
+				continue
+			}
+			c, _ := clickhouse.CkClusters.GetClusterByName(logic)
+			deploy := ConvertCKDeploy(&c)
+			deploys = append(deploys, deploy)
+		}
+	}
+	deploys = append(deploys, d)
+	for _, deploy := range deploys {
+		for _, shard := range deploy.Conf.Shards {
+			xml.XMLBegin("shard", 3)
+			xml.XMLWrite("internal_replication", d.Conf.IsReplica, 4)
+			for _, replica := range shard.Replicas {
+				xml.XMLBegin("replica", 4)
+				xml.XMLWrite("host", replica.Ip, 5)
+				xml.XMLWrite("port", d.Conf.CkTcpPort, 5)
+				xml.XMLEnd("replica", 4)
+			}
+			xml.XMLEnd("shard", 3)
+		}
+	}
+	xml.XMLEnd(*d.Conf.LogicCluster, 2)
+	return xml.GetContext(), deploys
 }

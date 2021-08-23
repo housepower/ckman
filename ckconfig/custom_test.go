@@ -1,4 +1,4 @@
-package deploy
+package ckconfig
 
 import (
 	"github.com/housepower/ckman/model"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestGenerateStorageXML(t *testing.T) {
+func TestGenerateCustomXML(t *testing.T) {
 	var KeepFreeSpaceBytes int64 = 10000
 	var UseEnvironmentCredentials bool = false
 	var MoveFactor float32 = 0.3
@@ -59,53 +59,7 @@ func TestGenerateStorageXML(t *testing.T) {
 			},
 		},
 	}
-
-	_, err := GenerateStorageXML("storage.xml", storage)
-	assert.Nil(t, err)
-}
-
-func TestGenerateMacrosXML(t *testing.T) {
-	conf := &model.CkDeployConfig{
-		ClusterName: "abc",
-		Shards: []model.CkShard{
-			{[]model.CkReplica{
-				{Ip: "192.168.101.40", HostName: "vm10140"},
-				{Ip: "192.168.101.41", HostName: "vm10141"},
-			}},
-			{[]model.CkReplica{
-				{Ip: "192.168.101.42", HostName: "vm10142"},
-				{Ip: "192.168.101.43", HostName: "vm10143"},
-			}},
-		},
-	}
-	_, err := GenerateMacrosXML("macros.xml", conf, "192.168.101.42")
-	assert.Nil(t, err)
-}
-
-func TestGenerateMetrikaXML(t *testing.T) {
-	conf := &model.CkDeployConfig{
-		ClusterName: "abc",
-		Shards: []model.CkShard{
-			{[]model.CkReplica{
-				{Ip: "192.168.101.40", HostName: "vm10140"},
-				{Ip: "192.168.101.41", HostName: "vm10141"},
-			}},
-			{[]model.CkReplica{
-				{Ip: "192.168.101.42", HostName: "vm10142"},
-				{Ip: "192.168.101.43", HostName: "vm10143"},
-			}},
-		},
-		ZkNodes:   []string{"192.168.101.40", "192.168.101.41", "192.168.101.42"},
-		ZkPort:    2181,
-		CkTcpPort: 9000,
-		IsReplica: true,
-	}
-	_, err := GenerateMetrikaXML("metrika.xml", conf)
-	assert.Nil(t, err)
-}
-
-func TestGenerateMergeTreeXML(t *testing.T) {
-	conf := model.MergeTreeConf{
+	mt := model.MergeTreeConf{
 		Expert: map[string]string{
 			"max_suspicious_broken_parts":                "5",
 			"parts_to_throw_insert":                      "300",
@@ -131,6 +85,27 @@ func TestGenerateMergeTreeXML(t *testing.T) {
 			"allow_remote_fs_zero_copy_replication":      "1",
 		},
 	}
-	_, err := GenerateMergeTreeXML("merge_tree.xml", &conf)
+
+	conf := &model.CkDeployConfig{
+		ClusterName: "abc",
+		Shards: []model.CkShard{
+			{[]model.CkReplica{
+				{Ip: "192.168.101.40", HostName: "vm10140"},
+				{Ip: "192.168.101.41", HostName: "vm10141"},
+			}},
+			{[]model.CkReplica{
+				{Ip: "192.168.101.42", HostName: "vm10142"},
+				{Ip: "192.168.101.43", HostName: "vm10143"},
+			}},
+		},
+		ZkNodes:   []string{"192.168.101.40", "192.168.101.41", "192.168.101.42"},
+		ZkPort:    2181,
+		CkTcpPort: 9000,
+		IsReplica: true,
+		Storage: &storage,
+		MergeTreeConf:&mt,
+		Ipv6Enable: true,
+	}
+	_, err := GenerateCustomXML("custom.xml", conf)
 	assert.Nil(t, err)
 }

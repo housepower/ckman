@@ -13,7 +13,6 @@ require (
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-errors/errors v1.0.1
 	github.com/go-zookeeper/zk v1.0.2
-	github.com/jinzhu/copier v0.3.2
 	github.com/json-iterator/go v1.1.11
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/k0kubun/pp v3.0.1+incompatible
