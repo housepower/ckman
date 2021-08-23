@@ -947,7 +947,8 @@ func ConvertCKDeploy(conf *model.CKManClickHouseConfig) *CKDeploy {
 func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 	var deploys []*CKDeploy
 	xml := common.NewXmlFile("")
-	xml.XMLBegin(*d.Conf.LogicCluster, 2)
+	xml.SetIndent(2)
+	xml.Begin(*d.Conf.LogicCluster)
 	logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*d.Conf.LogicCluster)
 	if ok {
 		for _, logic := range logics {
@@ -963,17 +964,17 @@ func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 	deploys = append(deploys, d)
 	for _, deploy := range deploys {
 		for _, shard := range deploy.Conf.Shards {
-			xml.XMLBegin("shard", 3)
-			xml.XMLWrite("internal_replication", d.Conf.IsReplica, 4)
+			xml.Begin("shard")
+			xml.Write("internal_replication", d.Conf.IsReplica)
 			for _, replica := range shard.Replicas {
-				xml.XMLBegin("replica", 4)
-				xml.XMLWrite("host", replica.Ip, 5)
-				xml.XMLWrite("port", d.Conf.CkTcpPort, 5)
-				xml.XMLEnd("replica", 4)
+				xml.Begin("replica")
+				xml.Write("host", replica.Ip)
+				xml.Write("port", d.Conf.CkTcpPort)
+				xml.End("replica")
 			}
-			xml.XMLEnd("shard", 3)
+			xml.End("shard")
 		}
 	}
-	xml.XMLEnd(*d.Conf.LogicCluster, 2)
+	xml.End(*d.Conf.LogicCluster)
 	return xml.GetContext(), deploys
 }

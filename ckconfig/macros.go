@@ -19,14 +19,14 @@ func GenerateMacrosXML(filename string, conf *model.CkDeployConfig, host string)
 	}
 
 	xml := common.NewXmlFile(filename)
-	xml.XMLBegin("yandex", 0)
-	xml.XMLBegin("macros", 1)
-	xml.XMLWrite("cluster", conf.ClusterName, 2)
-	xml.XMLWrite("shard", shardIndex, 2)
-	xml.XMLWrite("replica", hostName, 2)
-	xml.XMLEnd("macros", 1)
-	xml.XMLEnd("yandex", 0)
-	err := xml.XMLDump()
+	xml.Begin("yandex")
+	xml.Begin("macros")
+	xml.Write("cluster", conf.ClusterName)
+	xml.Write("shard", shardIndex)
+	xml.Write("replica", hostName)
+	xml.End("macros")
+	xml.End("yandex")
+	err := xml.Dump()
 	if err != nil {
 		return "", err
 	}

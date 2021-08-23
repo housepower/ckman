@@ -7,13 +7,13 @@ import (
 
 func GenerateMetrikaXML(filename string, conf *model.CkDeployConfig)(string, error){
 	xml := common.NewXmlFile(filename)
-	xml.XMLBegin("yandex", 0)
-	xml.XMLAppend(GenZookeeperMetrika(conf))
-	xml.XMLBegin("remote_servers", 1)
-	xml.XMLAppend(GenLocalMetrika(conf))
-	xml.XMLEnd("remote_servers", 1)
-	xml.XMLEnd("yandex", 0)
-	err := xml.XMLDump()
+	xml.Begin("yandex")
+	xml.Append(GenZookeeperMetrika(xml.GetIndent(), conf))
+	xml.Begin("remote_servers")
+	xml.Append(GenLocalMetrika(xml.GetIndent(), conf))
+	xml.End("remote_servers")
+	xml.End("yandex")
+	err := xml.Dump()
 	if err != nil {
 		return "", err
 	}
@@ -22,48 +22,50 @@ func GenerateMetrikaXML(filename string, conf *model.CkDeployConfig)(string, err
 
 func GenerateMetrikaXMLwithLogic(filename string, conf *model.CkDeployConfig, logicMrtrika string)(string, error){
 	xml := common.NewXmlFile(filename)
-	xml.XMLBegin("yandex", 0)
-	xml.XMLAppend(GenZookeeperMetrika(conf))
-	xml.XMLBegin("remote_servers", 1)
-	xml.XMLAppend(GenLocalMetrika(conf))
-	xml.XMLAppend(logicMrtrika)
-	xml.XMLEnd("remote_servers", 1)
-	xml.XMLEnd("yandex", 0)
-	err := xml.XMLDump()
+	xml.Begin("yandex")
+	xml.Append(GenZookeeperMetrika(xml.GetIndent(), conf))
+	xml.Begin("remote_servers")
+	xml.Append(GenLocalMetrika(xml.GetIndent(), conf))
+	xml.Append(logicMrtrika)
+	xml.End("remote_servers")
+	xml.End("yandex")
+	err := xml.Dump()
 	if err != nil {
 		return "", err
 	}
 	return filename, nil
 }
 
-func GenZookeeperMetrika( conf *model.CkDeployConfig) string {
+func GenZookeeperMetrika(indent int, conf *model.CkDeployConfig) string {
 	xml := common.NewXmlFile("")
-	xml.XMLBegin("zookeeper", 1)
+	xml.SetIndent(indent)
+	xml.Begin("zookeeper")
 	for index, zk := range conf.ZkNodes {
-		xml.XMLBeginwithAttr("node",  []common.XMLAttr{{Key:"index", Value:index+1}}, 2)
-		xml.XMLWrite("host", zk, 3)
-		xml.XMLWrite("port", conf.ZkPort, 3)
-		xml.XMLEnd("node", 2)
+		xml.BeginwithAttr("node",  []common.XMLAttr{{Key: "index", Value:index+1}})
+		xml.Write("host", zk)
+		xml.Write("port", conf.ZkPort)
+		xml.End("node")
 	}
-	xml.XMLEnd("zookeeper", 1)
+	xml.End("zookeeper")
 	return xml.GetContext()
 }
 
-func GenLocalMetrika(conf *model.CkDeployConfig)string {
+func GenLocalMetrika(indent int, conf *model.CkDeployConfig)string {
 	xml := common.NewXmlFile("")
-	xml.XMLBegin(conf.ClusterName, 2)
+	xml.SetIndent(indent)
+	xml.Begin(conf.ClusterName)
 	for _, shard := range conf.Shards {
-		xml.XMLBegin("shard", 3)
-		xml.XMLWrite("internal_replication", conf.IsReplica, 4)
+		xml.Begin("shard")
+		xml.Write("internal_replication", conf.IsReplica)
 		for _, replica := range shard.Replicas {
-			xml.XMLBegin("replica", 4)
-			xml.XMLWrite("host", replica.HostName, 5)
-			xml.XMLWrite("port", conf.CkTcpPort, 5)
-			xml.XMLEnd("replica", 4)
+			xml.Begin("replica")
+			xml.Write("host", replica.HostName)
+			xml.Write("port", conf.CkTcpPort)
+			xml.End("replica")
 		}
-		xml.XMLEnd("shard", 3)
+		xml.End("shard")
 	}
-	xml.XMLEnd(conf.ClusterName, 2)
+	xml.End(conf.ClusterName)
 	return xml.GetContext()
 }
 

@@ -284,7 +284,7 @@ func checkAccess(localPath string, conf *model.CKManClickHouseConfig)error {
 		}
 		access := strings.Trim(output, "\n")
 		if access == "1" {
-			return errors.Errorf("local path %s have no access to read and write", localPath)
+			return errors.Errorf("have no access to enter path %s", localPath)
 		}
 	}
 	return nil
