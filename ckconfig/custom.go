@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
+	"strings"
 )
 
 func yandex(indent int, conf *model.CkDeployConfig)string {
@@ -19,6 +20,9 @@ func yandex(indent int, conf *model.CkDeployConfig)string {
 		xml.Write("listen_host", "::")
 	} else {
 		xml.Write("listen_host", "0.0.0.0")
+	}
+	if !strings.HasSuffix(conf.Path, "/") {
+		conf.Path += "/"
 	}
 	xml.Write("path", fmt.Sprintf("%sclickhouse/", conf.Path))
 	xml.Write("tmp_path", fmt.Sprintf("%sclickhouse/tmp/", conf.Path))
