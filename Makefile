@@ -54,7 +54,7 @@ build:pre
 .PHONY: package
 package:build
 	@rm -rf ${PKGFULLDIR_TMP}
-	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package ${PKGFULLDIR_TMP}/template
+	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/rebalancer ${PKGFULLDIR_TMP}/bin
@@ -63,8 +63,6 @@ package:build
 	@mv ${SHDIR}/purger ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
-	@cp ${SHDIR}/resources/config.xml ${PKGFULLDIR_TMP}/template
-	@cp ${SHDIR}/resources/users.xml ${PKGFULLDIR_TMP}/template
 	@cp ${SHDIR}/resources/ckman.yaml ${PKGFULLDIR_TMP}/conf/ckman.yaml
 	@cp ${SHDIR}/resources/password ${PKGFULLDIR_TMP}/conf/password
 	@cp ${SHDIR}/resources/server.key ${PKGFULLDIR_TMP}/conf/server.key

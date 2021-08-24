@@ -41,6 +41,7 @@ type CkDeployConfig struct {
 	LogicCluster   *string
 	Storage        *Storage
 	MergeTreeConf  *MergeTreeConf
+	Ipv6Enable     bool
 }
 
 type CkShard struct {

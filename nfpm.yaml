@@ -35,12 +35,6 @@ contents:
     dst: /usr/local/bin/exporter
   - src: ./README.md
     dst: /etc/ckman/package/README.md
-  - src: ./resources/config.xml
-    dst: /etc/ckman/template/config.xml
-    type: config
-  - src: ./resources/users.xml
-    dst: /etc/ckman/template/users.xml
-    type: config
   - src: ./resources/ckman.yaml
     dst: /etc/ckman/conf/ckman.yaml
     type: config|noreplace
