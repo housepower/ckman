@@ -1,3 +1,13 @@
+# v2.1.2
+- fix `hdfs_zero_copy` cause clickhouse-server start failed.
+- add cluster settings
+- add merge_tree config
+- remove template and use `custom.xml` in config.d
+
+# v2.1.1
+- fix deploy cluster with public key, can't find HOME env issue
+- fix deploy cluster with AuthenticateType(save password) issue
+
 # v2.1.0
 - newly frontend ui in create cluster
 - support storage policy
