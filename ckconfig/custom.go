@@ -2,12 +2,13 @@ package ckconfig
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
-	"strings"
 )
 
-func yandex(indent int, conf *model.CkDeployConfig)string {
+func yandex(indent int, conf *model.CkDeployConfig) string {
 	//yandex
 	xml := common.NewXmlFile("")
 	xml.SetIndent(indent)
@@ -32,7 +33,7 @@ func yandex(indent int, conf *model.CkDeployConfig)string {
 	return xml.GetContext()
 }
 
-func prometheus(indent int)string{
+func prometheus(indent int) string {
 	//prometheus
 	xml := common.NewXmlFile("")
 	xml.SetIndent(indent)
@@ -47,16 +48,17 @@ func prometheus(indent int)string{
 	return xml.GetContext()
 }
 
-func system_log(indent int)string{
+func system_log(indent int) string {
 	xml := common.NewXmlFile("")
 	xml.SetIndent(indent)
 	logLists := []string{
 		"query_log", "trace_log", "query_thread_log", "query_views_log",
-		"part_log", "text_log", "metric_log", "asynchronous_metric_log",
+		"part_log", "metric_log", "asynchronous_metric_log",
 	}
 
 	for _, logTable := range logLists {
 		xml.Begin(logTable)
+		xml.Write("partition_by", "toYYYYMMDD(event_date)")
 		xml.Write("ttl", "event_date + INTERVAL 30 DAY DELETE")
 		xml.Write("flush_interval_milliseconds", 30000)
 		xml.End(logTable)
@@ -65,7 +67,7 @@ func system_log(indent int)string{
 	return xml.GetContext()
 }
 
-func logger(indent int)string{
+func logger(indent int) string {
 	xml := common.NewXmlFile("")
 	xml.SetIndent(indent)
 	xml.Begin("logger")
@@ -74,7 +76,7 @@ func logger(indent int)string{
 	return xml.GetContext()
 }
 
-func distributed_ddl(indent int, cluster string)string{
+func distributed_ddl(indent int, cluster string) string {
 	xml := common.NewXmlFile("")
 	xml.SetIndent(indent)
 	xml.Begin("distributed_ddl")
@@ -83,7 +85,7 @@ func distributed_ddl(indent int, cluster string)string{
 	return xml.GetContext()
 }
 
-func merge_tree(indent int, mergetree *model.MergeTreeConf)string {
+func merge_tree(indent int, mergetree *model.MergeTreeConf) string {
 	if mergetree == nil {
 		return ""
 	}
@@ -97,13 +99,13 @@ func merge_tree(indent int, mergetree *model.MergeTreeConf)string {
 	return xml.GetContext()
 }
 
-func storage(indent int, storage *model.Storage)string{
+func storage(indent int, storage *model.Storage) string {
 	if storage == nil {
 		return ""
 	}
 	xml := common.NewXmlFile("")
 	xml.SetIndent(indent)
-	xml.Begin("storage_configuration" )
+	xml.Begin("storage_configuration")
 	if len(storage.Disks) > 0 {
 		xml.Begin("disks")
 		for _, disk := range storage.Disks {
@@ -156,7 +158,7 @@ func storage(indent int, storage *model.Storage)string{
 	return xml.GetContext()
 }
 
-func GenerateCustomXML(filename string, conf *model.CkDeployConfig)(string,error) {
+func GenerateCustomXML(filename string, conf *model.CkDeployConfig) (string, error) {
 	xml := common.NewXmlFile(filename)
 	xml.Begin("yandex")
 	indent := xml.GetIndent()
