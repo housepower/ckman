@@ -1,8 +1,8 @@
 # 部署依赖
 - `prometheus`(非必需)
 - `node_exporter`(非必需)
-- `nacos`(>`1.4`，目前不支持`2.0`)(非必需)
-- `zookeeper`(>`3.5.0`, 推荐 )
+- `nacos`(>`1.4`)(非必需)
+- `zookeeper`(>`3.6.0`, 推荐 )
 
 # 监控配置(可选，不影响ckman核心功能)
 
@@ -14,7 +14,7 @@
 
 ```ini
 metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider
-metricsProvider.httpPort=7070  #暴露给promethues的监控端口
+metricsProvider.httpPort=7000  #暴露给promethues的监控端口
 admin.enableServer=true
 admin.serverPort=8080   #暴露给四字命令如mntr等的监控端口，3.5.0以上版本支持
 ```

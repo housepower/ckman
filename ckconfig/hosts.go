@@ -5,14 +5,12 @@ import (
 	"github.com/housepower/ckman/model"
 )
 
-func GenerateMacrosXML(filename string, conf *model.CkDeployConfig, host string)(string, error){
+func GenerateHostXML(filename string, conf *model.CkDeployConfig, host string)(string, error){
 	shardIndex := 0
-	hostName := ""
 	for i, shard := range conf.Shards {
 		for _, replica := range shard.Replicas {
 			if host == replica.Ip {
 				shardIndex = i + 1
-				hostName = replica.HostName
 				break
 			}
 		}
@@ -20,10 +18,12 @@ func GenerateMacrosXML(filename string, conf *model.CkDeployConfig, host string)
 
 	xml := common.NewXmlFile(filename)
 	xml.Begin("yandex")
+	xml.Comment("This xml file contains every node's special configuration self.")
+	xml.Write("interserver_http_host", host)
 	xml.Begin("macros")
 	xml.Write("cluster", conf.ClusterName)
 	xml.Write("shard", shardIndex)
-	xml.Write("replica", hostName)
+	xml.Write("replica", host)
 	xml.End("macros")
 	xml.End("yandex")
 	err := xml.Dump()

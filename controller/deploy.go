@@ -55,7 +55,7 @@ func DeployPackage(d deploy.Deploy) (string, error) {
 	}
 
 	log.Logger.Infof("start check service")
-	if err := d.Check(); err != nil {
+	if err := d.Check(5); err != nil {
 		return model.CHECK_PACKAGE_FAIL, err
 	}
 
