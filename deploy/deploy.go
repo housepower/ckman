@@ -8,5 +8,5 @@ type Deploy interface {
 	Start() error
 	Stop() error
 	Restart() error
-	Check() error
+	Check(timeout int) error
 }

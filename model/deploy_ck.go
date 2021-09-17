@@ -23,6 +23,8 @@ const (
 	SshPasswordSave      int = 0
 	SshPasswordNotSave   int = 1
 	SshPasswordUsePubkey int = 2
+
+	MaxTimeOut int = 3600
 )
 
 type CkDeployConfig struct {

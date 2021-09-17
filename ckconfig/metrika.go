@@ -59,7 +59,7 @@ func GenLocalMetrika(indent int, conf *model.CkDeployConfig)string {
 		xml.Write("internal_replication", conf.IsReplica)
 		for _, replica := range shard.Replicas {
 			xml.Begin("replica")
-			xml.Write("host", replica.HostName)
+			xml.Write("host", replica.Ip)
 			xml.Write("port", conf.CkTcpPort)
 			xml.End("replica")
 		}

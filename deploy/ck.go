@@ -34,6 +34,10 @@ type CkUpdateNodeParam struct {
 	Op       int
 }
 
+var (
+	CheckTimeOutErr = errors.New("check clickhouse timeout error")
+)
+
 func (d *CKDeploy) Init() error {
 	d.Conf.Normalize()
 	d.HostInfos = make([]ckconfig.HostInfo, len(d.Hosts))
@@ -278,18 +282,20 @@ func (d *CKDeploy) Config() error {
 			}
 			userFiles = append(userFiles, profiles)
 
-			macrosFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "macros")
+			hostFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "host")
 			if err != nil {
 				lastError = err
 				return
 			}
-			defer os.Remove(macrosFile.FullName)
-			macros, err := ckconfig.GenerateMacrosXML(macrosFile.FullName, d.Conf, innerHost)
+			defer os.Remove(hostFile.FullName)
+			hostXml, err := ckconfig.GenerateHostXML(hostFile.FullName, d.Conf, innerHost)
 			if err != nil {
 				lastError = err
 				return
 			}
-			confFiles = append(confFiles, macros)
+			confFiles = append(confFiles, hostXml)
+
+			_, _ = common.RemoteExecute(d.User, d.Password, host, d.Port, "rm -rf /etc/clickhouse-server/config.d/* /etc/clickhouse-server/users.d/*")
 
 			if err := common.ScpUploadFiles(confFiles, "/etc/clickhouse-server/config.d/", d.User, d.Password, innerHost, d.Port); err != nil {
 				lastError = err
@@ -301,7 +307,7 @@ func (d *CKDeploy) Config() error {
 			}
 
 			cmds := make([]string, 0)
-			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/config.d/%s /etc/clickhouse-server/config.d/macros.xml", macrosFile.BaseName))
+			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/config.d/%s /etc/clickhouse-server/config.d/host.xml", hostFile.BaseName))
 			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/users.d/%s /etc/clickhouse-server/users.d/profiles.xml", profilesFile.BaseName))
 			cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
 
@@ -415,23 +421,31 @@ func (d *CKDeploy) Restart() error {
 	return nil
 }
 
-func (d *CKDeploy) Check() error {
-	time.Sleep(5 * time.Second)
-
+func (d *CKDeploy) Check(timeout int) error {
 	var lastError error
 	for _, host := range d.Hosts {
 		innerHost := host
 		_ = d.Pool.Submit(func() {
-			db, err := common.ConnectClickHouse(innerHost, d.Conf.CkTcpPort, model.ClickHouseDefaultDB, d.Conf.User, d.Conf.Password)
-			if err != nil {
-				lastError = err
-				return
+			ticker := time.NewTicker(5*time.Second)
+			for {
+				select {
+				case <-ticker.C:
+					db, err := common.ConnectClickHouse(innerHost, d.Conf.CkTcpPort, model.ClickHouseDefaultDB, d.Conf.User, d.Conf.Password)
+					if err != nil {
+						continue
+					}
+					if err = db.Ping(); err != nil {
+						continue
+					}
+					if err == nil {
+						log.Logger.Debugf("host %s check done", innerHost)
+						return
+					}
+				case <-time.After(time.Duration(timeout)*time.Second):
+					lastError = CheckTimeOutErr
+					return
+				}
 			}
-			if err = db.Ping(); err != nil {
-				lastError = err
-				return
-			}
-			log.Logger.Debugf("host %s check done", innerHost)
 		})
 	}
 
@@ -470,12 +484,15 @@ func UpgradeCkCluster(conf *model.CKManClickHouseConfig, req model.CkUpgradeCkRe
 	switch req.Policy {
 	case model.UpgradePolicyRolling:
 		for _, host := range chHosts {
-			if err := upgradePackage(conf, []string{host}, packages); err != nil {
+			if err := upgradePackage(conf, []string{host}, packages, model.MaxTimeOut); err != nil {
 				return err
 			}
 		}
 	case model.UpgradePolicyFull:
-		return upgradePackage(conf, chHosts, packages)
+		err := upgradePackage(conf, chHosts, packages, 5)
+		if err != CheckTimeOutErr {
+			return err
+		}
 	default:
 		return fmt.Errorf("not support policy %s yet", req.Policy)
 	}
@@ -483,7 +500,7 @@ func UpgradeCkCluster(conf *model.CKManClickHouseConfig, req model.CkUpgradeCkRe
 	return nil
 }
 
-func upgradePackage(conf *model.CKManClickHouseConfig, hosts []string, packages []string) error {
+func upgradePackage(conf *model.CKManClickHouseConfig, hosts []string, packages []string, timeout int) error {
 	deploy := ConvertCKDeploy(conf)
 	deploy.Hosts = hosts
 	deploy.Packages = packages
@@ -510,7 +527,7 @@ func upgradePackage(conf *model.CKManClickHouseConfig, hosts []string, packages 
 		return err
 	}
 	log.Logger.Infof("cluster start succeed ")
-	if err := deploy.Check(); err != nil {
+	if err := deploy.Check(timeout); err != nil {
 		return err
 	}
 	log.Logger.Infof("cluster checked succeed ")
@@ -537,7 +554,7 @@ func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 	if err := deploy.Start(); err != nil {
 		return err
 	}
-	if err := deploy.Check(); err != nil {
+	if err := deploy.Check(model.MaxTimeOut); err != nil {
 		return err
 	}
 	return nil
@@ -667,7 +684,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 	if err := deploy.Start(); err != nil {
 		return err
 	}
-	if err := deploy.Check(); err != nil {
+	if err := deploy.Check(5); err != nil {
 		return err
 	}
 
@@ -821,9 +838,7 @@ func ConfigCkCluster(conf *model.CKManClickHouseConfig, restart bool)error {
 		if err := d.Restart(); err != nil {
 			return err
 		}
-		if err := d.Check(); err != nil {
-			return err
-		}
+		_ = d.Check(5)
 	}
 	return nil
 }

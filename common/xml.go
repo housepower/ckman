@@ -74,7 +74,7 @@ func (xml *XMLFile) WritewithAttr(tag string, value interface{}, attrs []XMLAttr
 		}
 		xml.context += fmt.Sprintf("%s=\"%v\"", attr.Key, finalValue(attr.Value))
 	}
-	xml.context += fmt.Sprintf("%v</%s>\n", tag, value)
+	xml.context += fmt.Sprintf(">%v</%s>\n", value, tag)
 }
 
 func (xml *XMLFile) Begin(tag string) {

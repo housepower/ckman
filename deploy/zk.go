@@ -34,6 +34,6 @@ func (d *ZKDeploy) Restart() error {
 	return nil
 }
 
-func (d *ZKDeploy) Check() error {
+func (d *ZKDeploy) Check(timeout int) error {
 	return nil
 }
