@@ -56,3 +56,7 @@ contents:
   - src: /etc/systemd/system/ckman.service
     dst: /etc/systemd/system/multi-user.target.wants/ckman.service
     type: symlink
+scripts:
+    preinstall: ./resources/scripts/preinstall.sh
+    postinstall: ./resources/scripts/postinstall.sh
+

@@ -6,6 +6,7 @@ After=network-online.target
 [Service]
 Environment="HOME=%h"
 Type=forking
+User=ckman
 Restart=always
 RestartSec=30
 RuntimeDirectory=ckman

@@ -68,8 +68,8 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(conf, "AuthenticateType", &common.Parameter{
 		LabelZH:       "认证方式",
 		LabelEN:       "Authenticate Type",
-		DescriptionZH: "SSH 访问节点的方式，可使用公钥或者密码",
-		DescriptionEN: "Authenticate type of connect node",
+		DescriptionZH: "SSH 访问节点的方式，可使用公钥或者密码，使用公钥时需将公钥文件放到conf目录下",
+		DescriptionEN: "Authenticate type of connect node, you need copy id_rsa to conf/ if use public key",
 		Candidates: []common.Candidate{
 			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)",},
 			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)",},
@@ -306,8 +306,8 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(conf, "AuthenticateType", &common.Parameter{
 		LabelZH:       "认证方式",
 		LabelEN:       "Authenticate Type",
-		DescriptionZH: "SSH 访问节点的方式，可使用公钥或者密码",
-		DescriptionEN: "Authenticate type of connect node",
+		DescriptionZH: "SSH 访问节点的方式，可使用公钥或者密码，使用公钥时需将公钥文件放到conf目录下",
+		DescriptionEN: "Authenticate type of connect node, you need copy id_rsa to conf/ if use public key",
 		Candidates: []common.Candidate{
 			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)",},
 			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)",},

@@ -3,6 +3,7 @@ package common
 import (
 	"bufio"
 	"fmt"
+	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"io"
 	"io/ioutil"
@@ -33,11 +34,7 @@ func sshConnectwithPassword(user, password string) (*ssh.ClientConfig, error) {
 }
 
 func sshConnectwithPublickKey(user string) (*ssh.ClientConfig, error) {
-	homePath, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-	key, err := ioutil.ReadFile(path.Join(homePath, ".ssh", "id_rsa"))
+	key, err := ioutil.ReadFile(path.Join(config.GetWorkDirectory(), "conf", "id_rsa"))
 	if err != nil {
 		return nil, err
 	}
