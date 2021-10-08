@@ -297,7 +297,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 // @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
 // @Failure 200 {string} json "{"retCode":"5001","retMsg":"create ClickHouse table failed","entity":""}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":null}"
-// @Router /api/v1/ck/dist_table [post]
+// @Router /api/v1/ck/dist_logic_table [post]
 func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 	var req model.CreateDistTableReq
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {

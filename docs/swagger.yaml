@@ -586,7 +586,7 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Destroy ClickHouse cluster
-  /api/v1/ck/dist_table:
+  /api/v1/ck/dist_logic_table:
     post:
       description: Create Distribute Table on logic cluster
       parameters:

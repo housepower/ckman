@@ -317,7 +317,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v1/ck/dist_table": {
+        "/api/v1/ck/dist_logic_table": {
             "post": {
                 "security": [
                     {
