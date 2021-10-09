@@ -460,15 +460,25 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	return nil
 }
 
-func (ck *CkService) CreateDistTblOnLogic(params *model.CreateDistTblParams) error {
+func (ck *CkService) CreateDistTblOnLogic(params *model.DistTblParams) error {
 	if !checkTableIfExists(params.Database, params.TableName, params.ClusterName) {
 		return fmt.Errorf("table %s.%s is not exist on cluster %s", params.Database, params.TableName, params.ClusterName)
 	}
 	createSql := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s.%s%s ON CLUSTER %s AS %s.%s ENGINE = Distributed(%s, %s, %s, rand())`,
 		params.Database, ClickHouseDistTableOnLogicPrefix, params.TableName, params.ClusterName,
-		params.Database, params.TableName, params.LogicName, params.Database, params.TableName)
+		params.Database, params.TableName, params.LogicCluster, params.Database, params.TableName)
 
 	if _, err := ck.DB.Exec(createSql); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ck *CkService) DeleteDistTblOnLogic(params *model.DistTblParams) error {
+	deleteSql := fmt.Sprintf(`DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s`,
+		params.Database, ClickHouseDistTableOnLogicPrefix, params.TableName, params.ClusterName)
+	if _, err := ck.DB.Exec(deleteSql); err != nil {
 		return err
 	}
 
@@ -555,6 +565,24 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	log.Logger.Debugf(create)
 	if _, err := ck.DB.Exec(create); err != nil {
 		return err
+	}
+
+	//删除逻辑表并重建（如果有的话）
+	conf,_ := CkClusters.GetClusterByName(params.Cluster)
+
+	if conf.LogicCluster != nil {
+		distParams := model.DistTblParams{
+			Database:     params.DB,
+			TableName:    params.Name,
+			ClusterName:  params.Cluster,
+			LogicCluster: *conf.LogicCluster,
+		}
+		if err := ck.DeleteDistTblOnLogic(&distParams); err != nil {
+			return err
+		}
+		if err := ck.CreateDistTblOnLogic(&distParams); err != nil {
+			return err
+		}
 	}
 
 	return nil

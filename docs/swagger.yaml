@@ -256,18 +256,6 @@ definitions:
       partition:
         $ref: '#/definitions/model.CkTablePartition'
     type: object
-  model.CreateDistTableReq:
-    properties:
-      database:
-        example: default
-        type: string
-      logic_name:
-        example: logic_test
-        type: string
-      table_name:
-        example: test_table
-        type: string
-    type: object
   model.Disk:
     properties:
       diskHdfs:
@@ -283,6 +271,15 @@ definitions:
     properties:
       endpoint:
         example: hdfs://localhost:8020/clickhouse/data/test/
+        type: string
+    type: object
+  model.DistTableReq:
+    properties:
+      database:
+        example: default
+        type: string
+      table_name:
+        example: test_table
         type: string
     type: object
   model.LoginReq:
@@ -586,7 +583,30 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Destroy ClickHouse cluster
-  /api/v1/ck/dist_logic_table:
+  /api/v1/ck/dist_logic_table/{clusterName}:
+    delete:
+      description: Delete Distribute Table on logic cluster
+      parameters:
+      - default: logic_test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.DistTableReq'
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"ok","entity":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Delete Distribute Table on logic cluster
     post:
       description: Create Distribute Table on logic cluster
       parameters:
@@ -601,7 +621,7 @@ paths:
         name: req
         required: true
         schema:
-          $ref: '#/definitions/model.CreateDistTableReq'
+          $ref: '#/definitions/model.DistTableReq'
       responses:
         "200":
           description: '{"retCode":"0000","retMsg":"ok","entity":null}'
