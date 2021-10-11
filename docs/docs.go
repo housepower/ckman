@@ -317,7 +317,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v1/ck/dist_table": {
+        "/api/v1/ck/dist_logic_table/{clusterName}": {
             "post": {
                 "security": [
                     {
@@ -341,7 +341,43 @@ var doc = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.CreateDistTableReq"
+                            "$ref": "#/definitions/model.DistLogicTableReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Delete Distribute Table on logic cluster",
+                "summary": "Delete Distribute Table on logic cluster",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "logic_test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DistLogicTableReq"
                         }
                     }
                 ],
@@ -1801,23 +1837,6 @@ var doc = `{
                 }
             }
         },
-        "model.CreateDistTableReq": {
-            "type": "object",
-            "properties": {
-                "database": {
-                    "type": "string",
-                    "example": "default"
-                },
-                "logic_name": {
-                    "type": "string",
-                    "example": "logic_test"
-                },
-                "table_name": {
-                    "type": "string",
-                    "example": "test_table"
-                }
-            }
-        },
         "model.Disk": {
             "type": "object",
             "properties": {
@@ -1840,6 +1859,19 @@ var doc = `{
                 "endpoint": {
                     "type": "string",
                     "example": "hdfs://localhost:8020/clickhouse/data/test/"
+                }
+            }
+        },
+        "model.DistLogicTableReq": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string",
+                    "example": "default"
+                },
+                "table_name": {
+                    "type": "string",
+                    "example": "test_table"
                 }
             }
         },
