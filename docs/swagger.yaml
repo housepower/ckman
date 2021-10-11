@@ -273,7 +273,7 @@ definitions:
         example: hdfs://localhost:8020/clickhouse/data/test/
         type: string
     type: object
-  model.DistTableReq:
+  model.DistLogicTableReq:
     properties:
       database:
         example: default
@@ -598,7 +598,7 @@ paths:
         name: req
         required: true
         schema:
-          $ref: '#/definitions/model.DistTableReq'
+          $ref: '#/definitions/model.DistLogicTableReq'
       responses:
         "200":
           description: '{"retCode":"0000","retMsg":"ok","entity":null}'
@@ -621,7 +621,7 @@ paths:
         name: req
         required: true
         schema:
-          $ref: '#/definitions/model.DistTableReq'
+          $ref: '#/definitions/model.DistLogicTableReq'
       responses:
         "200":
           description: '{"retCode":"0000","retMsg":"ok","entity":null}'

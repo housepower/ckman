@@ -460,7 +460,7 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 	return nil
 }
 
-func (ck *CkService) CreateDistTblOnLogic(params *model.DistTblParams) error {
+func (ck *CkService) CreateDistTblOnLogic(params *model.DistLogicTblParams) error {
 	if !checkTableIfExists(params.Database, params.TableName, params.ClusterName) {
 		return fmt.Errorf("table %s.%s is not exist on cluster %s", params.Database, params.TableName, params.ClusterName)
 	}
@@ -475,7 +475,7 @@ func (ck *CkService) CreateDistTblOnLogic(params *model.DistTblParams) error {
 	return nil
 }
 
-func (ck *CkService) DeleteDistTblOnLogic(params *model.DistTblParams) error {
+func (ck *CkService) DeleteDistTblOnLogic(params *model.DistLogicTblParams) error {
 	deleteSql := fmt.Sprintf(`DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s`,
 		params.Database, ClickHouseDistTableOnLogicPrefix, params.TableName, params.ClusterName)
 	if _, err := ck.DB.Exec(deleteSql); err != nil {
@@ -571,7 +571,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	conf,_ := CkClusters.GetClusterByName(params.Cluster)
 
 	if conf.LogicCluster != nil {
-		distParams := model.DistTblParams{
+		distParams := model.DistLogicTblParams{
 			Database:     params.DB,
 			TableName:    params.Name,
 			ClusterName:  params.Cluster,

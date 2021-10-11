@@ -341,7 +341,7 @@ var doc = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DistTableReq"
+                            "$ref": "#/definitions/model.DistLogicTableReq"
                         }
                     }
                 ],
@@ -377,7 +377,7 @@ var doc = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DistTableReq"
+                            "$ref": "#/definitions/model.DistLogicTableReq"
                         }
                     }
                 ],
@@ -1862,7 +1862,7 @@ var doc = `{
                 }
             }
         },
-        "model.DistTableReq": {
+        "model.DistLogicTableReq": {
             "type": "object",
             "properties": {
                 "database": {

@@ -325,7 +325,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DistTableReq"
+                            "$ref": "#/definitions/model.DistLogicTableReq"
                         }
                     }
                 ],
@@ -361,7 +361,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DistTableReq"
+                            "$ref": "#/definitions/model.DistLogicTableReq"
                         }
                     }
                 ],
@@ -1846,7 +1846,7 @@
                 }
             }
         },
-        "model.DistTableReq": {
+        "model.DistLogicTableReq": {
             "type": "object",
             "properties": {
                 "database": {

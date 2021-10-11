@@ -167,6 +167,7 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 	cluster, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
 	if !ok {
 		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, nil)
+		return
 	}
 	if cluster.Mode == model.CkClusterImport {
 		_ = clickhouse.GetCkClusterConfig(&cluster)
@@ -293,13 +294,13 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(logic_test)
-// @Param req body model.DistTableReq true "request body"
+// @Param req body model.DistLogicTableReq true "request body"
 // @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
 // @Failure 200 {string} json "{"retCode":"5001","retMsg":"create ClickHouse table failed","entity":""}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/dist_logic_table/{clusterName} [post]
 func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
-	var req model.DistTableReq
+	var req model.DistLogicTableReq
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
@@ -327,7 +328,7 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
 			return
 		}
-		params := model.DistTblParams{
+		params := model.DistLogicTblParams{
 			Database:     req.Database,
 			TableName:    req.LocalTable,
 			ClusterName:  cluster,
@@ -347,13 +348,13 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(logic_test)
-// @Param req body model.DistTableReq true "request body"
+// @Param req body model.DistLogicTableReq true "request body"
 // @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
 // @Failure 200 {string} json "{"retCode":"5002","retMsg":"delete ClickHouse table failed","entity":""}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/dist_logic_table/{clusterName} [delete]
 func (ck *ClickHouseController)DeleteDistTableOnLogic(c *gin.Context){
-	var req model.DistTableReq
+	var req model.DistLogicTableReq
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
@@ -366,7 +367,7 @@ func (ck *ClickHouseController)DeleteDistTableOnLogic(c *gin.Context){
 		return
 	}
 	if conf.LogicCluster == nil {
-		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, fmt.Sprintf("cluster %s not belong any logic cluster", clusterName))
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, fmt.Sprintf("cluster %s not belong any logic cluster", clusterName))
 		return
 	}
 	logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*conf.LogicCluster)
@@ -381,7 +382,7 @@ func (ck *ClickHouseController)DeleteDistTableOnLogic(c *gin.Context){
 			model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, err)
 			return
 		}
-		params := model.DistTblParams{
+		params := model.DistLogicTblParams{
 			Database:     req.Database,
 			TableName:    req.LocalTable,
 			ClusterName:  cluster,

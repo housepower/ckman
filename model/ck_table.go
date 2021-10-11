@@ -9,7 +9,7 @@ type CreateCkTableReq struct {
 	Distinct  bool              `json:"distinct" example:"true"`
 }
 
-type DistTableReq struct {
+type DistLogicTableReq struct {
 	Database     string `json:"database" example:"default"`
 	LocalTable   string `json:"table_name" example:"test_table"`
 }
@@ -57,7 +57,7 @@ type DeleteCkTableParams struct {
 	DB      string
 }
 
-type DistTblParams struct {
+type DistLogicTblParams struct {
 	Database     string
 	TableName    string
 	ClusterName  string
