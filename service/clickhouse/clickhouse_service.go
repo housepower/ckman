@@ -3,7 +3,7 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
-	"github.com/MakeNowJust/heredoc"
+	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
@@ -673,7 +673,7 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 }
 
 func (ck *CkService) FetchSchemerFromOtherNode(host string) error {
-	names, statements, err := getCreateReplicaObjects(ck.DB, host)
+	names, statements, err := business.GetCreateReplicaObjects(ck.DB, host)
 	if err != nil {
 		return err
 	}
@@ -686,64 +686,6 @@ func (ck *CkService) FetchSchemerFromOtherNode(host string) error {
 	}
 
 	return nil
-}
-
-func getObjectListFromClickHouse(db *sql.DB, query string) (names, statements []string, err error) {
-	// Some data available, let's fetch it
-	var rows *sql.Rows
-	if rows, err = db.Query(query); err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var name, statement string
-		if err := rows.Scan(&name, &statement); err != nil {
-			return nil, nil, err
-		}
-		names = append(names, name)
-		statements = append(statements, statement)
-	}
-
-	return
-}
-
-func getCreateReplicaObjects(db *sql.DB, srcHost string) (names, statements []string, err error) {
-	system_tables := fmt.Sprintf("remote('%s', system, tables)", srcHost)
-
-	sqlDBs := heredoc.Doc(strings.ReplaceAll(`
-		SELECT DISTINCT 
-			database AS name, 
-			concat('CREATE DATABASE IF NOT EXISTS "', name, '"') AS create_db_query
-		FROM system.tables
-		WHERE database != 'system'
-		SETTINGS skip_unavailable_shards = 1`,
-		"system.tables", system_tables,
-	))
-
-	sqlTables := heredoc.Doc(strings.ReplaceAll(`
-		SELECT DISTINCT 
-			name, 
-			replaceRegexpOne(create_table_query, 'CREATE (TABLE|VIEW|MATERIALIZED VIEW)', 'CREATE \\1 IF NOT EXISTS')
-		FROM system.tables
-		WHERE database != 'system' AND create_table_query != '' AND name not like '.inner.%'
-		SETTINGS skip_unavailable_shards = 1`,
-		"system.tables",
-		system_tables,
-	))
-
-	names1, statements1, err := getObjectListFromClickHouse(db, sqlDBs)
-	if err != nil {
-		return nil, nil, err
-	}
-	names2, statements2, err := getObjectListFromClickHouse(db, sqlTables)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	names = append(names1, names2...)
-	statements = append(statements1, statements2...)
-	return
 }
 
 func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkTableMetrics, error) {

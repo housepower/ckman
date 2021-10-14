@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/template"
 	"unicode"
 
 	"github.com/pkg/errors"
@@ -177,4 +178,18 @@ func ArraySearch(target string, str_array []string) bool {
 		}
  	}
 	return false
+}
+
+func ReplaceTemplateString(src *string, replace map[string]interface{}) error {
+	t, err := template.New("T1").Parse(*src)
+	if err != nil {
+		return  err
+	}
+	buf := new(bytes.Buffer)
+	err = t.Execute(buf, replace)
+	if err != nil {
+		return err
+	}
+	*src = buf.String()
+	return nil
 }
