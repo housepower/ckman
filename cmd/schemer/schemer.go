@@ -4,15 +4,12 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/housepower/ckman/model"
-	"os"
-	"strings"
-
 	_ "github.com/ClickHouse/clickhouse-go"
-	"github.com/MakeNowJust/heredoc"
+	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
-	"github.com/pkg/errors"
+	"github.com/housepower/ckman/model"
+	"os"
 )
 
 // Create objects on a new ClickHouse instance.
@@ -58,69 +55,6 @@ func initCmdOptions() {
 	flag.Parse()
 }
 
-// getObjectListFromClickHouse
-func getObjectListFromClickHouse(db *sql.DB, query string) (names, statements []string, err error) {
-	// Fetch data from any of specified services
-	log.Logger.Infof("Run query: %+v", query)
-
-	// Some data available, let's fetch it
-	var rows *sql.Rows
-	if rows, err = db.Query(query); err != nil {
-		err = errors.Wrapf(err, "")
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var name, statement string
-		if err = rows.Scan(&name, &statement); err != nil {
-			err = errors.Wrapf(err, "")
-			return
-		}
-		names = append(names, name)
-		statements = append(statements, statement)
-	}
-	return
-}
-
-// getCreateReplicaObjects returns a list of objects that needs to be created on a host in a cluster
-func getCreateReplicaObjects(db *sql.DB) (names, statements []string, err error) {
-	system_tables := fmt.Sprintf("remote('%s', system, tables)", cmdOps.SrcHost)
-
-	sqlDBs := heredoc.Doc(strings.ReplaceAll(`
-		SELECT DISTINCT 
-			database AS name, 
-			concat('CREATE DATABASE IF NOT EXISTS "', name, '"') AS create_db_query
-		FROM system.tables
-		WHERE database != 'system'
-		SETTINGS skip_unavailable_shards = 1`,
-		"system.tables", system_tables,
-	))
-	sqlTables := heredoc.Doc(strings.ReplaceAll(`
-		SELECT DISTINCT 
-			name, 
-			replaceRegexpOne(create_table_query, 'CREATE (TABLE|VIEW|MATERIALIZED VIEW)', 'CREATE \\1 IF NOT EXISTS')
-		FROM system.tables
-		WHERE database != 'system' AND create_table_query != '' AND name not like '.inner.%'
-		SETTINGS skip_unavailable_shards = 1`,
-		"system.tables",
-		system_tables,
-	))
-
-	names1, statements1, err := getObjectListFromClickHouse(db, sqlDBs)
-	if err != nil {
-		err = errors.Wrapf(err, "")
-		return
-	}
-	names2, statements2, err := getObjectListFromClickHouse(db, sqlTables)
-	if err != nil {
-		err = errors.Wrapf(err, "")
-		return
-	}
-	names = append(names1, names2...)
-	statements = append(statements1, statements2...)
-	return
-}
-
 func main() {
 	var names, statements []string
 	var err error
@@ -144,11 +78,11 @@ func main() {
 	}
 	defer common.CloseConns([]string{cmdOps.DstHost})
 
-	if names, statements, err = getCreateReplicaObjects(db); err != nil {
-		log.Logger.Fatalf("got error %+v", err)
+	if names, statements, err = business.GetCreateReplicaObjects(db, cmdOps.SrcHost); err != nil {
+		log.Logger.Fatalf("got error %v", err)
 	}
-	log.Logger.Infof("names: %+v", names)
-	log.Logger.Infof("statements: %+v", statements)
+	log.Logger.Infof("names: %v", names)
+	log.Logger.Infof("statements: %v", statements)
 	num := len(names)
 	for i := 0; i < num; i++ {
 		log.Logger.Infof("executing %s", statements[i])

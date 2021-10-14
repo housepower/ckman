@@ -124,4 +124,4 @@ release:
 
 .PHONY: lint
 lint:
-	golangci-lint run -D errcheck,govet
+	golangci-lint run -D errcheck,govet,gosimple
