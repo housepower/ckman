@@ -75,16 +75,16 @@ func GetCreateReplicaObjects(db *sql.DB, host string) (names, statements []strin
 }
 
 type LogicSchema struct {
-	SqlType string
+	SqlType    string
 	Statements []string
 }
 
-func GetLogicSchema(db *sql.DB, logicName, clusterName string, replica bool)([]LogicSchema, error){
+func GetLogicSchema(db *sql.DB, logicName, clusterName string, replica bool) ([]LogicSchema, error) {
 	var engine, replacingengine string
 	var expr *regexp.Regexp
 	if replica {
-		engine = "ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/%s/%s', '{replica}')"
-		replacingengine = "ReplicatedReplacingMergeTree('/clickhouse/tables/{cluster}/{shard}/%s/%s', '{replica}')"
+		engine = "ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/{{.database}}/{{.localtbl}}', '{replica}')"
+		replacingengine = "ReplicatedReplacingMergeTree('/clickhouse/tables/{{.database}}/{{.localtbl}}/%s/%s', '{replica}')"
 		expr = regexp.MustCompile("((Replacing)?MergeTree)")
 	} else {
 		engine = "MergeTree()"
@@ -130,19 +130,19 @@ INNER JOIN
 		}
 		databases = append(databases, database)
 
-		replaceTmpl := map[string]interface{}{
-			"localtbl":localtbl,
-			"clusterName": clusterName,
-			"logictbl":logictbl,
-		}
-		if err := common.ReplaceTemplateString(&localsql, replaceTmpl); err != nil {
-			return nil, err
-		}
-
-		if strings.Contains(localsql, "ReplacingMergeTree"){
+		if strings.Contains(localsql, "ReplacingMergeTree") {
 			localsql = expr.ReplaceAllString(localsql, replacingengine)
 		} else {
 			localsql = expr.ReplaceAllString(localsql, engine)
+		}
+		replaceTmpl := map[string]interface{}{
+			"database":    database,
+			"localtbl":    localtbl,
+			"clusterName": clusterName,
+			"logictbl":    logictbl,
+		}
+		if err := common.ReplaceTemplateString(&localsql, replaceTmpl); err != nil {
+			return nil, err
 		}
 		localsqls = append(localsqls, localsql)
 
@@ -157,19 +157,19 @@ INNER JOIN
 	}
 	statementsqls := []LogicSchema{
 		{
-			SqlType: "dbsql",
+			SqlType:    "dbsql",
 			Statements: dbsqls,
 		},
 		{
-			SqlType: "localsql",
+			SqlType:    "localsql",
 			Statements: localsqls,
 		},
 		{
-			SqlType: "distsql",
+			SqlType:    "distsql",
 			Statements: distsqls,
 		},
 		{
-			SqlType: "logicsql",
+			SqlType:    "logicsql",
 			Statements: logicsqls,
 		},
 	}
