@@ -113,17 +113,13 @@ func (d *CKDeploy) Init() error {
 		}
 	}
 
-	d.Pool.StopWait()
+	d.Pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
 
 	if len(HostNameMap) != clusterNodeNum {
 		return errors.Errorf("host name are the same")
-	}
-
-	if err := ensureHosts(d); err != nil {
-		return err
 	}
 	log.Logger.Infof("init done")
 
@@ -839,56 +835,6 @@ func ConfigCkCluster(conf *model.CKManClickHouseConfig, restart bool)error {
 			return err
 		}
 		_ = d.Check(5)
-	}
-	return nil
-}
-
-func ensureHosts(d *CKDeploy) error {
-	addresses := make([]string, 0)
-	hosts := make([]string, 0)
-
-	for _, shard := range d.Conf.Shards {
-		for _, replica := range shard.Replicas {
-			addresses = append(addresses, replica.Ip)
-			hosts = append(hosts, replica.HostName)
-		}
-	}
-
-	var lastError error
-	d.Pool.Restart()
-	for _, host := range d.Hosts {
-		innerHost := host
-		_ = d.Pool.Submit(func() {
-			tmplFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "hosts")
-			if err != nil {
-				lastError = err
-				return
-			}
-			defer os.Remove(tmplFile.FullName)
-
-			if err := common.ScpDownloadFile("/etc/hosts", tmplFile.FullName, d.User, d.Password, innerHost, d.Port); err != nil {
-				lastError = err
-				return
-			}
-			h, err := common.NewHosts(tmplFile.FullName, tmplFile.FullName)
-			if err != nil {
-				lastError = err
-				return
-			}
-			if err := common.AddHosts(h, addresses, hosts); err != nil {
-				lastError = err
-				return
-			}
-			_ = common.Save(h)
-			if err := common.ScpUploadFile(tmplFile.FullName, "/etc/hosts", d.User, d.Password, innerHost, d.Port); err != nil {
-				lastError = err
-				return
-			}
-		})
-	}
-	d.Pool.Wait()
-	if lastError != nil {
-		return lastError
 	}
 	return nil
 }

@@ -1080,8 +1080,20 @@ func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
 		return
 	}
 
+	var gotError bool
 	metrics, err := clickhouse.GetCkTableMetrics(&conf)
 	if err != nil {
+		gotError = true
+		var exception *client.Exception
+		if errors.As(err, &exception) {
+			if exception.Code == 60 {
+				// we do not return error when system.query_log is not exist
+				gotError = false
+			}
+		}
+	}
+
+	if gotError {
 		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, err)
 		return
 	}
