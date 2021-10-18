@@ -1,17 +1,38 @@
 package model
 
+const (
+	TTLActionDelete     string = "DELETE"
+	TTLActionToDisk     string = "toDisk"
+	TTLActionToVolume   string = "toVolume"
+	TTLActionRecompress string = "Recompress"
+
+	TTLTypeModify string = "MODIFY"
+	TTLTypeRemove string = "REMOVE"
+)
+
 type CreateCkTableReq struct {
-	Name      string            `json:"name" example:"test_table"`
-	DB        string            `json:"database" example:"default"`
-	Fields    []CkTableNameType `json:"fields"`
-	Order     []string          `json:"order" example:"_timestamp"`
-	Partition CkTablePartition  `json:"partition"`
-	Distinct  bool              `json:"distinct" example:"true"`
+	Name          string            `json:"name" example:"test_table"`
+	DB            string            `json:"database" example:"default"`
+	Fields        []CkTableNameType `json:"fields"`
+	Order         []string          `json:"order" example:"_timestamp"`
+	Partition     CkTablePartition  `json:"partition"`
+	Distinct      bool              `json:"distinct" example:"true"`
+	TTL           []CkTableTTL      `json:"ttl"`
+	StoragePolicy string            `json:"storage_policy"`
+}
+
+//https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#mergetree-table-ttl
+type CkTableTTL struct {
+	TimeCloumn string `json:"time_column"`
+	Interval   int    `json:"interval"`
+	Unit       string `json:"unit"`
+	Action     string `json:"action"`
+	Target     string `json:"target"`
 }
 
 type DistLogicTableReq struct {
-	Database     string `json:"database" example:"default"`
-	LocalTable   string `json:"table_name" example:"test_table"`
+	Database   string `json:"database" example:"default"`
+	LocalTable string `json:"table_name" example:"test_table"`
 }
 
 type CkTableNameType struct {
@@ -42,13 +63,15 @@ const (
 )
 
 type CreateCkTableParams struct {
-	Name      string
-	Cluster   string
-	Engine    string
-	Fields    []CkTableNameType
-	Order     []string
-	Partition CkTablePartition
-	DB        string
+	Name          string
+	Cluster       string
+	Engine        string
+	Fields        []CkTableNameType
+	Order         []string
+	Partition     CkTablePartition
+	DB            string
+	TTLExpr       string
+	StoragePolicy string
 }
 
 type DeleteCkTableParams struct {
@@ -77,6 +100,8 @@ type AlterCkTableReq struct {
 	Add    []CkTableNameTypeAfter `json:"add"`
 	Modify []CkTableNameType      `json:"modify"`
 	Drop   []string               `json:"drop" example:"age"`
+	TTLType string                `json:"ttl_type"`
+	TTL    []CkTableTTL           `json:"ttl"`
 }
 
 type AlterCkTableParams struct {
@@ -86,6 +111,8 @@ type AlterCkTableParams struct {
 	Add     []CkTableNameTypeAfter
 	Drop    []string
 	Modify  []CkTableNameType
+	TTLType string
+	TTLExpr string
 }
 
 type DescCkTableParams struct {

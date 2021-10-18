@@ -439,6 +439,12 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 			params.DB, params.Name, params.Cluster, strings.Join(columns, ", "), params.Engine, params.DB, params.Name,
 			partition, strings.Join(params.Order, ", "))
 	}
+	if params.TTLExpr != "" {
+		create += fmt.Sprintf(" TTL %s", params.TTLExpr)
+	}
+	if params.StoragePolicy != "" {
+		create += fmt.Sprintf(" SETTINGS storage_policy = '%s'", params.StoragePolicy)
+	}
 	log.Logger.Debugf(create)
 	if _, err := ck.DB.Exec(create); err != nil {
 		if ok := checkTableIfExists(params.DB, params.Name, params.Cluster); !ok {
@@ -550,6 +556,25 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 			return err
 		}
 	}
+
+	if params.TTLType != "" {
+		if params.TTLType == model.TTLTypeModify {
+			if params.TTLExpr != "" {
+				ttl := fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s MODIFY TTL %s", params.DB, params.Name, params.Cluster, params.TTLExpr)
+				log.Logger.Debugf(ttl)
+				if _, err := ck.DB.Exec(ttl); err != nil {
+					return err
+				}
+			}
+		} else if params.TTLType == model.TTLTypeRemove {
+			ttl := fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s REMOVE TTL", params.DB, params.Name, params.Cluster)
+			log.Logger.Debugf(ttl)
+			if _, err := ck.DB.Exec(ttl); err != nil {
+				return err
+			}
+		}
+	}
+
 
 	// 删除分布式表并重建
 	delete := fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s",
