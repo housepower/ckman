@@ -35,6 +35,12 @@ definitions:
       name:
         example: test_table
         type: string
+      ttl:
+        items:
+          $ref: '#/definitions/model.CkTableTTL'
+        type: array
+      ttl_type:
+        type: string
     type: object
   model.ArchiveTableReq:
     properties:
@@ -220,6 +226,19 @@ definitions:
         example: 0
         type: integer
     type: object
+  model.CkTableTTL:
+    properties:
+      action:
+        type: string
+      interval:
+        type: integer
+      target:
+        type: string
+      time_column:
+        type: string
+      unit:
+        type: string
+    type: object
   model.CkUpgradeCkReq:
     properties:
       packageVersion:
@@ -255,6 +274,12 @@ definitions:
         type: array
       partition:
         $ref: '#/definitions/model.CkTablePartition'
+      storage_policy:
+        type: string
+      ttl:
+        items:
+          $ref: '#/definitions/model.CkTableTTL'
+        type: array
     type: object
   model.Disk:
     properties:

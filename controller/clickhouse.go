@@ -259,6 +259,39 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 		params.DB = model.ClickHouseDefaultDB
 	}
 
+	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+	if len(req.TTL) > 0 {
+		express, err := genTTLExpress(req.TTL, conf.Storage)
+		if err != nil {
+			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
+			return
+		}
+		params.TTLExpr = strings.Join(express, ",")
+	}
+
+	if req.StoragePolicy != "" {
+		if conf.Storage == nil {
+			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, fmt.Sprintf("cluster %s can't find storage_policy %s", clusterName, req.  StoragePolicy))
+			return
+		}
+		found := false
+		for _, policy := range conf.Storage.Policies {
+			if policy.Name == req.StoragePolicy {
+				found = true
+				break
+			}
+		}
+		if !found {
+			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, fmt.Sprintf("cluster %s can't find storage_policy %s", clusterName, req.  StoragePolicy))
+			return
+		}
+		params.StoragePolicy = req.StoragePolicy
+	}
+
 	if err := ckService.CreateTable(&params); err != nil {
 		clickhouse.DropTableIfExists(params, ckService)
 		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
@@ -266,13 +299,6 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	}
 
 	//sync zookeeper path
-	var conf model.CKManClickHouseConfig
-	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
-	if !ok {
-		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
-		return
-	}
-
 	err = clickhouse.GetReplicaZkPath(&conf)
 	if err != nil {
 		return
@@ -432,6 +458,22 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 	if params.DB == "" {
 		params.DB = model.ClickHouseDefaultDB
 	}
+
+	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+	if len(req.TTL) > 0 {
+		express, err := genTTLExpress(req.TTL, conf.Storage)
+		if err != nil {
+			model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, err)
+			return
+		}
+		params.TTLExpr = strings.Join(express, ",")
+	}
+
+	params.TTLType = req.TTLType
 
 	if err := ckService.AlterTable(&params); err != nil {
 		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, err)
@@ -1664,4 +1706,48 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		restart = true
 	}
 	return restart, nil
+}
+
+
+func genTTLExpress(ttls []model.CkTableTTL, storage *model.Storage)([]string, error){
+	var express []string
+	for _, ttl := range ttls {
+		expr := fmt.Sprintf("toDateTime(`%s`) + INTERVAL %d %s ", ttl.TimeCloumn, ttl.Interval, ttl.Unit)
+		if ttl.Action == model.TTLActionDelete {
+			expr += ttl.Action
+		} else if ttl.Action == model.TTLActionToVolume {
+			if storage == nil {
+				return express, fmt.Errorf("can't find volume %s in storage policy", ttl.Target)
+			}
+			found := false
+			for _, policy := range storage.Policies {
+				for _, vol := range policy.Volumns {
+					if vol.Name == ttl.Target {
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
+				return express, fmt.Errorf("can't find volume %s in storage policy", ttl.Target)
+			}
+			expr += " TO VOLUME '" + ttl.Target + "'"
+		} else if ttl.Action == model.TTLActionToDisk {
+			if storage == nil {
+				return express, fmt.Errorf("can't find disk %s in storage policy", ttl.Target)
+			}
+			found := false
+			for _, disk := range storage.Disks {
+				if disk.Name == ttl.Target {
+					found = true
+				}
+			}
+			if !found {
+				return express, fmt.Errorf("can't find disk %s in storage policy", ttl.Target)
+			}
+			expr += " TO DISK '" + ttl.Target + "'"
+		}
+		express = append(express, expr)
+	}
+	return express, nil
 }

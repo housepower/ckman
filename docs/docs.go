@@ -1532,6 +1532,15 @@ var doc = `{
                 "name": {
                     "type": "string",
                     "example": "test_table"
+                },
+                "ttl": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkTableTTL"
+                    }
+                },
+                "ttl_type": {
+                    "type": "string"
                 }
             }
         },
@@ -1785,6 +1794,26 @@ var doc = `{
                 }
             }
         },
+        "model.CkTableTTL": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "interval": {
+                    "type": "integer"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "time_column": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
         "model.CkUpgradeCkReq": {
             "type": "object",
             "properties": {
@@ -1834,6 +1863,15 @@ var doc = `{
                 },
                 "partition": {
                     "$ref": "#/definitions/model.CkTablePartition"
+                },
+                "storage_policy": {
+                    "type": "string"
+                },
+                "ttl": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkTableTTL"
+                    }
                 }
             }
         },
