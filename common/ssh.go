@@ -3,15 +3,15 @@ package common
 import (
 	"bufio"
 	"fmt"
-	"github.com/housepower/ckman/config"
-	"github.com/housepower/ckman/log"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
@@ -34,7 +34,7 @@ func sshConnectwithPassword(user, password string) (*ssh.ClientConfig, error) {
 }
 
 func sshConnectwithPublickKey(user string) (*ssh.ClientConfig, error) {
-	key, err := ioutil.ReadFile(path.Join(config.GetWorkDirectory(), "conf", "id_rsa"))
+	key, err := os.ReadFile(path.Join(config.GetWorkDirectory(), "conf", "id_rsa"))
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 				continue
 			}
 			line += string(b)
-			//TODO I have no idea to slove this problem: "xxx is not in the sudoers file.  This incident will be reported."
+			// TODO I have no idea to slove this problem: "xxx is not in the sudoers file.  This incident will be reported."
 			if strings.HasPrefix(line, "[sudo] password for ") && strings.HasSuffix(line, ": ") {
 				_, err = in.Write([]byte(password + "\n"))
 				if err != nil {
@@ -256,7 +256,7 @@ func ScpUploadFiles(files []string, remotePath, user, password, ip string, port 
 			continue
 		}
 		remoteFile := path.Join(remotePath, path.Base(file))
-		err = ScpUploadFile(file, remoteFile, user, password, ip, port )
+		err = ScpUploadFile(file, remoteFile, user, password, ip, port)
 		if err != nil {
 			return err
 		}
@@ -270,7 +270,7 @@ func ScpUploadFile(localFile, remoteFile, user, password, ip string, port int) e
 		return err
 	}
 	defer sftpClient.Close()
-	//delete remote file first, beacuse maybe the remote file exists and created by root
+	// delete remote file first, beacuse maybe the remote file exists and created by root
 	cmd := fmt.Sprintf("rm -rf %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)))
 	_, err = RemoteExecute(user, password, ip, port, cmd)
 	if err != nil {
@@ -367,4 +367,3 @@ func genFinalScript(user, cmd string) string {
 	}
 	return shell
 }
-

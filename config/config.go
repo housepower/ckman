@@ -1,7 +1,7 @@
 package config
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -35,8 +35,8 @@ type CKManServerConfig struct {
 	Ip             string
 	Port           int
 	Https          bool
-	CertFile       string	`yaml:"certfile"`
-	KeyFile        string	`yaml:"keyfile"`
+	CertFile       string `yaml:"certfile"`
+	KeyFile        string `yaml:"keyfile"`
 	Pprof          bool
 	SessionTimeout int    `yaml:"session_timeout"`
 	SwaggerEnable  bool   `yaml:"swagger_enable"`
@@ -95,7 +95,7 @@ func ParseConfigFile(path, version string) error {
 	}
 	defer f.Close()
 
-	data, err := ioutil.ReadAll(f)
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return err
 	}

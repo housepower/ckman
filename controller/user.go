@@ -1,17 +1,17 @@
 package controller
 
 import (
-	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"github.com/patrickmn/go-cache"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/model"
+	"github.com/patrickmn/go-cache"
 )
 
 var TokenCache *cache.Cache
@@ -50,7 +50,7 @@ func (d *UserController) Login(c *gin.Context) {
 	}
 
 	passwordFile := path.Join(filepath.Dir(d.config.ConfigFile), "password")
-	data, err := ioutil.ReadFile(passwordFile)
+	data, err := os.ReadFile(passwordFile)
 	if err != nil {
 		model.WrapMsg(c, model.GET_USER_PASSWORD_FAIL, err)
 		return
@@ -65,7 +65,7 @@ func (d *UserController) Login(c *gin.Context) {
 	claims := common.CustomClaims{
 		StandardClaims: jwt.StandardClaims{
 			IssuedAt: time.Now().Unix(),
-			//ExpiresAt: time.Now().Add(time.Second * time.Duration(d.config.Server.SessionTimeout)).Unix(),
+			// ExpiresAt: time.Now().Add(time.Second * time.Duration(d.config.Server.SessionTimeout)).Unix(),
 		},
 		Name:     common.DefaultUserName,
 		ClientIP: c.ClientIP(),
@@ -80,7 +80,7 @@ func (d *UserController) Login(c *gin.Context) {
 		Username: req.Username,
 		Token:    token,
 	}
-	TokenCache.SetDefault(token, time.Now().Add(time.Second * time.Duration(d.config.Server.SessionTimeout)).Unix())
+	TokenCache.SetDefault(token, time.Now().Add(time.Second*time.Duration(d.config.Server.SessionTimeout)).Unix())
 
 	model.WrapMsg(c, model.SUCCESS, rsp)
 }

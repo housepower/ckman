@@ -8,7 +8,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 )
 
 /*
@@ -82,10 +82,10 @@ func (encry RSAEncryption) Decode(encode []byte, publicKey string) ([]byte, erro
 	if err != nil {
 		return []byte(""), err
 	}
-	return ioutil.ReadAll(output)
+	return io.ReadAll(output)
 }
 
-//ckman do not need encode token
+// ckman do not need encode token
 func (encry RSAEncryption) Encode(decode []byte, privateKey string) ([]byte, error) {
 	prikey, _ := encry.GetPrivateKey(privateKey)
 	if prikey == nil {
@@ -96,7 +96,7 @@ func (encry RSAEncryption) Encode(decode []byte, privateKey string) ([]byte, err
 	if err != nil {
 		return []byte(""), err
 	}
-	rsadata, err := ioutil.ReadAll(output)
+	rsadata, err := io.ReadAll(output)
 	if err != nil {
 		return []byte(""), err
 	}

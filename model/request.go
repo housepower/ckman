@@ -1,15 +1,16 @@
 package model
 
 import (
-	jsoniter "github.com/json-iterator/go"
-	"io/ioutil"
+	"io"
 	"net/http"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 func DecodeRequestBody(request *http.Request, v interface{}) error {
-	body, err := ioutil.ReadAll(request.Body)
+	body, err := io.ReadAll(request.Body)
 	if err != nil {
 		return err
 	}
