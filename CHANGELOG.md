@@ -1,3 +1,14 @@
+# v.2.1.3
+- disabled text_log
+- rename `macros.xml` to `host.xml`
+- fix check error when upgrade and config
+- start ckman by ckman user（just rpm）
+- rename dist_table to dist_logic_table
+- add delete dist_logic_table api
+- sync logic table schema when create new cluster on logic
+- remove ensureHosts
+- create/alter table with ttl
+
 # v2.1.2
 - fix `hdfs_zero_copy` cause clickhouse-server start failed.
 - add cluster settings
