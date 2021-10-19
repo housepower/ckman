@@ -2,7 +2,7 @@ package controller
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -75,7 +75,7 @@ func getZkStatus(host string, port int) ([]byte, error) {
 		return nil, errors.Errorf("%s", response.Status)
 	}
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}

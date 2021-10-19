@@ -2,7 +2,7 @@ package controller
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"reflect"
 	"strconv"
 	"strings"
@@ -275,7 +275,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 
 	if req.StoragePolicy != "" {
 		if conf.Storage == nil {
-			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, fmt.Sprintf("cluster %s can't find storage_policy %s", clusterName, req.  StoragePolicy))
+			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, fmt.Sprintf("cluster %s can't find storage_policy %s", clusterName, req.StoragePolicy))
 			return
 		}
 		found := false
@@ -286,7 +286,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 			}
 		}
 		if !found {
-			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, fmt.Sprintf("cluster %s can't find storage_policy %s", clusterName, req.  StoragePolicy))
+			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, fmt.Sprintf("cluster %s can't find storage_policy %s", clusterName, req.StoragePolicy))
 			return
 		}
 		params.StoragePolicy = req.StoragePolicy
@@ -298,7 +298,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 		return
 	}
 
-	//sync zookeeper path
+	// sync zookeeper path
 	err = clickhouse.GetReplicaZkPath(&conf)
 	if err != nil {
 		return
@@ -379,7 +379,7 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 // @Failure 200 {string} json "{"retCode":"5002","retMsg":"delete ClickHouse table failed","entity":""}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/dist_logic_table/{clusterName} [delete]
-func (ck *ClickHouseController)DeleteDistTableOnLogic(c *gin.Context){
+func (ck *ClickHouseController) DeleteDistTableOnLogic(c *gin.Context) {
 	var req model.DistLogicTableReq
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
@@ -701,7 +701,7 @@ func (ck *ClickHouseController) StopCluster(c *gin.Context) {
 		return
 	}
 
-	//before stop, we need sync zoopath
+	// before stop, we need sync zoopath
 	/*
 		Since when destory cluster, the cluster must be stopped,
 		we cant't get zookeeper path by querying ck,
@@ -767,7 +767,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 		var newLogics []string
 		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*conf.LogicCluster)
 		if ok {
-			//need delete logic cluster and reconf other cluster
+			// need delete logic cluster and reconf other cluster
 			for _, logic := range logics {
 				if logic == clusterName {
 					continue
@@ -1197,7 +1197,7 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 // @Router /api/v1/ck/slow_sessions/{clusterName} [get]
 func (ck *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
-	now := time.Now().Unix() //second
+	now := time.Now().Unix() // second
 	cond := model.SessionCond{
 		StartTime: now - 7*24*3600, // 7 days before
 		EndTime:   now,
@@ -1496,7 +1496,7 @@ func (ck *ClickHouseController) ClusterSetting(c *gin.Context) {
 		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not registered", GET_SCHEMA_UI_DEPLOY))
 		return
 	}
-	body, err := ioutil.ReadAll(c.Request.Body)
+	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
@@ -1680,7 +1680,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 				delete(diskMapping, disk.Name)
 			}
 		}
-		//if still in the map, means will delete it
+		// if still in the map, means will delete it
 		for k, v := range diskMapping {
 			if v > 0 {
 				return false, errors.Errorf("There's data on disk %v, can't delete it", k)
@@ -1688,7 +1688,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		}
 	}
 
-	//merge conf
+	// merge conf
 	cluster.Port = conf.Port
 	cluster.AuthenticateType = conf.AuthenticateType
 	cluster.SshUser = conf.SshUser
@@ -1701,15 +1701,14 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	if err := common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err
 	}
-	//need restart
+	// need restart
 	if cluster.Port != conf.Port || storageChanged || mergetreeChanged {
 		restart = true
 	}
 	return restart, nil
 }
 
-
-func genTTLExpress(ttls []model.CkTableTTL, storage *model.Storage)([]string, error){
+func genTTLExpress(ttls []model.CkTableTTL, storage *model.Storage) ([]string, error) {
 	var express []string
 	for _, ttl := range ttls {
 		expr := fmt.Sprintf("toDateTime(`%s`) + INTERVAL %d %s ", ttl.TimeCloumn, ttl.Interval, ttl.Unit)

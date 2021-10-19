@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -150,7 +149,7 @@ type TempFile struct {
 }
 
 func NewTempFile(dir, prefix string) (TempFile, error) {
-	f, err := ioutil.TempFile(dir, prefix)
+	f, err := os.CreateTemp(dir, prefix)
 	if err != nil {
 		return TempFile{}, err
 	}
@@ -170,20 +169,19 @@ func DeepCopyByGob(dst, src interface{}) error {
 	return gob.NewDecoder(bytes.NewBuffer(buf.Bytes())).Decode(dst)
 }
 
-
 func ArraySearch(target string, str_array []string) bool {
 	for _, str := range str_array {
 		if target == str {
 			return true
 		}
- 	}
+	}
 	return false
 }
 
 func ReplaceTemplateString(src *string, replace map[string]interface{}) error {
 	t, err := template.New("T1").Parse(*src)
 	if err != nil {
-		return  err
+		return err
 	}
 	buf := new(bytes.Buffer)
 	err = t.Execute(buf, replace)

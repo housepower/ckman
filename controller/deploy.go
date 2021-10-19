@@ -2,6 +2,10 @@ package controller
 
 import (
 	"fmt"
+	"io"
+	"strconv"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
 	"github.com/housepower/ckman/business"
@@ -12,9 +16,6 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/nacos"
-	"io/ioutil"
-	"strconv"
-	"strings"
 )
 
 type DeployController struct {
@@ -112,7 +113,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not registered", GET_SCHEMA_UI_DEPLOY))
 		return
 	}
-	body, err := ioutil.ReadAll(c.Request.Body)
+	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
@@ -307,11 +308,11 @@ func checkAccess(localPath string, conf *model.CKManClickHouseConfig) error {
 
 func SyncLogicSchema(src, dst model.CKManClickHouseConfig) bool {
 	hosts, err := common.GetShardAvaliableHosts(&src)
-	if err != nil || len(hosts) == 0{
+	if err != nil || len(hosts) == 0 {
 		log.Logger.Warnf("cluster %s all node is unvaliable", src.Cluster)
 		return false
 	}
-	srcDB, err := common.ConnectClickHouse(hosts[0], src.Port, model.ClickHouseDefaultDB,src.User, src.Password)
+	srcDB, err := common.ConnectClickHouse(hosts[0], src.Port, model.ClickHouseDefaultDB, src.User, src.Password)
 	if err != nil {
 		log.Logger.Warnf("connect %s failed", hosts[0])
 		return false

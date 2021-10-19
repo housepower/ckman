@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -173,7 +172,7 @@ func (p *PackageController) List(c *gin.Context) {
 func GetAllFiles(dirPth string) ([]string, error) {
 	files := make([]string, 0)
 
-	dir, err := ioutil.ReadDir(dirPth)
+	dir, err := os.ReadDir(dirPth)
 	if err != nil {
 		return nil, err
 	}

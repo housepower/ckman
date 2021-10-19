@@ -3,14 +3,6 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
-	"github.com/housepower/ckman/business"
-	"github.com/housepower/ckman/common"
-	"github.com/housepower/ckman/config"
-	"github.com/housepower/ckman/log"
-	"github.com/housepower/ckman/model"
-	jsoniter "github.com/json-iterator/go"
-	"github.com/pkg/errors"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -19,6 +11,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/housepower/ckman/business"
+	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
+	jsoniter "github.com/json-iterator/go"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -86,7 +86,7 @@ func ReadClusterConfigFile() ([]byte, error) {
 		return nil, nil
 	}
 
-	data, err := ioutil.ReadFile(localFile)
+	data, err := os.ReadFile(localFile)
 	if err != nil {
 		return nil, errors.Wrapf(err, "")
 	}
@@ -509,7 +509,7 @@ func (ck *CkService) DeleteTable(conf *model.CKManClickHouseConfig, params *mode
 		return err
 	}
 
-	//delete zoopath
+	// delete zoopath
 	tableName := fmt.Sprintf("%s.%s", params.DB, params.Name)
 	delete(conf.ZooPath, tableName)
 
@@ -575,7 +575,6 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 		}
 	}
 
-
 	// 删除分布式表并重建
 	delete := fmt.Sprintf("DROP TABLE %s.%s%s ON CLUSTER %s",
 		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
@@ -592,8 +591,8 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 		return err
 	}
 
-	//删除逻辑表并重建（如果有的话）
-	conf,_ := CkClusters.GetClusterByName(params.Cluster)
+	// 删除逻辑表并重建（如果有的话）
+	conf, _ := CkClusters.GetClusterByName(params.Cluster)
 
 	if conf.LogicCluster != nil {
 		distParams := model.DistLogicTblParams{
@@ -937,7 +936,7 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 		return err
 	}
 
-	//clear and reload again
+	// clear and reload again
 	conf.ZooPath = make(map[string]string)
 	for _, database := range databases {
 		if tables, ok := dbtables[database]; ok {
@@ -1046,7 +1045,7 @@ func DropTableIfExists(params model.CreateCkTableParams, ck *CkService) {
 	_, _ = ck.DB.Exec(dropSql)
 }
 
-func (ck *CkService)ShowCreateTable(tbname, database string) (string, error) {
+func (ck *CkService) ShowCreateTable(tbname, database string) (string, error) {
 	query := fmt.Sprintf("SELECT create_table_query FROM system.tables WHERE database = '%s' AND name = '%s'", database, tbname)
 	value, err := ck.QueryInfo(query)
 	if err != nil {
@@ -1056,7 +1055,7 @@ func (ck *CkService)ShowCreateTable(tbname, database string) (string, error) {
 	return schema, nil
 }
 
-func GetCKVersion(conf *model.CKManClickHouseConfig, host string)(string, error) {
+func GetCKVersion(conf *model.CKManClickHouseConfig, host string) (string, error) {
 	tmp := *conf
 	tmp.Hosts = []string{host}
 	service, err := GetCkService(conf.Cluster)
