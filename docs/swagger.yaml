@@ -108,6 +108,12 @@ definitions:
       port:
         example: 9000
         type: integer
+      promHost:
+        example: 127.0.0.1
+        type: string
+      promPort:
+        example: 9090
+        type: integer
       sshPasswdFlag:
         example: 0
         type: integer
@@ -377,27 +383,6 @@ definitions:
       policies:
         items:
           $ref: '#/definitions/model.Policy'
-        type: array
-    type: object
-  model.UpdateConfigReq:
-    properties:
-      alertManagers:
-        example:
-        - 192.168.101.105:19093
-        items:
-          type: string
-        type: array
-      peers:
-        example:
-        - 192.168.21.74
-        items:
-          type: string
-        type: array
-      prometheus:
-        example:
-        - 192.168.101.105:19090
-        items:
-          type: string
         type: array
     type: object
   model.Volumn:
@@ -1152,34 +1137,6 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Upgrade ClickHouse cluster
-  /api/v1/config:
-    get:
-      description: Get Config
-      responses:
-        "200":
-          description: '{"retCode":"0000","retMsg":"ok","entity":{"peers":null,"prometheus":["192.168.101.105:19090"],"alertManagers":null}}'
-          schema:
-            type: string
-      security:
-      - ApiKeyAuth: []
-      summary: Get Config
-    put:
-      description: Update Config
-      parameters:
-      - description: request body
-        in: body
-        name: req
-        required: true
-        schema:
-          $ref: '#/definitions/model.UpdateConfigReq'
-      responses:
-        "200":
-          description: '{"retCode":"0000","retMsg":"success","entity":nil}'
-          schema:
-            type: string
-      security:
-      - ApiKeyAuth: []
-      summary: Update Config
   /api/v1/deploy/ck:
     post:
       description: Deploy clickhouse
@@ -1198,7 +1155,7 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Deploy clickhouse
-  /api/v1/metric/query:
+  /api/v1/metric/query/{clusterName}:
     get:
       description: Query
       parameters:
@@ -1222,7 +1179,7 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Query
-  /api/v1/metric/query_range:
+  /api/v1/metric/query_range/{clusterName}:
     get:
       description: Query Range
       parameters:

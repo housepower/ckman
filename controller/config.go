@@ -6,7 +6,6 @@ import (
 	"github.com/housepower/ckman/model"
 	"os"
 	"strings"
-	"syscall"
 )
 
 type ConfigController struct {
@@ -17,43 +16,6 @@ func NewConfigController(ch chan os.Signal) *ConfigController {
 	cf := &ConfigController{}
 	cf.signal = ch
 	return cf
-}
-
-// @Summary Update Config
-// @Description Update Config
-// @version 1.0
-// @Security ApiKeyAuth
-// @Param req body model.UpdateConfigReq true "request body"
-// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5070","retMsg":"update config failed","entity":""}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
-// @Router /api/v1/config [put]
-func (cf *ConfigController) UpdateConfig(c *gin.Context) {
-	var req model.UpdateConfigReq
-
-	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
-		return
-	}
-
-	if err := config.MarshConfigFile(); err != nil {
-		model.WrapMsg(c, model.UPDATE_CONFIG_FAIL, err)
-		return
-	}
-
-	model.WrapMsg(c, model.SUCCESS, nil)
-	cf.signal <- syscall.SIGHUP
-}
-
-// @Summary Get Config
-// @Description Get Config
-// @version 1.0
-// @Security ApiKeyAuth
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{"peers":null,"prometheus":["192.168.101.105:19090"],"alertManagers":null}}"
-// @Router /api/v1/config [get]
-func (cf *ConfigController) GetConfig(c *gin.Context) {
-	var req model.UpdateConfigReq
-	model.WrapMsg(c, model.SUCCESS, req)
 }
 
 // @Summary Get Version
