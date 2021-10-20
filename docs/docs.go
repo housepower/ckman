@@ -1142,53 +1142,6 @@ var doc = `{
                 }
             }
         },
-        "/api/v1/config": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Get Config",
-                "summary": "Get Config",
-                "responses": {
-                    "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":{\"peers\":null,\"prometheus\":[\"192.168.101.105:19090\"],\"alertManagers\":null}}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Update Config",
-                "summary": "Update Config",
-                "parameters": [
-                    {
-                        "description": "request body",
-                        "name": "req",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.UpdateConfigReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":nil}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/deploy/ck": {
             "post": {
                 "security": [
@@ -1219,7 +1172,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v1/metric/query": {
+        "/api/v1/metric/query/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -1256,7 +1209,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v1/metric/query_range": {
+        "/api/v1/metric/query_range/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -1633,6 +1586,14 @@ var doc = `{
                 "port": {
                     "type": "integer",
                     "example": 9000
+                },
+                "promHost": {
+                    "type": "string",
+                    "example": "127.0.0.1"
+                },
+                "promPort": {
+                    "type": "integer",
+                    "example": 9090
                 },
                 "sshPasswdFlag": {
                     "type": "integer",
@@ -2015,38 +1976,6 @@ var doc = `{
                     "items": {
                         "$ref": "#/definitions/model.Policy"
                     }
-                }
-            }
-        },
-        "model.UpdateConfigReq": {
-            "type": "object",
-            "properties": {
-                "alertManagers": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "192.168.101.105:19093"
-                    ]
-                },
-                "peers": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "192.168.21.74"
-                    ]
-                },
-                "prometheus": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "192.168.101.105:19090"
-                    ]
                 }
             }
         },

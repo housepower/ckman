@@ -15,7 +15,6 @@ import (
 	"github.com/housepower/ckman/server"
 	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/nacos"
-	"github.com/housepower/ckman/service/prometheus"
 	"github.com/housepower/ckman/service/zookeeper"
 	"github.com/patrickmn/go-cache"
 	"github.com/spf13/cobra"
@@ -93,11 +92,9 @@ func main() {
 	}
 
 	zookeeper.ZkServiceCache = cache.New(time.Hour, time.Minute)
-	// create prometheus service
-	prom := prometheus.NewPrometheusService(&config.GlobalConfig.Prometheus)
 
 	// start http server
-	svr := server.NewApiServer(&config.GlobalConfig, prom, signalCh, nacosClient)
+	svr := server.NewApiServer(&config.GlobalConfig, signalCh, nacosClient)
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}

@@ -5,42 +5,38 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/model"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	m "github.com/prometheus/common/model"
 )
 
 type PrometheusService struct {
-	config *config.CKManPrometheusConfig
-	times  int
-	hosts  int
+	Host    string
+	Timeout int
+	times   int
 }
 
-func NewPrometheusService(config *config.CKManPrometheusConfig) *PrometheusService {
-	p := &PrometheusService{}
-	p.config = config
-	p.hosts = len(config.Hosts)
+func NewPrometheusService(host string, timeout int) *PrometheusService {
+	p := &PrometheusService{
+		Host:    host,
+		Timeout: timeout,
+	}
 	return p
 }
 
 func (p *PrometheusService) QueryMetric(params *model.MetricQueryReq) (m.Value, error) {
-	if p.hosts == 0 {
-		return nil, errors.Errorf("prometheus service unavailable")
-	}
 	p.times++
 
 	client, err := api.NewClient(api.Config{
-		Address: fmt.Sprintf("http://%s", p.config.Hosts[p.times%p.hosts]),
+		Address: fmt.Sprintf("http://%s", p.Host),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	v1api := v1.NewAPI(client)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(p.config.Timeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(p.Timeout)*time.Second)
 	defer cancel()
 
 	result, _, err := v1api.Query(ctx, params.Metric, time.Unix(params.Time, 0))
@@ -52,20 +48,17 @@ func (p *PrometheusService) QueryMetric(params *model.MetricQueryReq) (m.Value, 
 }
 
 func (p *PrometheusService) QueryRangeMetric(params *model.MetricQueryRangeReq) (m.Value, error) {
-	if p.hosts == 0 {
-		return nil, errors.Errorf("prometheus service unavailable")
-	}
 	p.times++
 
 	client, err := api.NewClient(api.Config{
-		Address: fmt.Sprintf("http://%s", p.config.Hosts[p.times%p.hosts]),
+		Address: fmt.Sprintf("http://%s", p.Host),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	v1api := v1.NewAPI(client)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(p.config.Timeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(p.Timeout)*time.Second)
 	defer cancel()
 
 	r := v1.Range{

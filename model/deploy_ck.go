@@ -19,6 +19,8 @@ const (
 	ClickHouseDefaultZkPort   int    = 2181
 	ZkStatusDefaultPort       int    = 8080
 	SshDefaultPort            int    = 22
+	PromHostDefault           string = "127.0.0.1"
+	PromPortDefault           int    = 9090
 
 	SshPasswordSave      int = 0
 	SshPasswordNotSave   int = 1
@@ -78,6 +80,8 @@ type CKManClickHouseConfig struct {
 	ZkNodes          []string  `json:"zkNodes" example:"192.168.0.1,192.168.0.2,192.168.0.3"`
 	ZkPort           int       `json:"zkPort" example:"2181"`
 	ZkStatusPort     int       `json:"zkStatusPort" example:"8080"`
+	PromHost         string    `json:"promHost" example:"127.0.0.1"`
+	PromPort         int       `json:"promPort" example:"9090"`
 	User             string    `json:"user" example:"ck"`
 	Password         string    `json:"password" example:"123456"`
 	Path             string    `json:"path" example:"/var/lib/"`
@@ -106,11 +110,11 @@ type Storage struct {
 }
 
 type Disk struct {
-	Name      string `example:"hdfs1"`
-	Type      string `example:"hdfs"`
+	Name      string     `example:"hdfs1"`
+	Type      string     `example:"hdfs"`
 	DiskLocal *DiskLocal `swaggerignore:"true"`
 	DiskHdfs  *DiskHdfs
-	DiskS3    *DiskS3	`swaggerignore:"true"`
+	DiskS3    *DiskS3 `swaggerignore:"true"`
 }
 
 type DiskLocal struct {
@@ -237,5 +241,11 @@ func (config *CKManClickHouseConfig) Normalize() {
 	}
 	if config.SshPort == 0 {
 		config.SshPort = SshDefaultPort
+	}
+	if config.PromHost == "" {
+		config.PromHost = PromHostDefault
+	}
+	if config.PromPort == 0 {
+		config.PromPort = PromPortDefault
 	}
 }

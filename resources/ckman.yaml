@@ -16,12 +16,6 @@ log:
   # day
   max_age: 10
 
-prometheus:
-  hosts:
-    - 127.0.0.1:9090
-  # second
-  timeout: 10
-
 nacos:
   enabled: false
   hosts:

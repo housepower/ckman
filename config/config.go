@@ -24,7 +24,6 @@ type CKManConfig struct {
 	ConfigFile string `yaml:"-"`
 	Server     CKManServerConfig
 	Log        CKManLogConfig
-	Prometheus CKManPrometheusConfig
 	Nacos      CKManNacosConfig
 	Version    string `yaml:"-"`
 }
@@ -48,11 +47,6 @@ type CKManLogConfig struct {
 	MaxCount int `yaml:"max_count"`
 	MaxSize  int `yaml:"max_size"`
 	MaxAge   int `yaml:"max_age"`
-}
-
-type CKManPrometheusConfig struct {
-	Hosts   []string
-	Timeout int
 }
 
 type CKManPprofConfig struct {
@@ -81,7 +75,6 @@ func fillDefault(c *CKManConfig) {
 	c.Log.MaxCount = 5
 	c.Log.MaxSize = 10
 	c.Log.MaxAge = 10
-	c.Prometheus.Timeout = 10
 	c.Nacos.Group = "DEFAULT_GROUP"
 	c.Nacos.DataID = "ckman"
 	c.Server.CertFile = path.Join(GetWorkDirectory(), "conf", "server.crt")
