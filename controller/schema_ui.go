@@ -139,6 +139,18 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionEN: "expose to commands/mntr, zookeeper support it after 3.5.0",
 		Default:       "8080",
 	})
+	params.MustRegister(conf, "PromHost", &common.Parameter{
+		LabelZH:       "Promethues 地址",
+		LabelEN:       "Prometheus Host",
+		Default:       "127.0.0.1",
+		Required:      "false",
+	})
+	params.MustRegister(conf, "PromPort", &common.Parameter{
+		LabelZH:       "Promethues 端口",
+		LabelEN:       "Prometheus Port",
+		Default:       "9090",
+		Required:      "false",
+	})
 	params.MustRegister(conf, "Path", &common.Parameter{
 		LabelZH:       "数据存储路径",
 		LabelEN:       "Data Path",
@@ -326,6 +338,18 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelZH:       "SSH 端口",
 		LabelEN:       "SSH Port",
 		DescriptionZH: "不得为空",
+	})
+	params.MustRegister(conf, "PromHost", &common.Parameter{
+		LabelZH:       "Promethues 地址",
+		LabelEN:       "Prometheus Host",
+		Default:       "127.0.0.1",
+		Required:      "false",
+	})
+	params.MustRegister(conf, "PromPort", &common.Parameter{
+		LabelZH:       "Promethues 端口",
+		LabelEN:       "Prometheus Port",
+		Default:       "9090",
+		Required:      "false",
 	})
 	params.MustRegister(conf, "User", &common.Parameter{
 		LabelZH:       "ClickHouse 用户名",

@@ -36,8 +36,6 @@ func (cf *ConfigController) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	config.GlobalConfig.Prometheus.Hosts = req.Prometheus
-
 	if err := config.MarshConfigFile(); err != nil {
 		model.WrapMsg(c, model.UPDATE_CONFIG_FAIL, err)
 		return
@@ -55,9 +53,6 @@ func (cf *ConfigController) UpdateConfig(c *gin.Context) {
 // @Router /api/v1/config [get]
 func (cf *ConfigController) GetConfig(c *gin.Context) {
 	var req model.UpdateConfigReq
-
-	req.Prometheus = config.GlobalConfig.Prometheus.Hosts
-
 	model.WrapMsg(c, model.SUCCESS, req)
 }
 

@@ -23,7 +23,6 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/router"
-	"github.com/housepower/ckman/service/prometheus"
 	"github.com/markbates/pkger"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
@@ -35,16 +34,14 @@ const ENV_CKMAN_SWAGGER string = "ENV_CKMAN_SWAGGER"
 
 type ApiServer struct {
 	config      *config.CKManConfig
-	prom        *prometheus.PrometheusService
 	nacosClient *nacos.NacosClient
 	svr         *http.Server
 	signal      chan os.Signal
 }
 
-func NewApiServer(config *config.CKManConfig, prom *prometheus.PrometheusService, signal chan os.Signal, nacosClient *nacos.NacosClient) *ApiServer {
+func NewApiServer(config *config.CKManConfig, signal chan os.Signal, nacosClient *nacos.NacosClient) *ApiServer {
 	server := &ApiServer{}
 	server.config = config
-	server.prom = prom
 	server.signal = signal
 	server.nacosClient = nacosClient
 	return server
@@ -87,7 +84,7 @@ func (server *ApiServer) Start() error {
 	groupApi.Use(ginRefreshTokenExpires())
 	groupApi.PUT("/logout", userController.Logout)
 	groupV1 := groupApi.Group("/v1")
-	router.InitRouterV1(groupV1, server.config, server.prom, server.signal, server.nacosClient)
+	router.InitRouterV1(groupV1, server.config, server.signal, server.nacosClient)
 
 	bind := fmt.Sprintf(":%d", server.config.Server.Port)
 	server.svr = &http.Server{
