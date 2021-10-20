@@ -1571,6 +1571,34 @@ func (ck *ClickHouseController) GetConfig(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, resp)
 }
 
+// @Summary  get table lists
+// @Description get table lists config
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":"5082", "retMsg":"get table lists failed", "entity":"error"}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{\"default\":{\"dist_centers\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_centers111\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_ckcenters\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_ckcenters2\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_centers\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_centers111\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_ckcenters\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_ckcenters2\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"]}}}"
+// @Router /api/v1/ck/table_lists/{clusterName} [get]
+func (ck *ClickHouseController) GetTableLists(c *gin.Context){
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, clusterName)
+		return
+	}
+	service := clickhouse.NewCkService(&conf)
+	if err := service.InitCkService(); err != nil {
+		model.WrapMsg(c, model.GET_TABLE_LISTS_FAILED, err)
+		return
+	}
+	result, err := service.GetTblLists()
+	if err != nil {
+		model.WrapMsg(c, model.GET_TABLE_LISTS_FAILED, err)
+		return
+	}
+	model.WrapMsg(c, model.SUCCESS, result)
+}
+
 func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	con, ok := clickhouse.CkClusters.GetClusterByName(conf.Cluster)
 	if !ok {

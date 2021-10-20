@@ -1055,6 +1055,45 @@ func (ck *CkService) ShowCreateTable(tbname, database string) (string, error) {
 	return schema, nil
 }
 
+func (ck *CkService) GetTblLists()(map[string]map[string][]string, error){
+	query := `SELECT
+    t2.database AS database,
+    t2.name AS table,
+    groupArray(t1.name) AS rows
+FROM system.columns AS t1
+INNER JOIN
+(
+    SELECT
+        database,
+        name
+    FROM system.tables
+    WHERE match(engine, 'Distributed') AND (database != 'system')
+) AS t2 ON t1.table = t2.name
+GROUP BY
+    database,
+    table
+ORDER BY 
+    database`
+
+	tblLists := make(map[string]map[string][]string)
+	tblMapping := make(map[string][]string)
+	var preValue string
+	value, err :=  ck.QueryInfo(query)
+	for i := 1; i < len(value); i++ {
+		database := value[i][0].(string)
+		table := value[i][1].(string)
+		cols := value[i][2].([]string)
+		tblMapping[table] = cols
+		if preValue != "" && preValue != database {
+			tblLists[preValue] = tblMapping
+			tblMapping = make(map[string][]string)
+		}
+		preValue = database
+	}
+	tblLists[preValue] = tblMapping
+	return tblLists, err
+}
+
 func GetCKVersion(conf *model.CKManClickHouseConfig, host string) (string, error) {
 	tmp := *conf
 	tmp.Hosts = []string{host}
