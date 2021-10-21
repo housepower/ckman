@@ -341,15 +341,17 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 }
 
 func getNodeDisk(service *CkService) string {
-	query := "SELECT free_space, total_space FROM system.disks"
+	query := `SELECT
+	formatReadableSize(total_space - free_space) AS used,
+		formatReadableSize(total_space) AS total
+	FROM system.disks`
 	value, err := service.QueryInfo(query)
 	if err != nil {
 		return "NA/NA"
 	}
-	freeSpace := value[1][0].(uint64)
-	totalSpace := value[1][1].(uint64)
-	usedSpace := totalSpace - freeSpace
-	return fmt.Sprintf("%s/%s", common.ConvertDisk(usedSpace), common.ConvertDisk(totalSpace))
+	usedSpace := value[1][0].(string)
+	totalSpace := value[1][1].(string)
+	return fmt.Sprintf("%s/%s", usedSpace, totalSpace)
 }
 
 func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode {
@@ -776,7 +778,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 				table := value[i][0].(string)
 				tableName := fmt.Sprintf("%s.%s", database, table)
 				if metric, ok := metrics[tableName]; ok {
-					metric.DiskSpace += value[i][1].(uint64)
+					metric.Space += value[i][1].(uint64)
 					metric.Parts += value[i][2].(uint64)
 					metric.Rows += value[i][3].(uint64)
 				}
@@ -846,7 +848,6 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 	}
 
 	for key, metric := range metrics {
-		metrics[key].Space = common.ConvertDisk(metric.DiskSpace)
 		metrics[key].QueryCost.Max = common.Decimal(metric.QueryCost.Max)
 		metrics[key].QueryCost.Middle = common.Decimal(metric.QueryCost.Middle)
 		metrics[key].QueryCost.SecondaryMax = common.Decimal(metric.QueryCost.SecondaryMax)
