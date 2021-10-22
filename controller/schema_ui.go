@@ -347,8 +347,8 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		Required: "false",
 	})
 	params.MustRegister(conf, "Password", &common.Parameter{
-		LabelZH:   "ClickHouse 用户密码",
-		LabelEN:   "ClickHouse Password",
+		LabelZH:   "默认用户密码",
+		LabelEN:   "Default Password",
 		InputType: common.InputPassword,
 	})
 	params.MustRegister(conf, "Port", &common.Parameter{
