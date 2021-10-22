@@ -184,6 +184,19 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 	if conf.ZkNodes, err = common.ParseHosts(conf.ZkNodes); err != nil {
 		return err
 	}
+	if conf.LogicCluster != nil {
+		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*conf.LogicCluster)
+		if ok {
+			for _, logic := range logics {
+				clus, ok := clickhouse.CkClusters.GetClusterByName(logic)
+				if ok {
+					if clus.Password != conf.Password {
+						return errors.Errorf("default password %s is diffrent from other logic cluster: cluster %s password %s", conf.Password, logic, clus.Password)
+					}
+				}
+			}
+		}
+	}
 
 	if conf.SshUser == "" {
 		return errors.Errorf("ssh user must not be empty")
@@ -235,6 +248,21 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 					}
 				}
 			}
+		}
+	}
+	var usernames []string
+	if len(conf.UsersConf.Users) > 0 {
+		for _, user := range conf.UsersConf.Users {
+			if common.ArraySearch(user.Name, usernames) {
+				return errors.Errorf("username %s is duplicate", user.Name)
+			}
+			if user.Name == model.ClickHouseDefaultUser {
+				return errors.Errorf("username can't be default")
+			}
+			if user.Name == "" || user.Password == "" {
+				return errors.Errorf("username or password can't be empty")
+			}
+			usernames = append(usernames, user.Name)
 		}
 	}
 

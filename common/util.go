@@ -191,3 +191,10 @@ func ReplaceTemplateString(src *string, replace map[string]interface{}) error {
 	*src = buf.String()
 	return nil
 }
+
+func GetStringwithDefault(value, defaul string)string{
+	if value == "" {
+		return defaul
+	}
+	return value
+}

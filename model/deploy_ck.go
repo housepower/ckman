@@ -46,6 +46,7 @@ type CkDeployConfig struct {
 	LogicCluster   *string
 	Storage        *Storage
 	MergeTreeConf  *MergeTreeConf
+	UserConf       UsersConf
 	Ipv6Enable     bool
 }
 
@@ -167,9 +168,9 @@ type User struct {
 }
 
 type Networks struct {
-	IPs         *[]string
-	Hosts       *[]string
-	HostRegexps *[]string
+	IPs         []string
+	Hosts       []string
+	HostRegexps []string
 }
 
 type DbRowPolicy struct {

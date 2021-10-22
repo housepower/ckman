@@ -1654,6 +1654,22 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 		}
 	}
 
+	var usernames []string
+	if len(conf.UsersConf.Users) > 0 {
+		for _, user := range conf.UsersConf.Users {
+			if common.ArraySearch(user.Name, usernames) {
+				return errors.Errorf("username %s is duplicate", user.Name)
+			}
+			if user.Name == model.ClickHouseDefaultUser {
+				return errors.Errorf("username can't be default")
+			}
+			if user.Name == "" || user.Password == "" {
+				return errors.Errorf("username or password can't be empty")
+			}
+			usernames = append(usernames, user.Name)
+		}
+	}
+
 	return nil
 }
 
@@ -1665,13 +1681,14 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	}
 	storageChanged := !reflect.DeepEqual(cluster.Storage, conf.Storage)
 	mergetreeChanged := !reflect.DeepEqual(cluster.MergeTreeConf, conf.MergeTreeConf)
+	userconfChanged := !reflect.DeepEqual(cluster.UsersConf, conf.UsersConf)
 	if cluster.Port == conf.Port &&
 		cluster.AuthenticateType == conf.AuthenticateType &&
 		cluster.SshUser == conf.SshUser &&
 		cluster.SshPassword == conf.SshPassword &&
 		cluster.SshPort == conf.SshPort &&
 		cluster.Password == conf.Password && !storageChanged && !mergetreeChanged &&
-		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort{
+		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort && !userconfChanged{
 		return false, errors.Errorf("all config are the same, it's no need to update")
 	}
 	if storageChanged {
@@ -1719,6 +1736,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	cluster.PromHost = conf.PromHost
 	cluster.PromPort = conf.PromPort
 	cluster.MergeTreeConf = conf.MergeTreeConf
+	cluster.UsersConf = conf.UsersConf
 	if err := common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err
 	}

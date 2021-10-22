@@ -16,11 +16,29 @@ func GenerateUsersXML(filename string, conf *model.CkDeployConfig)(string, error
 	xml.Begin(conf.User)
 	xml.Write("password", conf.Password)
 	xml.Begin("networks")
-	xml.Write("ip", "::/0")
+	xml.Write("ip", model.ClickHouseUserNetIpDefault)
 	xml.End("networks")
-	xml.Write("profile", "default")
-	xml.Write("quota", "default")
+	xml.Write("profile", model.ClickHouseUserProfileDefault)
+	xml.Write("quota", model.ClickHouseUserQuotaDefault)
+	xml.Write("access_management", 1)
 	xml.End(conf.User)
+	for _, user := range conf.UserConf.Users {
+		xml.Begin(user.Name)
+		xml.Write("password", user.Password)
+		xml.Begin("networks")
+		if len(user.Networks.IPs) > 0 {
+			for _, ip := range user.Networks.IPs {
+				xml.Write("ip", common.GetStringwithDefault(ip, model.ClickHouseUserNetIpDefault))
+			}
+		} else {
+			xml.Write("ip", model.ClickHouseUserNetIpDefault)
+		}
+		xml.End("networks")
+		xml.Write("profile", common.GetStringwithDefault(user.Profile, model.ClickHouseUserProfileDefault))
+		xml.Write("quota", common.GetStringwithDefault(user.Quota, model.ClickHouseUserQuotaDefault))
+		xml.Write("access_management", 1)
+		xml.End(user.Name)
+	}
 	xml.End("users")
 	xml.End("yandex")
 	if err := xml.Dump(); err != nil {

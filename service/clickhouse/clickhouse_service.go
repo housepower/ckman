@@ -175,7 +175,7 @@ func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
 				Password: value.Password,
 				Quota:    model.ClickHouseUserQuotaDefault,
 				Profile:  model.ClickHouseUserProfileDefault,
-				Networks: model.Networks{Hosts: &[]string{model.ClickHouseUserNetIpDefault}},
+				Networks: model.Networks{IPs: []string{model.ClickHouseUserNetIpDefault}},
 			}
 			value.UsersConf.Users = append(value.UsersConf.Users, user)
 			value.User = model.ClickHouseDefaultUser
