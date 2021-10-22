@@ -7,6 +7,8 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
 	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -132,4 +134,30 @@ func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig) ([]string, error)
 	}
 	log.Logger.Debugf("hosts: %v", hosts)
 	return hosts, nil
+}
+
+/*
+	v1 == v2 return 0
+	v1 > v2 return 1
+	v1 < v2 return -1
+*/
+func CompareClickHouseVersion(v1, v2 string)int {
+	s1 := strings.Split(v1, ".")
+	s2 := strings.Split(v2, ".")
+	for i := 0; i < len(s1); i++ {
+		if len(s2) <= i {
+			break
+		}
+		if s1[i] == "x" || s2[i] == "x" {
+			continue
+		}
+		f1,_ := strconv.Atoi(s1[i])
+		f2,_ := strconv.Atoi(s2[i])
+		if f1 > f2 {
+			return 1
+		} else if f1 < f2 {
+			return -1
+		}
+	}
+	return 0
 }

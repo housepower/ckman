@@ -16,12 +16,14 @@ import (
 // Refers to https://github.com/Altinity/clickhouse-operator/blob/master/pkg/model/schemer.go
 
 type CmdOptions struct {
-	ShowVer    bool
-	SrcHost    string
-	DstHost    string
-	ChPort     int
-	ChUser     string
-	ChPassword string
+	ShowVer        bool
+	SrcHost        string
+	DstHost        string
+	ChPort         int
+	ChUser         string
+	ChPassword     string
+	RemoteUser     string
+	RemotePassword string
 }
 
 var (
@@ -44,6 +46,8 @@ func initCmdOptions() {
 	common.EnvIntVar(&cmdOps.ChPort, "ch-port")
 	common.EnvStringVar(&cmdOps.ChUser, "ch-user")
 	common.EnvStringVar(&cmdOps.ChPassword, "ch-password")
+	common.EnvStringVar(&cmdOps.RemoteUser, "remote-user")
+	common.EnvStringVar(&cmdOps.RemotePassword, "remote-password")
 
 	// 3. Replace options with the corresponding CLI parameter if present.
 	flag.BoolVar(&cmdOps.ShowVer, "v", cmdOps.ShowVer, "show build version and quit")
@@ -52,6 +56,8 @@ func initCmdOptions() {
 	flag.IntVar(&cmdOps.ChPort, "ch-port", cmdOps.ChPort, "clickhouse tcp listen port")
 	flag.StringVar(&cmdOps.ChUser, "ch-user", cmdOps.ChUser, "clickhouse user")
 	flag.StringVar(&cmdOps.ChPassword, "ch-password", cmdOps.ChPassword, "clickhouse password")
+	flag.StringVar(&cmdOps.ChPassword, "remote-user", cmdOps.RemoteUser, "remote clickhouse user")
+	flag.StringVar(&cmdOps.ChPassword, "remote-password", cmdOps.RemotePassword, "remote clickhouse password")
 	flag.Parse()
 }
 
@@ -78,7 +84,7 @@ func main() {
 	}
 	defer common.CloseConns([]string{cmdOps.DstHost})
 
-	if names, statements, err = business.GetCreateReplicaObjects(db, cmdOps.SrcHost); err != nil {
+	if names, statements, err = business.GetCreateReplicaObjects(db, cmdOps.SrcHost, cmdOps.RemoteUser, cmdOps.RemotePassword); err != nil {
 		log.Logger.Fatalf("got error %v", err)
 	}
 	log.Logger.Infof("names: %v", names)

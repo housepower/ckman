@@ -164,7 +164,24 @@ func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
 	CkClusters.SetConfigVersion(srcVersion)
 
 	for key, value := range clusters.GetClusters() {
-		value.Password = common.DesDecrypt(value.Password)
+		if value.Password != "" {
+			value.Password = common.DesDecrypt(value.Password)
+		}
+		if value.Mode == model.CkClusterDeploy && value.User != model.ClickHouseDefaultUser {
+			//TODO move normal user to userconf
+			log.Logger.Infof("user %s is not default, move to userconf", value.User)
+			user := model.User{
+				Name:     value.User,
+				Password: value.Password,
+				Quota:    model.ClickHouseUserQuotaDefault,
+				Profile:  model.ClickHouseUserProfileDefault,
+				Networks: model.Networks{Hosts: &[]string{model.ClickHouseUserNetIpDefault}},
+			}
+			value.UsersConf.Users = append(value.UsersConf.Users, user)
+			value.User = model.ClickHouseDefaultUser
+			value.Password = ""
+			log.Logger.Debugf("user:%s, password:%s", value.User, value.Password)
+		}
 		if value.SshPassword != "" {
 			value.SshPassword = common.DesDecrypt(value.SshPassword)
 		}
@@ -203,7 +220,9 @@ func MarshalClusters() ([]byte, error) {
 	tmp := model.NewCkClusters()
 	_ = common.DeepCopyByGob(tmp, CkClusters)
 	for key, value := range tmp.GetClusters() {
-		value.Password = common.DesEncrypt(value.Password)
+		if value.Password != "" {
+			value.Password = common.DesEncrypt(value.Password)
+		}
 		if value.AuthenticateType == model.SshPasswordNotSave || value.AuthenticateType == model.SshPasswordUsePubkey {
 			value.SshPassword = ""
 		}
@@ -698,8 +717,8 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 	return colData, nil
 }
 
-func (ck *CkService) FetchSchemerFromOtherNode(host string) error {
-	names, statements, err := business.GetCreateReplicaObjects(ck.DB, host)
+func (ck *CkService) FetchSchemerFromOtherNode(host, password string) error {
+	names, statements, err := business.GetCreateReplicaObjects(ck.DB, host, model.ClickHouseDefaultUser, password)
 	if err != nil {
 		return err
 	}
@@ -1056,7 +1075,7 @@ func (ck *CkService) ShowCreateTable(tbname, database string) (string, error) {
 	return schema, nil
 }
 
-func (ck *CkService) GetTblLists()(map[string]map[string][]string, error){
+func (ck *CkService) GetTblLists() (map[string]map[string][]string, error) {
 	query := `SELECT
     t2.database AS database,
     t2.name AS table,
@@ -1079,7 +1098,7 @@ ORDER BY
 	tblLists := make(map[string]map[string][]string)
 	tblMapping := make(map[string][]string)
 	var preValue string
-	value, err :=  ck.QueryInfo(query)
+	value, err := ck.QueryInfo(query)
 	for i := 1; i < len(value); i++ {
 		database := value[i][0].(string)
 		table := value[i][1].(string)

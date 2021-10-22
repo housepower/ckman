@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"io"
 	"reflect"
 	"strconv"
 	"strings"
@@ -172,7 +171,9 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 	if cluster.Mode == model.CkClusterImport {
 		_ = clickhouse.GetCkClusterConfig(&cluster)
 	}
-	cluster.Password = common.DesEncrypt(cluster.Password)
+	if cluster.Password != "" {
+		cluster.Password = common.DesEncrypt(cluster.Password)
+	}
 	if cluster.SshPassword != "" {
 		cluster.SshPassword = common.DesEncrypt(cluster.SshPassword)
 	}
@@ -200,7 +201,9 @@ func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 				continue
 			}
 		}
-		cluster.Password = common.DesEncrypt(cluster.Password)
+		if cluster.Password != "" {
+			cluster.Password = common.DesEncrypt(cluster.Password)
+		}
 		if cluster.SshPassword != "" {
 			cluster.SshPassword = common.DesEncrypt(cluster.SshPassword)
 		}
@@ -969,7 +972,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
 		return
 	}
-	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
+	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0], conf.Password); err != nil {
 		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
 		return
 	}
@@ -1491,19 +1494,9 @@ func verifySshPassword(c *gin.Context, conf *model.CKManClickHouseConfig, sshUse
 // @Router /api/v1/ck/config/{clusterName} [post]
 func (ck *ClickHouseController) ClusterSetting(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
-	params := GetSchemaParams(GET_SCHEMA_UI_DEPLOY, conf)
-	if params == nil {
-		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not registered", GET_SCHEMA_UI_DEPLOY))
-		return
-	}
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
-		return
-	}
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf.Cluster = clusterName
-	err = params.UnmarshalConfig(string(body), &conf)
+	err := DecodeRequestBody(c.Request, &conf, GET_SCHEMA_UI_CONFIG)
 	if err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
@@ -1604,12 +1597,6 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	if !ok {
 		return errors.Errorf("cluster %s is not exist", conf.Cluster)
 	}
-	if conf.User == "" || conf.Password == "" {
-		return errors.Errorf("user or password must not be empty")
-	}
-	if conf.User == model.ClickHouseRetainUser {
-		return errors.Errorf("clickhouse user must not be default")
-	}
 
 	if conf.SshUser == "" {
 		return errors.Errorf("ssh user must not be empty")
@@ -1683,7 +1670,6 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		cluster.SshUser == conf.SshUser &&
 		cluster.SshPassword == conf.SshPassword &&
 		cluster.SshPort == conf.SshPort &&
-		cluster.User == conf.User &&
 		cluster.Password == conf.Password && !storageChanged && !mergetreeChanged &&
 		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort{
 		return false, errors.Errorf("all config are the same, it's no need to update")
@@ -1717,13 +1703,17 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		}
 	}
 
+	// need restart
+	if cluster.Port != conf.Port || storageChanged || mergetreeChanged {
+		restart = true
+	}
+
 	// merge conf
 	cluster.Port = conf.Port
 	cluster.AuthenticateType = conf.AuthenticateType
 	cluster.SshUser = conf.SshUser
 	cluster.SshPassword = conf.SshPassword
 	cluster.SshPort = conf.SshPort
-	cluster.User = conf.User
 	cluster.Password = conf.Password
 	cluster.Storage = conf.Storage
 	cluster.PromHost = conf.PromHost
@@ -1731,10 +1721,6 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	cluster.MergeTreeConf = conf.MergeTreeConf
 	if err := common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err
-	}
-	// need restart
-	if cluster.Port != conf.Port || storageChanged || mergetreeChanged {
-		restart = true
 	}
 	return restart, nil
 }

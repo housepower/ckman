@@ -9,18 +9,19 @@ const (
 	CkCommonPackageSuffix string = "2.x86_64.rpm"
 	CkServerPackagePrefix string = "clickhouse-server"
 	CkServerPackageSuffix string = "2.noarch.rpm"
-	ClickHouseRetainUser  string = "default"
 
-	ClickHouseDefaultDB       string = "default"
-	ClickHouseDefaultUser     string = "clickhouse"
-	ClickHouseDefaultPassword string = "Ck123456!"
-	ClickHouseDefaultPort     int    = 9000
-	ClickHouseDefaultHttpPort int    = 8123
-	ClickHouseDefaultZkPort   int    = 2181
-	ZkStatusDefaultPort       int    = 8080
-	SshDefaultPort            int    = 22
-	PromHostDefault           string = "127.0.0.1"
-	PromPortDefault           int    = 9090
+	ClickHouseDefaultDB          string = "default"
+	ClickHouseDefaultUser        string = "default"
+	ClickHouseDefaultPort        int    = 9000
+	ClickHouseDefaultHttpPort    int    = 8123
+	ClickHouseDefaultZkPort      int    = 2181
+	ZkStatusDefaultPort          int    = 8080
+	SshDefaultPort               int    = 22
+	PromHostDefault              string = "127.0.0.1"
+	PromPortDefault              int    = 9090
+	ClickHouseUserProfileDefault string = "default"
+	ClickHouseUserQuotaDefault   string = "default"
+	ClickHouseUserNetIpDefault   string = "::/0"
 
 	SshPasswordSave      int = 0
 	SshPasswordNotSave   int = 1
