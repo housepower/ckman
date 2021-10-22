@@ -583,6 +583,9 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
+	if !strings.Contains(strings.ToLower(query), " limit ") {
+		query = fmt.Sprintf("%s LIMIT 10000", strings.TrimRight(query, ";"))
+	}
 
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
@@ -1590,6 +1593,33 @@ func (ck *ClickHouseController) GetTableLists(c *gin.Context){
 		return
 	}
 	model.WrapMsg(c, model.SUCCESS, result)
+}
+
+// @Summary  QueryExplain
+// @Description get explain of query
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":"5082", "retMsg":"get table lists failed", "entity":"error"}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":""}"
+// @Router /api/v1/ck/query_explain/{clusterName} [get]
+func (ck *ClickHouseController) QueryExplain(c *gin.Context){
+	clusterName := c.Param(ClickHouseClusterPath)
+	query := c.Query("query")
+	query = fmt.Sprintf("EXPLAIN %s", query)
+	ckService, err := clickhouse.GetCkService(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
+		return
+	}
+
+	data, err := ckService.QueryInfo(query)
+	if err != nil {
+		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, data)
 }
 
 func checkConfigParams(conf *model.CKManClickHouseConfig) error {
