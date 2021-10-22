@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/housepower/ckman/log"
 	"io"
 	"net/http"
 
@@ -15,5 +16,15 @@ func DecodeRequestBody(request *http.Request, v interface{}) error {
 		return err
 	}
 
-	return json.Unmarshal(body, v)
+	err = json.Unmarshal(body, v)
+	if err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	log.Logger.Debugf("[request] | %s | %s | %s \n%v", request.Host, request.Method, request.URL, string(data))
+	return nil
 }
