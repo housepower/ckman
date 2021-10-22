@@ -2,8 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"io"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -108,17 +106,7 @@ func (d *DeployController) syncUpClusters(c *gin.Context) (err error) {
 // @Router /api/v1/deploy/ck [post]
 func (d *DeployController) DeployCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
-	params := GetSchemaParams(GET_SCHEMA_UI_DEPLOY, conf)
-	if params == nil {
-		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not registered", GET_SCHEMA_UI_DEPLOY))
-		return
-	}
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
-		return
-	}
-	err = params.UnmarshalConfig(string(body), &conf)
+	err := DecodeRequestBody(c.Request, &conf, GET_SCHEMA_UI_DEPLOY)
 	if err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
@@ -196,12 +184,6 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 	if conf.ZkNodes, err = common.ParseHosts(conf.ZkNodes); err != nil {
 		return err
 	}
-	if conf.User == "" || conf.Password == "" {
-		return errors.Errorf("user or password must not be empty")
-	}
-	if conf.User == model.ClickHouseRetainUser {
-		return errors.Errorf("clickhouse user must not be default")
-	}
 
 	if conf.SshUser == "" {
 		return errors.Errorf("ssh user must not be empty")
@@ -234,16 +216,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 				if !strings.HasSuffix(disk.DiskHdfs.Endpoint, "/") {
 					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
 				}
-				vers := strings.Split(conf.Version, ".")
-				major, err := strconv.Atoi(vers[0])
-				if err != nil {
-					return err
-				}
-				minor, err := strconv.Atoi(vers[1])
-				if err != nil {
-					return err
-				}
-				if major < 21 || (major == 21 && minor < 9) {
+				if common.CompareClickHouseVersion(conf.Version, "21.9") < 0 {
 					return errors.Errorf("clickhouse do not support hdfs storage policy while version < 21.9 ")
 				}
 			case "s3":
@@ -266,6 +239,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 	}
 
 	conf.Mode = model.CkClusterDeploy
+	conf.User = model.ClickHouseDefaultUser
 	conf.Normalize()
 	return nil
 }

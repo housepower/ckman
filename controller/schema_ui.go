@@ -4,8 +4,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
+	"io"
+	"net/http"
 	"path"
 	"strings"
 )
@@ -91,18 +94,10 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "不得为空",
 		Default:       "22",
 	})
-	params.MustRegister(conf, "User", &common.Parameter{
-		LabelZH:       "ClickHouse 用户名",
-		LabelEN:       "ClickHouse Username",
-		DescriptionZH: "不能是default用户",
-		DescriptionEN: "can not be default",
-	})
 	params.MustRegister(conf, "Password", &common.Parameter{
-		LabelZH:       "ClickHouse 用户密码",
-		LabelEN:       "ClickHouse Password",
-		DescriptionZH: "不能为空",
-		DescriptionEN: "can't be empty",
-		InputType:     common.InputPassword,
+		LabelZH:   "默认用户密码",
+		LabelEN:   "Default Password",
+		InputType: common.InputPassword,
 	})
 	params.MustRegister(conf, "IsReplica", &common.Parameter{
 		LabelZH:       "是否为多副本",
@@ -140,16 +135,16 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		Default:       "8080",
 	})
 	params.MustRegister(conf, "PromHost", &common.Parameter{
-		LabelZH:       "Promethues 地址",
-		LabelEN:       "Prometheus Host",
-		Default:       "127.0.0.1",
-		Required:      "false",
+		LabelZH:  "Promethues 地址",
+		LabelEN:  "Prometheus Host",
+		Default:  "127.0.0.1",
+		Required: "false",
 	})
 	params.MustRegister(conf, "PromPort", &common.Parameter{
-		LabelZH:       "Promethues 端口",
-		LabelEN:       "Prometheus Port",
-		Default:       "9090",
-		Required:      "false",
+		LabelZH:  "Promethues 端口",
+		LabelEN:  "Prometheus Port",
+		Default:  "9090",
+		Required: "false",
 	})
 	params.MustRegister(conf, "Path", &common.Parameter{
 		LabelZH:       "数据存储路径",
@@ -340,29 +335,21 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		DescriptionZH: "不得为空",
 	})
 	params.MustRegister(conf, "PromHost", &common.Parameter{
-		LabelZH:       "Promethues 地址",
-		LabelEN:       "Prometheus Host",
-		Default:       "127.0.0.1",
-		Required:      "false",
+		LabelZH:  "Promethues 地址",
+		LabelEN:  "Prometheus Host",
+		Default:  "127.0.0.1",
+		Required: "false",
 	})
 	params.MustRegister(conf, "PromPort", &common.Parameter{
-		LabelZH:       "Promethues 端口",
-		LabelEN:       "Prometheus Port",
-		Default:       "9090",
-		Required:      "false",
-	})
-	params.MustRegister(conf, "User", &common.Parameter{
-		LabelZH:       "ClickHouse 用户名",
-		LabelEN:       "ClickHouse Username",
-		DescriptionZH: "不能是default用户",
-		DescriptionEN: "can not be default",
+		LabelZH:  "Promethues 端口",
+		LabelEN:  "Prometheus Port",
+		Default:  "9090",
+		Required: "false",
 	})
 	params.MustRegister(conf, "Password", &common.Parameter{
-		LabelZH:       "ClickHouse 用户密码",
-		LabelEN:       "ClickHouse Password",
-		DescriptionZH: "不能为空",
-		DescriptionEN: "can't be empty",
-		InputType:     common.InputPassword,
+		LabelZH:   "默认用户密码",
+		LabelEN:   "Default Password",
+		InputType: common.InputPassword,
 	})
 	params.MustRegister(conf, "Port", &common.Parameter{
 		LabelZH: "TCP端口",
@@ -568,4 +555,26 @@ func GetSchemaParams(typo string, conf model.CKManClickHouseConfig) common.Confi
 		})
 	}
 	return params
+}
+
+
+func DecodeRequestBody(request *http.Request, conf *model.CKManClickHouseConfig, typo string)error{
+	params := GetSchemaParams(typo, *conf)
+	if params == nil {
+		return errors.Errorf("type %s is not registered", typo)
+	}
+	body, err := io.ReadAll(request.Body)
+	if err != nil {
+		return err
+	}
+	err = params.UnmarshalConfig(string(body), conf)
+	if err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(*conf, "", "  ")
+	if err != nil {
+		return err
+	}
+	log.Logger.Debugf("[request] | %s | %s | %s \n%v ", request.Host, request.Method, request.URL, string(data))
+	return nil
 }

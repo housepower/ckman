@@ -164,7 +164,24 @@ func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
 	CkClusters.SetConfigVersion(srcVersion)
 
 	for key, value := range clusters.GetClusters() {
-		value.Password = common.DesDecrypt(value.Password)
+		if value.Password != "" {
+			value.Password = common.DesDecrypt(value.Password)
+		}
+		if value.Mode == model.CkClusterDeploy && value.User != model.ClickHouseDefaultUser {
+			//TODO move normal user to userconf
+			log.Logger.Infof("user %s is not default, move to userconf", value.User)
+			user := model.User{
+				Name:     value.User,
+				Password: value.Password,
+				Quota:    model.ClickHouseUserQuotaDefault,
+				Profile:  model.ClickHouseUserProfileDefault,
+				Networks: model.Networks{Hosts: &[]string{model.ClickHouseUserNetIpDefault}},
+			}
+			value.UsersConf.Users = append(value.UsersConf.Users, user)
+			value.User = model.ClickHouseDefaultUser
+			value.Password = ""
+			log.Logger.Debugf("user:%s, password:%s", value.User, value.Password)
+		}
 		if value.SshPassword != "" {
 			value.SshPassword = common.DesDecrypt(value.SshPassword)
 		}
@@ -203,7 +220,9 @@ func MarshalClusters() ([]byte, error) {
 	tmp := model.NewCkClusters()
 	_ = common.DeepCopyByGob(tmp, CkClusters)
 	for key, value := range tmp.GetClusters() {
-		value.Password = common.DesEncrypt(value.Password)
+		if value.Password != "" {
+			value.Password = common.DesEncrypt(value.Password)
+		}
 		if value.AuthenticateType == model.SshPasswordNotSave || value.AuthenticateType == model.SshPasswordUsePubkey {
 			value.SshPassword = ""
 		}
@@ -341,15 +360,17 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 }
 
 func getNodeDisk(service *CkService) string {
-	query := "SELECT free_space, total_space FROM system.disks"
+	query := `SELECT
+	formatReadableSize(total_space - free_space) AS used,
+		formatReadableSize(total_space) AS total
+	FROM system.disks`
 	value, err := service.QueryInfo(query)
 	if err != nil {
 		return "NA/NA"
 	}
-	freeSpace := value[1][0].(uint64)
-	totalSpace := value[1][1].(uint64)
-	usedSpace := totalSpace - freeSpace
-	return fmt.Sprintf("%s/%s", common.ConvertDisk(usedSpace), common.ConvertDisk(totalSpace))
+	usedSpace := value[1][0].(string)
+	totalSpace := value[1][1].(string)
+	return fmt.Sprintf("%s/%s", usedSpace, totalSpace)
 }
 
 func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode {
@@ -696,8 +717,8 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 	return colData, nil
 }
 
-func (ck *CkService) FetchSchemerFromOtherNode(host string) error {
-	names, statements, err := business.GetCreateReplicaObjects(ck.DB, host)
+func (ck *CkService) FetchSchemerFromOtherNode(host, password string) error {
+	names, statements, err := business.GetCreateReplicaObjects(ck.DB, host, model.ClickHouseDefaultUser, password)
 	if err != nil {
 		return err
 	}
@@ -776,7 +797,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 				table := value[i][0].(string)
 				tableName := fmt.Sprintf("%s.%s", database, table)
 				if metric, ok := metrics[tableName]; ok {
-					metric.DiskSpace += value[i][1].(uint64)
+					metric.Space += value[i][1].(uint64)
 					metric.Parts += value[i][2].(uint64)
 					metric.Rows += value[i][3].(uint64)
 				}
@@ -846,7 +867,6 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 	}
 
 	for key, metric := range metrics {
-		metrics[key].Space = common.ConvertDisk(metric.DiskSpace)
 		metrics[key].QueryCost.Max = common.Decimal(metric.QueryCost.Max)
 		metrics[key].QueryCost.Middle = common.Decimal(metric.QueryCost.Middle)
 		metrics[key].QueryCost.SecondaryMax = common.Decimal(metric.QueryCost.SecondaryMax)
@@ -1053,6 +1073,45 @@ func (ck *CkService) ShowCreateTable(tbname, database string) (string, error) {
 	}
 	schema := value[1][0].(string)
 	return schema, nil
+}
+
+func (ck *CkService) GetTblLists() (map[string]map[string][]string, error) {
+	query := `SELECT
+    t2.database AS database,
+    t2.name AS table,
+    groupArray(t1.name) AS rows
+FROM system.columns AS t1
+INNER JOIN
+(
+    SELECT
+        database,
+        name
+    FROM system.tables
+    WHERE match(engine, 'Distributed') AND (database != 'system')
+) AS t2 ON t1.table = t2.name
+GROUP BY
+    database,
+    table
+ORDER BY 
+    database`
+
+	tblLists := make(map[string]map[string][]string)
+	tblMapping := make(map[string][]string)
+	var preValue string
+	value, err := ck.QueryInfo(query)
+	for i := 1; i < len(value); i++ {
+		database := value[i][0].(string)
+		table := value[i][1].(string)
+		cols := value[i][2].([]string)
+		tblMapping[table] = cols
+		if preValue != "" && preValue != database {
+			tblLists[preValue] = tblMapping
+			tblMapping = make(map[string][]string)
+		}
+		preValue = database
+	}
+	tblLists[preValue] = tblMapping
+	return tblLists, err
 }
 
 func GetCKVersion(conf *model.CKManClickHouseConfig, host string) (string, error) {

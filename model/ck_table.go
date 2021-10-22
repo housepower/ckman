@@ -95,13 +95,13 @@ type CkTableNameTypeAfter struct {
 }
 
 type AlterCkTableReq struct {
-	Name   string                 `json:"name" example:"test_table"`
-	DB     string                 `json:"database" example:"default"`
-	Add    []CkTableNameTypeAfter `json:"add"`
-	Modify []CkTableNameType      `json:"modify"`
-	Drop   []string               `json:"drop" example:"age"`
-	TTLType string                `json:"ttl_type"`
-	TTL    []CkTableTTL           `json:"ttl"`
+	Name    string                 `json:"name" example:"test_table"`
+	DB      string                 `json:"database" example:"default"`
+	Add     []CkTableNameTypeAfter `json:"add"`
+	Modify  []CkTableNameType      `json:"modify"`
+	Drop    []string               `json:"drop" example:"age"`
+	TTLType string                 `json:"ttl_type"`
+	TTL     []CkTableTTL           `json:"ttl"`
 }
 
 type AlterCkTableParams struct {
@@ -134,8 +134,7 @@ type CkTableMetrics struct {
 	Columns          uint64      `json:"columns"`
 	Rows             uint64      `json:"rows"`
 	Parts            uint64      `json:"parts"`
-	DiskSpace        uint64      `json:"-"`
-	Space            string      `json:"space"`
+	Space            uint64      `json:"space"`
 	RWStatus         bool        `json:"readwrite_status"`
 	CompletedQueries uint64      `json:"completedQueries"`
 	FailedQueries    uint64      `json:"failedQueries"`

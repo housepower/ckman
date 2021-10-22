@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"io"
 	"reflect"
 	"strconv"
 	"strings"
@@ -172,7 +171,9 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 	if cluster.Mode == model.CkClusterImport {
 		_ = clickhouse.GetCkClusterConfig(&cluster)
 	}
-	cluster.Password = common.DesEncrypt(cluster.Password)
+	if cluster.Password != "" {
+		cluster.Password = common.DesEncrypt(cluster.Password)
+	}
 	if cluster.SshPassword != "" {
 		cluster.SshPassword = common.DesEncrypt(cluster.SshPassword)
 	}
@@ -200,7 +201,9 @@ func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 				continue
 			}
 		}
-		cluster.Password = common.DesEncrypt(cluster.Password)
+		if cluster.Password != "" {
+			cluster.Password = common.DesEncrypt(cluster.Password)
+		}
 		if cluster.SshPassword != "" {
 			cluster.SshPassword = common.DesEncrypt(cluster.SshPassword)
 		}
@@ -969,7 +972,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
 		return
 	}
-	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
+	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0], conf.Password); err != nil {
 		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
 		return
 	}
@@ -1491,19 +1494,9 @@ func verifySshPassword(c *gin.Context, conf *model.CKManClickHouseConfig, sshUse
 // @Router /api/v1/ck/config/{clusterName} [post]
 func (ck *ClickHouseController) ClusterSetting(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
-	params := GetSchemaParams(GET_SCHEMA_UI_DEPLOY, conf)
-	if params == nil {
-		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not registered", GET_SCHEMA_UI_DEPLOY))
-		return
-	}
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
-		return
-	}
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf.Cluster = clusterName
-	err = params.UnmarshalConfig(string(body), &conf)
+	err := DecodeRequestBody(c.Request, &conf, GET_SCHEMA_UI_CONFIG)
 	if err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
@@ -1571,16 +1564,38 @@ func (ck *ClickHouseController) GetConfig(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, resp)
 }
 
+// @Summary  get table lists
+// @Description get table lists config
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":"5082", "retMsg":"get table lists failed", "entity":"error"}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{\"default\":{\"dist_centers\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_centers111\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_ckcenters\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_ckcenters2\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_centers\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_centers111\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_ckcenters\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_ckcenters2\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"]}}}"
+// @Router /api/v1/ck/table_lists/{clusterName} [get]
+func (ck *ClickHouseController) GetTableLists(c *gin.Context){
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
+	if !ok {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, clusterName)
+		return
+	}
+	service := clickhouse.NewCkService(&conf)
+	if err := service.InitCkService(); err != nil {
+		model.WrapMsg(c, model.GET_TABLE_LISTS_FAILED, err)
+		return
+	}
+	result, err := service.GetTblLists()
+	if err != nil {
+		model.WrapMsg(c, model.GET_TABLE_LISTS_FAILED, err)
+		return
+	}
+	model.WrapMsg(c, model.SUCCESS, result)
+}
+
 func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	con, ok := clickhouse.CkClusters.GetClusterByName(conf.Cluster)
 	if !ok {
 		return errors.Errorf("cluster %s is not exist", conf.Cluster)
-	}
-	if conf.User == "" || conf.Password == "" {
-		return errors.Errorf("user or password must not be empty")
-	}
-	if conf.User == model.ClickHouseRetainUser {
-		return errors.Errorf("clickhouse user must not be default")
 	}
 
 	if conf.SshUser == "" {
@@ -1655,7 +1670,6 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		cluster.SshUser == conf.SshUser &&
 		cluster.SshPassword == conf.SshPassword &&
 		cluster.SshPort == conf.SshPort &&
-		cluster.User == conf.User &&
 		cluster.Password == conf.Password && !storageChanged && !mergetreeChanged &&
 		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort{
 		return false, errors.Errorf("all config are the same, it's no need to update")
@@ -1689,13 +1703,17 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		}
 	}
 
+	// need restart
+	if cluster.Port != conf.Port || storageChanged || mergetreeChanged {
+		restart = true
+	}
+
 	// merge conf
 	cluster.Port = conf.Port
 	cluster.AuthenticateType = conf.AuthenticateType
 	cluster.SshUser = conf.SshUser
 	cluster.SshPassword = conf.SshPassword
 	cluster.SshPort = conf.SshPort
-	cluster.User = conf.User
 	cluster.Password = conf.Password
 	cluster.Storage = conf.Storage
 	cluster.PromHost = conf.PromHost
@@ -1703,10 +1721,6 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	cluster.MergeTreeConf = conf.MergeTreeConf
 	if err := common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err
-	}
-	// need restart
-	if cluster.Port != conf.Port || storageChanged || mergetreeChanged {
-		restart = true
 	}
 	return restart, nil
 }

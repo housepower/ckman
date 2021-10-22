@@ -41,11 +41,13 @@ func WrapMsg(c *gin.Context, retCode string, entity interface{}) {
 		RetMsg:  retMsg,
 		Entity:  entity,
 	}
-	jsonBytes, err := json.Marshal(resp)
+	jsonBytes, err := json.MarshalIndent(resp, "", "  ")
 	if err != nil {
 		log.Logger.Errorf("%s %s marshal response body fail: %s", c.Request.Method, c.Request.RequestURI, err.Error())
 		return
 	}
+
+	log.Logger.Debugf("[response] | %s | %s | %s \n%v", c.Request.Host, c.Request.Method, c.Request.URL, string(jsonBytes))
 
 	_, err = c.Writer.Write(jsonBytes)
 	if err != nil {

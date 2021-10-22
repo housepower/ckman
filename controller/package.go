@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"github.com/housepower/ckman/common"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -189,8 +190,14 @@ func GetAllFiles(dirPth string) ([]string, error) {
 	return files, nil
 }
 
-func GetAllVersions(files []string) []string {
-	versions := make([]string, 0)
+type VersionFiles []string
+
+func (v VersionFiles) Len() int { return len(v) }
+func (v VersionFiles) Swap(i, j int) { v[i], v[j] = v[j], v[i] }
+func (v VersionFiles) Less(i, j int) bool { return common.CompareClickHouseVersion(v[i], v[j]) < 0 }
+
+func GetAllVersions(files VersionFiles) []string {
+	versions := make(VersionFiles, 0)
 	ckClientMap := make(map[string]bool)
 	ckCommonMap := make(map[string]bool)
 	ckServerMap := make(map[string]bool)
@@ -224,7 +231,7 @@ func GetAllVersions(files []string) []string {
 			versions = append(versions, key)
 		}
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(versions)))
+	sort.Sort(sort.Reverse(versions))
 	return versions
 }
 
