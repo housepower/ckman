@@ -66,9 +66,12 @@ type CkImportConfig struct {
 	User         string   `json:"user" example:"ck"`
 	Password     string   `json:"password" example:"123456"`
 	Cluster      string   `json:"cluster" example:"test"`
+	LogicCluster string   `json:"logic_cluster" example:"logic_test"`
 	ZkNodes      []string `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
 	ZkPort       int      `json:"zkPort" example:"2181"`
 	ZkStatusPort int      `json:"zkStatusPort" example:"8080"`
+	PromHost     string   `json:"prom_host" example:"127.0.01"`
+	PromPort     int      `json:"prom_port" example:"9090"`
 }
 
 type CKManClickHouseConfig struct {

@@ -198,3 +198,10 @@ func GetStringwithDefault(value, defaul string)string{
 	}
 	return value
 }
+
+func GetIntegerwithDefault(value, defaul int)int {
+	if value == 0 {
+		return defaul
+	}
+	return value
+}

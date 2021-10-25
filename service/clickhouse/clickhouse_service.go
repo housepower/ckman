@@ -786,7 +786,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 			}
 
 			// get bytes, parts, rows
-			query = fmt.Sprintf("SELECT table, sum(bytes_on_disk) AS bytes, count() AS parts, sum(rows) AS rows FROM system.parts WHERE (active = 1) AND (database = '%s') GROUP BY table",
+			query = fmt.Sprintf("SELECT table, uniqExact(partition) AS partitions, count(*) AS parts, sum(data_compressed_bytes) AS compressed, sum(data_uncompressed_bytes) AS uncompressed, sum(rows) AS rows FROM system.parts WHERE (database = '%s') AND (active = '1') GROUP BY table;",
 				database)
 			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
@@ -797,9 +797,11 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 				table := value[i][0].(string)
 				tableName := fmt.Sprintf("%s.%s", database, table)
 				if metric, ok := metrics[tableName]; ok {
-					metric.Space += value[i][1].(uint64)
+					metric.Partitions += value[i][1].(uint64)
 					metric.Parts += value[i][2].(uint64)
-					metric.Rows += value[i][3].(uint64)
+					metric.Compressed += value[i][3].(uint64)
+					metric.UnCompressed += value[i][4].(uint64)
+					metric.Rows += value[i][5].(uint64)
 				}
 			}
 

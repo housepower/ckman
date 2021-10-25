@@ -96,11 +96,14 @@ func (ck *ClickHouseController) ImportCluster(c *gin.Context) {
 	conf.Port = req.Port
 	conf.HttpPort = req.HttpPort
 	conf.Cluster = req.Cluster
+	conf.LogicCluster = &req.LogicCluster
 	conf.User = req.User
 	conf.Password = req.Password
 	conf.ZkNodes = req.ZkNodes
 	conf.ZkPort = req.ZkPort
 	conf.ZkStatusPort = req.ZkStatusPort
+	conf.PromHost = req.PromHost
+	conf.PromPort = req.PromPort
 	conf.AuthenticateType = model.SshPasswordNotSave
 	conf.Mode = model.CkClusterImport
 	conf.Normalize()
