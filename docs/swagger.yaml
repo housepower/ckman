@@ -853,6 +853,24 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Query Info
+  /api/v1/ck/query_explain/{clusterName}:
+    get:
+      description: get explain of query
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"ok","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: QueryExplain
   /api/v1/ck/rebalance/{clusterName}:
     put:
       description: Rebanlance a ClickHouse cluster

@@ -96,11 +96,14 @@ func (ck *ClickHouseController) ImportCluster(c *gin.Context) {
 	conf.Port = req.Port
 	conf.HttpPort = req.HttpPort
 	conf.Cluster = req.Cluster
+	conf.LogicCluster = &req.LogicCluster
 	conf.User = req.User
 	conf.Password = req.Password
 	conf.ZkNodes = req.ZkNodes
 	conf.ZkPort = req.ZkPort
 	conf.ZkStatusPort = req.ZkStatusPort
+	conf.PromHost = req.PromHost
+	conf.PromPort = req.PromPort
 	conf.AuthenticateType = model.SshPasswordNotSave
 	conf.Mode = model.CkClusterImport
 	conf.Normalize()
@@ -583,6 +586,9 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
+	if !strings.Contains(strings.ToLower(query), " limit ") {
+		query = fmt.Sprintf("%s LIMIT 10000", strings.TrimRight(query, ";"))
+	}
 
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
@@ -1592,6 +1598,33 @@ func (ck *ClickHouseController) GetTableLists(c *gin.Context){
 	model.WrapMsg(c, model.SUCCESS, result)
 }
 
+// @Summary  QueryExplain
+// @Description get explain of query
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":"5082", "retMsg":"get table lists failed", "entity":"error"}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":""}"
+// @Router /api/v1/ck/query_explain/{clusterName} [get]
+func (ck *ClickHouseController) QueryExplain(c *gin.Context){
+	clusterName := c.Param(ClickHouseClusterPath)
+	query := c.Query("query")
+	query = fmt.Sprintf("EXPLAIN %s", query)
+	ckService, err := clickhouse.GetCkService(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
+		return
+	}
+
+	data, err := ckService.QueryInfo(query)
+	if err != nil {
+		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, data)
+}
+
 func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	con, ok := clickhouse.CkClusters.GetClusterByName(conf.Cluster)
 	if !ok {
@@ -1654,6 +1687,22 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 		}
 	}
 
+	var usernames []string
+	if len(conf.UsersConf.Users) > 0 {
+		for _, user := range conf.UsersConf.Users {
+			if common.ArraySearch(user.Name, usernames) {
+				return errors.Errorf("username %s is duplicate", user.Name)
+			}
+			if user.Name == model.ClickHouseDefaultUser {
+				return errors.Errorf("username can't be default")
+			}
+			if user.Name == "" || user.Password == "" {
+				return errors.Errorf("username or password can't be empty")
+			}
+			usernames = append(usernames, user.Name)
+		}
+	}
+
 	return nil
 }
 
@@ -1665,13 +1714,14 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	}
 	storageChanged := !reflect.DeepEqual(cluster.Storage, conf.Storage)
 	mergetreeChanged := !reflect.DeepEqual(cluster.MergeTreeConf, conf.MergeTreeConf)
+	userconfChanged := !reflect.DeepEqual(cluster.UsersConf, conf.UsersConf)
 	if cluster.Port == conf.Port &&
 		cluster.AuthenticateType == conf.AuthenticateType &&
 		cluster.SshUser == conf.SshUser &&
 		cluster.SshPassword == conf.SshPassword &&
 		cluster.SshPort == conf.SshPort &&
 		cluster.Password == conf.Password && !storageChanged && !mergetreeChanged &&
-		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort{
+		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort && !userconfChanged{
 		return false, errors.Errorf("all config are the same, it's no need to update")
 	}
 	if storageChanged {
@@ -1719,6 +1769,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	cluster.PromHost = conf.PromHost
 	cluster.PromPort = conf.PromPort
 	cluster.MergeTreeConf = conf.MergeTreeConf
+	cluster.UsersConf = conf.UsersConf
 	if err := common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err
 	}

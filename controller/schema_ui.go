@@ -164,6 +164,11 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelEN:  "MergeTree Config",
 		Required: "false",
 	})
+	params.MustRegister(conf, "UsersConf", &common.Parameter{
+		LabelZH:  "用户管理配置",
+		LabelEN:  "User Config",
+		Required: "false",
+	})
 
 	var storage model.Storage
 	params.MustRegister(storage, "Disks", &common.Parameter{
@@ -298,6 +303,29 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		Required:      "false",
 	})
 
+	var userconf model.UsersConf
+	params.MustRegister(userconf, "Users", &common.Parameter{
+		LabelZH:       "用户",
+		LabelEN:       "Users",
+		DescriptionZH: "普通用户的管理",
+		DescriptionEN: "normal user config management",
+	})
+
+	var user model.User
+	params.MustRegister(user, "Name", &common.Parameter{
+		LabelZH:       "用户名",
+		LabelEN:       "Name",
+		DescriptionZH: "用户名称，不可以是已经存在的或default",
+		DescriptionEN: "username, can't be duplicate or default",
+	})
+	params.MustRegister(user, "Password", &common.Parameter{
+		LabelZH:       "密码",
+		LabelEN:       "Password",
+		DescriptionZH: "用户密码，不可为空",
+		DescriptionEN: "can't be empty",
+		InputType:     common.InputPassword,
+	})
+
 	return params
 }
 
@@ -364,6 +392,11 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(conf, "MergeTreeConf", &common.Parameter{
 		LabelZH:  "MergeTree配置",
 		LabelEN:  "MergeTree Config",
+		Required: "false",
+	})
+	params.MustRegister(conf, "UsersConf", &common.Parameter{
+		LabelZH:  "用户管理配置",
+		LabelEN:  "User Config",
 		Required: "false",
 	})
 
@@ -498,6 +531,29 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		DescriptionZH: "自定义配置merge_tree的配置项，生成在config.d/merge_tree.xml中， 请参考: https://clickhouse.tech/docs/en/operations/settings/merge-tree-settings/",
 		DescriptionEN: "define the configuration items for configuring merge_tree, generated in config.d/merge_tree.xml, please visit: https://clickhouse.tech/docs/en/operations/settings/merge-tree-settings/",
 		Required:      "false",
+	})
+
+	var userconf model.UsersConf
+	params.MustRegister(userconf, "Users", &common.Parameter{
+		LabelZH:       "用户",
+		LabelEN:       "Users",
+		DescriptionZH: "普通用户的管理",
+		DescriptionEN: "normal user config management",
+	})
+
+	var user model.User
+	params.MustRegister(user, "Name", &common.Parameter{
+		LabelZH:       "用户名",
+		LabelEN:       "Name",
+		DescriptionZH: "用户名称，不可以是已经存在的或default",
+		DescriptionEN: "username, can't be duplicate or default",
+	})
+	params.MustRegister(user, "Password", &common.Parameter{
+		LabelZH:       "密码",
+		LabelEN:       "Password",
+		DescriptionZH: "用户密码，不可为空",
+		DescriptionEN: "can't be empty",
+		InputType:     common.InputPassword,
 	})
 
 	return params

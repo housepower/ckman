@@ -899,6 +899,7 @@ func ConvertCKDeploy(conf *model.CKManClickHouseConfig) *CKDeploy {
 			LogicCluster:   conf.LogicCluster,
 			Storage:        conf.Storage,
 			MergeTreeConf:  conf.MergeTreeConf,
+			UserConf:       conf.UsersConf,
 		},
 	}
 
