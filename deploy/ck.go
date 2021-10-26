@@ -758,7 +758,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 			}
 		} else {
 			// delete replica path
-			replicaName := conf.Shards[shardNum].Replicas[replicaNum].HostName
+			replicaName := conf.Shards[shardNum].Replicas[replicaNum].Ip
 			replicaPath := fmt.Sprintf("%s/replicas/%s", path, replicaName)
 			log.Logger.Debugf("replicaPath: %s", replicaPath)
 			err := service.DeleteAll(replicaPath)

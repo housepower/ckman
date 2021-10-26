@@ -114,7 +114,7 @@ func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 	for shardIndex, shard := range conf.Shards {
 		replicas := make([]string, len(shard.Replicas))
 		for replicaIndex, replica := range shard.Replicas {
-			replicas[replicaIndex] = replica.HostName
+			replicas[replicaIndex] = replica.Ip
 		}
 		header[shardIndex] = replicas
 	}

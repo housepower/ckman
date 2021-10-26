@@ -106,12 +106,12 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 
 			for replicaIndex, replica := range shard.Replicas {
 				logPointer := ""
-				if leader == replica.HostName {
+				if leader == replica.Ip {
 					logPointer = "L"
 				} else {
 					logPointer = "F"
 				}
-				path = fmt.Sprintf("%s/replicas/%s/log_pointer", zooPath, replica.HostName)
+				path = fmt.Sprintf("%s/replicas/%s/log_pointer", zooPath, replica.Ip)
 				pointer, _, _ := z.Conn.Get(path)
 				logPointer = logPointer + string(pointer)
 				replicas[replicaIndex] = logPointer
