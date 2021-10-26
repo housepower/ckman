@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -456,7 +455,7 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 		params.DB, params.Name, params.Cluster, strings.Join(columns, ", "), params.Engine,
 		partition, strings.Join(params.Order, ", "))
 	if params.Engine == model.ClickHouseDefaultReplicaEngine || params.Engine == model.ClickHouseReplicaReplacingEngine {
-		create = fmt.Sprintf(`CREATE TABLE %s.%s ON CLUSTER %s (%s) ENGINE = %s('/clickhouse/tables/{cluster}/{shard}/%s/%s', '{replica}') PARTITION BY %s ORDER BY (%s)`,
+		create = fmt.Sprintf(`CREATE TABLE %s.%s ON CLUSTER %s (%s) ENGINE = %s('/clickhouse/tables/{cluster}/%s/%s/{shard}', '{replica}') PARTITION BY %s ORDER BY (%s)`,
 			params.DB, params.Name, params.Cluster, strings.Join(columns, ", "), params.Engine, params.DB, params.Name,
 			partition, strings.Join(params.Order, ", "))
 	}
@@ -979,7 +978,10 @@ func getReplicaZkPath(db *sql.DB, database, table string) (string, error) {
 	var err error
 	var path string
 	var rows *sql.Rows
-	query := fmt.Sprintf("SHOW CREATE TABLE `%s`.`%s`", database, table)
+	query := fmt.Sprintf(`SELECT
+		(extractAllGroups(create_table_query, '(MergeTree\\(\')(.*)\', \'{replica}\'\\)')[1])[2] AS zoopath
+FROM system.tables
+WHERE database = '%s' AND name = '%s'`, database, table)
 	log.Logger.Debugf("database:%s, table:%s: query: %s", database, table, query)
 	if rows, err = db.Query(query); err != nil {
 		err = errors.Wrapf(err, "")
@@ -992,12 +994,7 @@ func getReplicaZkPath(db *sql.DB, database, table string) (string, error) {
 			err = errors.Wrapf(err, "")
 			return "", err
 		}
-
-		myExp := regexp.MustCompile(`(ReplicatedMergeTree\(').*\b'`)
-		paths := myExp.FindStringSubmatch(result)
-		if len(paths) > 0 {
-			path = strings.Split(paths[0], "'")[1]
-		}
+		path = result
 	}
 
 	return path, nil

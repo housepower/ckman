@@ -14,7 +14,7 @@ func yandex(indent int, conf *model.CkDeployConfig) string {
 	xml.SetIndent(indent)
 	xml.Write("max_table_size_to_drop", 0)
 	xml.Write("max_partition_size_to_drop", 0)
-	xml.Write("default_replica_path", "/clickhouse/tables/{cluster}/{shard}/{database}/{table}")
+	xml.Write("default_replica_path", "/clickhouse/tables/{cluster}/{database}/{table}/{shard}")
 	xml.Write("default_replica_name", "{replica}")
 	xml.Write("tcp_port", conf.CkTcpPort)
 	if conf.Ipv6Enable {
