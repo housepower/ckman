@@ -1722,6 +1722,10 @@ var doc = `{
                     "type": "integer",
                     "example": 8123
                 },
+                "logic_cluster": {
+                    "type": "string",
+                    "example": "logic_test"
+                },
                 "password": {
                     "type": "string",
                     "example": "123456"
@@ -1729,6 +1733,14 @@ var doc = `{
                 "port": {
                     "type": "integer",
                     "example": 9000
+                },
+                "prom_host": {
+                    "type": "string",
+                    "example": "127.0.01"
+                },
+                "prom_port": {
+                    "type": "integer",
+                    "example": 9090
                 },
                 "user": {
                     "type": "string",

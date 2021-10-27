@@ -164,11 +164,20 @@ definitions:
       httpPort:
         example: 8123
         type: integer
+      logic_cluster:
+        example: logic_test
+        type: string
       password:
         example: "123456"
         type: string
       port:
         example: 9000
+        type: integer
+      prom_host:
+        example: 127.0.01
+        type: string
+      prom_port:
+        example: 9090
         type: integer
       user:
         example: ck

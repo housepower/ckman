@@ -3,12 +3,13 @@ package business
 import (
 	"database/sql"
 	"fmt"
+	"regexp"
+	"strings"
+
 	"github.com/MakeNowJust/heredoc"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/pkg/errors"
-	"regexp"
-	"strings"
 )
 
 // GetObjectListFromClickHouse
@@ -53,7 +54,8 @@ func GetCreateReplicaObjects(db *sql.DB, host, user, password string) (names, st
 			name, 
 			replaceRegexpOne(create_table_query, 'CREATE (TABLE|VIEW|MATERIALIZED VIEW)', 'CREATE \\1 IF NOT EXISTS')
 		FROM system.tables
-		WHERE database != 'system' AND create_table_query != '' AND name not like '.inner.%'
+		WHERE database != 'system' AND create_table_query != '' AND name NOT LIKE '.inner%'
+		ORDER BY if(engine='Distributed', 1, 0), if(match(create_table_query, 'CREATE (MATERIALIZED )?VIEW'), 1, 0), name
 		SETTINGS skip_unavailable_shards = 1`,
 		"system.tables",
 		system_tables,
@@ -123,7 +125,7 @@ INNER JOIN
 			return nil, err
 		}
 		if database != "default" {
-			if ! common.ArraySearch(database, databases) {
+			if !common.ArraySearch(database, databases) {
 				dbsql := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS '%s' ON CLUSTER %s", database, clusterName)
 				dbsqls = append(dbsqls, dbsql)
 			}

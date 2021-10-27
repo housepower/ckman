@@ -4,26 +4,27 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"os"
+
 	_ "github.com/ClickHouse/clickhouse-go"
 	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
-	"github.com/housepower/ckman/model"
-	"os"
 )
 
 // Create objects on a new ClickHouse instance.
 // Refers to https://github.com/Altinity/clickhouse-operator/blob/master/pkg/model/schemer.go
 
 type CmdOptions struct {
-	ShowVer        bool
-	SrcHost        string
-	DstHost        string
-	ChPort         int
-	ChUser         string
-	ChPassword     string
-	RemoteUser     string
-	RemotePassword string
+	ShowVer       bool
+	SrcHost       string
+	SrcChPort     int
+	SrcChUser     string
+	SrcChPassword string
+	DstHost       string
+	DstChPort     int
+	DstChUser     string
+	DstChPassword string
 }
 
 var (
@@ -35,36 +36,43 @@ var (
 func initCmdOptions() {
 	// 1. Set options to default value.
 	cmdOps = CmdOptions{
-		ShowVer: false,
-		ChPort:  9000,
+		ShowVer:       false,
+		SrcChPort:     9000,
+		SrcChUser:     "default",
+		SrcChPassword: "",
+		DstChPort:     9000,
+		DstChUser:     "default",
+		DstChPassword: "",
 	}
 
 	// 2. Replace options with the corresponding env variable if present.
 	common.EnvBoolVar(&cmdOps.ShowVer, "v")
 	common.EnvStringVar(&cmdOps.SrcHost, "src-host")
+	common.EnvIntVar(&cmdOps.SrcChPort, "src-ch-port")
+	common.EnvStringVar(&cmdOps.SrcChUser, "src-ch-user")
+	common.EnvStringVar(&cmdOps.SrcChPassword, "src-ch-password")
 	common.EnvStringVar(&cmdOps.DstHost, "dst-host")
-	common.EnvIntVar(&cmdOps.ChPort, "ch-port")
-	common.EnvStringVar(&cmdOps.ChUser, "ch-user")
-	common.EnvStringVar(&cmdOps.ChPassword, "ch-password")
-	common.EnvStringVar(&cmdOps.RemoteUser, "remote-user")
-	common.EnvStringVar(&cmdOps.RemotePassword, "remote-password")
+	common.EnvIntVar(&cmdOps.DstChPort, "dst-ch-port")
+	common.EnvStringVar(&cmdOps.DstChUser, "dst-ch-user")
+	common.EnvStringVar(&cmdOps.DstChPassword, "dst-ch-password")
 
 	// 3. Replace options with the corresponding CLI parameter if present.
 	flag.BoolVar(&cmdOps.ShowVer, "v", cmdOps.ShowVer, "show build version and quit")
 	flag.StringVar(&cmdOps.SrcHost, "src-host", cmdOps.SrcHost, "clickhouse source host")
+	flag.IntVar(&cmdOps.SrcChPort, "src-ch-port", cmdOps.SrcChPort, "clickhouse source tcp listen port")
+	flag.StringVar(&cmdOps.SrcChUser, "src-ch-user", cmdOps.SrcChUser, "clickhouse source user")
+	flag.StringVar(&cmdOps.SrcChPassword, "src-ch-password", cmdOps.SrcChPassword, "clickhouse source password")
 	flag.StringVar(&cmdOps.DstHost, "dst-host", cmdOps.DstHost, "clickhouse destination host")
-	flag.IntVar(&cmdOps.ChPort, "ch-port", cmdOps.ChPort, "clickhouse tcp listen port")
-	flag.StringVar(&cmdOps.ChUser, "ch-user", cmdOps.ChUser, "clickhouse user")
-	flag.StringVar(&cmdOps.ChPassword, "ch-password", cmdOps.ChPassword, "clickhouse password")
-	flag.StringVar(&cmdOps.ChPassword, "remote-user", cmdOps.RemoteUser, "remote clickhouse user")
-	flag.StringVar(&cmdOps.ChPassword, "remote-password", cmdOps.RemotePassword, "remote clickhouse password")
+	flag.IntVar(&cmdOps.DstChPort, "dst-ch-port", cmdOps.DstChPort, "clickhouse destination tcp listen port")
+	flag.StringVar(&cmdOps.DstChUser, "dst-ch-user", cmdOps.DstChUser, "clickhouse destination user")
+	flag.StringVar(&cmdOps.DstChPassword, "dst-ch-password", cmdOps.DstChPassword, "clickhouse destination password")
 	flag.Parse()
 }
 
 func main() {
 	var names, statements []string
 	var err error
-	var db *sql.DB
+	var dstDB *sql.DB
 	log.InitLoggerConsole()
 	initCmdOptions()
 	if cmdOps.ShowVer {
@@ -74,25 +82,25 @@ func main() {
 	}
 	if cmdOps.SrcHost == "" || cmdOps.DstHost == "" {
 		log.Logger.Fatalf("need to specify clickhouse source host and dest host")
-	} else if cmdOps.ChUser == "" || cmdOps.ChPassword == "" {
-		log.Logger.Fatalf("need to specify clickhouse username and password")
 	}
 
-	db, err = common.ConnectClickHouse(cmdOps.DstHost, cmdOps.ChPort, model.ClickHouseDefaultDB, cmdOps.ChUser, cmdOps.ChPassword)
+	dstDB, err = common.ConnectClickHouse(cmdOps.DstHost, cmdOps.DstChPort, "default", cmdOps.DstChUser, cmdOps.DstChPassword)
 	if err != nil {
+		log.Logger.Fatalf("got error %+v", err)
 		return
 	}
 	defer common.CloseConns([]string{cmdOps.DstHost})
 
-	if names, statements, err = business.GetCreateReplicaObjects(db, cmdOps.SrcHost, cmdOps.RemoteUser, cmdOps.RemotePassword); err != nil {
+	if names, statements, err = business.GetCreateReplicaObjects(dstDB, cmdOps.SrcHost, cmdOps.SrcChUser, cmdOps.SrcChPassword); err != nil {
 		log.Logger.Fatalf("got error %v", err)
 	}
-	log.Logger.Infof("names: %v", names)
-	log.Logger.Infof("statements: %v", statements)
+	log.Logger.Infof("%v names: %v", cmdOps.SrcHost, names)
+	log.Logger.Debugf("%v statements: %v", cmdOps.SrcHost, statements)
 	num := len(names)
 	for i := 0; i < num; i++ {
-		log.Logger.Infof("executing %s", statements[i])
-		if _, err = db.Exec(statements[i]); err != nil {
+		log.Logger.Infof("going to create %s on %s by executing: %s", names[i], cmdOps.DstHost, statements[i])
+		if _, err = dstDB.Exec(statements[i]); err != nil {
+			log.Logger.Fatalf("got error %v", err)
 			return
 		}
 	}
