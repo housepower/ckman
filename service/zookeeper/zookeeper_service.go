@@ -2,6 +2,7 @@ package zookeeper
 
 import (
 	"fmt"
+	"github.com/housepower/ckman/repository"
 	"path"
 	"path/filepath"
 	"sort"
@@ -51,8 +52,8 @@ func GetZkService(clusterName string) (*ZkService, error) {
 	if ok {
 		return zkService.(*ZkService), nil
 	} else {
-		conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
-		if ok {
+		conf, err := repository.Ps.GetClusterbyName(clusterName)
+		if err == nil {
 			service, err := NewZkService(conf.ZkNodes, conf.ZkPort)
 			if err != nil {
 				return nil, err

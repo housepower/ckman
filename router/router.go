@@ -7,13 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/controller"
-	"github.com/housepower/ckman/service/nacos"
 )
 
-func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal chan os.Signal, nacosClient *nacos.NacosClient) {
-	ckController := controller.NewClickHouseController(nacosClient)
+func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal chan os.Signal) {
+	ckController := controller.NewClickHouseController()
 	packageController := controller.NewPackageController(config)
-	deployController := controller.NewDeployController(config, nacosClient)
+	deployController := controller.NewDeployController(config)
 	metricController := controller.NewMetricController(config)
 	configController := controller.NewConfigController(signal)
 	zkController := controller.NewZookeeperController()

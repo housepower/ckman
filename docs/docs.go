@@ -1606,6 +1606,10 @@ var doc = `{
         "model.CKManClickHouseConfig": {
             "type": "object",
             "properties": {
+                "authenticateType": {
+                    "type": "integer",
+                    "example": 0
+                },
                 "cluster": {
                     "type": "string",
                     "example": "test"
@@ -1652,10 +1656,6 @@ var doc = `{
                 "promPort": {
                     "type": "integer",
                     "example": 9090
-                },
-                "sshPasswdFlag": {
-                    "type": "integer",
-                    "example": 0
                 },
                 "sshPassword": {
                     "type": "string",

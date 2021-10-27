@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var GlobalConfig CKManConfig
@@ -21,25 +21,27 @@ type ClusterNode struct {
 }
 
 type CKManConfig struct {
-	ConfigFile string `yaml:"-"`
-	Server     CKManServerConfig
-	Log        CKManLogConfig
-	Nacos      CKManNacosConfig
-	Version    string `yaml:"-"`
+	ConfigFile       string `yaml:"-"`
+	Server           CKManServerConfig
+	Log              CKManLogConfig
+	PersistentConfig map[string]map[string]interface{} `yaml:"persistent_config"`
+	Nacos            CKManNacosConfig
+	Version          string `yaml:"-"`
 }
 
 type CKManServerConfig struct {
-	Id             int
-	Bind           string
-	Ip             string
-	Port           int
-	Https          bool
-	CertFile       string `yaml:"certfile"`
-	KeyFile        string `yaml:"keyfile"`
-	Pprof          bool
-	SessionTimeout int    `yaml:"session_timeout"`
-	SwaggerEnable  bool   `yaml:"swagger_enable"`
-	PublicKey      string `yaml:"public_key"`
+	Id               int
+	Bind             string
+	Ip               string
+	Port             int
+	Https            bool
+	CertFile         string `yaml:"certfile"`
+	KeyFile          string `yaml:"keyfile"`
+	Pprof            bool
+	SessionTimeout   int    `yaml:"session_timeout"`
+	SwaggerEnable    bool   `yaml:"swagger_enable"`
+	PublicKey        string `yaml:"public_key"`
+	PersistentPolicy string `yaml:"persistent_policy"`
 }
 
 type CKManLogConfig struct {
@@ -71,6 +73,7 @@ func fillDefault(c *CKManConfig) {
 	c.Server.SessionTimeout = 3600
 	c.Server.Pprof = true
 	c.Server.SwaggerEnable = false
+	c.Server.PersistentPolicy = "local"
 	c.Log.Level = "INFO"
 	c.Log.MaxCount = 5
 	c.Log.MaxSize = 10
