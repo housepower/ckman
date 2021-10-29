@@ -15,6 +15,7 @@ provides:
 - rebalancer
 - purger
 - exporter
+- migrate
 maintainer: "Zhichang Yu <yuzhichang@gmail.com>"
 description: |
   ckman is a tool which used to manage and monitor ClickHouse database
@@ -33,10 +34,15 @@ contents:
     dst: /usr/local/bin/purger
   - src: ./exporter
     dst: /usr/local/bin/exporter
+  - src: ./migrate
+    dst: /usr/local/bin/migrate
   - src: ./README.md
     dst: /etc/ckman/package/README.md
   - src: ./resources/ckman.yaml
     dst: /etc/ckman/conf/ckman.yaml
+    type: config|noreplace
+  - src: ./resources/migrate.yaml
+    dst: /etc/ckman/conf/migrate.yaml
     type: config|noreplace
   - src: ./resources/password
     dst: /etc/ckman/conf/password

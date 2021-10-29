@@ -3,6 +3,8 @@ package local
 import (
 	"fmt"
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
+	"path"
 )
 
 type LocalConfig struct {
@@ -16,8 +18,8 @@ var FormatFileSuffix = map[string]string{
 	FORMAT_YAML: "yaml",
 }
 
-func (config *LocalConfig) Normalize() {
-	config.Format = common.GetStringwithDefault(config.Format, FORMAT_JSON)
-	config.ConfigDir = common.GetStringwithDefault(config.ConfigDir, ClickHouseClusterDir)
-	config.ConfigFile = fmt.Sprintf("%s.%s", common.GetStringwithDefault(config.ConfigFile, ClickHouseClustersFile), FormatFileSuffix[config.Format])
+func (loc *LocalConfig) Normalize() {
+	loc.Format = common.GetStringwithDefault(loc.Format, FORMAT_JSON)
+	loc.ConfigDir = common.GetStringwithDefault(loc.ConfigDir, path.Join(config.GetWorkDirectory(), ClickHouseClusterDir))
+	loc.ConfigFile = fmt.Sprintf("%s.%s", common.GetStringwithDefault(loc.ConfigFile, ClickHouseClustersFile), FormatFileSuffix[loc.Format])
 }

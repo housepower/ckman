@@ -86,20 +86,20 @@ func (mp *MysqlPersistent) Begin() error {
 }
 
 func (mp *MysqlPersistent) Rollback() error{
-	if mp.Client != mp.ParentDB {
+	if mp.Client == mp.ParentDB {
 		return repository.ErrTransActionEnd
 	}
-	mp.Client = mp.ParentDB
 	tx :=  mp.Client.Rollback()
+	mp.Client = mp.ParentDB
 	return tx.Error
 }
 
 func (mp *MysqlPersistent) Commit() error {
-	if mp.Client != mp.ParentDB {
+	if mp.Client == mp.ParentDB {
 		return repository.ErrTransActionEnd
 	}
-	mp.Client = mp.ParentDB
 	tx := mp.Client.Commit()
+	mp.Client = mp.ParentDB
 	return tx.Error
 }
 

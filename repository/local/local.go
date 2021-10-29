@@ -3,7 +3,6 @@ package local
 import (
 	"fmt"
 	"github.com/housepower/ckman/common"
-	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
@@ -53,7 +52,7 @@ func (lp *LocalPersistent) Init(config interface{}) error {
 	}
 	lp.Config = config.(LocalConfig)
 	lp.Config.Normalize()
-	lp.InTransAction = true
+	lp.InTransAction = false
 	lp.Data.Clusters = make(map[string]model.CKManClickHouseConfig)
 	lp.Snapshot.Clusters = make(map[string]model.CKManClickHouseConfig)
 	lp.Data.Logics = make(map[string][]string)
@@ -65,31 +64,31 @@ func (lp *LocalPersistent) Init(config interface{}) error {
 func (lp *LocalPersistent) Begin() error {
 	lp.lock.Lock()
 	defer lp.lock.Unlock()
-	if !lp.InTransAction {
+	if lp.InTransAction {
 		return repository.ErrTransActionBegin
 	}
-	lp.InTransAction = false
-	return common.DeepCopyByGob(lp.Snapshot,lp.Data)
+	lp.InTransAction = true
+	return common.DeepCopyByGob(&lp.Snapshot, &lp.Data)
 }
 
 func (lp *LocalPersistent) Commit() error {
 	lp.lock.Lock()
 	defer lp.lock.Unlock()
-	if lp.InTransAction {
+	if !lp.InTransAction {
 		return repository.ErrTransActionEnd
 	}
-	lp.InTransAction = true
+	lp.InTransAction = false
 	return lp.dump()
 }
 
 func (lp *LocalPersistent) Rollback() error {
 	lp.lock.Lock()
 	defer lp.lock.Unlock()
-	if lp.InTransAction {
+	if !lp.InTransAction {
 		return repository.ErrTransActionEnd
 	}
-	lp.InTransAction = true
-	return common.DeepCopyByGob(lp.Data, lp.Snapshot)
+	lp.InTransAction = false
+	return common.DeepCopyByGob(&lp.Data, &lp.Snapshot)
 }
 
 func (lp *LocalPersistent) GetClusterbyName(cluster string) (model.CKManClickHouseConfig, error) {
@@ -142,7 +141,7 @@ func (lp *LocalPersistent) CreateCluster(conf model.CKManClickHouseConfig) error
 		return repository.ErrRecordExists
 	}
 	lp.Data.Clusters[conf.Cluster] = conf
-	if lp.InTransAction {
+	if !lp.InTransAction {
 		_ = lp.dump()
 	}
 	return nil
@@ -155,7 +154,7 @@ func (lp *LocalPersistent) CreateLogicCluster(logic string, physics []string) er
 		return repository.ErrRecordExists
 	}
 	lp.Data.Logics[logic] = physics
-	if lp.InTransAction {
+	if !lp.InTransAction {
 		_ = lp.dump()
 	}
 	return nil
@@ -169,7 +168,7 @@ func (lp *LocalPersistent) UpdateCluster(conf model.CKManClickHouseConfig) error
 		return repository.ErrRecordNotFound
 	}
 	lp.Data.Clusters[conf.Cluster] = conf
-	if lp.InTransAction {
+	if !lp.InTransAction {
 		_ = lp.dump()
 	}
 	return nil
@@ -182,7 +181,7 @@ func (lp *LocalPersistent) UpdateLogicCluster(logic string, physics []string) er
 		return repository.ErrRecordNotFound
 	}
 	lp.Data.Logics[logic] = physics
-	if lp.InTransAction {
+	if !lp.InTransAction {
 		_ = lp.dump()
 	}
 	return nil
@@ -192,7 +191,7 @@ func (lp *LocalPersistent) DeleteCluster(clusterName string) error {
 	lp.lock.Lock()
 	defer lp.lock.Unlock()
 	delete(lp.Data.Clusters, clusterName)
-	if lp.InTransAction {
+	if !lp.InTransAction {
 		_ = lp.dump()
 	}
 	return nil
@@ -202,7 +201,7 @@ func (lp *LocalPersistent) DeleteLogicCluster(clusterName string) error {
 	lp.lock.Lock()
 	defer lp.lock.Unlock()
 	delete(lp.Data.Logics, clusterName)
-	if lp.InTransAction {
+	if !lp.InTransAction {
 		_ = lp.dump()
 	}
 	return nil
@@ -246,7 +245,7 @@ func (lp *LocalPersistent) dump() error {
 	if err != nil {
 		return err
 	}
-	localFile := path.Join(config.GetWorkDirectory(), lp.Config.ConfigDir, lp.Config.ConfigFile)
+	localFile := path.Join(lp.Config.ConfigDir, lp.Config.ConfigFile)
 	_ = os.Rename(localFile, fmt.Sprintf("%s.last", localFile))
 	localFd, err := os.OpenFile(localFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
@@ -267,7 +266,7 @@ func (lp *LocalPersistent) dump() error {
 }
 
 func (lp *LocalPersistent) load() error {
-	localFile := path.Join(config.GetWorkDirectory(), lp.Config.ConfigDir, lp.Config.ConfigFile)
+	localFile := path.Join(lp.Config.ConfigDir, lp.Config.ConfigFile)
 
 	_, err := os.Stat(localFile)
 	if err != nil {

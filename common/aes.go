@@ -5,13 +5,14 @@ import (
 	"encoding/hex"
 	"strings"
 )
-var salt = "eoitek"
+var salt = "656f6974656b"
 
-// select hex(aes_encrypt("123456", "eoitek")); => E310E892E56801CED9ED98AA177F18E6
+// select hex(aes_encrypt("123456", unhex("656f6974656b"))); => E310E892E56801CED9ED98AA177F18E6
 func AesEncryptECB(origData string) string {
 	var encrypted []byte
 	var o = []byte(origData)
-	cipher, _ := aes.NewCipher(generateKey([]byte(salt)))
+	s,_ := hex.DecodeString(salt)
+	cipher, _ := aes.NewCipher(generateKey(s))
 	length := (len(o) + aes.BlockSize) / aes.BlockSize
 	plain := make([]byte, length*aes.BlockSize)
 	copy(plain, o)
@@ -26,11 +27,12 @@ func AesEncryptECB(origData string) string {
 	return strings.ToUpper((hex.EncodeToString(encrypted)))
 }
 
-// select aes_decrypt(unhex("E310E892E56801CED9ED98AA177F18E6"), "eoitek"); => 123456
+// select aes_decrypt(unhex("E310E892E56801CED9ED98AA177F18E6"), unhex("656f6974656b")); => 123456
 func AesDecryptECB(encrypted string) string {
 	var decrypted []byte
 	h, _ := hex.DecodeString(encrypted)
-	cipher, _ := aes.NewCipher(generateKey([]byte(salt)))
+	s, _ := hex.DecodeString(salt)
+	cipher, _ := aes.NewCipher(generateKey(s))
 	decrypted = make([]byte, len(h))
 
 	for bs, be := 0, cipher.BlockSize(); bs < len(h); bs, be = bs+cipher.BlockSize(), be+cipher.BlockSize() {
