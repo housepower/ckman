@@ -7,7 +7,7 @@ import (
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
-	"github.com/housepower/ckman/service/clickhouse"
+	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/service/prometheus"
 	"github.com/pkg/errors"
 	"html/template"
@@ -44,8 +44,8 @@ func NewMetricController(config *config.CKManConfig) *MetricController {
 func (m *MetricController) Query(c *gin.Context) {
 	var params model.MetricQueryReq
 	clusterName := c.Param(ClickHouseClusterPath)
-	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
-	if !ok {
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -83,8 +83,8 @@ func (m *MetricController) Query(c *gin.Context) {
 func (m *MetricController) QueryRange(c *gin.Context) {
 	var params model.MetricQueryRangeReq
 	clusterName := c.Param(ClickHouseClusterPath)
-	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
-	if !ok {
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}

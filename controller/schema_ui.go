@@ -309,6 +309,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelEN:       "Users",
 		DescriptionZH: "普通用户的管理",
 		DescriptionEN: "normal user config management",
+		Required:      "false",
 	})
 
 	var user model.User
@@ -539,6 +540,7 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:       "Users",
 		DescriptionZH: "普通用户的管理",
 		DescriptionEN: "normal user config management",
+		Required:      "false",
 	})
 
 	var user model.User
@@ -613,8 +615,7 @@ func GetSchemaParams(typo string, conf model.CKManClickHouseConfig) common.Confi
 	return params
 }
 
-
-func DecodeRequestBody(request *http.Request, conf *model.CKManClickHouseConfig, typo string)error{
+func DecodeRequestBody(request *http.Request, conf *model.CKManClickHouseConfig, typo string) error {
 	params := GetSchemaParams(typo, *conf)
 	if params == nil {
 		return errors.Errorf("type %s is not registered", typo)

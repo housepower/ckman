@@ -5,7 +5,6 @@ import (
 
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
-	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
@@ -239,12 +238,6 @@ func (c *NacosClient) ListenConfig() error {
 }
 
 func ListenConfigCallback(namespace, group, dataId, data string) {
-	if data != "" {
-		if updated, err := clickhouse.UpdateLocalCkClusterConfig([]byte(data)); err == nil && updated {
-			buf, _ := clickhouse.MarshalClusters()
-			_ = clickhouse.WriteClusterConfigFile(buf)
-		}
-	}
 }
 
 func (c *NacosClient) Subscribe() error {

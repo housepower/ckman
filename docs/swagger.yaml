@@ -79,6 +79,9 @@ definitions:
     type: object
   model.CKManClickHouseConfig:
     properties:
+      authenticateType:
+        example: 0
+        type: integer
       cluster:
         example: test
         type: string
@@ -113,9 +116,6 @@ definitions:
         type: string
       promPort:
         example: 9090
-        type: integer
-      sshPasswdFlag:
-        example: 0
         type: integer
       sshPassword:
         example: "123456"

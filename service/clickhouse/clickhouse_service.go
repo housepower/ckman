@@ -3,9 +3,8 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
+	"github.com/housepower/ckman/repository"
 	"net"
-	"os"
-	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -13,10 +12,8 @@ import (
 
 	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
-	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
 )
 
@@ -32,16 +29,9 @@ const (
 	ClickHouseServiceTimeout         int    = 3600
 )
 
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
-var CkClusters *model.CkClusters
-
 type CkService struct {
 	Config *model.CKManClickHouseConfig
 	DB     *sql.DB
-}
-
-func init() {
-	CkClusters = model.NewCkClusters()
 }
 
 func NewCkService(config *model.CKManClickHouseConfig) *CkService {
@@ -76,201 +66,9 @@ func (ck *CkService) InitCkService() error {
 	return nil
 }
 
-func ReadClusterConfigFile() ([]byte, error) {
-	localFile := path.Join(config.GetWorkDirectory(), "conf", ClickHouseClustersFile)
-
-	_, err := os.Stat(localFile)
-	if err != nil {
-		// file does not exist
-		return nil, nil
-	}
-
-	data, err := os.ReadFile(localFile)
-	if err != nil {
-		return nil, errors.Wrapf(err, "")
-	}
-
-	return data, nil
-}
-
-func UnmarshalClusters(data []byte) (map[string]interface{}, error) {
-	if len(data) == 0 {
-		return nil, nil
-	}
-
-	clustersMap := make(map[string]interface{})
-	err := json.Unmarshal(data, &clustersMap)
-	if err != nil {
-		return nil, errors.Wrapf(err, "")
-	}
-
-	return clustersMap, nil
-}
-
-func convertFormatVersionV2(data []byte) (*model.CkClusters, error) {
-	var ck map[string]interface{}
-	clusters := model.NewCkClusters()
-	var err error
-	ck, err = UnmarshalClusters(data)
-	if err != nil || ck == nil {
-		return clusters, err
-	}
-	for key, value := range ck {
-		v, ok := value.(map[string]interface{})
-		if ok {
-			var conf model.CKManClickHouseConfig
-			jsonStr, _ := json.Marshal(v)
-			_ = json.Unmarshal(jsonStr, &conf)
-			conf.Normalize()
-			clusters.SetClusterByName(key, conf)
-		} else {
-			clusters.SetConfigVersion(int(value.(float64)))
-		}
-	}
-	return clusters, nil
-}
-
-func AddCkClusterConfigVersion() {
-	version := CkClusters.GetConfigVersion()
-	if version == -1 {
-		CkClusters.SetConfigVersion(0)
-	}
-	CkClusters.SetConfigVersion(version + 1)
-}
-
-func UpdateLocalCkClusterConfig(data []byte) (updated bool, err error) {
-	clusters := model.NewCkClusters()
-	err = json.Unmarshal(data, &clusters)
-	if err != nil {
-		return false, err
-	}
-
-	if clusters.FormatVersion != model.CurrentFormatVersion {
-		// need convert to V2
-		log.Logger.Infof("need convert clusters.json to V2")
-		clusters, err = convertFormatVersionV2(data)
-		if err != nil {
-			return false, err
-		}
-	}
-	srcVersion := clusters.GetConfigVersion()
-	dstVersion := CkClusters.GetConfigVersion()
-	if srcVersion <= dstVersion {
-		return false, nil
-	}
-
-	CkClusters.ClearClusters()
-	CkClusters.SetConfigVersion(srcVersion)
-
-	for key, value := range clusters.GetClusters() {
-		if value.Password != "" {
-			value.Password = common.DesDecrypt(value.Password)
-		}
-		if value.Mode == model.CkClusterDeploy && value.User != model.ClickHouseDefaultUser {
-			//TODO move normal user to userconf
-			log.Logger.Infof("user %s is not default, move to userconf", value.User)
-			user := model.User{
-				Name:     value.User,
-				Password: value.Password,
-				Quota:    model.ClickHouseUserQuotaDefault,
-				Profile:  model.ClickHouseUserProfileDefault,
-				Networks: model.Networks{IPs: []string{model.ClickHouseUserNetIpDefault}},
-			}
-			value.UsersConf.Users = append(value.UsersConf.Users, user)
-			value.User = model.ClickHouseDefaultUser
-			value.Password = ""
-			log.Logger.Debugf("user:%s, password:%s", value.User, value.Password)
-		}
-		if value.SshPassword != "" {
-			value.SshPassword = common.DesDecrypt(value.SshPassword)
-		}
-		CkClusters.SetClusterByName(key, value)
-	}
-	for key, value := range clusters.GetLogicClusters() {
-		CkClusters.SetLogicClusterByName(key, value)
-	}
-	CkClusters.FormatVersion = model.CurrentFormatVersion
-	return true, nil
-}
-
-func ParseCkClusterConfigFile() error {
-	data, err := ReadClusterConfigFile()
-	if err != nil {
-		return err
-	}
-
-	if data != nil {
-		CkClusters.SetConfigVersion(-1)
-		_, err := UpdateLocalCkClusterConfig(data)
-		if err != nil {
-			return err
-		}
-	}
-
-	if CkClusters.GetConfigVersion() == -1 {
-		CkClusters.FormatVersion = model.CurrentFormatVersion
-		CkClusters.SetConfigVersion(0)
-	}
-
-	return err
-}
-
-func MarshalClusters() ([]byte, error) {
-	tmp := model.NewCkClusters()
-	_ = common.DeepCopyByGob(tmp, CkClusters)
-	for key, value := range tmp.GetClusters() {
-		if value.Password != "" {
-			value.Password = common.DesEncrypt(value.Password)
-		}
-		if value.AuthenticateType == model.SshPasswordNotSave || value.AuthenticateType == model.SshPasswordUsePubkey {
-			value.SshPassword = ""
-		}
-		if value.SshPassword != "" {
-			value.SshPassword = common.DesEncrypt(value.SshPassword)
-		}
-		tmp.SetClusterByName(key, value)
-	}
-	data, err := json.MarshalIndent(tmp, "", "  ")
-	if err != nil {
-		return nil, errors.Wrapf(err, "")
-	}
-
-	return data, nil
-}
-
-func WriteClusterConfigFile(data []byte) error {
-	localFile := path.Join(config.GetWorkDirectory(), "conf", ClickHouseClustersFile)
-	_ = os.Rename(localFile, fmt.Sprintf("%s.last", localFile))
-	localFd, err := os.OpenFile(localFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return errors.Wrapf(err, "")
-	}
-	defer localFd.Close()
-
-	num, err := localFd.Write(data)
-	if err != nil {
-		return errors.Wrapf(err, "")
-	}
-
-	if num != len(data) {
-		return errors.Errorf("didn't write enough data")
-	}
-
-	return nil
-}
-
-func UpdateCkClusterConfigFile() error {
-	data, err := MarshalClusters()
-	if err != nil {
-		return err
-	}
-
-	return WriteClusterConfigFile(data)
-}
-
 func GetCkService(clusterName string) (*CkService, error) {
-	conf, ok := CkClusters.GetClusterByName(clusterName)
-	if ok {
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err == nil {
 		service := NewCkService(&conf)
 		if err := service.InitCkService(); err != nil {
 			return nil, err
@@ -282,8 +80,8 @@ func GetCkService(clusterName string) (*CkService, error) {
 }
 
 func GetCkNodeService(clusterName string, node string) (*CkService, error) {
-	conf, ok := CkClusters.GetClusterByName(clusterName)
-	if ok {
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err == nil {
 		tmp := &model.CKManClickHouseConfig{
 			Hosts:    []string{node},
 			Port:     conf.Port,
@@ -612,7 +410,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	}
 
 	// 删除逻辑表并重建（如果有的话）
-	conf, _ := CkClusters.GetClusterByName(params.Cluster)
+	conf, _ := repository.Ps.GetClusterbyName(params.Cluster)
 
 	if conf.LogicCluster != nil {
 		distParams := model.DistLogicTblParams{
@@ -1022,8 +820,8 @@ func ConvertZooPath(conf *model.CKManClickHouseConfig) []string {
 }
 
 func checkTableIfExists(database, name, cluster string) bool {
-	conf, ok := CkClusters.GetClusterByName(cluster)
-	if !ok {
+	conf, err := repository.Ps.GetClusterbyName(cluster)
+	if err != nil {
 		return false
 	}
 	hosts, err := common.GetShardAvaliableHosts(&conf)

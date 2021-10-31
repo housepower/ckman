@@ -3,6 +3,7 @@ package deploy
 import (
 	"fmt"
 	"github.com/housepower/ckman/ckconfig"
+	"github.com/housepower/ckman/repository"
 	"os"
 	"path"
 	"strconv"
@@ -271,6 +272,7 @@ func (d *CKDeploy) Config() error {
 				lastError = err
 				return
 			}
+			defer os.Remove(profilesFile.FullName)
 			profiles, err := ckconfig.GenerateProfilesXML(profilesFile.FullName, d.HostInfos[innerIndex])
 			if err != nil {
 				lastError = err
@@ -789,7 +791,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	}
 
 	if err := deploy.Uninstall(); err != nil {
-		return err
+		log.Logger.Warnf("can't uninsatll node %s, ignore it", ip)
 	}
 
 	// remove the node from conf struct
@@ -849,8 +851,8 @@ func ConfigCkCluster(conf *model.CKManClickHouseConfig, restart bool)error {
 }
 
 func ConfigLogicOtherCluster(clusterName string) error {
-	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
-	if !ok {
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
 		return fmt.Errorf("can't find cluster %s", clusterName)
 	}
 	d := ConvertCKDeploy(&conf)
@@ -920,14 +922,14 @@ func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 	xml := common.NewXmlFile("")
 	xml.SetIndent(2)
 	xml.Begin(*d.Conf.LogicCluster)
-	logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*d.Conf.LogicCluster)
-	if ok {
+	logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
+	if err == nil {
 		for _, logic := range logics {
 			if logic == d.Conf.ClusterName {
 				// if the operation is addNode or deleteNode, we do not use global config
 				continue
 			}
-			c, _ := clickhouse.CkClusters.GetClusterByName(logic)
+			c, _ := repository.Ps.GetClusterbyName(logic)
 			deploy := ConvertCKDeploy(&c)
 			deploys = append(deploys, deploy)
 		}

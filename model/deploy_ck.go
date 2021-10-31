@@ -77,7 +77,7 @@ type CkImportConfig struct {
 type CKManClickHouseConfig struct {
 	Version          string    `json:"version" example:"21.9.1.7647"`
 	Cluster          string    `json:"cluster" example:"test"`
-	LogicCluster     *string   `json:"logic_cluster" example:"logic_test"`
+	LogicCluster     *string   `json:"logic_cluster" yaml:"logic_cluster" example:"logic_test"`
 	Port             int       `json:"port" example:"9000"`
 	IsReplica        bool      `json:"isReplica" example:"true"`
 	Hosts            []string  `json:"hosts" example:"192.168.0.1,192.168.0.2,192.168.0.3,192.168.0.4"`
@@ -91,7 +91,7 @@ type CKManClickHouseConfig struct {
 	Password         string    `json:"password" example:"123456"`
 	Path             string    `json:"path" example:"/var/lib/"`
 	SshUser          string    `json:"sshUser" example:"root"`
-	AuthenticateType int       `json:"sshPasswdFlag" example:"0"`
+	AuthenticateType int       `json:"authenticateType" example:"0"`
 	SshPassword      string    `json:"sshPassword" example:"123456"`
 	SshPort          int       `json:"sshPort" example:"22"`
 	Storage          *Storage

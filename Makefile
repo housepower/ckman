@@ -32,6 +32,7 @@ backend:
 	go build ${LDFLAGS} -o rebalancer cmd/rebalancer/rebalancer.go
 	go build ${LDFLAGS} -o exporter cmd/exporter/exporter.go
 	go build ${LDFLAGS} -o purger cmd/purger/purger.go
+	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
 
 .PHONY: pre
 pre:
@@ -50,6 +51,7 @@ build:pre
 	go build ${LDFLAGS} -o rebalancer cmd/rebalancer/rebalancer.go
 	go build ${LDFLAGS} -o exporter cmd/exporter/exporter.go
 	go build ${LDFLAGS} -o purger cmd/purger/purger.go
+	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
 
 .PHONY: package
 package:build
@@ -61,9 +63,11 @@ package:build
 	@mv ${SHDIR}/schemer ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/exporter ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/purger ${PKGFULLDIR_TMP}/bin
+	@mv ${SHDIR}/migrate ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/ckman.yaml ${PKGFULLDIR_TMP}/conf/ckman.yaml
+	@cp ${SHDIR}/resources/migrate.yaml ${PKGFULLDIR_TMP}/conf/migrate.yaml
 	@cp ${SHDIR}/resources/password ${PKGFULLDIR_TMP}/conf/password
 	@cp ${SHDIR}/resources/server.key ${PKGFULLDIR_TMP}/conf/server.key
 	@cp ${SHDIR}/resources/server.crt ${PKGFULLDIR_TMP}/conf/server.crt

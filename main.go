@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/repository"
 	"net"
 	"os"
 	"os/exec"
@@ -12,8 +13,9 @@ import (
 
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
+	_ "github.com/housepower/ckman/repository/local"
+	_ "github.com/housepower/ckman/repository/mysql"
 	"github.com/housepower/ckman/server"
-	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/nacos"
 	"github.com/housepower/ckman/service/zookeeper"
 	"github.com/patrickmn/go-cache"
@@ -27,13 +29,15 @@ const (
 )
 
 var (
-	Version        = ""
-	BuildTimeStamp = ""
-	GitCommitHash  = ""
-	Daemon         = false
-	ConfigFilePath = ""
-	LogFilePath    = ""
-	PidFilePath    = ""
+	Version          = ""
+	BuildTimeStamp   = ""
+	GitCommitHash    = ""
+	Daemon           = false
+	ConfigFilePath   = ""
+	LogFilePath      = ""
+	PidFilePath      = ""
+	EncryptPassword  = ""
+	DecryptPassword  = ""
 )
 
 // @title Swagger Example API
@@ -76,10 +80,10 @@ func main() {
 
 	selfIP := GetOutboundIP().String()
 	signalCh := make(chan os.Signal, 1)
-	// parse brokers file
-	err := clickhouse.ParseCkClusterConfigFile()
+
+	err := repository.InitPersistent()
 	if err != nil {
-		log.Logger.Fatalf("parse brokers file fail: %v", err)
+		log.Logger.Fatalf("init persistent failed:%v", err)
 	}
 
 	nacosClient, err := nacos.InitNacosClient(&config.GlobalConfig.Nacos, LogFilePath)
@@ -94,7 +98,7 @@ func main() {
 	zookeeper.ZkServiceCache = cache.New(time.Hour, time.Minute)
 
 	// start http server
-	svr := server.NewApiServer(&config.GlobalConfig, signalCh, nacosClient)
+	svr := server.NewApiServer(&config.GlobalConfig, signalCh)
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}
@@ -162,12 +166,13 @@ var VersionCmd = &cobra.Command{
 func InitCmd() {
 	var rootCmd = &cobra.Command{
 		Use:   "ckman",
-		Short: "ckman is used to manager and monitor clickhouse",
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&ConfigFilePath, "conf", "c", "conf/ckman.yaml", "Config file path")
 	rootCmd.PersistentFlags().StringVarP(&LogFilePath, "log", "l", "logs/ckman.log", "Log file path")
 	rootCmd.PersistentFlags().StringVarP(&PidFilePath, "pid", "p", "run/ckman.pid", "Pid file path")
+	rootCmd.PersistentFlags().StringVarP(&EncryptPassword, "encrypt", "e", "", "encrypt password")
+	rootCmd.PersistentFlags().StringVarP(&DecryptPassword, "decrypt", "u", "", "decrypt password")
 	rootCmd.PersistentFlags().BoolVarP(&Daemon, "daemon", "d", false, "Run as daemon")
 	rootCmd.AddCommand(VersionCmd)
 
@@ -185,6 +190,15 @@ func InitCmd() {
 		},
 	})
 	_ = rootCmd.Execute()
+	if EncryptPassword != "" {
+		fmt.Println(common.AesEncryptECB(EncryptPassword))
+		os.Exit(0)
+	}
+	if DecryptPassword != "" {
+		fmt.Println(common.AesDecryptECB(DecryptPassword))
+		os.Exit(0)
+	}
+	fmt.Println("ckman is used to manager and monitor clickhouse")
 	fmt.Printf("ckman-%v is running...\n", Version)
 	fmt.Printf("See more information in %s\n", LogFilePath)
 }

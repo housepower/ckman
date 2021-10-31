@@ -6,6 +6,8 @@ server:
   #keyfile:
   pprof: true
   session_timeout: 3600
+  # support local, mysql
+  persistent_policy: local
   #public_key:
 
 log:
@@ -16,6 +18,22 @@ log:
   # day
   max_age: 10
 
+
+#persistent_config:
+#  # if peristent_policy is mysql, must config this
+#  mysql:
+#    host: 127.0.0.1
+#    port: 3306
+#    user: root
+#    # you can use ./ckman --encrypt 123456 to get password like: E310E892E56801CED9ED98AA177F18E6
+#    password: E310E892E56801CED9ED98AA177F18E6
+#    # database must be created before start ckman
+#    database: ckman_db
+#  local:
+#    format: json
+#    config_dir: /etc/ckman/conf
+#    config_file: clusters
+
 nacos:
   enabled: false
   hosts:
@@ -24,5 +42,3 @@ nacos:
   user_name: nacos
   password: 0192023A7BBD73250516F069DF18B500
   #namespace:
-  #group:
-  #data_id:

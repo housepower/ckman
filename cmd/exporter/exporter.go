@@ -47,7 +47,7 @@ func initCmdOptions() {
 		HdfsUser:    "root",
 		HdfsDir:     "",
 		Parallelism: 4,
-}
+	}
 
 	// 2. Replace options with the corresponding env variable if present.
 	common.EnvBoolVar(&cmdOps.ShowVer, "v")

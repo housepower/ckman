@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/housepower/ckman/repository"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -12,19 +13,15 @@ import (
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
-	"github.com/housepower/ckman/service/clickhouse"
-	"github.com/housepower/ckman/service/nacos"
 )
 
 type DeployController struct {
-	config      *config.CKManConfig
-	nacosClient *nacos.NacosClient
+	config *config.CKManConfig
 }
 
-func NewDeployController(config *config.CKManConfig, nacosClient *nacos.NacosClient) *DeployController {
+func NewDeployController(config *config.CKManConfig) *DeployController {
 	deploy := &DeployController{}
 	deploy.config = config
-	deploy.nacosClient = nacosClient
 	return deploy
 }
 
@@ -60,34 +57,6 @@ func DeployPackage(d deploy.Deploy) (string, error) {
 	}
 
 	return model.SUCCESS, nil
-}
-
-func (d *DeployController) syncDownClusters(c *gin.Context) (err error) {
-	data, err := d.nacosClient.GetConfig()
-	if err != nil {
-		model.WrapMsg(c, model.GET_NACOS_CONFIG_FAIL, err)
-		return
-	}
-	if data != "" {
-		var updated bool
-		if updated, err = clickhouse.UpdateLocalCkClusterConfig([]byte(data)); err == nil && updated {
-			buf, _ := clickhouse.MarshalClusters()
-			_ = clickhouse.WriteClusterConfigFile(buf)
-		}
-	}
-	return
-}
-
-func (d *DeployController) syncUpClusters(c *gin.Context) (err error) {
-	clickhouse.AddCkClusterConfigVersion()
-	buf, _ := clickhouse.MarshalClusters()
-	_ = clickhouse.WriteClusterConfigFile(buf)
-	err = d.nacosClient.PublishConfig(string(buf))
-	if err != nil {
-		model.WrapMsg(c, model.PUB_NACOS_CONFIG_FAIL, err)
-		return
-	}
-	return
 }
 
 // @Summary Deploy clickhouse
@@ -131,10 +100,10 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 	// sync table schema when logic cluster exists
 	if conf.LogicCluster != nil {
-		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*conf.LogicCluster)
-		if ok && len(logics) > 0 {
+		logics, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
+		if err == nil && len(logics) > 0 {
 			for _, logic := range logics {
-				if cluster, ok := clickhouse.CkClusters.GetClusterByName(logic); ok {
+				if cluster, err := repository.Ps.GetClusterbyName(logic); err == nil {
 					if SyncLogicSchema(cluster, conf) {
 						break
 					}
@@ -143,28 +112,39 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		}
 	}
 
-	if err := d.syncDownClusters(c); err != nil {
+	if err = repository.Ps.Begin(); err != nil {
+		model.WrapMsg(c, model.DEPLOY_CK_CLUSTER_ERROR, err)
 		return
 	}
-	clickhouse.CkClusters.SetClusterByName(conf.Cluster, conf)
+	if err = repository.Ps.CreateCluster(conf); err != nil {
+		model.WrapMsg(c, model.DEPLOY_CK_CLUSTER_ERROR, err)
+		_ = repository.Ps.Rollback()
+		return
+	}
 	if conf.LogicCluster != nil {
-		var newLogics []string
-		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*conf.LogicCluster)
-		if ok {
-			newLogics = append(newLogics, logics...)
+		logics, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
+		if err != nil {
+			if err == repository.ErrRecordNotFound {
+				logics = append(logics, conf.Cluster)
+				_ = repository.Ps.CreateLogicCluster(*conf.LogicCluster, logics)
+			} else {
+				model.WrapMsg(c, model.DEPLOY_CK_CLUSTER_ERROR, err)
+				_ = repository.Ps.Rollback()
+				return
+			}
+		}else {
+			logics = append(logics, conf.Cluster)
+			_ = repository.Ps.UpdateLogicCluster(*conf.LogicCluster, logics)
 		}
-		newLogics = append(newLogics, conf.Cluster)
-		clickhouse.CkClusters.SetLogicClusterByName(*conf.LogicCluster, newLogics)
 	}
-	if err := d.syncUpClusters(c); err != nil {
-		return
-	}
+	_ = repository.Ps.Commit()
+
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
 func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 	var err error
-	if _, ok := clickhouse.CkClusters.GetClusterByName(conf.Cluster); ok {
+	if  repository.Ps.ClusterExists(conf.Cluster) {
 		return errors.Errorf("cluster %s is exist", conf.Cluster)
 	}
 
@@ -185,11 +165,11 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 		return err
 	}
 	if conf.LogicCluster != nil {
-		logics, ok := clickhouse.CkClusters.GetLogicClusterByName(*conf.LogicCluster)
-		if ok {
+		logics, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
+		if err == nil {
 			for _, logic := range logics {
-				clus, ok := clickhouse.CkClusters.GetClusterByName(logic)
-				if ok {
+				clus, err1 := repository.Ps.GetClusterbyName(logic)
+				if err1 == nil {
 					if clus.Password != conf.Password {
 						return errors.Errorf("default password %s is diffrent from other logic cluster: cluster %s password %s", conf.Password, logic, clus.Password)
 					}

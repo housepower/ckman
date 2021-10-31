@@ -2,13 +2,13 @@ package controller
 
 import (
 	"fmt"
+	"github.com/housepower/ckman/repository"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/model"
-	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/zookeeper"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
@@ -33,8 +33,8 @@ func NewZookeeperController() *ZookeeperController {
 // @Router /api/v1/zk/status/{clusterName} [get]
 func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
-	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
-	if !ok {
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
@@ -92,8 +92,8 @@ func getZkStatus(host string, port int) ([]byte, error) {
 // @Router /api/v1/zk/replicated_table/{clusterName} [get]
 func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
-	conf, ok := clickhouse.CkClusters.GetClusterByName(clusterName)
-	if !ok {
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}

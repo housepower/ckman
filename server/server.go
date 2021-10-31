@@ -10,7 +10,6 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/housepower/ckman/service/nacos"
 	"github.com/patrickmn/go-cache"
 
 	static "github.com/choidamdam/gin-static-pkger"
@@ -34,16 +33,14 @@ const ENV_CKMAN_SWAGGER string = "ENV_CKMAN_SWAGGER"
 
 type ApiServer struct {
 	config      *config.CKManConfig
-	nacosClient *nacos.NacosClient
 	svr         *http.Server
 	signal      chan os.Signal
 }
 
-func NewApiServer(config *config.CKManConfig, signal chan os.Signal, nacosClient *nacos.NacosClient) *ApiServer {
+func NewApiServer(config *config.CKManConfig, signal chan os.Signal) *ApiServer {
 	server := &ApiServer{}
 	server.config = config
 	server.signal = signal
-	server.nacosClient = nacosClient
 	return server
 }
 
@@ -84,7 +81,7 @@ func (server *ApiServer) Start() error {
 	groupApi.Use(ginRefreshTokenExpires())
 	groupApi.PUT("/logout", userController.Logout)
 	groupV1 := groupApi.Group("/v1")
-	router.InitRouterV1(groupV1, server.config, server.signal, server.nacosClient)
+	router.InitRouterV1(groupV1, server.config, server.signal)
 
 	bind := fmt.Sprintf(":%d", server.config.Server.Port)
 	server.svr = &http.Server{
