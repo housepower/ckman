@@ -1,20 +1,18 @@
 package local
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	"os"
 	"path"
 	"sync"
 )
-
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type LocalPersistent struct {
 	Config        LocalConfig

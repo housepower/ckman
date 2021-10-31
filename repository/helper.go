@@ -34,9 +34,17 @@ func DecodePasswd(conf *model.CKManClickHouseConfig) {
 	if conf.SshPassword != "" {
 		conf.SshPassword = common.AesDecryptECB(conf.SshPassword)
 	}
-	for idx, user := range conf.UsersConf.Users {
+	var users []model.User
+	/*
+	conf.UsersConf.Users and lp.Data.Clusters[key] pointer the same address when policy is local
+	When conf changed, lp.Data will changed,too. which will cause panic when decode password (runtime error: slice bounds out of range [:16] with capacity 3)
+	That's not allow to happen, So we need another memory to storage users, to ensure that the original data (lp.Data) not changed when decode password
+	*/
+	for _, user := range conf.UsersConf.Users {
 		if user.Password != "" {
-			conf.UsersConf.Users[idx].Password = common.AesDecryptECB(user.Password)
+			user.Password = common.AesDecryptECB(user.Password)
+			users = append(users, user)
 		}
 	}
+	conf.UsersConf.Users = users
 }
