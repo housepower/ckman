@@ -1,4 +1,11 @@
-# v.2.1.3
+# v2.2.0
+- user config
+- prometheus address with each cluster
+- support posisitent cluster config to mysql
+- interface beauty
+- fix schema and replica issue
+
+# v2.1.3
 - disabled text_log
 - rename `macros.xml` to `host.xml`
 - fix check error when upgrade and config
