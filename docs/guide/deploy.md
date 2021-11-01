@@ -3,6 +3,7 @@
 - `node_exporter`(非必需)
 - `nacos`(>`1.4`)(非必需)
 - `zookeeper`(>`3.6.0`, 推荐 )
+- `mysql` (当持久化策略设置为`mysql`时必需)
 
 # 监控配置(可选，不影响ckman核心功能)
 
