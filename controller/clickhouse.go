@@ -578,7 +578,7 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
-	if !strings.Contains(strings.ToLower(query), " limit ") {
+	if !strings.Contains(strings.ToLower(query), " limit ") && strings.HasPrefix(strings.ToLower(strings.TrimSpace(query)), "select") {
 		query = fmt.Sprintf("%s LIMIT 10000", strings.TrimRight(query, ";"))
 	}
 
