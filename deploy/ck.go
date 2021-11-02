@@ -938,11 +938,11 @@ func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 	for _, deploy := range deploys {
 		for _, shard := range deploy.Conf.Shards {
 			xml.Begin("shard")
-			xml.Write("internal_replication", d.Conf.IsReplica)
+			xml.Write("internal_replication", deploy.Conf.IsReplica)
 			for _, replica := range shard.Replicas {
 				xml.Begin("replica")
 				xml.Write("host", replica.Ip)
-				xml.Write("port", d.Conf.CkTcpPort)
+				xml.Write("port", deploy.Conf.CkTcpPort)
 				xml.End("replica")
 			}
 			xml.End("shard")
