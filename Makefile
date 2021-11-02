@@ -76,7 +76,6 @@ package:build
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}
 	@echo "create ${TARNAME} from ${PKGDIR}"
 	@tar -czf ${TARNAME} ${PKGDIR}
-	@rm pkged.go
 	@rm -rf ${PKGFULLDIR}
 
 .PHONY: docker-build
