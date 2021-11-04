@@ -801,13 +801,9 @@ WHERE database = '%s' AND name = '%s'`, database, table)
 func ConvertZooPath(conf *model.CKManClickHouseConfig) []string {
 	var zooPaths []string
 
-	chHosts, err := common.GetShardAvaliableHosts(conf)
-	if err != nil {
-		return []string{}
-	}
 	for _, path := range conf.ZooPath {
 		if path != "" {
-			for index := range chHosts {
+			for index := range conf.Shards {
 				// TODO[L] macros maybe not named {cluster} or {shard}
 				shardNum := fmt.Sprintf("%d", index+1)
 				zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
