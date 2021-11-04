@@ -9,6 +9,9 @@ var salt = "656f6974656b"
 
 // select hex(aes_encrypt("123456", unhex("656f6974656b"))); => E310E892E56801CED9ED98AA177F18E6
 func AesEncryptECB(origData string) string {
+	if origData == "" {
+		return origData
+	}
 	var encrypted []byte
 	var o = []byte(origData)
 	s,_ := hex.DecodeString(salt)
@@ -24,11 +27,14 @@ func AesEncryptECB(origData string) string {
 	for bs, be := 0, cipher.BlockSize(); bs <= len(o); bs, be = bs+cipher.BlockSize(), be+cipher.BlockSize() {
 		cipher.Encrypt(encrypted[bs:be], plain[bs:be])
 	}
-	return strings.ToUpper((hex.EncodeToString(encrypted)))
+	return strings.ToUpper(hex.EncodeToString(encrypted))
 }
 
 // select aes_decrypt(unhex("E310E892E56801CED9ED98AA177F18E6"), unhex("656f6974656b")); => 123456
 func AesDecryptECB(encrypted string) string {
+	if encrypted == "" {
+		return encrypted
+	}
 	var decrypted []byte
 	h, _ := hex.DecodeString(encrypted)
 	s, _ := hex.DecodeString(salt)

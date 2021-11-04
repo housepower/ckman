@@ -148,7 +148,7 @@ func (ck *ClickHouseController) DeleteCluster(c *gin.Context) {
 	}
 
 	if conf.LogicCluster != nil {
-		if err = clearLogicCluster(conf.Cluster, *conf.LogicCluster); err != nil {
+		if err = clearLogicCluster(conf.Cluster, *conf.LogicCluster, false); err != nil {
 			model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
 			_ = repository.Ps.Rollback()
 			return
@@ -760,7 +760,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 		return
 	}
 	if conf.LogicCluster != nil {
-		if err = clearLogicCluster(conf.Cluster, *conf.LogicCluster); err != nil {
+		if err = clearLogicCluster(conf.Cluster, *conf.LogicCluster, true); err != nil {
 			model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
 			_ = repository.Ps.Rollback()
 			return
@@ -1768,8 +1768,7 @@ func genTTLExpress(ttls []model.CkTableTTL, storage *model.Storage) ([]string, e
 	return express, nil
 }
 
-
-func clearLogicCluster(cluster, logic string)error{
+func clearLogicCluster(cluster, logic string, reconf bool)error{
 	var newPhysics []string
 	physics, err := repository.Ps.GetLogicClusterbyName(logic)
 	if err == nil {
@@ -1789,9 +1788,11 @@ func clearLogicCluster(cluster, logic string)error{
 		if err = repository.Ps.UpdateLogicCluster(logic, newPhysics); err != nil {
 			return err
 		}
-		for _, newLogic := range newPhysics {
-			if err = deploy.ConfigLogicOtherCluster(newLogic); err != nil {
-				return err
+		if reconf {
+			for _, newLogic := range newPhysics {
+				if err = deploy.ConfigLogicOtherCluster(newLogic); err != nil {
+					return err
+				}
 			}
 		}
 	}
