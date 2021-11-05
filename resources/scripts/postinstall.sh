@@ -1,5 +1,6 @@
 #!/bin/sh
 
+mkdir -p /var/log/ckman /run/ckman
 chown -R ckman:ckman /var/log/ckman /etc/ckman
 
 chmod -R 664 /var/log/ckman /etc/ckman
