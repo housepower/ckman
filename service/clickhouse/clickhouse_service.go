@@ -509,6 +509,9 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 		}
 
 		colData = append(colData, m)
+		if len(colData) >= 10001 {
+			break
+		}
 	}
 
 	return colData, nil

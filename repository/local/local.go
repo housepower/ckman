@@ -11,7 +11,9 @@ import (
 	"gopkg.in/yaml.v3"
 	"os"
 	"path"
+	"sort"
 	"sync"
+	"time"
 )
 
 type LocalPersistent struct {
@@ -20,6 +22,23 @@ type LocalPersistent struct {
 	Data          PersistentData
 	Snapshot      PersistentData
 	lock          sync.RWMutex
+}
+
+func (lp *LocalPersistent) Init(config interface{}) error {
+	if config == nil {
+		config = LocalConfig{}
+	}
+	lp.Config = config.(LocalConfig)
+	lp.Config.Normalize()
+	lp.InTransAction = false
+	lp.Data.Clusters = make(map[string]model.CKManClickHouseConfig)
+	lp.Snapshot.Clusters = make(map[string]model.CKManClickHouseConfig)
+	lp.Data.Logics = make(map[string][]string)
+	lp.Snapshot.Logics = make(map[string][]string)
+	lp.Data.QueryHistory = make(map[string]model.QueryHistory)
+	lp.Snapshot.QueryHistory = make(map[string]model.QueryHistory)
+
+	return lp.load()
 }
 
 func (lp *LocalPersistent) UnmarshalConfig(configMap map[string]interface{}) interface{} {
@@ -34,29 +53,6 @@ func (lp *LocalPersistent) UnmarshalConfig(configMap map[string]interface{}) int
 		return nil
 	}
 	return config
-}
-
-func (lp *LocalPersistent) ClusterExists(cluster string) bool {
-	_, err := lp.GetClusterbyName(cluster)
-	if err != nil {
-		return false
-	}
-	return true
-}
-
-func (lp *LocalPersistent) Init(config interface{}) error {
-	if config == nil {
-		config = LocalConfig{}
-	}
-	lp.Config = config.(LocalConfig)
-	lp.Config.Normalize()
-	lp.InTransAction = false
-	lp.Data.Clusters = make(map[string]model.CKManClickHouseConfig)
-	lp.Snapshot.Clusters = make(map[string]model.CKManClickHouseConfig)
-	lp.Data.Logics = make(map[string][]string)
-	lp.Snapshot.Logics = make(map[string][]string)
-
-	return lp.load()
 }
 
 func (lp *LocalPersistent) Begin() error {
@@ -87,6 +83,14 @@ func (lp *LocalPersistent) Rollback() error {
 	}
 	lp.InTransAction = false
 	return common.DeepCopyByGob(&lp.Data, &lp.Snapshot)
+}
+
+func (lp *LocalPersistent) ClusterExists(cluster string) bool {
+	_, err := lp.GetClusterbyName(cluster)
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func (lp *LocalPersistent) GetClusterbyName(cluster string) (model.CKManClickHouseConfig, error) {
@@ -203,6 +207,90 @@ func (lp *LocalPersistent) DeleteLogicCluster(clusterName string) error {
 		_ = lp.dump()
 	}
 	return nil
+}
+
+func (lp *LocalPersistent) GetQueryHistoryByCluster(cluster string) ([]model.QueryHistory, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var historys Historys
+	for _, v := range lp.Data.QueryHistory {
+		if v.Cluster == cluster {
+			historys = append(historys, v)
+		}
+	}
+	sort.Sort(sort.Reverse(historys))
+	return historys,nil
+}
+
+func (lp *LocalPersistent) GetQueryHistoryByCheckSum(checksum string)(model.QueryHistory, error){
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	history, ok := lp.Data.QueryHistory[checksum]
+	if !ok {
+		return model.QueryHistory{},repository.ErrRecordNotFound
+	}
+	return history, nil
+}
+
+func (lp *LocalPersistent) CreateQueryHistory(qh model.QueryHistory) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.QueryHistory[qh.CheckSum]; ok {
+		return repository.ErrRecordExists
+	}
+	qh.CreateTime = time.Now()
+	lp.Data.QueryHistory[qh.CheckSum] = qh
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) UpdateQueryHistory(qh model.QueryHistory) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.QueryHistory[qh.CheckSum]; !ok {
+		return repository.ErrRecordNotFound
+	}
+	qh.CreateTime = time.Now()
+	lp.Data.QueryHistory[qh.CheckSum] = qh
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) DeleteQueryHistory(checksum string) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.QueryHistory[checksum]; !ok {
+		return repository.ErrRecordNotFound
+	}
+	delete(lp.Data.QueryHistory, checksum)
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) GetQueryHistoryCount() int64 {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	return int64(len(lp.Data.QueryHistory))
+}
+
+func (lp *LocalPersistent) GetEarliestQuery() (model.QueryHistory, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var historys Historys
+	if err := common.DeepCopyByGob(&historys, &lp.Data.QueryHistory); err != nil {
+		return model.QueryHistory{}, err
+	}
+	if len(historys) == 0 {
+		return model.QueryHistory{}, repository.ErrRecordNotFound
+	}
+	sort.Sort(historys)
+	return historys[0], nil
 }
 
 func (lp *LocalPersistent) marshal() ([]byte, error) {

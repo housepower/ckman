@@ -8,6 +8,7 @@ import (
 	"github.com/housepower/ckman/repository"
 	driver "gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -16,6 +17,69 @@ type MysqlPersistent struct {
 	Config   MysqlConfig
 	Client   *gorm.DB
 	ParentDB *gorm.DB
+}
+
+func (mp *MysqlPersistent) Init(config interface{}) error {
+	if config == nil {
+		config = MysqlConfig{}
+	}
+	mp.Config = config.(MysqlConfig)
+	mp.Config.Normalize()
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		url.QueryEscape(mp.Config.User),
+		url.QueryEscape(mp.Config.Password),
+		url.QueryEscape(mp.Config.Host),
+		mp.Config.Port,
+		url.QueryEscape(mp.Config.DataBase))
+	db, err := gorm.Open(driver.Open(dsn), &gorm.Config{})
+	if err != nil {
+
+		return err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+
+	// set connection pool
+	if sqlDB != nil {
+		sqlDB.SetMaxIdleConns(mp.Config.MaxIdleConns)
+		sqlDB.SetConnMaxIdleTime(time.Second * time.Duration(mp.Config.ConnMaxIdleTime))
+		sqlDB.SetMaxOpenConns(mp.Config.MaxOpenConns)
+		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(mp.Config.ConnMaxLifetime))
+	}
+	mp.Client = db
+	mp.ParentDB = mp.Client
+
+	//auto create table
+	return mp.Client.AutoMigrate(&TblCluster{}, &TblLogic{}, &TblQueryHistory{})
+}
+
+func (mp *MysqlPersistent) Begin() error {
+	if mp.Client != mp.ParentDB {
+		return repository.ErrTransActionBegin
+	}
+	tx := mp.Client.Begin()
+	mp.Client = tx
+	return tx.Error
+}
+
+func (mp *MysqlPersistent) Rollback() error {
+	if mp.Client == mp.ParentDB {
+		return repository.ErrTransActionEnd
+	}
+	tx := mp.Client.Rollback()
+	mp.Client = mp.ParentDB
+	return tx.Error
+}
+
+func (mp *MysqlPersistent) Commit() error {
+	if mp.Client == mp.ParentDB {
+		return repository.ErrTransActionEnd
+	}
+	tx := mp.Client.Commit()
+	mp.Client = mp.ParentDB
+	return tx.Error
 }
 
 func (mp *MysqlPersistent) UnmarshalConfig(configMap map[string]interface{}) interface{} {
@@ -38,69 +102,6 @@ func (mp *MysqlPersistent) ClusterExists(cluster string) bool {
 		return false
 	}
 	return true
-}
-
-func (mp *MysqlPersistent) Init(config interface{}) error {
-	if config == nil {
-		config = MysqlConfig{}
-	}
-	mp.Config = config.(MysqlConfig)
-	mp.Config.Normalize()
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		mp.Config.User,
-		mp.Config.Password,
-		mp.Config.Host,
-		mp.Config.Port,
-		mp.Config.DataBase)
-	db, err := gorm.Open(driver.Open(dsn), &gorm.Config{})
-	if err != nil {
-
-		return err
-	}
-	sqlDB, err := db.DB()
-	if err != nil {
-		return err
-	}
-
-	// set connection pool
-	if sqlDB != nil {
-		sqlDB.SetMaxIdleConns(mp.Config.MaxIdleConns)
-		sqlDB.SetConnMaxIdleTime(time.Second * time.Duration(mp.Config.ConnMaxIdleTime))
-		sqlDB.SetMaxOpenConns(mp.Config.MaxOpenConns)
-		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(mp.Config.ConnMaxLifetime))
-	}
-	mp.Client = db
-	mp.ParentDB = mp.Client
-
-	//auto create table
-	return mp.Client.AutoMigrate(&TblCluster{}, &TblLogic{})
-}
-
-func (mp *MysqlPersistent) Begin() error {
-	if mp.Client != mp.ParentDB {
-		return repository.ErrTransActionBegin
-	}
-	tx := mp.Client.Begin()
-	mp.Client = tx
-	return tx.Error
-}
-
-func (mp *MysqlPersistent) Rollback() error{
-	if mp.Client == mp.ParentDB {
-		return repository.ErrTransActionEnd
-	}
-	tx :=  mp.Client.Rollback()
-	mp.Client = mp.ParentDB
-	return tx.Error
-}
-
-func (mp *MysqlPersistent) Commit() error {
-	if mp.Client == mp.ParentDB {
-		return repository.ErrTransActionEnd
-	}
-	tx := mp.Client.Commit()
-	mp.Client = mp.ParentDB
-	return tx.Error
 }
 
 func (mp *MysqlPersistent) GetClusterbyName(cluster string) (model.CKManClickHouseConfig, error) {
@@ -230,6 +231,92 @@ func (mp *MysqlPersistent) DeleteCluster(clusterName string) error {
 func (mp *MysqlPersistent) DeleteLogicCluster(clusterName string) error {
 	tx := mp.Client.Where("logic_name = ?", clusterName).Unscoped().Delete(&TblLogic{})
 	return wrapError(tx.Error)
+}
+
+func (mp *MysqlPersistent) GetQueryHistoryByCluster(cluster string) ([]model.QueryHistory, error) {
+	var tables []TblQueryHistory
+	tx := mp.Client.Where("cluster = ?", cluster).Order("create_time DESC").Limit(100).Find(&tables)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, tx.Error
+	}
+	var historys []model.QueryHistory
+	for _, table := range tables {
+		history := model.QueryHistory{
+			CheckSum:   table.CheckSum,
+			Cluster:    table.Cluster,
+			QuerySql:   table.QuerySql,
+			CreateTime: table.CreateTime,
+		}
+		historys = append(historys, history)
+	}
+	return historys, nil
+}
+
+func (mp *MysqlPersistent) GetQueryHistoryByCheckSum(checksum string)(model.QueryHistory, error) {
+	var table TblQueryHistory
+	tx := mp.Client.Where("checksum = ?", checksum).First(&table)
+	if tx.Error != nil {
+		return model.QueryHistory{}, wrapError(tx.Error)
+	}
+	history := model.QueryHistory{
+		CheckSum:   table.CheckSum,
+		Cluster:    table.Cluster,
+		QuerySql:   table.QuerySql,
+		CreateTime: table.CreateTime,
+	}
+	return history, nil
+}
+
+func (mp *MysqlPersistent) CreateQueryHistory(qh model.QueryHistory) error {
+	table := TblQueryHistory{
+		Cluster:    qh.Cluster,
+		CheckSum:   qh.CheckSum,
+		QuerySql:   qh.QuerySql,
+		CreateTime: time.Now(),
+	}
+	tx := mp.Client.Create(&table)
+	return wrapError(tx.Error)
+}
+
+func (mp *MysqlPersistent) UpdateQueryHistory(qh model.QueryHistory) error {
+	table := TblQueryHistory{
+		Cluster:    qh.Cluster,
+		CheckSum:   qh.CheckSum,
+		QuerySql:   qh.QuerySql,
+		CreateTime: time.Now(),
+	}
+	tx := mp.Client.Model(TblLogic{}).Where("checksum = ?", qh.CheckSum).Updates(&table)
+	return wrapError(tx.Error)
+}
+
+func (mp *MysqlPersistent) DeleteQueryHistory(checksum string) error {
+	tx := mp.Client.Where("checksum = ?", checksum).Unscoped().Delete(&TblLogic{})
+	return wrapError(tx.Error)
+}
+
+
+func (mp *MysqlPersistent) GetQueryHistoryCount() int64 {
+	var count int64
+	tx := mp.Client.Model(&TblQueryHistory{}).Count(&count)
+	if tx.Error != nil {
+		return 0
+	}
+	return count
+}
+
+func (mp *MysqlPersistent) GetEarliestQuery() (model.QueryHistory, error) {
+	var table TblQueryHistory
+	tx := mp.Client.Order("create_time").First(&table)
+	if tx.Error != nil {
+		return model.QueryHistory{}, wrapError(tx.Error)
+	}
+	history := model.QueryHistory{
+		CheckSum:   table.CheckSum,
+		Cluster:    table.Cluster,
+		QuerySql:   table.QuerySql,
+		CreateTime: table.CreateTime,
+	}
+	return history, nil
 }
 
 func wrapError(err error) error {
