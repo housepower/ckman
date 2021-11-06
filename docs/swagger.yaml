@@ -880,6 +880,41 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: QueryExplain
+  /api/v1/ck/query_history/{clusterName}:
+    delete:
+      description: delete query history
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"ok","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: DeleteQuery
+    get:
+      description: get query history
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"ok","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: QueryHistory
   /api/v1/ck/rebalance/{clusterName}:
     put:
       description: Rebanlance a ClickHouse cluster

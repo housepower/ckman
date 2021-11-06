@@ -1,5 +1,9 @@
 package model
 
+import (
+	"time"
+)
+
 const (
 	TTLActionDelete     string = "DELETE"
 	TTLActionToDisk     string = "toDisk"
@@ -162,4 +166,11 @@ type ShowSchemaRsp struct {
 type GetConfigRsp struct {
 	Mode   string `json:"mode"`
 	Config string `json:"config"`
+}
+
+type QueryHistory struct {
+	Cluster    string
+	CreateTime time.Time
+	QuerySql   string
+	CheckSum   string
 }

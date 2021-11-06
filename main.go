@@ -37,7 +37,6 @@ var (
 	LogFilePath      = ""
 	PidFilePath      = ""
 	EncryptPassword  = ""
-	DecryptPassword  = ""
 )
 
 // @title Swagger Example API
@@ -172,7 +171,6 @@ func InitCmd() {
 	rootCmd.PersistentFlags().StringVarP(&LogFilePath, "log", "l", "logs/ckman.log", "Log file path")
 	rootCmd.PersistentFlags().StringVarP(&PidFilePath, "pid", "p", "run/ckman.pid", "Pid file path")
 	rootCmd.PersistentFlags().StringVarP(&EncryptPassword, "encrypt", "e", "", "encrypt password")
-	rootCmd.PersistentFlags().StringVarP(&DecryptPassword, "decrypt", "u", "", "decrypt password")
 	rootCmd.PersistentFlags().BoolVarP(&Daemon, "daemon", "d", false, "Run as daemon")
 	rootCmd.AddCommand(VersionCmd)
 
@@ -192,10 +190,6 @@ func InitCmd() {
 	_ = rootCmd.Execute()
 	if EncryptPassword != "" {
 		fmt.Println(common.AesEncryptECB(EncryptPassword))
-		os.Exit(0)
-	}
-	if DecryptPassword != "" {
-		fmt.Println(common.AesDecryptECB(DecryptPassword))
 		os.Exit(0)
 	}
 	fmt.Println("ckman is used to manager and monitor clickhouse")

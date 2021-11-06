@@ -870,7 +870,12 @@ func ConfigLogicOtherCluster(clusterName string) error {
 			host := host
 			deploy := deploy
 			_ = d.Pool.Submit(func() {
-				if err := common.ScpUploadFile(m, "/etc/clickhouse-server/metrika.xml", deploy.User, deploy.Password, host, deploy.Port); err != nil {
+				if err := common.ScpUploadFile(m, "/etc/clickhouse-server/config.d/metrika.xml", deploy.User, deploy.Password, host, deploy.Port); err != nil {
+					lastError = err
+					return
+				}
+				cmd := "chown -R clickhouse:clickhouse /etc/clickhouse-server"
+				if _, err := common.RemoteExecute(deploy.User, deploy.Password, host, deploy.Port, cmd); err != nil {
 					lastError = err
 					return
 				}
@@ -936,6 +941,11 @@ func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 	}
 	deploys = append(deploys, d)
 	for _, deploy := range deploys {
+		if deploy.Conf.User == model.ClickHouseDefaultUser && deploy.Conf.Password != "" && common.CompareClickHouseVersion(deploy.Conf.PackageVersion, "20.10.3.30") >= 0{
+			xml.Write("secret", "foo")
+		} else {
+			xml.Comment("<secret></secret>")
+		}
 		for _, shard := range deploy.Conf.Shards {
 			xml.Begin("shard")
 			xml.Write("internal_replication", deploy.Conf.IsReplica)

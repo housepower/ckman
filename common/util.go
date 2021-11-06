@@ -2,7 +2,9 @@ package common
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/gob"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path"
@@ -192,16 +194,21 @@ func ReplaceTemplateString(src *string, replace map[string]interface{}) error {
 	return nil
 }
 
-func GetStringwithDefault(value, defaul string)string{
+func GetStringwithDefault(value, defaul string) string {
 	if value == "" {
 		return defaul
 	}
 	return value
 }
 
-func GetIntegerwithDefault(value, defaul int)int {
+func GetIntegerwithDefault(value, defaul int) int {
 	if value == 0 {
 		return defaul
 	}
 	return value
+}
+
+func Md5CheckSum(s string) string {
+	sum := md5.Sum([]byte(s))
+	return hex.EncodeToString(sum[:16])
 }

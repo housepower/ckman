@@ -27,7 +27,7 @@ const (
 	ClickHouseSessionLimit int    = 10
 )
 
-type ClickHouseController struct {}
+type ClickHouseController struct{}
 
 func NewClickHouseController() *ClickHouseController {
 	ck := &ClickHouseController{}
@@ -148,7 +148,7 @@ func (ck *ClickHouseController) DeleteCluster(c *gin.Context) {
 	}
 
 	if conf.LogicCluster != nil {
-		if err = clearLogicCluster(conf.Cluster, *conf.LogicCluster); err != nil {
+		if err = clearLogicCluster(conf.Cluster, *conf.LogicCluster, false); err != nil {
 			model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
 			_ = repository.Ps.Rollback()
 			return
@@ -192,7 +192,7 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 	var err error
 
-	clusters,err := repository.Ps.GetAllClusters()
+	clusters, err := repository.Ps.GetAllClusters()
 	if err != nil {
 		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, err)
 		return
@@ -332,7 +332,7 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 	}
 
 	clusterName := c.Param(ClickHouseClusterPath)
-	conf,err := repository.Ps.GetClusterbyName(clusterName)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, clusterName)
 		return
@@ -578,8 +578,11 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
-	if !strings.Contains(strings.ToLower(query), " limit ") && strings.HasPrefix(strings.ToLower(strings.TrimSpace(query)), "select") {
-		query = fmt.Sprintf("%s LIMIT 10000", strings.TrimRight(query, ";"))
+	query = strings.TrimRight(strings.TrimSpace(query), ";")
+	if !strings.Contains(strings.ToLower(query), " limit ") &&
+		strings.HasPrefix(strings.ToLower(query), "select") &&
+		!strings.Contains(query, " SETTINGS "){
+		query = fmt.Sprintf("%s LIMIT 10000", query)
 	}
 
 	ckService, err := clickhouse.GetCkService(clusterName)
@@ -592,6 +595,27 @@ func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	if err != nil {
 		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
 		return
+	}
+
+	//only save success query
+	key := fmt.Sprintf("[%s]%s", clusterName, query)
+	history := model.QueryHistory{
+		CheckSum: common.Md5CheckSum(key),
+		Cluster:  clusterName,
+		QuerySql: query,
+	}
+	if _, err := repository.Ps.GetQueryHistoryByCheckSum(history.CheckSum); err != nil {
+		//not found, create record
+		_ = repository.Ps.CreateQueryHistory(history)
+	} else {
+		_ = repository.Ps.UpdateQueryHistory(history)
+	}
+
+	if repository.Ps.GetQueryHistoryCount() > 100 {
+		earliest, err := repository.Ps.GetEarliestQuery()
+		if err == nil && earliest.CheckSum != "" {
+			_ = repository.Ps.DeleteQueryHistory(earliest.CheckSum)
+		}
 	}
 
 	model.WrapMsg(c, model.SUCCESS, data)
@@ -760,7 +784,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 		return
 	}
 	if conf.LogicCluster != nil {
-		if err = clearLogicCluster(conf.Cluster, *conf.LogicCluster); err != nil {
+		if err = clearLogicCluster(conf.Cluster, *conf.LogicCluster, true); err != nil {
 			model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
 			_ = repository.Ps.Rollback()
 			return
@@ -1536,7 +1560,7 @@ func (ck *ClickHouseController) GetConfig(c *gin.Context) {
 // @Failure 200 {string} json "{"retCode":"5082", "retMsg":"get table lists failed", "entity":"error"}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{\"default\":{\"dist_centers\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_centers111\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_ckcenters\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_ckcenters2\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_centers\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_centers111\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_ckcenters\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_ckcenters2\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"]}}}"
 // @Router /api/v1/ck/table_lists/{clusterName} [get]
-func (ck *ClickHouseController) GetTableLists(c *gin.Context){
+func (ck *ClickHouseController) GetTableLists(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
@@ -1564,7 +1588,7 @@ func (ck *ClickHouseController) GetTableLists(c *gin.Context){
 // @Failure 200 {string} json "{"retCode":"5082", "retMsg":"get table lists failed", "entity":"error"}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":""}"
 // @Router /api/v1/ck/query_explain/{clusterName} [get]
-func (ck *ClickHouseController) QueryExplain(c *gin.Context){
+func (ck *ClickHouseController) QueryExplain(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
 	query = fmt.Sprintf("EXPLAIN %s", query)
@@ -1581,6 +1605,50 @@ func (ck *ClickHouseController) QueryExplain(c *gin.Context){
 	}
 
 	model.WrapMsg(c, model.SUCCESS, data)
+}
+
+// @Summary  QueryHistory
+// @Description get query history
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":""}"
+// @Router /api/v1/ck/query_history/{clusterName} [get]
+func (ck *ClickHouseController) QueryHistory(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	historys, err := repository.Ps.GetQueryHistoryByCluster(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
+		return
+	}
+	model.WrapMsg(c, model.SUCCESS, historys)
+}
+
+// @Summary  DeleteQuery
+// @Description delete query history
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":""}"
+// @Router /api/v1/ck/query_history/{clusterName} [delete]
+func (ck *ClickHouseController) DeleteQuery(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	query := c.Query("query")
+	query = strings.TrimRight(strings.TrimSpace(query), ";")
+	//if !strings.Contains(strings.ToLower(query), " limit ") &&
+	//	strings.HasPrefix(strings.ToLower(query), "select") &&
+	//	!strings.Contains(query, " SETTINGS "){
+	//	query = fmt.Sprintf("%s LIMIT 10000", query)
+	//}
+	key := fmt.Sprintf("[%s]%s", clusterName, query)
+	checksum := common.Md5CheckSum(key)
+	err := repository.Ps.DeleteQueryHistory(checksum)
+	if err != nil {
+		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
 func checkConfigParams(conf *model.CKManClickHouseConfig) error {
@@ -1670,7 +1738,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		cluster.SshPassword == conf.SshPassword &&
 		cluster.SshPort == conf.SshPort &&
 		cluster.Password == conf.Password && !storageChanged && !mergetreeChanged &&
-		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort && !userconfChanged{
+		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort && !userconfChanged {
 		return false, errors.Errorf("all config are the same, it's no need to update")
 	}
 	if storageChanged {
@@ -1768,8 +1836,7 @@ func genTTLExpress(ttls []model.CkTableTTL, storage *model.Storage) ([]string, e
 	return express, nil
 }
 
-
-func clearLogicCluster(cluster, logic string)error{
+func clearLogicCluster(cluster, logic string, reconf bool) error {
 	var newPhysics []string
 	physics, err := repository.Ps.GetLogicClusterbyName(logic)
 	if err == nil {
@@ -1789,9 +1856,11 @@ func clearLogicCluster(cluster, logic string)error{
 		if err = repository.Ps.UpdateLogicCluster(logic, newPhysics); err != nil {
 			return err
 		}
-		for _, newLogic := range newPhysics {
-			if err = deploy.ConfigLogicOtherCluster(newLogic); err != nil {
-				return err
+		if reconf {
+			for _, newLogic := range newPhysics {
+				if err = deploy.ConfigLogicOtherCluster(newLogic); err != nil {
+					return err
+				}
 			}
 		}
 	}

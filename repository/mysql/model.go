@@ -1,6 +1,9 @@
 package mysql
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+	"time"
+)
 
 type TblCluster struct {
 	gorm.Model
@@ -14,10 +17,21 @@ func (v TblCluster) TableName() string {
 
 type TblLogic struct {
 	gorm.Model
-	LogicCluster   string `gorm:"index:idx_name,unique; column:logic_name"`
+	LogicCluster   string `gorm:"index:idx1,unique; column:logic_name"`
 	PhysicClusters string `gorm:"column:physic_clusters"`
 }
 
 func (v TblLogic) TableName() string {
 	return MYSQL_TBL_LOGIC
+}
+
+type TblQueryHistory struct {
+	Cluster    string    `gorm:"index:idx1; column:cluster"`
+	CheckSum   string    `gorm:"primaryKey; column:checksum"`
+	QuerySql   string    `gorm:"column:query"`
+	CreateTime time.Time `gorm:"column:create_time"`
+}
+
+func (v TblQueryHistory) TableName() string {
+	return MYSQL_TBL_QUERY_HISTORY
 }

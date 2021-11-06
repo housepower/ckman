@@ -14,26 +14,17 @@ var (
 )
 
 func EncodePasswd(conf *model.CKManClickHouseConfig) {
-	if conf.Password != "" {
-		conf.Password = common.AesEncryptECB(conf.Password)
-	}
-	if conf.SshPassword != "" {
-		conf.SshPassword = common.AesEncryptECB(conf.SshPassword)
-	}
+	conf.Password = common.AesEncryptECB(conf.Password)
+	conf.SshPassword = common.AesEncryptECB(conf.SshPassword)
 	for idx, user := range conf.UsersConf.Users {
-		if user.Password != "" {
-			conf.UsersConf.Users[idx].Password = common.AesEncryptECB(user.Password)
-		}
+		conf.UsersConf.Users[idx].Password = common.AesEncryptECB(user.Password)
 	}
 }
 
 func DecodePasswd(conf *model.CKManClickHouseConfig) {
-	if conf.Password != "" {
-		conf.Password = common.AesDecryptECB(conf.Password)
-	}
-	if conf.SshPassword != "" {
-		conf.SshPassword = common.AesDecryptECB(conf.SshPassword)
-	}
+	conf.Password = common.AesDecryptECB(conf.Password)
+	conf.SshPassword = common.AesDecryptECB(conf.SshPassword)
+
 	var users []model.User
 	/*
 	conf.UsersConf.Users and lp.Data.Clusters[key] pointer the same address when policy is local
@@ -41,10 +32,8 @@ func DecodePasswd(conf *model.CKManClickHouseConfig) {
 	That's not allow to happen, So we need another memory to storage users, to ensure that the original data (lp.Data) not changed when decode password
 	*/
 	for _, user := range conf.UsersConf.Users {
-		if user.Password != "" {
-			user.Password = common.AesDecryptECB(user.Password)
-			users = append(users, user)
-		}
+		user.Password = common.AesDecryptECB(user.Password)
+		users = append(users, user)
 	}
 	conf.UsersConf.Users = users
 }
