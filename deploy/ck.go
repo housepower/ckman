@@ -941,11 +941,6 @@ func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 	}
 	deploys = append(deploys, d)
 	for _, deploy := range deploys {
-		if deploy.Conf.User == model.ClickHouseDefaultUser && deploy.Conf.Password != "" && common.CompareClickHouseVersion(deploy.Conf.PackageVersion, "20.10.3.30") >= 0{
-			xml.Write("secret", "foo")
-		} else {
-			xml.Comment("<secret></secret>")
-		}
 		for _, shard := range deploy.Conf.Shards {
 			xml.Begin("shard")
 			xml.Write("internal_replication", deploy.Conf.IsReplica)
