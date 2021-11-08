@@ -209,6 +209,16 @@ func (lp *LocalPersistent) DeleteLogicCluster(clusterName string) error {
 	return nil
 }
 
+func (lp *LocalPersistent) GetAllQueryHistory() (map[string]model.QueryHistory, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	historys := make(map[string]model.QueryHistory)
+	for k, v := range lp.Data.QueryHistory {
+		historys[k] = v
+	}
+	return historys,nil
+}
+
 func (lp *LocalPersistent) GetQueryHistoryByCluster(cluster string) ([]model.QueryHistory, error) {
 	lp.lock.RLock()
 	defer lp.lock.RUnlock()

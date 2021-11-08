@@ -60,6 +60,7 @@ type PersistentMgr interface{
 	DeleteLogicCluster(clusterName string) error
 
 	//order by create_at
+	GetAllQueryHistory()(map[string]model.QueryHistory, error)
 	GetQueryHistoryByCluster(cluster string)([]model.QueryHistory, error)
 	GetQueryHistoryByCheckSum(checksum string)(model.QueryHistory, error)
 	CreateQueryHistory(qh model.QueryHistory) error

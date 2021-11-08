@@ -233,6 +233,25 @@ func (mp *MysqlPersistent) DeleteLogicCluster(clusterName string) error {
 	return wrapError(tx.Error)
 }
 
+func (mp *MysqlPersistent) GetAllQueryHistory() (map[string]model.QueryHistory, error) {
+	var tables []TblQueryHistory
+	historys := make(map[string]model.QueryHistory)
+	tx := mp.Client.Find(&tables)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, tx.Error
+	}
+	for _, table := range tables {
+		history := model.QueryHistory{
+			CheckSum:   table.CheckSum,
+			Cluster:    table.Cluster,
+			QuerySql:   table.QuerySql,
+			CreateTime: table.CreateTime,
+		}
+		historys[table.CheckSum] = history
+	}
+	return historys, nil
+}
+
 func (mp *MysqlPersistent) GetQueryHistoryByCluster(cluster string) ([]model.QueryHistory, error) {
 	var tables []TblQueryHistory
 	tx := mp.Client.Where("cluster = ?", cluster).Order("create_time DESC").Limit(100).Find(&tables)
