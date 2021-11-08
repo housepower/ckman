@@ -127,6 +127,10 @@ func Migrate()error{
 		return err
 	}
 
+	if len(clusters) == 0  {
+		log.Logger.Warnf("clusters have 0 records, will migrate nothing")
+	}
+
 	logics, err := psrc.GetAllLogicClusters()
 	if err != nil {
 		return err

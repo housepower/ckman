@@ -367,6 +367,7 @@ func (lp *LocalPersistent) load() error {
 	_, err := os.Stat(localFile)
 	if err != nil {
 		// file does not exist
+		log.Logger.Warnf("file [%s] is not exist", localFile)
 		return nil
 	}
 
