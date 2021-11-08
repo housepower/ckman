@@ -87,7 +87,7 @@ func GetLogicSchema(db *sql.DB, logicName, clusterName string, replica bool) ([]
 	if replica {
 		engine = "ReplicatedMergeTree('/clickhouse/tables/{cluster}/{{.database}}/{{.localtbl}}/{shard}', '{replica}')"
 		replacingengine = "ReplicatedReplacingMergeTree('/clickhouse/tables/{cluster}/{{.database}}/{{.localtbl}}/{shard}', '{replica}')"
-		expr = regexp.MustCompile("((Replacing)?MergeTree)")
+		expr = regexp.MustCompile("((Replicated)?(Replacing)?MergeTree(\\(.*'{replica}'\\))?)")
 	} else {
 		engine = "MergeTree()"
 		replacingengine = "ReplacingMergeTree()"
