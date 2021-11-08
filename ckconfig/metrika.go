@@ -54,7 +54,12 @@ func GenLocalMetrika(indent int, conf *model.CkDeployConfig)string {
 	xml := common.NewXmlFile("")
 	xml.SetIndent(indent)
 	xml.Begin(conf.ClusterName)
-	xml.Comment(`Inter-server per-cluster secret for Distributed queries
+	secret := true
+	if common.CompareClickHouseVersion(conf.PackageVersion, "20.10.3.30") < 0{
+		secret = false
+	}
+	if secret {
+		xml.Comment(`Inter-server per-cluster secret for Distributed queries
                  default: no secret (no authentication will be performed)
 
                  If set, then Distributed queries will be validated on shards, so at least:
@@ -73,10 +78,7 @@ func GenLocalMetrika(indent int, conf *model.CkDeployConfig)string {
                    it can use IP address instead, but then the you need to get correct on the initiator node.
                  - target hostname / ip address (same notes as for source hostname)
                  - time-based security tokens`)
-	if conf.User == model.ClickHouseDefaultUser && conf.Password != "" && common.CompareClickHouseVersion(conf.PackageVersion, "20.10.3.30") >= 0{
 		xml.Write("secret", "foo")
-	} else {
-		xml.Comment("<secret></secret>")
 	}
 	for _, shard := range conf.Shards {
 		xml.Begin("shard")
@@ -85,6 +87,10 @@ func GenLocalMetrika(indent int, conf *model.CkDeployConfig)string {
 			xml.Begin("replica")
 			xml.Write("host", replica.Ip)
 			xml.Write("port", conf.CkTcpPort)
+			if !secret {
+				xml.Write("user", conf.User)
+				xml.Write("password", conf.Password)
+			}
 			xml.End("replica")
 		}
 		xml.End("shard")

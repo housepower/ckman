@@ -653,13 +653,13 @@ func (ck *ClickHouseController) UpgradeCluster(c *gin.Context) {
 		return
 	}
 
+	conf.Version = req.PackageVersion
 	err = deploy.UpgradeCkCluster(&conf, req)
 	if err != nil {
 		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, err)
 		return
 	}
 
-	conf.Version = req.PackageVersion
 	if err = repository.Ps.UpdateCluster(conf); err != nil {
 		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, err)
 		return

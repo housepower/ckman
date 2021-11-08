@@ -927,6 +927,10 @@ func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 	xml := common.NewXmlFile("")
 	xml.SetIndent(2)
 	xml.Begin(*d.Conf.LogicCluster)
+	secret := true
+	if common.CompareClickHouseVersion(d.Conf.PackageVersion, "20.10.3.30") < 0{
+		secret = false
+	}
 	logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
 	if err == nil {
 		for _, logic := range logics {
@@ -936,10 +940,16 @@ func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 			}
 			c, _ := repository.Ps.GetClusterbyName(logic)
 			deploy := ConvertCKDeploy(&c)
+			if secret && common.CompareClickHouseVersion(d.Conf.PackageVersion, "20.10.3.30") < 0{
+				secret = false
+			}
 			deploys = append(deploys, deploy)
 		}
 	}
 	deploys = append(deploys, d)
+	if secret {
+		xml.Write("secret", "foo")
+	}
 	for _, deploy := range deploys {
 		for _, shard := range deploy.Conf.Shards {
 			xml.Begin("shard")
@@ -948,6 +958,10 @@ func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 				xml.Begin("replica")
 				xml.Write("host", replica.Ip)
 				xml.Write("port", deploy.Conf.CkTcpPort)
+				if !secret {
+					xml.Write("user", deploy.Conf.User)
+					xml.Write("password", deploy.Conf.Password)
+				}
 				xml.End("replica")
 			}
 			xml.End("shard")
