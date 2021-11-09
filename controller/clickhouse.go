@@ -1643,16 +1643,7 @@ func (ck *ClickHouseController) QueryHistory(c *gin.Context) {
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":""}"
 // @Router /api/v1/ck/query_history/{clusterName} [delete]
 func (ck *ClickHouseController) DeleteQuery(c *gin.Context) {
-	clusterName := c.Param(ClickHouseClusterPath)
-	query := c.Query("query")
-	query = strings.TrimRight(strings.TrimSpace(query), ";")
-	//if !strings.Contains(strings.ToLower(query), " limit ") &&
-	//	strings.HasPrefix(strings.ToLower(query), "select") &&
-	//	!strings.Contains(query, " SETTINGS "){
-	//	query = fmt.Sprintf("%s LIMIT 10000", query)
-	//}
-	key := fmt.Sprintf("[%s]%s", clusterName, query)
-	checksum := common.Md5CheckSum(key)
+	checksum := c.Query("checksum")
 	err := repository.Ps.DeleteQueryHistory(checksum)
 	if err != nil {
 		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
