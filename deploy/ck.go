@@ -69,7 +69,7 @@ func (d *CKDeploy) Init() error {
 			}
 			d.HostInfos[innerIndex] = info
 			if d.Conf.Ipv6Enable {
-				cmd2 := "test -f /proc/net/if_inet6; echo $?"
+				cmd2 := "grep lo /proc/net/if_inet6 >/dev/null 2>&1; echo $?"
 				output, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd2)
 				if err != nil {
 					lastError = err
@@ -77,7 +77,8 @@ func (d *CKDeploy) Init() error {
 				}
 
 				ipv6Enable := strings.Trim(output, "\n")
-				if ipv6Enable == "1" {
+				if ipv6Enable != "0" {
+					//file not exists, return 2, file exists but empty, return 1
 					d.Conf.Ipv6Enable = false
 				}
 			}
