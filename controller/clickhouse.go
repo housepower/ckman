@@ -589,7 +589,7 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
-	query = strings.TrimRight(strings.TrimSpace(query), ";")
+	query = strings.ReplaceAll(strings.ReplaceAll(strings.TrimRight(strings.TrimSpace(query), ";"), "\n", " "), "\t", " ")
 	if !strings.Contains(strings.ToLower(query), " limit ") &&
 		strings.HasPrefix(strings.ToLower(query), "select") &&
 		!strings.Contains(query, " SETTINGS "){
