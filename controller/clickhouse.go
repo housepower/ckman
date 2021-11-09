@@ -360,6 +360,17 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 			LogicCluster: *conf.LogicCluster,
 		}
 		if err = ckService.CreateDistTblOnLogic(&params); err != nil {
+			var exception *client.Exception
+			if errors.As(err, &exception) {
+				if exception.Code == 60  && cluster != conf.Cluster {
+					//means local table is not exist, will auto sync schema
+					con, err := repository.Ps.GetClusterbyName(cluster)
+					if err == nil {
+						// conf is current cluster, we believe that local table must be exist
+						clickhouse.SyncLogicSchema(conf, con)
+					}
+				}
+			}
 			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
 			return
 		}

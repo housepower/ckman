@@ -3,11 +3,11 @@ package controller
 import (
 	"fmt"
 	"github.com/housepower/ckman/repository"
+	"github.com/housepower/ckman/service/clickhouse"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
-	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/deploy"
@@ -104,7 +104,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		if err == nil && len(logics) > 0 {
 			for _, logic := range logics {
 				if cluster, err := repository.Ps.GetClusterbyName(logic); err == nil {
-					if SyncLogicSchema(cluster, conf) {
+					if clickhouse.SyncLogicSchema(cluster, conf) {
 						break
 					}
 				}
@@ -288,37 +288,4 @@ func checkAccess(localPath string, conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-func SyncLogicSchema(src, dst model.CKManClickHouseConfig) bool {
-	hosts, err := common.GetShardAvaliableHosts(&src)
-	if err != nil || len(hosts) == 0 {
-		log.Logger.Warnf("cluster %s all node is unvaliable", src.Cluster)
-		return false
-	}
-	srcDB, err := common.ConnectClickHouse(hosts[0], src.Port, model.ClickHouseDefaultDB, src.User, src.Password)
-	if err != nil {
-		log.Logger.Warnf("connect %s failed", hosts[0])
-		return false
-	}
-	statementsqls, err := business.GetLogicSchema(srcDB, *dst.LogicCluster, dst.Cluster, dst.IsReplica)
-	if err != nil {
-		log.Logger.Warnf("get logic schema failed: %v", err)
-		return false
-	}
 
-	dstDB, err := common.ConnectClickHouse(dst.Hosts[0], dst.Port, model.ClickHouseDefaultDB, dst.User, dst.Password)
-	if err != nil {
-		log.Logger.Warnf("can't connect %s", dst.Hosts[0])
-		return false
-	}
-	for _, schema := range statementsqls {
-		for _, statement := range schema.Statements {
-			log.Logger.Debugf("%s", statement)
-			if _, err := dstDB.Exec(statement); err != nil {
-				log.Logger.Warnf("excute sql failed: %v", err)
-				return false
-			}
-		}
-	}
-
-	return true
-}
