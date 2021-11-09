@@ -275,6 +275,18 @@ nacos:
 >   -   `Logic Name`：逻辑集群名字，可以指定，也可以不指定
 >   -   `ClickHouse TCP Port`: `clickhouse`的`TCP`端口，默认是`9000`，当然也可以自己指定
 >   -   `ClickHouse Node List`: `clickhouse`节点列表，支持简写
+>
+>   >   **对于`clickhouse`节点机器，推荐配置如下：**
+>   >
+>   >   - 所有`HDD`做一个大的`RAID 5`阵列
+>   >   - 用`hostnamectl`设置`hostname`
+>   >   - 用`timedatectl set-timezone`设置`timezone`
+>   >   - 启动`ntpd`或者`chrony`网络时间同步
+>   >   - 永久关闭`swap`
+>   >   - 永久关闭防火墙`firewalld`
+>   >   - 安装`tmux`, `mosh`, `emacs-nox`等常用软件
+>   >   - 创建一个普通账户并加入`wheel`组，允许其`sudo`切换（是否输入密码均可）到超级用户
+>
 >   -   `Replica`： 是否开启副本，默认是关闭
 >       -   如果开启了副本，默认是1个`shard`一个副本，所以节点数量一定要是偶数，否则会报错
 >       -   如果要增加节点的副本数，可通过增加节点完成，创建集群时最多只能指定一个副本
