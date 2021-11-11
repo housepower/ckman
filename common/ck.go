@@ -24,14 +24,23 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 	var db *sql.DB
 	var err error
 
-	db = GetConnection(host)
-	if db != nil {
-		return db, nil
-	}
-
 	dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
 		host, port, url.QueryEscape(database), url.QueryEscape(user), url.QueryEscape(password))
 	log.Logger.Debugf("dsn: %s", dsn)
+
+	if conn, ok := ConnectPool.Load(host); ok {
+		c := conn.(Connection)
+		err := c.db.Ping()
+		if err ==  nil{
+			if c.dsn == dsn {
+				return c.db, nil
+			} else {
+				//dsn is different, maybe annother user, close connection before and reconnect
+				_ = c.db.Close()
+			}
+		}
+	}
+
 	if db, err = sql.Open("clickhouse", dsn); err != nil {
 		err = errors.Wrapf(err, "")
 		return nil, err

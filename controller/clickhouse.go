@@ -360,6 +360,18 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 			LogicCluster: *conf.LogicCluster,
 		}
 		if err = ckService.CreateDistTblOnLogic(&params); err != nil {
+			var exception *client.Exception
+			if errors.As(err, &exception) {
+				if exception.Code == 60  && cluster != conf.Cluster {
+					//means local table is not exist, will auto sync schema
+					con, err := repository.Ps.GetClusterbyName(cluster)
+					if err == nil {
+						// conf is current cluster, we believe that local table must be exist
+						clickhouse.SyncLogicSchema(conf, con)
+						continue
+					}
+				}
+			}
 			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
 			return
 		}
@@ -578,7 +590,7 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
-	query = strings.TrimRight(strings.TrimSpace(query), ";")
+	query = strings.ReplaceAll(strings.ReplaceAll(strings.TrimRight(strings.TrimSpace(query), ";"), "\n", " "), "\t", " ")
 	if !strings.Contains(strings.ToLower(query), " limit ") &&
 		strings.HasPrefix(strings.ToLower(query), "select") &&
 		!strings.Contains(query, " SETTINGS "){
@@ -1632,16 +1644,7 @@ func (ck *ClickHouseController) QueryHistory(c *gin.Context) {
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":""}"
 // @Router /api/v1/ck/query_history/{clusterName} [delete]
 func (ck *ClickHouseController) DeleteQuery(c *gin.Context) {
-	clusterName := c.Param(ClickHouseClusterPath)
-	query := c.Query("query")
-	query = strings.TrimRight(strings.TrimSpace(query), ";")
-	//if !strings.Contains(strings.ToLower(query), " limit ") &&
-	//	strings.HasPrefix(strings.ToLower(query), "select") &&
-	//	!strings.Contains(query, " SETTINGS "){
-	//	query = fmt.Sprintf("%s LIMIT 10000", query)
-	//}
-	key := fmt.Sprintf("[%s]%s", clusterName, query)
-	checksum := common.Md5CheckSum(key)
+	checksum := c.Query("checksum")
 	err := repository.Ps.DeleteQueryHistory(checksum)
 	if err != nil {
 		model.WrapMsg(c, model.QUERY_CK_FAIL, err)

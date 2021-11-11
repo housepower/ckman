@@ -285,9 +285,6 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 }
 
 func (ck *CkService) CreateDistTblOnLogic(params *model.DistLogicTblParams) error {
-	if !checkTableIfExists(params.Database, params.TableName, params.ClusterName) {
-		return fmt.Errorf("table %s.%s is not exist on cluster %s", params.Database, params.TableName, params.ClusterName)
-	}
 	createSql := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s.%s%s ON CLUSTER %s AS %s.%s ENGINE = Distributed(%s, %s, %s, rand())`,
 		params.Database, ClickHouseDistTableOnLogicPrefix, params.TableName, params.ClusterName,
 		params.Database, params.TableName, params.LogicCluster, params.Database, params.TableName)
@@ -923,4 +920,39 @@ func GetCKVersion(conf *model.CKManClickHouseConfig, host string) (string, error
 	}
 	version := value[1][0].(string)
 	return version, nil
+}
+
+func SyncLogicSchema(src, dst model.CKManClickHouseConfig) bool {
+	hosts, err := common.GetShardAvaliableHosts(&src)
+	if err != nil || len(hosts) == 0 {
+		log.Logger.Warnf("cluster %s all node is unvaliable", src.Cluster)
+		return false
+	}
+	srcDB, err := common.ConnectClickHouse(hosts[0], src.Port, model.ClickHouseDefaultDB, src.User, src.Password)
+	if err != nil {
+		log.Logger.Warnf("connect %s failed", hosts[0])
+		return false
+	}
+	statementsqls, err := business.GetLogicSchema(srcDB, *dst.LogicCluster, dst.Cluster, dst.IsReplica)
+	if err != nil {
+		log.Logger.Warnf("get logic schema failed: %v", err)
+		return false
+	}
+
+	dstDB, err := common.ConnectClickHouse(dst.Hosts[0], dst.Port, model.ClickHouseDefaultDB, dst.User, dst.Password)
+	if err != nil {
+		log.Logger.Warnf("can't connect %s", dst.Hosts[0])
+		return false
+	}
+	for _, schema := range statementsqls {
+		for _, statement := range schema.Statements {
+			log.Logger.Debugf("%s", statement)
+			if _, err := dstDB.Exec(statement); err != nil {
+				log.Logger.Warnf("excute sql failed: %v", err)
+				return false
+			}
+		}
+	}
+
+	return true
 }
