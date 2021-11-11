@@ -368,6 +368,7 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 					if err == nil {
 						// conf is current cluster, we believe that local table must be exist
 						clickhouse.SyncLogicSchema(conf, con)
+						continue
 					}
 				}
 			}

@@ -285,9 +285,6 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 }
 
 func (ck *CkService) CreateDistTblOnLogic(params *model.DistLogicTblParams) error {
-	if !checkTableIfExists(params.Database, params.TableName, params.ClusterName) {
-		return fmt.Errorf("table %s.%s is not exist on cluster %s", params.Database, params.TableName, params.ClusterName)
-	}
 	createSql := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s.%s%s ON CLUSTER %s AS %s.%s ENGINE = Distributed(%s, %s, %s, rand())`,
 		params.Database, ClickHouseDistTableOnLogicPrefix, params.TableName, params.ClusterName,
 		params.Database, params.TableName, params.LogicCluster, params.Database, params.TableName)
