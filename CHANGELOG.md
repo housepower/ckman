@@ -1,3 +1,15 @@
+# v2.2.1
+- fix logic config issue
+- rpm install ckman issue
+- save query history on server
+- secret config issue
+- fix sync logic schema issue when replica is true
+- determine if each node supports IPv6 issue
+- auto sync local table when create logic table failed
+- fix connection pool cache issue
+- fix some frontend bugs
+
+
 # v2.2.0
 - user config
 - prometheus address with each cluster
