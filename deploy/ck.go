@@ -2,14 +2,15 @@ package deploy
 
 import (
 	"fmt"
-	"github.com/housepower/ckman/ckconfig"
-	"github.com/housepower/ckman/repository"
 	"os"
 	"path"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/housepower/ckman/ckconfig"
+	"github.com/housepower/ckman/repository"
 
 	"github.com/housepower/ckman/service/zookeeper"
 
@@ -24,8 +25,8 @@ import (
 
 type CKDeploy struct {
 	DeployBase
-	Conf       *model.CkDeployConfig
-	HostInfos  []ckconfig.HostInfo
+	Conf      *model.CkDeployConfig
+	HostInfos []ckconfig.HostInfo
 }
 
 type CkUpdateNodeParam struct {
@@ -255,7 +256,7 @@ func (d *CKDeploy) Config() error {
 	}
 	confFiles = append(confFiles, custom)
 
-	users,err := ckconfig.GenerateUsersXML(path.Join(config.GetWorkDirectory(), "package", fmt.Sprintf("users_%s.xml", d.Conf.ClusterName)), d.Conf)
+	users, err := ckconfig.GenerateUsersXML(path.Join(config.GetWorkDirectory(), "package", fmt.Sprintf("users_%s.xml", d.Conf.ClusterName)), d.Conf)
 	if err != nil {
 		return err
 	}
@@ -425,7 +426,11 @@ func (d *CKDeploy) Check(timeout int) error {
 	for _, host := range d.Hosts {
 		innerHost := host
 		_ = d.Pool.Submit(func() {
-			ticker := time.NewTicker(5*time.Second)
+			// Golang <-time.After() is not garbage collected before expiry.
+			ticker := time.NewTicker(5 * time.Second)
+			ticker2 := time.NewTicker(time.Duration(timeout) * time.Second)
+			defer ticker.Stop()
+			defer ticker2.Stop()
 			for {
 				select {
 				case <-ticker.C:
@@ -440,7 +445,7 @@ func (d *CKDeploy) Check(timeout int) error {
 						log.Logger.Debugf("host %s check done", innerHost)
 						return
 					}
-				case <-time.After(time.Duration(timeout)*time.Second):
+				case <-ticker2.C:
 					lastError = CheckTimeOutErr
 					return
 				}
@@ -689,7 +694,7 @@ func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) 
 
 	// update other nodes config
 	deploy = ConvertCKDeploy(conf)
-	deploy.Conf.Shards =shards
+	deploy.Conf.Shards = shards
 	if err := deploy.Init(); err != nil {
 		return err
 	}
@@ -833,7 +838,7 @@ func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
 	return nil
 }
 
-func ConfigCkCluster(conf *model.CKManClickHouseConfig, restart bool)error {
+func ConfigCkCluster(conf *model.CKManClickHouseConfig, restart bool) error {
 	d := ConvertCKDeploy(conf)
 	if err := d.Init(); err != nil {
 		return err
@@ -923,13 +928,13 @@ func ConvertCKDeploy(conf *model.CKManClickHouseConfig) *CKDeploy {
 	return deploy
 }
 
-func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
+func GenLogicMetrika(d *CKDeploy) (string, []*CKDeploy) {
 	var deploys []*CKDeploy
 	xml := common.NewXmlFile("")
 	xml.SetIndent(2)
 	xml.Begin(*d.Conf.LogicCluster)
 	secret := true
-	if common.CompareClickHouseVersion(d.Conf.PackageVersion, "20.10.3.30") < 0{
+	if common.CompareClickHouseVersion(d.Conf.PackageVersion, "20.10.3.30") < 0 {
 		secret = false
 	}
 	logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
@@ -941,7 +946,7 @@ func GenLogicMetrika(d *CKDeploy)(string, []*CKDeploy) {
 			}
 			c, _ := repository.Ps.GetClusterbyName(logic)
 			deploy := ConvertCKDeploy(&c)
-			if secret && common.CompareClickHouseVersion(d.Conf.PackageVersion, "20.10.3.30") < 0{
+			if secret && common.CompareClickHouseVersion(d.Conf.PackageVersion, "20.10.3.30") < 0 {
 				secret = false
 			}
 			deploys = append(deploys, deploy)
