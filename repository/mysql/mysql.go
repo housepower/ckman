@@ -8,7 +8,6 @@ import (
 	"github.com/housepower/ckman/repository"
 	driver "gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -26,11 +25,11 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 	mp.Config = config.(MysqlConfig)
 	mp.Config.Normalize()
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		url.QueryEscape(mp.Config.User),
-		url.QueryEscape(mp.Config.Password),
-		url.QueryEscape(mp.Config.Host),
+		mp.Config.User,
+		mp.Config.Password,
+		mp.Config.Host,
 		mp.Config.Port,
-		url.QueryEscape(mp.Config.DataBase))
+		mp.Config.DataBase)
 	db, err := gorm.Open(driver.Open(dsn), &gorm.Config{})
 	if err != nil {
 
