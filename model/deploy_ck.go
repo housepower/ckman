@@ -30,24 +30,10 @@ const (
 	MaxTimeOut int = 3600
 )
 
-type CkDeployConfig struct {
-	Path           string
-	User           string
-	Password       string
-	ZkNodes        []string
-	ZkPort         int
-	ZkStatusPort   int
-	ClusterName    string
-	Shards         []CkShard
-	PackageVersion string
-	CkTcpPort      int
-	CkHttpPort     int
-	IsReplica      bool
-	LogicCluster   *string
-	Storage        *Storage
-	MergeTreeConf  *MergeTreeConf
-	UserConf       UsersConf
+type CkDeployExt struct {
+	UpgradePolicy  string
 	Ipv6Enable     bool
+	Restart        bool
 }
 
 type CkShard struct {
@@ -214,21 +200,6 @@ type Interval struct {
 	ResultRows    int64
 	ReadRows      int64
 	ExecutionTime int64
-}
-
-func (config *CkDeployConfig) Normalize() {
-	if config.CkTcpPort == 0 {
-		config.CkTcpPort = ClickHouseDefaultPort
-	}
-	if config.CkHttpPort == 0 {
-		config.CkHttpPort = ClickHouseDefaultHttpPort
-	}
-	if config.ZkPort == 0 {
-		config.ZkPort = ClickHouseDefaultZkPort
-	}
-	if config.ZkStatusPort == 0 {
-		config.ZkStatusPort = ZkStatusDefaultPort
-	}
 }
 
 func (config *CKManClickHouseConfig) Normalize() {

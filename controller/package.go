@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/deploy"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -245,12 +246,7 @@ func GetAllVersions(files VersionFiles) []string {
 // @Router /api/v1/package [delete]
 func (p *PackageController) Delete(c *gin.Context) {
 	packageVersion := c.Query("packageVersion")
-	packages := make([]string, 3)
-
-	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, packageVersion, model.CkClientPackageSuffix)
-	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, packageVersion, model.CkCommonPackageSuffix)
-	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, packageVersion, model.CkServerPackageSuffix)
-
+	packages := deploy.BuildPackages(packageVersion)
 	for _, packageName := range packages {
 		if err := os.Remove(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory, packageName)); err != nil {
 			model.WrapMsg(c, model.DELETE_LOCAL_PACKAGE_FAIL, err)

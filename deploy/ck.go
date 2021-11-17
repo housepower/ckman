@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"encoding/gob"
 	"fmt"
 	"os"
 	"path"
@@ -12,52 +13,53 @@ import (
 	"github.com/housepower/ckman/ckconfig"
 	"github.com/housepower/ckman/repository"
 
-	"github.com/housepower/ckman/service/zookeeper"
-
 	"github.com/housepower/ckman/config"
 	"github.com/pkg/errors"
 
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
-	"github.com/housepower/ckman/service/clickhouse"
 )
+
+func init(){
+	gob.Register(CKDeploy{})
+}
 
 type CKDeploy struct {
 	DeployBase
-	Conf      *model.CkDeployConfig
+	Conf      *model.CKManClickHouseConfig
 	HostInfos []ckconfig.HostInfo
+	Ext       model.CkDeployExt
 }
 
-type CkUpdateNodeParam struct {
-	Ip       string
-	Hostname string
-	Shard    int
-	Op       int
-}
 
-var (
-	CheckTimeOutErr = errors.New("check clickhouse timeout error")
-)
+
+func NewCkDeploy(conf model.CKManClickHouseConfig)*CKDeploy{
+	return &CKDeploy{
+		Conf: &conf,
+		DeployBase:DeployBase{
+			pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
+		},
+	}
+}
 
 func (d *CKDeploy) Init() error {
 	d.Conf.Normalize()
-	d.HostInfos = make([]ckconfig.HostInfo, len(d.Hosts))
+	d.HostInfos = make([]ckconfig.HostInfo, len(d.Conf.Hosts))
 	HostNameMap := make(map[string]bool)
 	var lock sync.RWMutex
 	var lastError error
-	d.Conf.Ipv6Enable = true
-	for index, host := range d.Hosts {
+	d.Ext.Ipv6Enable = true
+	for index, host := range d.Conf.Hosts {
 		innerIndex := index
 		innerHost := host
-		_ = d.Pool.Submit(func() {
+		_ = d.pool.Submit(func() {
 			cmd := "cat /proc/meminfo | grep MemTotal | awk '{print $2}'"
-			output, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd)
+			output, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
 			if err != nil {
 				lastError = err
 				return
 			}
-
 			memory := strings.Trim(output, "\n")
 			total, err := strconv.Atoi(memory)
 			if err != nil {
@@ -69,9 +71,9 @@ func (d *CKDeploy) Init() error {
 				MemoryTotal: total,
 			}
 			d.HostInfos[innerIndex] = info
-			if d.Conf.Ipv6Enable {
+			if d.Ext.Ipv6Enable {
 				cmd2 := "grep lo /proc/net/if_inet6 >/dev/null 2>&1; echo $?"
-				output, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd2)
+				output, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd2)
 				if err != nil {
 					lastError = err
 					return
@@ -80,27 +82,27 @@ func (d *CKDeploy) Init() error {
 				ipv6Enable := strings.Trim(output, "\n")
 				if ipv6Enable != "0" {
 					//file not exists, return 2, file exists but empty, return 1
-					d.Conf.Ipv6Enable = false
+					d.Ext.Ipv6Enable = false
 				}
 			}
 		})
 	}
-	d.Pool.StopWait()
+	d.pool.StopWait()
 	if lastError != nil {
 		return lastError
 	}
 
 	clusterNodeNum := 0
 	lastError = nil
-	d.Pool.Restart()
+	d.pool.Restart()
 	for shardIndex, shard := range d.Conf.Shards {
 		for replicaIndex, replica := range shard.Replicas {
 			innerShardIndex := shardIndex
 			innerReplicaIndex := replicaIndex
 			innerReplica := replica
-			_ = d.Pool.Submit(func() {
+			_ = d.pool.Submit(func() {
 				cmd := "hostname -f"
-				output, err := common.RemoteExecute(d.User, d.Password, innerReplica.Ip, d.Port, cmd)
+				output, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerReplica.Ip, d.Conf.SshPort, cmd)
 				if err != nil {
 					lastError = err
 					return
@@ -116,7 +118,7 @@ func (d *CKDeploy) Init() error {
 		}
 	}
 
-	d.Pool.Wait()
+	d.pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
@@ -136,17 +138,17 @@ func (d *CKDeploy) Prepare() error {
 	}
 
 	var lastError error
-	for _, host := range d.Hosts {
+	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.Pool.Submit(func() {
-			if err := common.ScpUploadFiles(files, common.TmpWorkDirectory, d.User, d.Password, innerHost, d.Port); err != nil {
+		_ = d.pool.Submit(func() {
+			if err := common.ScpUploadFiles(files, common.TmpWorkDirectory, d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort); err != nil {
 				lastError = err
 				return
 			}
 			log.Logger.Debugf("host %s prepare done", innerHost)
 		})
 	}
-	d.Pool.Wait()
+	d.pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
@@ -162,14 +164,14 @@ func (d *CKDeploy) Install() error {
 	cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
 
 	var lastError error
-	for _, host := range d.Hosts {
+	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.Pool.Submit(func() {
+		_ = d.pool.Submit(func() {
 			cmd1 := "systemctl stop clickhouse-server"
-			_, _ = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd1)
+			_, _ = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd1)
 
 			cmd2 := strings.Join(cmds, ";")
-			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd2)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd2)
 			if err != nil {
 				lastError = err
 				return
@@ -178,7 +180,7 @@ func (d *CKDeploy) Install() error {
 			log.Logger.Debugf("host %s install done", innerHost)
 		})
 	}
-	d.Pool.Wait()
+	d.pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
@@ -196,11 +198,11 @@ func (d *CKDeploy) Uninstall() error {
 	cmds = append(cmds, "rm -rf /etc/clickhouse-client")
 
 	var lastError error
-	for _, host := range d.Hosts {
+	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.Pool.Submit(func() {
+		_ = d.pool.Submit(func() {
 			cmd := strings.Join(cmds, ";")
-			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -208,7 +210,7 @@ func (d *CKDeploy) Uninstall() error {
 			log.Logger.Debugf("host %s uninstall done", innerHost)
 		})
 	}
-	d.Pool.Wait()
+	d.pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
@@ -219,10 +221,10 @@ func (d *CKDeploy) Uninstall() error {
 func (d *CKDeploy) Upgrade() error {
 	cmd := fmt.Sprintf("DEBIAN_FRONTEND=noninteractive rpm --force --nosignature -Uvh %s %s %s", path.Join(common.TmpWorkDirectory, d.Packages[0]), path.Join(common.TmpWorkDirectory, d.Packages[1]), path.Join(common.TmpWorkDirectory, d.Packages[2]))
 	var lastError error
-	for _, host := range d.Hosts {
+	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.Pool.Submit(func() {
-			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd)
+		_ = d.pool.Submit(func() {
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -230,7 +232,7 @@ func (d *CKDeploy) Upgrade() error {
 			log.Logger.Debugf("host %s upgrade done", innerHost)
 		})
 	}
-	d.Pool.Wait()
+	d.pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
@@ -250,23 +252,23 @@ func (d *CKDeploy) Config() error {
 		confFiles = append(confFiles, metrika)
 	}
 
-	custom, err := ckconfig.GenerateCustomXML(path.Join(config.GetWorkDirectory(), "package", "custom.xml"), d.Conf)
+	custom, err := ckconfig.GenerateCustomXML(path.Join(config.GetWorkDirectory(), "package", "custom.xml"), d.Conf, d.Ext.Ipv6Enable)
 	if err != nil {
 		return err
 	}
 	confFiles = append(confFiles, custom)
 
-	users, err := ckconfig.GenerateUsersXML(path.Join(config.GetWorkDirectory(), "package", fmt.Sprintf("users_%s.xml", d.Conf.ClusterName)), d.Conf)
+	users, err := ckconfig.GenerateUsersXML(path.Join(config.GetWorkDirectory(), "package", fmt.Sprintf("users_%s.xml", d.Conf.Cluster)), d.Conf)
 	if err != nil {
 		return err
 	}
 	userFiles = append(userFiles, users)
 
 	var lastError error
-	for index, host := range d.Hosts {
+	for index, host := range d.Conf.Hosts {
 		innerIndex := index
 		innerHost := host
-		_ = d.Pool.Submit(func() {
+		_ = d.pool.Submit(func() {
 			confFiles := confFiles
 			userFiles := userFiles
 			profilesFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "profiles")
@@ -295,13 +297,13 @@ func (d *CKDeploy) Config() error {
 			}
 			confFiles = append(confFiles, hostXml)
 
-			_, _ = common.RemoteExecute(d.User, d.Password, host, d.Port, "rm -rf /etc/clickhouse-server/config.d/* /etc/clickhouse-server/users.d/*")
+			_, _ = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, host, d.Conf.SshPort, "rm -rf /etc/clickhouse-server/config.d/* /etc/clickhouse-server/users.d/*")
 
-			if err := common.ScpUploadFiles(confFiles, "/etc/clickhouse-server/config.d/", d.User, d.Password, innerHost, d.Port); err != nil {
+			if err := common.ScpUploadFiles(confFiles, "/etc/clickhouse-server/config.d/", d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort); err != nil {
 				lastError = err
 				return
 			}
-			if err := common.ScpUploadFiles(userFiles, "/etc/clickhouse-server/users.d/", d.User, d.Password, innerHost, d.Port); err != nil {
+			if err := common.ScpUploadFiles(userFiles, "/etc/clickhouse-server/users.d/", d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort); err != nil {
 				lastError = err
 				return
 			}
@@ -312,14 +314,14 @@ func (d *CKDeploy) Config() error {
 			cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
 
 			cmd := strings.Join(cmds, ";")
-			if _, err = common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd); err != nil {
+			if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd); err != nil {
 				lastError = err
 				return
 			}
 			log.Logger.Debugf("host %s config done", innerHost)
 		})
 	}
-	d.Pool.Wait()
+	d.pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
@@ -335,17 +337,17 @@ func (d *CKDeploy) Config() error {
 			if err != nil {
 				return err
 			}
-			for _, host := range deploy.Hosts {
+			for _, host := range deploy.Conf.Hosts {
 				innerHost := host
 				deploy := deploy
-				_ = d.Pool.Submit(func() {
-					if err := common.ScpUploadFile(m, "/etc/clickhouse-server/config.d/metrika.xml", deploy.User, deploy.Password, innerHost, deploy.Port); err != nil {
+				_ = d.pool.Submit(func() {
+					if err := common.ScpUploadFile(m, "/etc/clickhouse-server/config.d/metrika.xml", deploy.Conf.User, deploy.Conf.Password, innerHost, deploy.Conf.Port); err != nil {
 						lastError = err
 						return
 					}
 				})
 			}
-			d.Pool.Wait()
+			d.pool.Wait()
 			if lastError != nil {
 				return lastError
 			}
@@ -357,11 +359,11 @@ func (d *CKDeploy) Config() error {
 
 func (d *CKDeploy) Start() error {
 	var lastError error
-	for _, host := range d.Hosts {
+	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.Pool.Submit(func() {
+		_ = d.pool.Submit(func() {
 			cmd := "systemctl start clickhouse-server"
-			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -369,7 +371,7 @@ func (d *CKDeploy) Start() error {
 			log.Logger.Debugf("host %s start done", innerHost)
 		})
 	}
-	d.Pool.Wait()
+	d.pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
@@ -379,11 +381,11 @@ func (d *CKDeploy) Start() error {
 
 func (d *CKDeploy) Stop() error {
 	var lastError error
-	for _, host := range d.Hosts {
+	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.Pool.Submit(func() {
+		_ = d.pool.Submit(func() {
 			cmd := "systemctl stop clickhouse-server"
-			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -391,7 +393,7 @@ func (d *CKDeploy) Stop() error {
 			log.Logger.Debugf("host %s stop done", innerHost)
 		})
 	}
-	d.Pool.Wait()
+	d.pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
@@ -401,11 +403,11 @@ func (d *CKDeploy) Stop() error {
 
 func (d *CKDeploy) Restart() error {
 	var lastError error
-	for _, host := range d.Hosts {
+	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.Pool.Submit(func() {
+		_ = d.pool.Submit(func() {
 			cmd := "systemctl restart clickhouse-server"
-			_, err := common.RemoteExecute(d.User, d.Password, innerHost, d.Port, cmd)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -413,7 +415,7 @@ func (d *CKDeploy) Restart() error {
 			log.Logger.Debugf("host %s restart done", innerHost)
 		})
 	}
-	d.Pool.Wait()
+	d.pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
@@ -423,9 +425,9 @@ func (d *CKDeploy) Restart() error {
 
 func (d *CKDeploy) Check(timeout int) error {
 	var lastError error
-	for _, host := range d.Hosts {
+	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.Pool.Submit(func() {
+		_ = d.pool.Submit(func() {
 			// Golang <-time.After() is not garbage collected before expiry.
 			ticker := time.NewTicker(5 * time.Second)
 			ticker2 := time.NewTicker(time.Duration(timeout) * time.Second)
@@ -434,7 +436,7 @@ func (d *CKDeploy) Check(timeout int) error {
 			for {
 				select {
 				case <-ticker.C:
-					db, err := common.ConnectClickHouse(innerHost, d.Conf.CkTcpPort, model.ClickHouseDefaultDB, d.Conf.User, d.Conf.Password)
+					db, err := common.ConnectClickHouse(innerHost, d.Conf.Port, model.ClickHouseDefaultDB, d.Conf.User, d.Conf.Password)
 					if err != nil {
 						continue
 					}
@@ -446,96 +448,18 @@ func (d *CKDeploy) Check(timeout int) error {
 						return
 					}
 				case <-ticker2.C:
-					lastError = CheckTimeOutErr
+					lastError = model.CheckTimeOutErr
 					return
 				}
 			}
 		})
 	}
 
-	d.Pool.Wait()
+	d.pool.Wait()
 	if lastError != nil {
 		return lastError
 	}
 	log.Logger.Infof("check done")
-	return nil
-}
-
-func UpgradeCkCluster(conf *model.CKManClickHouseConfig, req model.CkUpgradeCkReq) error {
-	packages := make([]string, 3)
-	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, req.PackageVersion, model.CkCommonPackageSuffix)
-	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, req.PackageVersion, model.CkServerPackageSuffix)
-	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, req.PackageVersion, model.CkClientPackageSuffix)
-
-	var chHosts []string
-	if req.SkipSameVersion {
-		for _, host := range conf.Hosts {
-			version, err := clickhouse.GetCKVersion(conf, host)
-			if err == nil && version == req.PackageVersion {
-				continue
-			}
-			chHosts = append(chHosts, host)
-		}
-	} else {
-		chHosts = conf.Hosts
-	}
-
-	if len(chHosts) == 0 {
-		log.Logger.Infof("there is nothing to be upgrade")
-		return nil
-	}
-
-	switch req.Policy {
-	case model.UpgradePolicyRolling:
-		for _, host := range chHosts {
-			if err := upgradePackage(conf, []string{host}, packages, model.MaxTimeOut); err != nil {
-				return err
-			}
-		}
-	case model.UpgradePolicyFull:
-		err := upgradePackage(conf, chHosts, packages, 5)
-		if err != CheckTimeOutErr {
-			return err
-		}
-	default:
-		return fmt.Errorf("not support policy %s yet", req.Policy)
-	}
-
-	return nil
-}
-
-func upgradePackage(conf *model.CKManClickHouseConfig, hosts []string, packages []string, timeout int) error {
-	deploy := ConvertCKDeploy(conf)
-	deploy.Hosts = hosts
-	deploy.Packages = packages
-	if err := deploy.Init(); err != nil {
-		return err
-	}
-	if err := deploy.Stop(); err != nil {
-		return err
-	}
-	log.Logger.Infof("cluster stopped succeed ")
-	if err := deploy.Prepare(); err != nil {
-		return err
-	}
-	log.Logger.Infof("cluster prepared succeed ")
-	if err := deploy.Upgrade(); err != nil {
-		return err
-	}
-	log.Logger.Infof("cluster upgrade succeed ")
-	if err := deploy.Config(); err != nil {
-		return err
-	}
-	log.Logger.Infof("cluster config succeed ")
-	if err := deploy.Start(); err != nil {
-		return err
-	}
-	log.Logger.Infof("cluster start succeed ")
-	if err := deploy.Check(timeout); err != nil {
-		return err
-	}
-	log.Logger.Infof("cluster checked succeed ")
-
 	return nil
 }
 
@@ -552,8 +476,8 @@ func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 		return nil
 	}
 
-	deploy := ConvertCKDeploy(conf)
-	deploy.Hosts = chHosts
+	deploy := NewCkDeploy(*conf)
+	deploy.Conf.Hosts = chHosts
 
 	if err := deploy.Start(); err != nil {
 		return err
@@ -577,283 +501,10 @@ func StopCkCluster(conf *model.CKManClickHouseConfig) error {
 		return nil
 	}
 
-	deploy := ConvertCKDeploy(conf)
-	deploy.Hosts = chHosts
+	deploy := NewCkDeploy(*conf)
+	deploy.Conf.Hosts = chHosts
 
 	return deploy.Stop()
-}
-
-func DestroyCkCluster(conf *model.CKManClickHouseConfig) error {
-	packages := make([]string, 3)
-	packages[0] = fmt.Sprintf("%s-%s", model.CkClientPackagePrefix, conf.Version)
-	packages[1] = fmt.Sprintf("%s-%s", model.CkServerPackagePrefix, conf.Version)
-	packages[2] = fmt.Sprintf("%s-%s", model.CkCommonPackagePrefix, conf.Version)
-
-	deploy := ConvertCKDeploy(conf)
-	deploy.Packages = packages
-	if err := deploy.Stop(); err != nil {
-		return err
-	}
-	if err := deploy.Uninstall(); err != nil {
-		return err
-	}
-
-	//clear zkNode
-	service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
-	if err != nil {
-		return err
-	}
-	//delete from standard path
-	stdZooPath := fmt.Sprintf("/clickhouse/tables/%s", conf.Cluster)
-	if err := service.DeleteAll(stdZooPath); err != nil {
-		return err
-	}
-	zooPaths := clickhouse.ConvertZooPath(conf)
-	if len(zooPaths) > 0 {
-		for _, zooPath := range zooPaths {
-			if err := service.DeleteAll(zooPath); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func AddCkClusterNode(conf *model.CKManClickHouseConfig, req *model.AddNodeReq) error {
-	maxShardNum := len(conf.Shards)
-	if !conf.IsReplica && req.Shard != maxShardNum+1 {
-		return errors.Errorf("It's not allow to add replica node for shard%d while IsReplica is false", req.Shard)
-	}
-
-	if !conf.IsReplica && len(req.Ips) > 1 {
-		return errors.Errorf("import mode can only add 1 node once")
-	}
-
-	// add the node to conf struct
-	for _, ip := range req.Ips {
-		for _, host := range conf.Hosts {
-			if host == ip {
-				return errors.Errorf("node ip %s is duplicate", ip)
-			}
-		}
-	}
-
-	shards := make([]model.CkShard, len(conf.Shards))
-	copy(shards, conf.Shards)
-	if len(shards) >= req.Shard {
-		for _, ip := range req.Ips {
-			replica := model.CkReplica{
-				Ip: ip,
-			}
-			shards[req.Shard-1].Replicas = append(shards[req.Shard-1].Replicas, replica)
-		}
-	} else if len(shards)+1 == req.Shard {
-		var replicas []model.CkReplica
-		for _, ip := range req.Ips {
-			replica := model.CkReplica{
-				Ip: ip,
-			}
-			replicas = append(replicas, replica)
-		}
-		shard := model.CkShard{
-			Replicas: replicas,
-		}
-		shards = append(shards, shard)
-	} else {
-		return errors.Errorf("shard number %d is incorrect", req.Shard)
-	}
-
-	// install clickhouse and start service on the new node
-	packages := make([]string, 3)
-	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, conf.Version, model.CkCommonPackageSuffix)
-	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, conf.Version, model.CkServerPackageSuffix)
-	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, conf.Version, model.CkClientPackageSuffix)
-
-	deploy := ConvertCKDeploy(conf)
-	deploy.Hosts = req.Ips
-	deploy.Packages = packages
-	deploy.Conf.Shards = shards
-	if err := deploy.Init(); err != nil {
-		return err
-	}
-	if err := deploy.Prepare(); err != nil {
-		return err
-	}
-	if err := deploy.Install(); err != nil {
-		return err
-	}
-	if err := deploy.Config(); err != nil {
-		return err
-	}
-	if err := deploy.Start(); err != nil {
-		return err
-	}
-	if err := deploy.Check(5); err != nil {
-		return err
-	}
-
-	// update other nodes config
-	deploy = ConvertCKDeploy(conf)
-	deploy.Conf.Shards = shards
-	if err := deploy.Init(); err != nil {
-		return err
-	}
-	if err := deploy.Config(); err != nil {
-		return err
-	}
-
-	conf.Shards = shards
-	conf.Hosts = append(conf.Hosts, req.Ips...)
-	return nil
-}
-
-func DeleteCkClusterNode(conf *model.CKManClickHouseConfig, ip string) error {
-	// If the cluster just have 1 replica in shard, and the shard number not the biggest, we don't allow to delete it.
-	available := false
-	ifDeleteShard := false
-	shardNum := 0
-	replicaNum := 0
-	var err error
-	for i, shard := range conf.Shards {
-		for j, replica := range shard.Replicas {
-			if replica.Ip == ip {
-				shardNum = i
-				replicaNum = j
-				available = true
-				if i+1 == len(conf.Shards) {
-					if len(shard.Replicas) == 1 {
-						ifDeleteShard = true
-					}
-				} else {
-					if len(shard.Replicas) == 1 {
-						err = fmt.Errorf("can't delete node which only 1 replica in shard")
-					}
-				}
-				break
-			}
-		}
-	}
-
-	if !available {
-		err = fmt.Errorf("can't find this ip in cluster")
-	}
-
-	if err != nil {
-		log.Logger.Errorf("can't delete this node: %v", err)
-		return err
-	}
-
-	//delete zookeeper path if need
-	service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
-	if err != nil {
-		return err
-	}
-	_ = clickhouse.GetReplicaZkPath(conf)
-	var zooPaths []string
-	for _, path := range conf.ZooPath {
-		zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
-		zooPath = strings.Replace(zooPath, "{shard}", fmt.Sprintf("%d", shardNum+1), -1)
-		zooPaths = append(zooPaths, zooPath)
-	}
-
-	for _, path := range zooPaths {
-		if ifDeleteShard {
-			//delete the shard
-			shardNode := fmt.Sprintf("%d", shardNum+1)
-			err := service.DeletePathUntilNode(path, shardNode)
-			if err != nil {
-				return err
-			}
-		} else {
-			// delete replica path
-			replicaName := conf.Shards[shardNum].Replicas[replicaNum].Ip
-			replicaPath := fmt.Sprintf("%s/replicas/%s", path, replicaName)
-			log.Logger.Debugf("replicaPath: %s", replicaPath)
-			err := service.DeleteAll(replicaPath)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	index := 0
-	for index < len(conf.Hosts) {
-		if conf.Hosts[index] == ip {
-			break
-		}
-		index++
-	}
-
-	// stop the node
-	deploy := ConvertCKDeploy(conf)
-	packages := make([]string, 3)
-	packages[0] = fmt.Sprintf("%s-%s", model.CkClientPackagePrefix, conf.Version)
-	packages[1] = fmt.Sprintf("%s-%s", model.CkServerPackagePrefix, conf.Version)
-	packages[2] = fmt.Sprintf("%s-%s", model.CkCommonPackagePrefix, conf.Version)
-	deploy.Packages = packages
-	deploy.Hosts = []string{ip}
-	if err := deploy.Stop(); err != nil {
-		log.Logger.Warnf("can't stop node %s, ignore it", ip)
-	}
-
-	if err := deploy.Uninstall(); err != nil {
-		log.Logger.Warnf("can't uninsatll node %s, ignore it", ip)
-	}
-
-	// remove the node from conf struct
-	hosts := append(conf.Hosts[:index], conf.Hosts[index+1:]...)
-	shards := make([]model.CkShard, len(conf.Shards))
-	copy(shards, conf.Shards)
-	for i, shard := range shards {
-		found := false
-		for j, replica := range shard.Replicas {
-			if replica.Ip == ip {
-				found = true
-				if len(shard.Replicas) > 1 {
-					shards[i].Replicas = append(shards[i].Replicas[:j], shards[i].Replicas[j+1:]...)
-				} else {
-					shards = append(shards[:i], shards[i+1:]...)
-				}
-				break
-			}
-		}
-		if found {
-			break
-		}
-	}
-
-	// update other nodes config
-	deploy = ConvertCKDeploy(conf)
-	deploy.Hosts = hosts
-	deploy.Conf.Shards = shards
-	if err := deploy.Init(); err != nil {
-		return err
-	}
-	if err := deploy.Config(); err != nil {
-		return err
-	}
-
-	conf.Hosts = hosts
-	conf.Shards = shards
-	return nil
-}
-
-func ConfigCkCluster(conf *model.CKManClickHouseConfig, restart bool) error {
-	d := ConvertCKDeploy(conf)
-	if err := d.Init(); err != nil {
-		return err
-	}
-	if err := d.Config(); err != nil {
-		return err
-	}
-
-	if restart {
-		if err := d.Restart(); err != nil {
-			return err
-		}
-		_ = d.Check(5)
-	}
-	return nil
 }
 
 func ConfigLogicOtherCluster(clusterName string) error {
@@ -861,8 +512,8 @@ func ConfigLogicOtherCluster(clusterName string) error {
 	if err != nil {
 		return fmt.Errorf("can't find cluster %s", clusterName)
 	}
-	d := ConvertCKDeploy(&conf)
-	d.Conf.ClusterName = clusterName
+	d := NewCkDeploy(conf)
+	d.Conf.Cluster = clusterName
 	metrika, deploys := GenLogicMetrika(d)
 	for _, deploy := range deploys {
 		logicFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "metrika")
@@ -872,60 +523,27 @@ func ConfigLogicOtherCluster(clusterName string) error {
 		defer os.Remove(logicFile.FullName)
 		m, _ := ckconfig.GenerateMetrikaXMLwithLogic(logicFile.FullName, deploy.Conf, metrika)
 		var lastError error
-		for _, host := range d.Hosts {
+		for _, host := range d.Conf.Hosts {
 			host := host
 			deploy := deploy
-			_ = d.Pool.Submit(func() {
-				if err := common.ScpUploadFile(m, "/etc/clickhouse-server/config.d/metrika.xml", deploy.User, deploy.Password, host, deploy.Port); err != nil {
+			_ = d.pool.Submit(func() {
+				if err := common.ScpUploadFile(m, "/etc/clickhouse-server/config.d/metrika.xml", deploy.Conf.SshUser, deploy.Conf.SshPassword, host, deploy.Conf.SshPort); err != nil {
 					lastError = err
 					return
 				}
 				cmd := "chown -R clickhouse:clickhouse /etc/clickhouse-server"
-				if _, err := common.RemoteExecute(deploy.User, deploy.Password, host, deploy.Port, cmd); err != nil {
+				if _, err := common.RemoteExecute(deploy.Conf.SshUser, deploy.Conf.SshPassword, host, deploy.Conf.SshPort, cmd); err != nil {
 					lastError = err
 					return
 				}
 			})
 		}
-		d.Pool.Wait()
+		d.pool.Wait()
 		if lastError != nil {
 			return nil
 		}
 	}
 	return nil
-}
-
-func ConvertCKDeploy(conf *model.CKManClickHouseConfig) *CKDeploy {
-	deploy := &CKDeploy{
-		DeployBase: DeployBase{
-			Hosts:            conf.Hosts,
-			User:             conf.SshUser,
-			Password:         conf.SshPassword,
-			AuthenticateType: conf.AuthenticateType,
-			Port:             conf.SshPort,
-			Pool:             common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
-		},
-		Conf: &model.CkDeployConfig{
-			Path:           conf.Path,
-			User:           conf.User,
-			Password:       conf.Password,
-			ZkNodes:        conf.ZkNodes,
-			ZkPort:         conf.ZkPort,
-			ZkStatusPort:   conf.ZkStatusPort,
-			ClusterName:    conf.Cluster,
-			Shards:         conf.Shards,
-			PackageVersion: conf.Version,
-			CkTcpPort:      conf.Port,
-			CkHttpPort:     conf.HttpPort,
-			IsReplica:      conf.IsReplica,
-			LogicCluster:   conf.LogicCluster,
-			Storage:        conf.Storage,
-			MergeTreeConf:  conf.MergeTreeConf,
-			UserConf:       conf.UsersConf,
-		},
-	}
-
-	return deploy
 }
 
 func GenLogicMetrika(d *CKDeploy) (string, []*CKDeploy) {
@@ -934,19 +552,19 @@ func GenLogicMetrika(d *CKDeploy) (string, []*CKDeploy) {
 	xml.SetIndent(2)
 	xml.Begin(*d.Conf.LogicCluster)
 	secret := true
-	if common.CompareClickHouseVersion(d.Conf.PackageVersion, "20.10.3.30") < 0 {
+	if common.CompareClickHouseVersion(d.Conf.Version, "20.10.3.30") < 0 {
 		secret = false
 	}
 	logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
 	if err == nil {
 		for _, logic := range logics {
-			if logic == d.Conf.ClusterName {
+			if logic == d.Conf.Cluster {
 				// if the operation is addNode or deleteNode, we do not use global config
 				continue
 			}
 			c, _ := repository.Ps.GetClusterbyName(logic)
-			deploy := ConvertCKDeploy(&c)
-			if secret && common.CompareClickHouseVersion(d.Conf.PackageVersion, "20.10.3.30") < 0 {
+			deploy := NewCkDeploy(c)
+			if secret && common.CompareClickHouseVersion(d.Conf.Version, "20.10.3.30") < 0 {
 				secret = false
 			}
 			deploys = append(deploys, deploy)
@@ -963,7 +581,7 @@ func GenLogicMetrika(d *CKDeploy) (string, []*CKDeploy) {
 			for _, replica := range shard.Replicas {
 				xml.Begin("replica")
 				xml.Write("host", replica.Ip)
-				xml.Write("port", deploy.Conf.CkTcpPort)
+				xml.Write("port", deploy.Conf.Port)
 				if !secret {
 					xml.Write("user", deploy.Conf.User)
 					xml.Write("password", deploy.Conf.Password)
@@ -975,4 +593,43 @@ func GenLogicMetrika(d *CKDeploy) (string, []*CKDeploy) {
 	}
 	xml.End(*d.Conf.LogicCluster)
 	return xml.GetContext(), deploys
+}
+
+func ClearLogicCluster(cluster, logic string, reconf bool) error {
+	var newPhysics []string
+	physics, err := repository.Ps.GetLogicClusterbyName(logic)
+	if err == nil {
+		// need delete logic cluster and reconf other cluster
+		for _, physic := range physics {
+			if physic == cluster {
+				continue
+			}
+			newPhysics = append(newPhysics, physic)
+		}
+	}
+	if len(newPhysics) == 0 {
+		if err = repository.Ps.DeleteLogicCluster(logic); err != nil {
+			return err
+		}
+	} else {
+		if err = repository.Ps.UpdateLogicCluster(logic, newPhysics); err != nil {
+			return err
+		}
+		if reconf {
+			for _, newLogic := range newPhysics {
+				if err = ConfigLogicOtherCluster(newLogic); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func BuildPackages(version string)[]string {
+	packages := make([]string, 3)
+	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, version, model.CkCommonPackageSuffix)
+	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, version, model.CkServerPackageSuffix)
+	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, version, model.CkClientPackageSuffix)
+	return packages
 }

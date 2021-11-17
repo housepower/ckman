@@ -42,6 +42,7 @@ type CKManServerConfig struct {
 	SwaggerEnable    bool   `yaml:"swagger_enable"`
 	PublicKey        string `yaml:"public_key"`
 	PersistentPolicy string `yaml:"persistent_policy"`
+	TaskInterval     int    `yaml:"task_interval"`
 }
 
 type CKManLogConfig struct {
@@ -82,6 +83,7 @@ func fillDefault(c *CKManConfig) {
 	c.Nacos.DataID = "ckman"
 	c.Server.CertFile = path.Join(GetWorkDirectory(), "conf", "server.crt")
 	c.Server.KeyFile = path.Join(GetWorkDirectory(), "conf", "server.key")
+	c.Server.TaskInterval = 5
 }
 
 func ParseConfigFile(path, version string) error {

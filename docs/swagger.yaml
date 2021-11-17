@@ -1341,6 +1341,55 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Upload package
+  /api/v1/task/{taskId}:
+    delete:
+      description: Get running task count
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"success","entity":3}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: GetRunningTaskCount
+    get:
+      description: Get task by taskId
+      parameters:
+      - description: task id
+        in: query
+        name: taskId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"success","entity":nil}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: GetTaskById
+  /api/v1/task/lists:
+    get:
+      description: Get all tasklist
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"success","entity":nil}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: TasksList
+  /api/v1/task/running:
+    get:
+      description: Get running task count
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"success","entity":3}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: GetRunningTaskCount
   /api/v1/ui/schema:
     get:
       description: Get ui schema

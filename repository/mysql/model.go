@@ -35,3 +35,13 @@ type TblQueryHistory struct {
 func (v TblQueryHistory) TableName() string {
 	return MYSQL_TBL_QUERY_HISTORY
 }
+
+type TblTask struct {
+	TaskId string `gorm:"primaryKey; column:task_id"`
+	Status int    `gorm:"column:status"`
+	Task   string `gorm:"column:config"`
+}
+
+func (v TblTask) TableName() string {
+	return MYSQL_TBL_TASK
+}

@@ -37,6 +37,8 @@ func (lp *LocalPersistent) Init(config interface{}) error {
 	lp.Snapshot.Logics = make(map[string][]string)
 	lp.Data.QueryHistory = make(map[string]model.QueryHistory)
 	lp.Snapshot.QueryHistory = make(map[string]model.QueryHistory)
+	lp.Data.Task = make(map[string]model.Task)
+	lp.Snapshot.Task = make(map[string]model.Task)
 
 	return lp.load()
 }
@@ -301,6 +303,93 @@ func (lp *LocalPersistent) GetEarliestQuery() (model.QueryHistory, error) {
 	}
 	sort.Sort(historys)
 	return historys[0], nil
+}
+
+func (lp *LocalPersistent) CreateTask(task model.Task) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	task.CreateTime = time.Now()
+	task.UpdateTime = task.CreateTime
+	if _, ok := lp.Data.Task[task.TaskId]; ok {
+		return repository.ErrRecordExists
+	}
+	lp.Data.Task[task.TaskId] = task
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) UpdateTask(task model.Task) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.Task[task.TaskId]; !ok {
+		return repository.ErrRecordNotFound
+	}
+	task.UpdateTime = time.Now()
+	lp.Data.Task[task.TaskId] = task
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) DeleteTask(id string) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.Task[id]; !ok {
+		return repository.ErrRecordExists
+	}
+	delete(lp.Data.Task, id)
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) GetAllTasks() ([]model.Task, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var tasks Tasks
+	for _, value := range lp.Data.Task {
+		tasks = append(tasks, value)
+	}
+	sort.Sort(tasks)
+	return tasks, nil
+}
+
+func (lp *LocalPersistent) GetEffectiveTaskCount() int64 {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var tasks []model.Task
+	for _, value := range lp.Data.Task {
+		if value.Status == model.TaskStatusRunning || value.Status == model.TaskStatusWaiting {
+			tasks = append(tasks, value)
+		}
+	}
+	return int64(len(tasks))
+}
+
+func (lp *LocalPersistent) GetPengdingTasks(serverIp string) ([]model.Task, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var tasks []model.Task
+	for _, value := range lp.Data.Task {
+		if value.Status == model.TaskStatusWaiting && serverIp == value.ServerIp {
+			tasks = append(tasks, value)
+		}
+	}
+	return tasks, nil
+}
+
+func (lp *LocalPersistent) GetTaskbyTaskId(id string) (model.Task, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	task, ok := lp.Data.Task[id]
+	if !ok {
+		return model.Task{},repository.ErrRecordNotFound
+	}
+	return task, nil
 }
 
 func (lp *LocalPersistent) marshal() ([]byte, error) {

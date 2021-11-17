@@ -18,6 +18,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	zkController := controller.NewZookeeperController()
 	uiController := controller.NewSchemaUIController()
 	uiController.RegistSchemaInstance()
+	taskController := controller.NewTaskController()
 
 	groupV1.POST("/ck/cluster", ckController.ImportCluster)
 	groupV1.GET("/ck/cluster", ckController.GetClusters)
@@ -63,4 +64,8 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.GET(fmt.Sprintf("/metric/query_range/:%s", controller.ClickHouseClusterPath), metricController.QueryRange)
 	groupV1.GET("/version", configController.GetVersion)
 	groupV1.GET("/ui/schema", uiController.GetUISchema)
+	groupV1.GET(fmt.Sprintf("/task/:%s", controller.TaskIdPath), taskController.GetTaskStatusById)
+	groupV1.GET("/task/lists", taskController.TasksList)
+	groupV1.GET("/task/running", taskController.GetRunningTaskCount)
+	groupV1.DELETE(fmt.Sprintf("/task/:%s", controller.TaskIdPath), taskController.DeleteTask)
 }

@@ -8,7 +8,6 @@ import (
 
 var Ps PersistentMgr
 
-
 // Global registry to mapping adapter name to the adapter factory
 var PersistentRegistry map[string]PersistentFactory = make(map[string]PersistentFactory)
 
@@ -18,58 +17,59 @@ type PersistentFactory interface {
 	CreatePersistent() PersistentMgr
 }
 
-type PersistentMgr interface{
+type PersistentBase interface {
+	UnmarshalConfig(configMap map[string]interface{}) interface{}
+	Init(config interface{}) error
+	Begin() error
+	Commit() error
+	Rollback() error
+}
 
-	UnmarshalConfig(configMap map[string]interface{})interface{}
-
-	Init(config interface{})error
-
-	//start transaction
-	Begin()error
-
-	//commit transaction
-	Commit()error
-
-	Rollback()error
-
-	//get cluster config by name, return model.CKManClickHouseConfig
-	GetClusterbyName(cluster string)(model.CKManClickHouseConfig,error)
-
-	ClusterExists(cluster string)bool
-
-	//get logic cluster by name, return a list
-	GetLogicClusterbyName(logic string)([]string,error)
-
-	//get all clusters, return a map
-	GetAllClusters()(map[string]model.CKManClickHouseConfig,error)
-
-	//get all logic clusters, return a map
-	GetAllLogicClusters()(map[string][]string,error)
-
-	//add a new cluster record
-	CreateCluster(cluster model.CKManClickHouseConfig)error
-
-	//add a new logic cluster to list
-	CreateLogicCluster(logic string, physics []string)error
-
-
-	UpdateCluster(cluster model.CKManClickHouseConfig)error
-	UpdateLogicCluster(logic string, physics []string)error
-
+type PersistentClusterService interface {
+	GetClusterbyName(cluster string) (model.CKManClickHouseConfig, error)
+	ClusterExists(cluster string) bool
+	GetAllClusters() (map[string]model.CKManClickHouseConfig, error)
+	CreateCluster(cluster model.CKManClickHouseConfig) error
+	UpdateCluster(cluster model.CKManClickHouseConfig) error
 	DeleteCluster(clusterName string) error
-	DeleteLogicCluster(clusterName string) error
+}
 
-	//order by create_at
-	GetAllQueryHistory()(map[string]model.QueryHistory, error)
-	GetQueryHistoryByCluster(cluster string)([]model.QueryHistory, error)
-	GetQueryHistoryByCheckSum(checksum string)(model.QueryHistory, error)
+type PersistentLogicService interface {
+	GetLogicClusterbyName(logic string) ([]string, error)
+	GetAllLogicClusters() (map[string][]string, error)
+	CreateLogicCluster(logic string, physics []string) error
+	UpdateLogicCluster(logic string, physics []string) error
+	DeleteLogicCluster(clusterName string) error
+}
+
+type PersistentQueryHistoryService interface {
+	GetAllQueryHistory() (map[string]model.QueryHistory, error)
+	GetQueryHistoryByCluster(cluster string) ([]model.QueryHistory, error)
+	GetQueryHistoryByCheckSum(checksum string) (model.QueryHistory, error)
 	CreateQueryHistory(qh model.QueryHistory) error
 	UpdateQueryHistory(qh model.QueryHistory) error
 	DeleteQueryHistory(checksum string) error
-	GetQueryHistoryCount()int64
-	GetEarliestQuery()(model.QueryHistory, error)
+	GetQueryHistoryCount() int64
+	GetEarliestQuery() (model.QueryHistory, error)
 }
 
+type PersistentTaskService interface {
+	CreateTask(task model.Task) error
+	UpdateTask(task model.Task) error
+	DeleteTask(id string) error
+	GetAllTasks() ([]model.Task, error)
+	GetPengdingTasks(serverIp string)([]model.Task, error)
+	GetEffectiveTaskCount() int64
+	GetTaskbyTaskId(id string) (model.Task, error)
+}
+
+type PersistentMgr interface {
+	PersistentBase
+	PersistentClusterService
+	PersistentLogicService
+	PersistentQueryHistoryService
+	PersistentTaskService
+}
 
 func RegistePersistent(fn func() PersistentFactory) {
 	if fn == nil {
@@ -90,7 +90,7 @@ func GetPersistentByName(name string) PersistentMgr {
 	return nil
 }
 
-func InitPersistent()error{
+func InitPersistent() error {
 	if Ps == nil {
 		Ps = GetPersistentByName(config.GlobalConfig.Server.PersistentPolicy)
 	}

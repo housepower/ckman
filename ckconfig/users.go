@@ -9,7 +9,7 @@ type HostInfo struct {
 	MemoryTotal int
 }
 
-func GenerateUsersXML(filename string, conf *model.CkDeployConfig)(string, error){
+func GenerateUsersXML(filename string, conf *model.CKManClickHouseConfig)(string, error){
 	xml := common.NewXmlFile(filename)
 	xml.Begin("yandex")
 	xml.Begin("users")
@@ -22,7 +22,7 @@ func GenerateUsersXML(filename string, conf *model.CkDeployConfig)(string, error
 	xml.Write("quota", model.ClickHouseUserQuotaDefault)
 	xml.Write("access_management", 1)
 	xml.End(conf.User)
-	for _, user := range conf.UserConf.Users {
+	for _, user := range conf.UsersConf.Users {
 		xml.Begin(user.Name)
 		xml.Write("password", user.Password)
 		xml.Begin("networks")
