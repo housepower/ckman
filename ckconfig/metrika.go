@@ -5,7 +5,7 @@ import (
 	"github.com/housepower/ckman/model"
 )
 
-func GenerateMetrikaXML(filename string, conf *model.CkDeployConfig)(string, error){
+func GenerateMetrikaXML(filename string, conf *model.CKManClickHouseConfig)(string, error){
 	xml := common.NewXmlFile(filename)
 	xml.Begin("yandex")
 	xml.Append(GenZookeeperMetrika(xml.GetIndent(), conf))
@@ -20,7 +20,7 @@ func GenerateMetrikaXML(filename string, conf *model.CkDeployConfig)(string, err
 	return filename, nil
 }
 
-func GenerateMetrikaXMLwithLogic(filename string, conf *model.CkDeployConfig, logicMrtrika string)(string, error){
+func GenerateMetrikaXMLwithLogic(filename string, conf *model.CKManClickHouseConfig, logicMrtrika string)(string, error){
 	xml := common.NewXmlFile(filename)
 	xml.Begin("yandex")
 	xml.Append(GenZookeeperMetrika(xml.GetIndent(), conf))
@@ -36,7 +36,7 @@ func GenerateMetrikaXMLwithLogic(filename string, conf *model.CkDeployConfig, lo
 	return filename, nil
 }
 
-func GenZookeeperMetrika(indent int, conf *model.CkDeployConfig) string {
+func GenZookeeperMetrika(indent int, conf *model.CKManClickHouseConfig) string {
 	xml := common.NewXmlFile("")
 	xml.SetIndent(indent)
 	xml.Begin("zookeeper")
@@ -50,12 +50,12 @@ func GenZookeeperMetrika(indent int, conf *model.CkDeployConfig) string {
 	return xml.GetContext()
 }
 
-func GenLocalMetrika(indent int, conf *model.CkDeployConfig)string {
+func GenLocalMetrika(indent int, conf *model.CKManClickHouseConfig)string {
 	xml := common.NewXmlFile("")
 	xml.SetIndent(indent)
-	xml.Begin(conf.ClusterName)
+	xml.Begin(conf.Cluster)
 	secret := true
-	if common.CompareClickHouseVersion(conf.PackageVersion, "20.10.3.30") < 0{
+	if common.CompareClickHouseVersion(conf.Version, "20.10.3.30") < 0{
 		secret = false
 	}
 	if secret {
@@ -86,7 +86,7 @@ func GenLocalMetrika(indent int, conf *model.CkDeployConfig)string {
 		for _, replica := range shard.Replicas {
 			xml.Begin("replica")
 			xml.Write("host", replica.Ip)
-			xml.Write("port", conf.CkTcpPort)
+			xml.Write("port", conf.Port)
 			if !secret {
 				xml.Write("user", conf.User)
 				xml.Write("password", conf.Password)
@@ -95,7 +95,7 @@ func GenLocalMetrika(indent int, conf *model.CkDeployConfig)string {
 		}
 		xml.End("shard")
 	}
-	xml.End(conf.ClusterName)
+	xml.End(conf.Cluster)
 	return xml.GetContext()
 }
 

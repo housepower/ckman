@@ -1,6 +1,8 @@
 package mysql
 
-import "github.com/housepower/ckman/common"
+import (
+	"github.com/housepower/ckman/common"
+)
 
 type MysqlConfig struct {
 	Host            string `yaml:"host" json:"host"`

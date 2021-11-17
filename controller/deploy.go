@@ -3,7 +3,6 @@ package controller
 import (
 	"fmt"
 	"github.com/housepower/ckman/repository"
-	"github.com/housepower/ckman/service/clickhouse"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -11,7 +10,6 @@ import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/deploy"
-	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 )
 
@@ -23,40 +21,6 @@ func NewDeployController(config *config.CKManConfig) *DeployController {
 	deploy := &DeployController{}
 	deploy.config = config
 	return deploy
-}
-
-func DeployPackage(d deploy.Deploy) (string, error) {
-	log.Logger.Infof("start init deploy")
-	if err := d.Init(); err != nil {
-		return model.INIT_PACKAGE_FAIL, err
-	}
-
-	log.Logger.Infof("start copy packages")
-	if err := d.Prepare(); err != nil {
-		return model.PREPARE_PACKAGE_FAIL, err
-	}
-
-	log.Logger.Infof("start install packages")
-	if err := d.Install(); err != nil {
-		return model.INSTALL_PACKAGE_FAIL, err
-	}
-
-	log.Logger.Infof("start copy config files")
-	if err := d.Config(); err != nil {
-		return model.CONFIG_PACKAGE_FAIL, err
-	}
-
-	log.Logger.Infof("start service")
-	if err := d.Start(); err != nil {
-		return model.START_PACKAGE_FAIL, err
-	}
-
-	log.Logger.Infof("start check service")
-	if err := d.Check(5); err != nil {
-		return model.CHECK_PACKAGE_FAIL, err
-	}
-
-	return model.SUCCESS, nil
 }
 
 // @Summary Deploy clickhouse
@@ -86,60 +50,15 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		return
 	}
 
-	packages := make([]string, 3)
-	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, conf.Version, model.CkCommonPackageSuffix)
-	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, conf.Version, model.CkServerPackageSuffix)
-	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, conf.Version, model.CkClientPackageSuffix)
-	tmp := deploy.ConvertCKDeploy(&conf)
-	tmp.Packages = packages
-	code, err := DeployPackage(tmp)
+	tmp := deploy.NewCkDeploy(conf)
+	tmp.Packages = deploy.BuildPackages(conf.Version)
+
+	taskId, err := deploy.CreateNewTask(conf.Cluster, model.TaskTypeCKDeploy, tmp)
 	if err != nil {
-		model.WrapMsg(c, code, err)
-		return
-	}
-
-	// sync table schema when logic cluster exists
-	if conf.LogicCluster != nil {
-		logics, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
-		if err == nil && len(logics) > 0 {
-			for _, logic := range logics {
-				if cluster, err := repository.Ps.GetClusterbyName(logic); err == nil {
-					if clickhouse.SyncLogicSchema(cluster, conf) {
-						break
-					}
-				}
-			}
-		}
-	}
-
-	if err = repository.Ps.Begin(); err != nil {
 		model.WrapMsg(c, model.DEPLOY_CK_CLUSTER_ERROR, err)
 		return
 	}
-	if err = repository.Ps.CreateCluster(conf); err != nil {
-		model.WrapMsg(c, model.DEPLOY_CK_CLUSTER_ERROR, err)
-		_ = repository.Ps.Rollback()
-		return
-	}
-	if conf.LogicCluster != nil {
-		logics, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
-		if err != nil {
-			if err == repository.ErrRecordNotFound {
-				logics = append(logics, conf.Cluster)
-				_ = repository.Ps.CreateLogicCluster(*conf.LogicCluster, logics)
-			} else {
-				model.WrapMsg(c, model.DEPLOY_CK_CLUSTER_ERROR, err)
-				_ = repository.Ps.Rollback()
-				return
-			}
-		}else {
-			logics = append(logics, conf.Cluster)
-			_ = repository.Ps.UpdateLogicCluster(*conf.LogicCluster, logics)
-		}
-	}
-	_ = repository.Ps.Commit()
-
-	model.WrapMsg(c, model.SUCCESS, nil)
+	model.WrapMsg(c, model.SUCCESS, taskId)
 }
 
 func checkDeployParams(conf *model.CKManClickHouseConfig) error {

@@ -30,9 +30,10 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 		mp.Config.Host,
 		mp.Config.Port,
 		mp.Config.DataBase)
+
+	log.Logger.Debugf("mysql dsn:%s", dsn)
 	db, err := gorm.Open(driver.Open(dsn), &gorm.Config{})
 	if err != nil {
-
 		return err
 	}
 	sqlDB, err := db.DB()
@@ -51,7 +52,17 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 	mp.ParentDB = mp.Client
 
 	//auto create table
-	return mp.Client.AutoMigrate(&TblCluster{}, &TblLogic{}, &TblQueryHistory{})
+	err = mp.Client.AutoMigrate(
+		&TblCluster{},
+		&TblLogic{},
+		&TblQueryHistory{},
+		&TblTask{},
+	)
+	if err != nil {
+		return err
+	}
+	mp.Client.Set("table_options", "ENGINE=InnoDB CHARSET=utf8mb4")
+	return nil
 }
 
 func (mp *MysqlPersistent) Begin() error {
@@ -270,7 +281,7 @@ func (mp *MysqlPersistent) GetQueryHistoryByCluster(cluster string) ([]model.Que
 	return historys, nil
 }
 
-func (mp *MysqlPersistent) GetQueryHistoryByCheckSum(checksum string)(model.QueryHistory, error) {
+func (mp *MysqlPersistent) GetQueryHistoryByCheckSum(checksum string) (model.QueryHistory, error) {
 	var table TblQueryHistory
 	tx := mp.Client.Where("checksum = ?", checksum).First(&table)
 	if tx.Error != nil {
@@ -312,7 +323,6 @@ func (mp *MysqlPersistent) DeleteQueryHistory(checksum string) error {
 	return wrapError(tx.Error)
 }
 
-
 func (mp *MysqlPersistent) GetQueryHistoryCount() int64 {
 	var count int64
 	tx := mp.Client.Model(&TblQueryHistory{}).Count(&count)
@@ -335,6 +345,104 @@ func (mp *MysqlPersistent) GetEarliestQuery() (model.QueryHistory, error) {
 		CreateTime: table.CreateTime,
 	}
 	return history, nil
+}
+
+func (mp *MysqlPersistent) CreateTask(task model.Task) error {
+	config, err := json.Marshal(task)
+	if err != nil {
+		return err
+	}
+
+	table := TblTask{
+		TaskId: task.TaskId,
+		Status: task.Status,
+		Task:   string(config),
+	}
+	tx := mp.Client.Create(&table)
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	return nil
+}
+
+func (mp *MysqlPersistent) UpdateTask(task model.Task) error {
+	config, err := json.Marshal(task)
+	if err != nil {
+		return err
+	}
+	table := TblTask{
+		TaskId: task.TaskId,
+		Status: task.Status,
+		Task:   string(config),
+	}
+	tx := mp.Client.Model(TblTask{}).Where("task_id = ?", task.TaskId).Updates(&table)
+	return wrapError(tx.Error)
+}
+
+func (mp *MysqlPersistent) DeleteTask(id string) error {
+	tx := mp.Client.Where("task_id = ?", id).Unscoped().Delete(&TblTask{})
+	return wrapError(tx.Error)
+}
+
+func (mp *MysqlPersistent) GetAllTasks() ([]model.Task, error) {
+	var tables []TblTask
+	tx := mp.Client.Find(&tables).Order("status")
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, tx.Error
+	}
+	var tasks []model.Task
+	var err error
+	for _, table := range tables {
+		var task model.Task
+		if err = json.Unmarshal([]byte(table.Task), &task); err != nil {
+			return []model.Task{}, err
+		}
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
+}
+
+func (mp *MysqlPersistent) GetEffectiveTaskCount() int64 {
+	var count int64
+	tx := mp.Client.Model(&TblQueryHistory{}).Where("status in ?", []int{model.TaskStatusRunning, model.TaskStatusWaiting}).Count(&count)
+	if tx.Error != nil {
+		count = 0
+	}
+	return count
+}
+
+func (mp *MysqlPersistent) GetPengdingTasks(serverIp string) ([]model.Task, error) {
+	var tables []TblTask
+	tx := mp.Client.Where("status = ?", model.TaskStatusWaiting).Find(&tables)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, tx.Error
+	}
+	var tasks []model.Task
+	var err error
+	for _, table := range tables {
+		var task model.Task
+		if err = json.Unmarshal([]byte(table.Task), &task); err != nil {
+			return []model.Task{}, err
+		}
+		if task.ServerIp == serverIp {
+			tasks = append(tasks, task)
+		}
+	}
+	return tasks, nil
+}
+
+func (mp *MysqlPersistent) GetTaskbyTaskId(id string) (model.Task, error) {
+	var table TblTask
+	tx := mp.Client.Where("task_id = ?", id).First(&table)
+	if tx.Error != nil {
+		return model.Task{}, wrapError(tx.Error)
+	}
+	var task model.Task
+	if err := json.Unmarshal([]byte(table.Task), &task); err != nil {
+		return model.Task{}, err
+	}
+
+	return task, nil
 }
 
 func wrapError(err error) error {

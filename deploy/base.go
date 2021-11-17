@@ -3,11 +3,10 @@ package deploy
 import "github.com/housepower/ckman/common"
 
 type DeployBase struct {
-	Hosts            []string
-	Packages         []string
-	User             string
-	Password         string
-	AuthenticateType int
-	Port             int
-	Pool             *common.WorkerPool
+	Packages []string
+	pool     *common.WorkerPool	/* pool must not be exposed, beacuse will cause gob deepcopy error */
+}
+
+func (d *DeployBase)CreatePool(){
+	d.pool = common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault)
 }

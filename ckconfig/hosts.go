@@ -5,7 +5,7 @@ import (
 	"github.com/housepower/ckman/model"
 )
 
-func GenerateHostXML(filename string, conf *model.CkDeployConfig, host string)(string, error){
+func GenerateHostXML(filename string, conf *model.CKManClickHouseConfig, host string)(string, error){
 	shardIndex := 0
 	for i, shard := range conf.Shards {
 		for _, replica := range shard.Replicas {
@@ -21,7 +21,7 @@ func GenerateHostXML(filename string, conf *model.CkDeployConfig, host string)(s
 	xml.Comment("This xml file contains every node's special configuration self.")
 	xml.Write("interserver_http_host", host)
 	xml.Begin("macros")
-	xml.Write("cluster", conf.ClusterName)
+	xml.Write("cluster", conf.Cluster)
 	xml.Write("shard", shardIndex)
 	xml.Write("replica", host)
 	xml.End("macros")

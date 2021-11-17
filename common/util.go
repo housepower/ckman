@@ -6,6 +6,8 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
+	"github.com/housepower/ckman/log"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -211,4 +213,16 @@ func GetIntegerwithDefault(value, defaul int) int {
 func Md5CheckSum(s string) string {
 	sum := md5.Sum([]byte(s))
 	return hex.EncodeToString(sum[:16])
+}
+
+// GetOutboundIP get preferred outbound ip of this machine
+//https://stackoverflow.com/questions/23558425/how-do-i-get-the-local-ip-address-in-go
+func GetOutboundIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Logger.Fatalf("need to setup the default route: %v", err)
+	}
+	defer conn.Close()
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP
 }

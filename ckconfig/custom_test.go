@@ -86,8 +86,8 @@ func TestGenerateCustomXML(t *testing.T) {
 		},
 	}
 
-	conf := &model.CkDeployConfig{
-		ClusterName: "abc",
+	conf := &model.CKManClickHouseConfig{
+		Cluster: "abc",
 		Shards: []model.CkShard{
 			{[]model.CkReplica{
 				{Ip: "192.168.101.40", HostName: "vm10140"},
@@ -100,12 +100,11 @@ func TestGenerateCustomXML(t *testing.T) {
 		},
 		ZkNodes:   []string{"192.168.101.40", "192.168.101.41", "192.168.101.42"},
 		ZkPort:    2181,
-		CkTcpPort: 9000,
+		Port: 9000,
 		IsReplica: true,
 		Storage: &storage,
 		MergeTreeConf:&mt,
-		Ipv6Enable: true,
 	}
-	_, err := GenerateCustomXML("custom.xml", conf)
+	_, err := GenerateCustomXML("custom.xml", conf, true)
 	assert.Nil(t, err)
 }

@@ -148,7 +148,7 @@ func (ck *ClickHouseController) DeleteCluster(c *gin.Context) {
 	}
 
 	if conf.LogicCluster != nil {
-		if err = clearLogicCluster(conf.Cluster, *conf.LogicCluster, false); err != nil {
+		if err = deploy.ClearLogicCluster(conf.Cluster, *conf.LogicCluster, false); err != nil {
 			model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
 			_ = repository.Ps.Rollback()
 			return
@@ -666,18 +666,36 @@ func (ck *ClickHouseController) UpgradeCluster(c *gin.Context) {
 	}
 
 	conf.Version = req.PackageVersion
-	err = deploy.UpgradeCkCluster(&conf, req)
+	var chHosts []string
+	if req.SkipSameVersion {
+		for _, host := range conf.Hosts {
+			version, err := clickhouse.GetCKVersion(&conf, host)
+			if err == nil && version == req.PackageVersion {
+				continue
+			}
+			chHosts = append(chHosts, host)
+		}
+	} else {
+		chHosts = conf.Hosts
+	}
+
+	if len(chHosts) == 0 {
+		err := errors.New("there is nothing to be upgrade")
+		model.WrapMsg(c, model.UPDATE_CK_CLUSTER_FAIL, err)
+		return
+	}
+
+	d := deploy.NewCkDeploy(conf)
+	d.Packages = deploy.BuildPackages(req.PackageVersion)
+	d.Ext.UpgradePolicy = req.Policy
+	d.Conf.Hosts = chHosts
+
+	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKUpgrade, d)
 	if err != nil {
 		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, err)
 		return
 	}
-
-	if err = repository.Ps.UpdateCluster(conf); err != nil {
-		model.WrapMsg(c, model.UPGRADE_CK_CLUSTER_FAIL, err)
-		return
-	}
-
-	model.WrapMsg(c, model.SUCCESS, nil)
+	model.WrapMsg(c, model.SUCCESS, taskId)
 }
 
 // @Summary Start ClickHouse cluster
@@ -785,31 +803,15 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 		return
 	}
 
-	common.CloseConns(conf.Hosts)
-	if err = deploy.DestroyCkCluster(&conf); err != nil {
+	d := deploy.NewCkDeploy(conf)
+	d.Packages = deploy.BuildPackages(conf.Version)
+	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKDestory, d)
+	if err != nil {
 		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
 		return
 	}
 
-	if err = repository.Ps.Begin(); err != nil {
-		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
-		return
-	}
-	if conf.LogicCluster != nil {
-		if err = clearLogicCluster(conf.Cluster, *conf.LogicCluster, true); err != nil {
-			model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
-			_ = repository.Ps.Rollback()
-			return
-		}
-	}
-
-	if err = repository.Ps.DeleteCluster(clusterName); err != nil {
-		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
-		_ = repository.Ps.Rollback()
-		return
-	}
-	_ = repository.Ps.Commit()
-	model.WrapMsg(c, model.SUCCESS, nil)
+	model.WrapMsg(c, model.SUCCESS, taskId)
 }
 
 // @Summary Rebanlance a ClickHouse cluster
@@ -966,36 +968,69 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 		return
 	}
 
-	err = deploy.AddCkClusterNode(&conf, &req)
+	maxShardNum := len(conf.Shards)
+	if !conf.IsReplica && req.Shard != maxShardNum+1 {
+		err := errors.Errorf("It's not allow to add replica node for shard%d while IsReplica is false", req.Shard)
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
+		return
+	}
+
+	if !conf.IsReplica && len(req.Ips) > 1 {
+		err := errors.Errorf("import mode can only add 1 node once")
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
+		return
+	}
+
+	// add the node to conf struct
+	for _, ip := range req.Ips {
+		for _, host := range conf.Hosts {
+			if host == ip {
+				err :=  errors.Errorf("node ip %s is duplicate", ip)
+				model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
+				return
+			}
+		}
+	}
+
+	shards := make([]model.CkShard, len(conf.Shards))
+	copy(shards, conf.Shards)
+	if len(shards) >= req.Shard {
+		for _, ip := range req.Ips {
+			replica := model.CkReplica{
+				Ip: ip,
+			}
+			shards[req.Shard-1].Replicas = append(shards[req.Shard-1].Replicas, replica)
+		}
+	} else if len(shards)+1 == req.Shard {
+		var replicas []model.CkReplica
+		for _, ip := range req.Ips {
+			replica := model.CkReplica{
+				Ip: ip,
+			}
+			replicas = append(replicas, replica)
+		}
+		shard := model.CkShard{
+			Replicas: replicas,
+		}
+		shards = append(shards, shard)
+	} else {
+		err := errors.Errorf("shard number %d is incorrect", req.Shard)
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
+		return
+	}
+
+	// install clickhouse and start service on the new node
+	d := deploy.NewCkDeploy(conf)
+	d.Conf.Hosts = req.Ips
+	d.Packages = deploy.BuildPackages(conf.Version)
+	d.Conf.Shards = shards
+
+	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKAddNode, d)
 	if err != nil {
 		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
 		return
 	}
-
-	tmp := &model.CKManClickHouseConfig{
-		Hosts:    req.Ips,
-		Port:     conf.Port,
-		Cluster:  conf.Cluster,
-		User:     conf.User,
-		Password: conf.Password,
-	}
-
-	service := clickhouse.NewCkService(tmp)
-	if err := service.InitCkService(); err != nil {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
-		return
-	}
-	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0], conf.Password); err != nil {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
-		return
-	}
-
-	if err = repository.Ps.UpdateCluster(conf); err != nil {
-		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
-		return
-	}
-
-	model.WrapMsg(c, model.SUCCESS, nil)
+	model.WrapMsg(c, model.SUCCESS, taskId)
 }
 
 // @Summary Delete ClickHouse node
@@ -1023,19 +1058,40 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 		return
 	}
 
-	err = deploy.DeleteCkClusterNode(&conf, ip)
+	available := false
+	for i, shard := range conf.Shards {
+		for _, replica := range shard.Replicas {
+			if replica.Ip == ip {
+				available = true
+				if i+1 != len(conf.Shards) && len(shard.Replicas) == 1 {
+					err = fmt.Errorf("can't delete node which only 1 replica in shard")
+				}
+				break
+			}
+		}
+	}
+
+	if !available {
+		err = fmt.Errorf("can't find this ip in cluster")
+	}
+
+	if err != nil {
+		log.Logger.Errorf("can't delete this node: %v", err)
+		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, err)
+		return
+	}
+
+	d := deploy.NewCkDeploy(conf)
+	d.Packages = deploy.BuildPackages(conf.Version)
+	d.Conf.Hosts = []string{ip}
+
+	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKDeleteNode, d)
 	if err != nil {
 		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, err)
 		return
 	}
-	common.CloseConns([]string{ip})
 
-	if err = repository.Ps.UpdateCluster(conf); err != nil {
-		model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, err)
-		return
-	}
-
-	model.WrapMsg(c, model.SUCCESS, nil)
+	model.WrapMsg(c, model.SUCCESS, taskId)
 }
 
 // @Summary Start ClickHouse node
@@ -1519,16 +1575,14 @@ func (ck *ClickHouseController) ClusterSetting(c *gin.Context) {
 		return
 	}
 
-	if err = deploy.ConfigCkCluster(&conf, restart); err != nil {
+	d := deploy.NewCkDeploy(conf)
+	d.Ext.Restart = restart
+	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKSetting, d)
+	if err != nil {
 		model.WrapMsg(c, model.CONFIG_CLUSTER_FAIL, err)
 		return
 	}
-	if err = repository.Ps.UpdateCluster(conf); err != nil {
-		model.WrapMsg(c, model.CONFIG_CLUSTER_FAIL, err)
-		return
-	}
-
-	model.WrapMsg(c, model.SUCCESS, nil)
+	model.WrapMsg(c, model.SUCCESS, taskId)
 }
 
 // @Summary  get cluster config
@@ -1837,35 +1891,4 @@ func genTTLExpress(ttls []model.CkTableTTL, storage *model.Storage) ([]string, e
 		express = append(express, expr)
 	}
 	return express, nil
-}
-
-func clearLogicCluster(cluster, logic string, reconf bool) error {
-	var newPhysics []string
-	physics, err := repository.Ps.GetLogicClusterbyName(logic)
-	if err == nil {
-		// need delete logic cluster and reconf other cluster
-		for _, physic := range physics {
-			if physic == cluster {
-				continue
-			}
-			newPhysics = append(newPhysics, physic)
-		}
-	}
-	if len(newPhysics) == 0 {
-		if err = repository.Ps.DeleteLogicCluster(logic); err != nil {
-			return err
-		}
-	} else {
-		if err = repository.Ps.UpdateLogicCluster(logic, newPhysics); err != nil {
-			return err
-		}
-		if reconf {
-			for _, newLogic := range newPhysics {
-				if err = deploy.ConfigLogicOtherCluster(newLogic); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
 }

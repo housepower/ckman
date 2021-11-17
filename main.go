@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/repository"
-	"net"
+	"github.com/housepower/ckman/service/runner"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -77,7 +77,7 @@ func main() {
 	log.Logger.Infof("build time: %v", BuildTimeStamp)
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
 
-	selfIP := GetOutboundIP().String()
+	selfIP := common.GetOutboundIP().String()
 	signalCh := make(chan os.Signal, 1)
 
 	err := repository.InitPersistent()
@@ -96,6 +96,9 @@ func main() {
 
 	zookeeper.ZkServiceCache = cache.New(time.Hour, time.Minute)
 
+	runnerServ := runner.NewRunnerService(selfIP, config.GlobalConfig.Server)
+	runnerServ.Start()
+
 	// start http server
 	svr := server.NewApiServer(&config.GlobalConfig, signalCh)
 	if err := svr.Start(); err != nil {
@@ -104,28 +107,30 @@ func main() {
 	log.Logger.Infof("start http server %s:%d success", selfIP, config.GlobalConfig.Server.Port)
 
 	//block here, waiting for terminal signal
-	handleSignal(signalCh, svr)
+	handleSignal(signalCh, svr, runnerServ)
 }
 
-func handleSignal(ch chan os.Signal, svr *server.ApiServer) {
+func handleSignal(ch chan os.Signal, svr *server.ApiServer, runnerServ *runner.RunnerService) {
 	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	sig := <-ch
 	log.Logger.Infof("receive signal: %v", sig)
 	log.Logger.Warn("ckman exiting...")
 	switch sig {
 	case syscall.SIGINT, syscall.SIGTERM:
-		_ = termHandler(svr)
+		_ = termHandler(svr, runnerServ)
 	case syscall.SIGHUP:
-		_ = termHandler(svr)
+		_ = termHandler(svr, runnerServ)
 		_ = reloadHandler()
 	}
 	signal.Stop(ch)
 }
 
-func termHandler(svr *server.ApiServer) error {
+func termHandler(svr *server.ApiServer, runnerServ *runner.RunnerService) error {
 	if err := svr.Stop(); err != nil {
 		return err
 	}
+
+	runnerServ.Stop()
 
 	var hosts []string
 	common.ConnectPool.Range(func(k, v interface{}) bool {
@@ -167,7 +172,7 @@ func InitCmd() {
 		Use:   "ckman",
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&ConfigFilePath, "conf", "c", "conf/ckman.yaml", "Config file path")
+	rootCmd.PersistentFlags().StringVarP(&ConfigFilePath, "conf", "c", "conf/ckman.yaml", "Task file path")
 	rootCmd.PersistentFlags().StringVarP(&LogFilePath, "log", "l", "logs/ckman.log", "Log file path")
 	rootCmd.PersistentFlags().StringVarP(&PidFilePath, "pid", "p", "run/ckman.pid", "Pid file path")
 	rootCmd.PersistentFlags().StringVarP(&EncryptPassword, "encrypt", "e", "", "encrypt password")
@@ -197,14 +202,3 @@ func InitCmd() {
 	fmt.Printf("See more information in %s\n", LogFilePath)
 }
 
-// GetOutboundIP get preferred outbound ip of this machine
-//https://stackoverflow.com/questions/23558425/how-do-i-get-the-local-ip-address-in-go
-func GetOutboundIP() net.IP {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		log.Logger.Fatalf("need to setup the default route: %v", err)
-	}
-	defer conn.Close()
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	return localAddr.IP
-}

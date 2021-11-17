@@ -8,7 +8,7 @@ import (
 	"github.com/housepower/ckman/model"
 )
 
-func yandex(indent int, conf *model.CkDeployConfig) string {
+func yandex(indent int, conf *model.CKManClickHouseConfig, ipv6Enable bool) string {
 	//yandex
 	xml := common.NewXmlFile("")
 	xml.SetIndent(indent)
@@ -16,8 +16,8 @@ func yandex(indent int, conf *model.CkDeployConfig) string {
 	xml.Write("max_partition_size_to_drop", 0)
 	xml.Write("default_replica_path", "/clickhouse/tables/{cluster}/{database}/{table}/{shard}")
 	xml.Write("default_replica_name", "{replica}")
-	xml.Write("tcp_port", conf.CkTcpPort)
-	if conf.Ipv6Enable {
+	xml.Write("tcp_port", conf.Port)
+	if ipv6Enable {
 		xml.Write("listen_host", "::")
 	} else {
 		xml.Write("listen_host", "0.0.0.0")
@@ -158,14 +158,14 @@ func storage(indent int, storage *model.Storage) string {
 	return xml.GetContext()
 }
 
-func GenerateCustomXML(filename string, conf *model.CkDeployConfig) (string, error) {
+func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ipv6Enable bool) (string, error) {
 	xml := common.NewXmlFile(filename)
 	xml.Begin("yandex")
 	indent := xml.GetIndent()
-	xml.Append(yandex(indent, conf))
+	xml.Append(yandex(indent, conf, ipv6Enable))
 	xml.Append(logger(indent))
 	xml.Append(system_log(indent))
-	xml.Append(distributed_ddl(indent, conf.ClusterName))
+	xml.Append(distributed_ddl(indent, conf.Cluster))
 	xml.Append(prometheus(indent))
 	xml.Append(merge_tree(indent, conf.MergeTreeConf))
 	xml.Append(storage(indent, conf.Storage))
