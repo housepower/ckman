@@ -126,8 +126,12 @@ func CKDestoryHandle(task *model.Task) error {
 
 	tasks, err := repository.Ps.GetAllTasks()
 	if err == nil {
-		for _, task := range tasks {
-			if task.ClusterName == conf.Cluster {
+		for _, t := range tasks {
+			if t.ClusterName == conf.Cluster {
+				//do not delete running task when destory cluster
+				if t.Status == model.TaskStatusWaiting || t.Status == model.TaskStatusRunning || t.TaskId == task.TaskId {
+					continue
+				}
 				_ = repository.Ps.DeleteTask(task.TaskId)
 			}
 		}
