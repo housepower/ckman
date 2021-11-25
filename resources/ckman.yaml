@@ -8,6 +8,7 @@ server:
   session_timeout: 3600
   # support local, mysql
   persistent_policy: local
+  task_interval: 5
   #public_key:
 
 log:
@@ -40,5 +41,5 @@ nacos:
     - 127.0.0.1
   port: 8848
   user_name: nacos
-  password: 0192023A7BBD73250516F069DF18B500
+  password: A7561228101CB07938FAFF00C4444546
   #namespace:

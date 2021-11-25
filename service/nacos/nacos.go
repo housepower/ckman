@@ -1,6 +1,7 @@
 package nacos
 
 import (
+	"github.com/housepower/ckman/common"
 	"path/filepath"
 
 	"github.com/housepower/ckman/config"
@@ -44,7 +45,7 @@ func InitNacosClient(config *config.CKManNacosConfig, log string) (*NacosClient,
 			MaxAge:              3,
 			LogLevel:            "info",
 			Username:            config.UserName,
-			Password:            config.Password,
+			Password:            common.AesDecryptECB(config.Password),
 		}
 
 		var serverConfigs []constant.ServerConfig
