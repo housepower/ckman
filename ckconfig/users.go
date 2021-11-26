@@ -59,6 +59,7 @@ func GenerateProfilesXML(filename string, hostinfo HostInfo)(string, error){
 	xml.Write("distributed_aggregation_memory_efficient", 1)
 	xml.Write("joined_subquery_requires_alias", 0)
 	xml.Write("distributed_ddl_task_timeout", 15)
+	xml.Write("allow_drop_detached", 1)
 	xml.Comment("Use cache of uncompressed blocks of data. Meaningful only for processing many of very short queries.")
 	xml.Write("use_uncompressed_cache", 0)
 	xml.End("default")

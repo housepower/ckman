@@ -8,18 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/housepower/ckman/business"
-	"github.com/housepower/ckman/common"
-	"github.com/pkg/errors"
-	"golang.org/x/crypto/ssh"
-
 	client "github.com/ClickHouse/clickhouse-go"
 	"github.com/gin-gonic/gin"
+	"github.com/housepower/ckman/business"
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
 	_ "github.com/housepower/ckman/docs"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/clickhouse"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -848,7 +846,6 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 		OsPassword: conf.SshPassword,
 		OsPort:     conf.SshPort,
 		DBTables:   make(map[string][]string),
-		SshConns:   make(map[string]*ssh.Client),
 		RepTables:  make(map[string]map[string]string),
 	}
 

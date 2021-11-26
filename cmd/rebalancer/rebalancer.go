@@ -7,7 +7,6 @@ import (
 	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
-	"golang.org/x/crypto/ssh"
 	"os"
 	"strings"
 )
@@ -67,7 +66,7 @@ func initCmdOptions() {
 	flag.StringVar(&cmdOps.ChDataDir, "ch-data-dir", cmdOps.ChDataDir, "clickhouse data directory, required for rebalancing non-replicated tables")
 	flag.StringVar(&cmdOps.OsUser, "os-user", cmdOps.OsUser, "os user, required for rebalancing non-replicated tables")
 	flag.StringVar(&cmdOps.OsPassword, "os-password", cmdOps.OsPassword, "os password")
-	flag.StringVar(&cmdOps.OsPassword, "os-port", cmdOps.OsPassword, "ssh port")
+	flag.IntVar(&cmdOps.OsPort, "os-port", cmdOps.OsPort, "ssh port")
 	flag.Parse()
 }
 
@@ -94,7 +93,6 @@ func main() {
 		OsPassword: cmdOps.OsPassword,
 		OsPort:     cmdOps.OsPort,
 		DBTables:   make(map[string][]string),
-		SshConns:   make(map[string]*ssh.Client),
 		RepTables:  make(map[string]map[string]string),
 	}
 
