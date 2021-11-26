@@ -300,6 +300,7 @@ func upgradePackage(task *model.Task, d deploy.CKDeploy, timeout int) error {
 	if err := d.Check(timeout); err != nil {
 		return err
 	}
+	deploy.SetNodeStatus(task, model.NodeStatusDone, node)
 
 	return nil
 }

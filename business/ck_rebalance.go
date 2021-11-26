@@ -8,7 +8,6 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/k0kubun/pp"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/ssh"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -32,7 +31,6 @@ type CKRebalance struct {
 	OsUser     string
 	OsPassword string
 	OsPort     int
-	SshConns   map[string]*ssh.Client
 	Pool       *common.WorkerPool
 }
 
@@ -107,26 +105,16 @@ func (this *CKRebalance) GetRepTables() (err error) {
 }
 
 func (this *CKRebalance) InitSshConns(database string) (err error) {
-	for _, host := range this.Hosts {
-		var conn *ssh.Client
-		if conn, err = common.SSHConnect(this.OsUser, this.OsPassword, host, this.OsPort); err != nil {
-			err = errors.Wrapf(err, "")
-			return
-		}
-		this.SshConns[host] = conn
-		log.Logger.Infof("initialized ssh connection to %s", host)
-	}
 	// Validate if one can login from any host to another host without password, and read the data directory.
 	for _, srcHost := range this.Hosts {
 		for _, dstHost := range this.Hosts {
 			if srcHost == dstHost {
 				continue
 			}
-			sshConn := this.SshConns[srcHost]
-			cmd := fmt.Sprintf("sudo ssh -o StrictHostKeyChecking=false %s ls %s/clickhouse/data/%s", dstHost, this.DataDir, database)
+			cmd := fmt.Sprintf("ssh -o StrictHostKeyChecking=false %s ls %s/clickhouse/data/%s", dstHost, this.DataDir, database)
 			log.Logger.Infof("host: %s, command: %s", srcHost, cmd)
 			var out string
-			if out, err = common.SSHRun(sshConn, this.OsPassword, cmd); err != nil {
+			if out, err = common.RemoteExecute(this.OsUser, this.OsPassword, srcHost, this.OsPort, cmd); err != nil {
 				err = errors.Wrapf(err, "output: %s", out)
 				return
 			}
@@ -265,7 +253,6 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 		return
 	}
 	for patt, dstHost := range tbl.ToMoveOut {
-		srcSshConn := this.SshConns[tbl.Host]
 		srcCkConn := common.GetConnection(tbl.Host)
 		dstCkConn := common.GetConnection(dstHost)
 		if srcCkConn == nil || dstCkConn == nil {
@@ -287,19 +274,16 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 		// There could be multiple executions on the same dest node and partition.
 		lock.Lock()
 		cmds := []string{
-			fmt.Sprintf(`sudo rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, srcDir, dstHost, dstDir),
-			fmt.Sprintf("sudo rm -fr %s", srcDir),
+			fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, srcDir, dstHost, dstDir),
+			fmt.Sprintf("rm -fr %s", srcDir),
 		}
-		for _, cmd := range cmds {
-			log.Logger.Infof("host: %s, command: %s", tbl.Host, cmd)
-			var out string
-			if out, err = common.SSHRun(srcSshConn, this.OsPassword, cmd); err != nil {
-				err = errors.Wrapf(err, "output: %s", out)
-				lock.Unlock()
-				return
-			}
-			log.Logger.Debugf("host: %s, output: %s", tbl.Host, out)
+		var out string
+		if out, err = common.RemoteExecute(this.OsUser, this.OsPassword, tbl.Host, this.OsPort, strings.Join(cmds, ";")); err != nil {
+			err = errors.Wrapf(err, "output: %s", out)
+			lock.Unlock()
+			return
 		}
+		log.Logger.Debugf("host: %s, output: %s", tbl.Host, out)
 
 		query = fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt)
 		log.Logger.Infof("host: %s, query: %s", dstHost, query)

@@ -233,7 +233,6 @@ func CKUpgradeHandle(task *model.Task) error {
 	}
 	conf.Version = d.Conf.Version
 
-	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
 	if err = repository.Ps.UpdateCluster(conf); err != nil {
 		return err
 	}
