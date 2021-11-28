@@ -141,6 +141,11 @@ func Migrate()error{
 		return err
 	}
 
+	tasks, err := psrc.GetAllTasks()
+	if err != nil {
+		return err
+	}
+
 	if err := pdst.Begin(); err != nil {
 		return err
 	}
@@ -161,6 +166,14 @@ func Migrate()error{
 
 	for _, v := range historys {
 		err := pdst.CreateQueryHistory(v)
+		if err != nil {
+			_ = pdst.Rollback()
+			return err
+		}
+	}
+
+	for _, v := range tasks {
+		err := pdst.CreateTask(v)
 		if err != nil {
 			_ = pdst.Rollback()
 			return err
