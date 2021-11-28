@@ -1,3 +1,11 @@
+# v.2.2.2
+- fix time.After leak
+- fix json-big in queries
+- fix mysql password authenticate
+- use tasklist control deploy process
+- encrypt nacos password
+- fix rebalance issue
+
 # v2.2.1
 - fix logic config issue
 - rpm install ckman issue
