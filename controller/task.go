@@ -72,6 +72,7 @@ func (t *TaskController) TasksList(c *gin.Context) {
 			ClusterName: task.ClusterName,
 			Type:        typ,
 			Option:      option,
+			Message:     task.Message,
 			Status:      model.TaskStatusMap[task.Status],
 			CreateTime:  task.CreateTime,
 			UpdateTime:  task.UpdateTime,

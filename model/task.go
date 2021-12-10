@@ -111,6 +111,7 @@ type TaskResp struct {
 	Type        string
 	Option      Internationalization
 	Status      string
+	Message     string
 	CreateTime  time.Time
 	UpdateTime  time.Time
 }
