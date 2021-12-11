@@ -7,6 +7,10 @@ This is a tool which used to manage and monitor ClickHouse database. It visits t
 # Quik Start 
 quickly deploy and start using CKMAN, please click the [deploy document](./docs/guide/deploy.md). 
 
+# Video Tutorial 
+- [bilibili:Clickhouse visual management tool ckman use tutorial](https://www.bilibili.com/video/BV1gR4y1t75Q/)
+- [toutiao:Clickhouse visual management tool ckman use tutorial](https://www.ixigua.com/7034858546692882983)
+
 # What can ckman do?
 - Manage multiple ClickHouse cluster on WebPage, Replacing the cumbersome step configuration 
 - Deploy、upgrade、and destory cluster

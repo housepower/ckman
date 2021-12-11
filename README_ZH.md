@@ -6,6 +6,10 @@ ckman是一款管理和监控`ClickHouse`集群的工具。它通过前端界面
 # 快速开始
 `ckman`开箱即用，快速部署并开始使用ckman，请点击[安装教程](./docs/guide/deploy.md)。
 
+# 视频教程
+- [B站:clickhouse可视化管理工具ckman使用教程](https://www.bilibili.com/video/BV1gR4y1t75Q/)
+- [头条:clickhouse可视化管理工具ckman使用教程](https://www.ixigua.com/7034858546692882983)
+
 # ckman能做什么
 - 界面化管理多个集群，免去繁琐的`clickhouse`配置步骤
 - 部署、升级、销毁集群
