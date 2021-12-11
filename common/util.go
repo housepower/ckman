@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 	"unicode"
 
 	"github.com/pkg/errors"
@@ -225,4 +226,25 @@ func GetOutboundIP() net.IP {
 	defer conn.Close()
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 	return localAddr.IP
+}
+
+
+func ConvertDuration(start, end time.Time) string {
+	hour, min, sec := 0,0,0
+	d := int(end.Sub(start) / 1e9)
+	sec = d % 60
+	min = d / 60
+	if min > 0 {
+		hour = min / 60
+		min = min % 60
+	}
+	var result string
+	if hour > 0 {
+		result = fmt.Sprintf("%dh ", hour)
+	}
+	if min > 0 || hour > 0{
+		result += fmt.Sprintf("%dm ", min)
+	}
+	result += fmt.Sprintf("%ds", sec)
+	return result
 }

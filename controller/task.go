@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"strings"
@@ -76,6 +77,7 @@ func (t *TaskController) TasksList(c *gin.Context) {
 			Status:      model.TaskStatusMap[task.Status],
 			CreateTime:  task.CreateTime,
 			UpdateTime:  task.UpdateTime,
+			Duration:    common.ConvertDuration(task.CreateTime, task.UpdateTime),
 		}
 		resps = append(resps, resp)
 	}

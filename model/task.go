@@ -114,4 +114,5 @@ type TaskResp struct {
 	Message     string
 	CreateTime  time.Time
 	UpdateTime  time.Time
+	Duration    string
 }
