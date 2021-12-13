@@ -1,4 +1,8 @@
-# v.2.2.2
+# v2.2.3
+- more messages show in task list
+- fix logic cluster config issue
+
+# v2.2.2
 - fix time.After leak
 - fix json-big in queries
 - fix mysql password authenticate
