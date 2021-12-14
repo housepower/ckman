@@ -132,7 +132,7 @@ func CKDestoryHandle(task *model.Task) error {
 				if t.Status == model.TaskStatusWaiting || t.Status == model.TaskStatusRunning || t.TaskId == task.TaskId {
 					continue
 				}
-				_ = repository.Ps.DeleteTask(task.TaskId)
+				_ = repository.Ps.DeleteTask(t.TaskId)
 			}
 		}
 	}

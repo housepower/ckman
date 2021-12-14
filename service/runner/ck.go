@@ -38,7 +38,7 @@ func DeployCkCluster(task *model.Task, d deploy.CKDeploy)error{
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusCheck, model.ALL_NODES_DEFAULT)
-	if err := d.Check(5); err != nil {
+	if err := d.Check(10); err != nil {
 		return err
 	}
 	return nil
@@ -218,7 +218,7 @@ func AddCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, d *de
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusCheck, model.ALL_NODES_DEFAULT)
-	if err := d.Check(5); err != nil {
+	if err := d.Check(10); err != nil {
 		return err
 	}
 
@@ -248,7 +248,7 @@ func UpgradeCkCluster(task *model.Task, d deploy.CKDeploy) error {
 			}
 		}
 	case model.UpgradePolicyFull:
-		err := upgradePackage(task, d, 5)
+		err := upgradePackage(task, d, 10)
 		if err != model.CheckTimeOutErr {
 			return err
 		}
@@ -320,7 +320,7 @@ func ConfigCkCluster(task *model.Task, d deploy.CKDeploy) error {
 		if err := d.Restart(); err != nil {
 			return err
 		}
-		_ = d.Check(5)
+		_ = d.Check(10)
 	}
 	return nil
 }
