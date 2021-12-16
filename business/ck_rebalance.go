@@ -223,6 +223,7 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 				return fmt.Errorf("can't get connection: %s", dstHost)
 			}
 			dstQuires := []string{
+				fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION '%s' ", tbl.Table, patt),
 				fmt.Sprintf("ALTER TABLE %s FETCH PARTITION '%s' FROM '%s'", tbl.Table, patt, tbl.ZooPath),
 				fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt),
 			}
