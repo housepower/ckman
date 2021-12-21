@@ -24,7 +24,7 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 	var db *sql.DB
 	var err error
 
-	dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s",
+	dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s&read_timeout=300",
 		host, port, url.QueryEscape(database), url.QueryEscape(user), url.QueryEscape(password))
 	log.Logger.Debugf("dsn: %s", dsn)
 
