@@ -81,6 +81,9 @@ func (t *TaskController) TasksList(c *gin.Context) {
 		}
 		resps = append(resps, resp)
 	}
+	if len(resps) == 0 {
+		resps = []model.TaskResp{}
+	}
 	model.WrapMsg(c, model.SUCCESS, resps)
 }
 
