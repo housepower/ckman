@@ -68,7 +68,7 @@ func (p *PrometheusService) QueryRangeMetric(params *model.MetricQueryRangeReq) 
 	}
 	result, _, err := v1api.QueryRange(ctx, params.Metric, r)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	return result, nil
