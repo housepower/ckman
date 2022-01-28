@@ -360,7 +360,7 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 		if err = ckService.CreateDistTblOnLogic(&params); err != nil {
 			var exception *client.Exception
 			if errors.As(err, &exception) {
-				if exception.Code == 60  && cluster != conf.Cluster {
+				if exception.Code == 60 && cluster != conf.Cluster {
 					//means local table is not exist, will auto sync schema
 					con, err := repository.Ps.GetClusterbyName(cluster)
 					if err == nil {
@@ -588,11 +588,12 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
-	query = strings.ReplaceAll(strings.ReplaceAll(strings.TrimRight(strings.TrimSpace(query), ";"), "\n", " "), "\t", " ")
+	query = strings.TrimRight(strings.TrimSpace(query), ";")
 	if !strings.Contains(strings.ToLower(query), " limit ") &&
 		strings.HasPrefix(strings.ToLower(query), "select") &&
-		!strings.Contains(query, " SETTINGS "){
-		query = fmt.Sprintf("%s LIMIT 10000", query)
+		!strings.Contains(query, " SETTINGS ") {
+		// add new lines to prevent limit from being commented
+		query = fmt.Sprintf("%s \n LIMIT 10000", query)
 	}
 
 	ckService, err := clickhouse.GetCkService(clusterName)
@@ -982,7 +983,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	for _, ip := range req.Ips {
 		for _, host := range conf.Hosts {
 			if host == ip {
-				err :=  errors.Errorf("node ip %s is duplicate", ip)
+				err := errors.Errorf("node ip %s is duplicate", ip)
 				model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
 				return
 			}
