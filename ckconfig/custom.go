@@ -2,173 +2,152 @@ package ckconfig
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
+	"github.com/imdario/mergo"
+	"strings"
 )
 
-func yandex(indent int, conf *model.CKManClickHouseConfig, ipv6Enable bool) string {
-	//yandex
-	xml := common.NewXmlFile("")
-	xml.SetIndent(indent)
-	xml.Write("max_table_size_to_drop", 0)
-	xml.Write("max_partition_size_to_drop", 0)
-	xml.Write("default_replica_path", "/clickhouse/tables/{cluster}/{database}/{table}/{shard}")
-	xml.Write("default_replica_name", "{replica}")
-	xml.Write("tcp_port", conf.Port)
+func yandex(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interface{} {
+	output := make(map[string]interface{})
+	output["max_table_size_to_drop"] = 0
+	output["max_table_size_to_drop"] = 0
+	output["max_partition_size_to_drop"] = 0
+	output["default_replica_path"] = "/clickhouse/tables/{cluster}/{database}/{table}/{shard}"
+	output["default_replica_name"] = "{replica}"
+	output["tcp_port"] = conf.Port
 	if ipv6Enable {
-		xml.Write("listen_host", "::")
+		output["listen_host"] = "::"
 	} else {
-		xml.Write("listen_host", "0.0.0.0")
+		output["listen_host"] = "0.0.0.0"
 	}
 	if !strings.HasSuffix(conf.Path, "/") {
 		conf.Path += "/"
 	}
-	xml.Write("path", fmt.Sprintf("%sclickhouse/", conf.Path))
-	xml.Write("tmp_path", fmt.Sprintf("%sclickhouse/tmp/", conf.Path))
-	xml.Write("user_files_path", fmt.Sprintf("%sclickhouse/user_files/", conf.Path))
-	xml.Write("access_control_path", fmt.Sprintf("%sclickhouse/access/", conf.Path))
-	xml.Write("format_schema_path", fmt.Sprintf("%sclickhouse/format_schemas/", conf.Path))
-	return xml.GetContext()
+	output["path"] = fmt.Sprintf("%sclickhouse/", conf.Path)
+	output["tmp_path"] = fmt.Sprintf("%sclickhouse/tmp/", conf.Path)
+	output["user_files_path"] = fmt.Sprintf("%sclickhouse/user_files/", conf.Path)
+	output["access_control_path"] = fmt.Sprintf("%sclickhouse/access/", conf.Path)
+	output["format_schema_path"] = fmt.Sprintf("%sclickhouse/format_schemas/", conf.Path)
+	return output
 }
 
-func prometheus(indent int) string {
-	//prometheus
-	xml := common.NewXmlFile("")
-	xml.SetIndent(indent)
-	xml.Begin("prometheus")
-	xml.Write("endpoint", "/metrics")
-	xml.Write("port", 9363)
-	xml.Write("metrics", true)
-	xml.Write("events", true)
-	xml.Write("asynchronous_metrics", true)
-	xml.Write("status_info", true)
-	xml.End("prometheus")
-	return xml.GetContext()
+func prometheus() map[string]interface{} {
+	output := make(map[string]interface{})
+	output["prometheus"] = map[string]interface{}{
+		"endpoint":             "/metrics",
+		"port":                 9363,
+		"metrics":              true,
+		"events":               true,
+		"asynchronous_metrics": true,
+		"status_info":          true,
+	}
+	return output
 }
 
-func system_log(indent int) string {
-	xml := common.NewXmlFile("")
-	xml.SetIndent(indent)
+func system_log() map[string]interface{} {
 	logLists := []string{
 		"query_log", "trace_log", "query_thread_log", "query_views_log",
 		"part_log", "metric_log", "asynchronous_metric_log",
 	}
-
+	output := make(map[string]interface{})
 	for _, logTable := range logLists {
-		xml.Begin(logTable)
-		xml.Write("partition_by", "toYYYYMMDD(event_date)")
-		xml.Write("ttl", "event_date + INTERVAL 30 DAY DELETE")
-		xml.Write("flush_interval_milliseconds", 30000)
-		xml.End(logTable)
+		output[logTable] = map[string]interface{}{
+			"partition_by":                "toYYYYMMDD(event_date)",
+			"ttl":                         "event_date + INTERVAL 30 DAY DELETE",
+			"flush_interval_milliseconds": 30000,
+		}
 	}
 
-	return xml.GetContext()
+	return output
 }
 
-func logger(indent int) string {
-	xml := common.NewXmlFile("")
-	xml.SetIndent(indent)
-	xml.Begin("logger")
-	xml.Write("level", "debug")
-	xml.End("logger")
-	return xml.GetContext()
-}
-
-func distributed_ddl(indent int, cluster string) string {
-	xml := common.NewXmlFile("")
-	xml.SetIndent(indent)
-	xml.Begin("distributed_ddl")
-	xml.Write("path", fmt.Sprintf("/clickhouse/task_queue/ddl/%s", cluster))
-	xml.End("distributed_ddl")
-	return xml.GetContext()
-}
-
-func merge_tree(indent int, mergetree *model.MergeTreeConf) string {
-	if mergetree == nil {
-		return ""
+func logger() map[string]interface{} {
+	output := make(map[string]interface{})
+	output["logger"] = map[string]interface{}{
+		"level": "debug",
 	}
-	xml := common.NewXmlFile("")
-	xml.SetIndent(indent)
-	xml.Begin("merge_tree")
-	for k, v := range mergetree.Expert {
-		xml.Write(k, v)
-	}
-	xml.End("merge_tree")
-	return xml.GetContext()
+	return output
 }
 
-func storage(indent int, storage *model.Storage) string {
+func distributed_ddl(cluster string) map[string]interface{} {
+	output := make(map[string]interface{})
+	output["distributed_ddl"] = map[string]interface{}{
+		"path": fmt.Sprintf("/clickhouse/task_queue/ddl/%s", cluster),
+	}
+	return output
+}
+
+func storage(storage *model.Storage) map[string]interface{} {
 	if storage == nil {
-		return ""
+		return nil
 	}
-	xml := common.NewXmlFile("")
-	xml.SetIndent(indent)
-	xml.Begin("storage_configuration")
+	output := make(map[string]interface{})
+	storage_configuration := make(map[string]interface{})
 	if len(storage.Disks) > 0 {
-		xml.Begin("disks")
+		disks := make(map[string]interface{})
 		for _, disk := range storage.Disks {
-			xml.Begin(disk.Name)
-			xml.Write("type", disk.Type)
+			diskMapping := make(map[string]interface{})
+			diskMapping["type"] = disk.Type
 			switch disk.Type {
 			case "hdfs":
-				xml.Write("endpoint", disk.DiskHdfs.Endpoint)
+				diskMapping["endpoint"] = disk.DiskHdfs.Endpoint
 			case "local":
-				xml.Write("path", disk.DiskLocal.Path)
-				xml.Write("keep_free_space_bytes", disk.DiskLocal.KeepFreeSpaceBytes)
+				diskMapping["path"] = disk.DiskLocal.Path
+				diskMapping["keep_free_space_bytes"] = disk.DiskLocal.KeepFreeSpaceBytes
 			case "s3":
-				xml.Write("endpoint", disk.DiskS3.Endpoint)
-				xml.Write("access_key_id", disk.DiskS3.AccessKeyID)
-				xml.Write("secret_access_key", disk.DiskS3.SecretAccessKey)
-				xml.Write("region", disk.DiskS3.Region)
-				xml.Write("use_environment_credentials", disk.DiskS3.UseEnvironmentCredentials)
-				for k, v := range disk.DiskS3.Expert {
-					xml.Write(k, v)
-				}
-			default:
-				return ""
+				diskMapping["endpoint"] = disk.DiskS3.Endpoint
+				diskMapping["access_key_id"] = disk.DiskS3.AccessKeyID
+				diskMapping["secret_access_key"] = disk.DiskS3.SecretAccessKey
+				diskMapping["region"] = disk.DiskS3.Region
+				mergo.Merge(&diskMapping, disk.DiskS3.Expert)
 			}
-			xml.End(disk.Name)
+			disks[disk.Name] = diskMapping
 		}
-		xml.End("disks")
+		storage_configuration["disks"] = disks
 	}
 	if len(storage.Policies) > 0 {
-		xml.Begin("policies")
+		policies := make(map[string]interface{})
 		for _, policy := range storage.Policies {
-			xml.Begin(policy.Name)
-			xml.Begin("volumes")
+			policyMapping := make(map[string]interface{})
+			volumes := make(map[string]interface{})
 			for _, vol := range policy.Volumns {
-				xml.Begin(vol.Name)
-				for _, disk := range vol.Disks {
-					xml.Write("disk", disk)
+				volumes[vol.Name] = map[string]interface{}{
+					"disk":                     vol.Disks,
+					"max_data_part_size_bytes": vol.MaxDataPartSizeBytes,
+					"prefer_not_to_merge":      vol.PreferNotToMerge,
 				}
-				xml.Write("max_data_part_size_bytes", vol.MaxDataPartSizeBytes)
-				xml.Write("prefer_not_to_merge", vol.PreferNotToMerge)
-				xml.End(vol.Name)
 			}
-			xml.Write("move_factor", policy.MoveFactor)
-			xml.End("volumes")
-			xml.End(policy.Name)
+			volumes["move_factor"] = policy.MoveFactor
+			policyMapping["volumes"] = volumes
+			policies[policy.Name] = policyMapping
 		}
-		xml.End("policies")
+		storage_configuration["policies"] = policies
 	}
+	output["storage_configuration"] = storage_configuration
+	return output
+}
 
-	xml.End("storage_configuration")
-	return xml.GetContext()
+func expert(exp map[string]string) map[string]interface{} {
+	output := make(map[string]interface{})
+	for k, v := range exp {
+		output[k] = v
+	}
+	return common.ConvertMapping(output)
 }
 
 func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ipv6Enable bool) (string, error) {
+	custom := make(map[string]interface{})
+	mergo.Merge(&custom, expert(conf.Expert)) //expert have the highest priority
+	mergo.Merge(&custom, yandex(conf, ipv6Enable))
+	mergo.Merge(&custom, logger())
+	mergo.Merge(&custom, system_log())
+	mergo.Merge(&custom, distributed_ddl(conf.Cluster))
+	mergo.Merge(&custom, prometheus())
+	mergo.Merge(&custom, storage(conf.Storage))
 	xml := common.NewXmlFile(filename)
 	xml.Begin("yandex")
-	indent := xml.GetIndent()
-	xml.Append(yandex(indent, conf, ipv6Enable))
-	xml.Append(logger(indent))
-	xml.Append(system_log(indent))
-	xml.Append(distributed_ddl(indent, conf.Cluster))
-	xml.Append(prometheus(indent))
-	xml.Append(merge_tree(indent, conf.MergeTreeConf))
-	xml.Append(storage(indent, conf.Storage))
+	xml.Merge(custom)
 	xml.End("yandex")
 	if err := xml.Dump(); err != nil {
 		return filename, err

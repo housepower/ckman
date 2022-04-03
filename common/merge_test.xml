@@ -1,0 +1,25 @@
+<yandex>
+    <d>true</d>
+    <kk aaa="1" bbb="2">1080</kk>
+    <volumes>
+        <disk>hdfs1</disk>
+        <disk>hdfs2</disk>
+        <disk>local</disk>
+    </volumes>
+    <m>
+        <n>1</n>
+        <n>2</n>
+        <n>3</n>
+        <n>4</n>
+    </m>
+    <a>
+        <b>
+            <c>bar</c>
+            <d>foo</d>
+        </b>
+        <e>baz</e>
+        <g>
+            <k id="13">hello</k>
+        </g>
+    </a>
+</yandex>
