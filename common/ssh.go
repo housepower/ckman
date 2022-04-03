@@ -243,7 +243,7 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 	result = result[strings.Index(result, "i love china") + 12:]
 	result = strings.TrimLeft(result, "\r")
 	result = strings.TrimLeft(result, "\n")
-	log.Logger.Debugf("output:%s", result)
+	log.Logger.Debugf("output:[%s]", result)
 	return
 }
 
@@ -337,8 +337,7 @@ func RemoteExecute(user, password, host string, port int, cmd string) (string, e
 	finalScript := genFinalScript(user, cmd)
 	var output string
 	if output, err = SSHRun(client, password, finalScript); err != nil {
-		log.Logger.Errorf("run '%s' on host %s fail: %s", cmd, host, output)
-		return "", err
+		return "", errors.Wrap(err, fmt.Sprintf("run '%s' on host %s fail: %s", cmd, host, output))
 	}
 	return output, nil
 }

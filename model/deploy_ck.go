@@ -31,9 +31,9 @@ const (
 )
 
 type CkDeployExt struct {
-	UpgradePolicy  string
-	Ipv6Enable     bool
-	Restart        bool
+	UpgradePolicy string
+	Ipv6Enable    bool
+	Restart       bool
 }
 
 type CkShard struct {
@@ -81,17 +81,13 @@ type CKManClickHouseConfig struct {
 	SshPassword      string    `json:"sshPassword" example:"123456"`
 	SshPort          int       `json:"sshPort" example:"22"`
 	Storage          *Storage
-	MergeTreeConf    *MergeTreeConf
 	UsersConf        UsersConf `swaggerignore:"true"`
+	Expert           map[string]string
 
 	// don't need to regist to schema
 	Mode     string            `json:"mode" swaggerignore:"true"`
 	HttpPort int               `json:"httpPort" swaggerignore:"true"`
 	ZooPath  map[string]string `json:"zooPath" swaggerignore:"true"`
-}
-
-type MergeTreeConf struct {
-	Expert map[string]string
 }
 
 // Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes

@@ -159,9 +159,21 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "由disks, policies两部分构成。policies提到的disk名必须在disks中定义。ClickHouse内置了名为default的policy和disk。",
 		DescriptionEN: "Composed of Disks, Policies. The Disk name mentioned by Policies must be defined in Disks. Clickhouse has built-in Policy and Disk named Default. ",
 	})
-	params.MustRegister(conf, "MergeTreeConf", &common.Parameter{
-		LabelZH:  "MergeTree配置",
-		LabelEN:  "MergeTree Config",
+	params.MustRegister(conf, "Expert", &common.Parameter{
+		LabelZH:  "专家配置",
+		LabelEN:  "Expert Config",
+		DescriptionZH: `自定义配置文件，不同层级之间以.分开，属性与tag之间以#分开;
+举例：aaa#k=v.bbb: ccc， 最终生成的配置为:
+<aaa k="v">
+	<bbb>ccc</bbb>
+</aaa>
+非专业人士请勿填写此项`,
+		DescriptionEN: `Custom configuration files, separated by . between different levels, separated by # between attributes and tags
+For example: aaa#k=v.bbb: ccc, the final generated configuration is:
+<aaa k="v">
+	<bbb>ccc</bbb>
+</aaa>
+Non-professionals please do not fill in this`,
 		Required: "false",
 	})
 	params.MustRegister(conf, "UsersConf", &common.Parameter{
@@ -294,14 +306,6 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelEN: "MaxDataPartSizeBytes",
 	})
 
-	var mergetree model.MergeTreeConf
-	params.MustRegister(mergetree, "Expert", &common.Parameter{
-		LabelZH:       "专家模式",
-		LabelEN:       "Expert",
-		DescriptionZH: "自定义配置merge_tree的配置项，生成在config.d/merge_tree.xml中, 请参考: https://clickhouse.tech/docs/en/operations/settings/merge-tree-settings/",
-		DescriptionEN: "define the configuration items for configuring merge_tree, generated in config.d/merge_tree.xml, please visit: https://clickhouse.tech/docs/en/operations/settings/merge-tree-settings/",
-		Required:      "false",
-	})
 
 	var userconf model.UsersConf
 	params.MustRegister(userconf, "Users", &common.Parameter{
@@ -402,9 +406,21 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		DescriptionZH: "由disks, policies两部分构成。policies提到的disk名必须在disks中定义。ClickHouse内置了名为default的policy和disk。",
 		DescriptionEN: "Composed of Disks, Policies. The Disk name mentioned by Policies must be defined in Disks. Clickhouse has built-in Policy and Disk named Default. ",
 	})
-	params.MustRegister(conf, "MergeTreeConf", &common.Parameter{
-		LabelZH:  "MergeTree配置",
-		LabelEN:  "MergeTree Config",
+	params.MustRegister(conf, "Expert", &common.Parameter{
+		LabelZH:  "专家配置",
+		LabelEN:  "Expert Config",
+		DescriptionZH: `自定义配置文件，不同层级之间以.分开，属性与tag之间以#分开;
+举例：aaa#k=v.bbb: ccc， 最终生成的配置为:
+<aaa k="v">
+	<bbb>ccc</bbb>
+</aaa>
+非专业人士请勿填写此项`,
+		DescriptionEN: `Custom configuration files, separated by . between different levels, separated by # between attributes and tags
+For example: aaa#k=v.bbb: ccc, the final generated configuration is:
+<aaa k="v">
+	<bbb>ccc</bbb>
+</aaa>
+Non-professionals please do not fill in this`,
 		Required: "false",
 	})
 	params.MustRegister(conf, "UsersConf", &common.Parameter{
@@ -535,15 +551,6 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(vol, "MaxDataPartSizeBytes", &common.Parameter{
 		LabelZH: "MaxDataPartSizeBytes",
 		LabelEN: "MaxDataPartSizeBytes",
-	})
-
-	var mergetree model.MergeTreeConf
-	params.MustRegister(mergetree, "Expert", &common.Parameter{
-		LabelZH:       "专家模式",
-		LabelEN:       "Expert",
-		DescriptionZH: "自定义配置merge_tree的配置项，生成在config.d/merge_tree.xml中， 请参考: https://clickhouse.tech/docs/en/operations/settings/merge-tree-settings/",
-		DescriptionEN: "define the configuration items for configuring merge_tree, generated in config.d/merge_tree.xml, please visit: https://clickhouse.tech/docs/en/operations/settings/merge-tree-settings/",
-		Required:      "false",
 	})
 
 	var userconf model.UsersConf

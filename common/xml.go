@@ -21,7 +21,7 @@ type XMLAttr struct {
 
 func NewXmlFile(name string) *XMLFile {
 	return &XMLFile{
-		name: name,
+		name:   name,
 		indent: 0,
 	}
 }
@@ -127,4 +127,86 @@ func (xml *XMLFile) Dump() error {
 		return errors.Errorf("write xml file %s failed.", xml.name)
 	}
 	return nil
+}
+
+func ConvertMapping(input map[string]interface{}) map[string]interface{} {
+	output := map[string]interface{}{}
+
+	for k, v := range input {
+		rv := reflect.ValueOf(v)
+		//parse [1,2,3,4] => []interface{1,2,3,4}
+		if rv.Kind() == reflect.String {
+			if strings.HasPrefix(rv.String(), "[") && strings.HasSuffix(rv.String(), "]") {
+				v = strings.Split(rv.String()[1:len(rv.String())-1], ",")
+			}
+		}
+		keys := strings.Split(k, ".")
+		if len(keys) == 1 {
+			output[k] = v
+		} else {
+			current := output
+			for i, key := range keys {
+				if i == len(keys)-1 {
+					current[key] = v
+				} else {
+					if _, ok := current[key]; !ok {
+						current[key] = map[string]interface{}{}
+					}
+					current = current[key].(map[string]interface{})
+				}
+			}
+		}
+	}
+	return output
+}
+
+func parseTags(key string)(string, []XMLAttr) {
+	var tag string
+	var attrs []XMLAttr
+	if strings.Contains(key, "#") {
+		// person#id=13,name=zhangsan  =>  <persion id="13" name = "zhangsan">
+		index := strings.Index(key, "#")
+		tag = key[:index]
+		attrArr := strings.Split(key[index+1:], ",")
+		for _, attr := range attrArr {
+			kv := strings.Split(attr, "=")
+			if len(kv) == 2 {
+				xmlattr := XMLAttr{
+					Key:   kv[0],
+					Value: kv[1],
+				}
+				attrs = append(attrs, xmlattr)
+			}
+		}
+	} else {
+		tag = key
+		attrs = nil
+	}
+	return tag, attrs
+}
+
+func (xml *XMLFile) mapping(output map[string]interface{}){
+	for k, v := range output {
+		tag, attrs := parseTags(k)
+		rt := reflect.TypeOf(v)
+		switch (rt.Kind()) {
+		case reflect.Map:
+			xml.BeginwithAttr(tag, attrs)
+			xml.mapping(v.(map[string]interface{}))
+			xml.End(tag)
+		case reflect.Array, reflect.Slice:
+			//only support array in deepest level
+			rv := reflect.ValueOf(v)
+			for i := 0; i < rv.Len(); i++ {
+				xml.WritewithAttr(tag, rv.Index(i), attrs)
+			}
+		default:
+			xml.WritewithAttr(tag, v, attrs)
+		}
+	}
+}
+
+func (xml *XMLFile) Merge(input map[string]interface{}) {
+	output := ConvertMapping(input)
+	xml.mapping(output)
 }

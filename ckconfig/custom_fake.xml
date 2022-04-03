@@ -1,0 +1,106 @@
+<yandex>
+    <default_replica_name>{replica}</default_replica_name>
+    <tcp_port>9000</tcp_port>
+    <logger>
+        <level>debug</level>
+    </logger>
+    <default_replica_path>/clickhouse/tables/{cluster}/{database}/{table}/{shard}</default_replica_path>
+    <access_control_path>/clickhouse/access/</access_control_path>
+    <format_schema_path>/clickhouse/format_schemas/</format_schema_path>
+    <asynchronous_metric_log>
+        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+    </asynchronous_metric_log>
+    <storage_configuration>
+        <disks>
+            <hdfs1>
+                <type>hdfs</type>
+                <endpoint>localhost:8020/admin/abc</endpoint>
+            </hdfs1>
+            <ssd>
+                <type>local</type>
+                <path>/data01/clickhouse</path>
+                <keep_free_space_bytes>10000</keep_free_space_bytes>
+            </ssd>
+            <s3>
+                <access_key_id>123456</access_key_id>
+                <secret_access_key>654321</secret_access_key>
+                <type>s3</type>
+                <endpoint>localhost:1200/var/s3</endpoint>
+            </s3>
+        </disks>
+        <policies>
+            <hdfs_only>
+                <volumes>
+                    <main>
+                        <disk>hdfs1</disk>
+                        <max_data_part_size_bytes>1000000</max_data_part_size_bytes>
+                    </main>
+                    <move_factor>0.3</move_factor>
+                </volumes>
+            </hdfs_only>
+            <default>
+                <volumes>
+                    <local>
+                        <disk>ssd</disk>
+                    </local>
+                </volumes>
+            </default>
+            <s3_only>
+                <volumes>
+                    <replica>
+                        <disk>s3</disk>
+                    </replica>
+                </volumes>
+            </s3_only>
+        </policies>
+    </storage_configuration>
+    <max_table_size_to_drop>0</max_table_size_to_drop>
+    <trace_log>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+    </trace_log>
+    <user_files_path>/clickhouse/user_files/</user_files_path>
+    <query_thread_log>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+    </query_thread_log>
+    <path>/clickhouse/</path>
+    <listen_host>::</listen_host>
+    <metric_log>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+    </metric_log>
+    <query_log>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+    </query_log>
+    <distributed_ddl>
+        <path>/clickhouse/task_queue/ddl/abc</path>
+    </distributed_ddl>
+    <max_partition_size_to_drop>0</max_partition_size_to_drop>
+    <query_views_log>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+    </query_views_log>
+    <part_log>
+        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+    </part_log>
+    <prometheus>
+        <endpoint>/metrics</endpoint>
+        <port>9363</port>
+        <metrics>true</metrics>
+        <events>true</events>
+        <asynchronous_metrics>true</asynchronous_metrics>
+        <status_info>true</status_info>
+    </prometheus>
+    <tmp_path>/clickhouse/tmp/</tmp_path>
+</yandex>
