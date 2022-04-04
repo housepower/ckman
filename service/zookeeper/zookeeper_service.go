@@ -107,10 +107,15 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 
 			for replicaIndex, replica := range shard.Replicas {
 				logPointer := ""
-				if leader == replica.Ip {
-					logPointer = "L"
-				} else {
-					logPointer = "F"
+				// Remove leader election, step 2: allow multiple leaders https://github.com/ClickHouse/ClickHouse/pull/11639
+				if leader == "all" {
+					logPointer = "Multiple leaders"
+				}else{
+					if leader == replica.Ip {
+						logPointer = "Leader"
+					} else {
+						logPointer = "Follower"
+					}
 				}
 				path = fmt.Sprintf("%s/replicas/%s/log_pointer", zooPath, replica.Ip)
 				pointer, _, _ := z.Conn.Get(path)
