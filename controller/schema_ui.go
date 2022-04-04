@@ -162,14 +162,14 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(conf, "Expert", &common.Parameter{
 		LabelZH:  "专家配置",
 		LabelEN:  "Expert Config",
-		DescriptionZH: `自定义配置文件，不同层级之间以.分开，属性与tag之间以#分开;
-举例：aaa#k=v.bbb: ccc， 最终生成的配置为:
+		DescriptionZH: `自定义配置文件，不同层级之间以.分开，属性与tag之间以@分开;
+举例：aaa@{k=v}.bbb: ccc， 最终生成的配置为:
 <aaa k="v">
 	<bbb>ccc</bbb>
 </aaa>
 非专业人士请勿填写此项`,
-		DescriptionEN: `Custom configuration files, separated by . between different levels, separated by # between attributes and tags
-For example: aaa#k=v.bbb: ccc, the final generated configuration is:
+		DescriptionEN: `Custom configuration files, separated by . between different levels, separated by @ between attributes and tags
+For example: aaa@{k=v}.bbb: ccc, the final generated configuration is:
 <aaa k="v">
 	<bbb>ccc</bbb>
 </aaa>
@@ -409,14 +409,14 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(conf, "Expert", &common.Parameter{
 		LabelZH:  "专家配置",
 		LabelEN:  "Expert Config",
-		DescriptionZH: `自定义配置文件，不同层级之间以.分开，属性与tag之间以#分开;
-举例：aaa#k=v.bbb: ccc， 最终生成的配置为:
+		DescriptionZH: `自定义配置文件，不同层级之间以.分开，属性与tag之间以@分开;
+举例：aaa@{k=v}.bbb: ccc， 最终生成的配置为:
 <aaa k="v">
 	<bbb>ccc</bbb>
 </aaa>
 非专业人士请勿填写此项`,
-		DescriptionEN: `Custom configuration files, separated by . between different levels, separated by # between attributes and tags
-For example: aaa#k=v.bbb: ccc, the final generated configuration is:
+		DescriptionEN: `Custom configuration files, separated by . between different levels, separated by @ between attributes and tags
+For example: aaa@{k=v}.bbb: ccc, the final generated configuration is:
 <aaa k="v">
 	<bbb>ccc</bbb>
 </aaa>

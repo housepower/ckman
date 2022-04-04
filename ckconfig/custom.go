@@ -133,6 +133,7 @@ func expert(exp map[string]string) map[string]interface{} {
 	for k, v := range exp {
 		output[k] = v
 	}
+	// convert a.b.c:d => {a:{b:{c:d}}},beacuse we need to merge config with others
 	return common.ConvertMapping(output)
 }
 

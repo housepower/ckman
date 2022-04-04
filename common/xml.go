@@ -136,11 +136,12 @@ func ConvertMapping(input map[string]interface{}) map[string]interface{} {
 		rv := reflect.ValueOf(v)
 		//parse [1,2,3,4] => []interface{1,2,3,4}
 		if rv.Kind() == reflect.String {
-			if strings.HasPrefix(rv.String(), "[") && strings.HasSuffix(rv.String(), "]") {
-				v = strings.Split(rv.String()[1:len(rv.String())-1], ",")
+			value := strings.Trim(rv.String(), " ")
+			if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
+				v = strings.Split(value[1:len(value)-1], ",")
 			}
 		}
-		keys := strings.Split(k, ".")
+		keys := strings.Split(strings.Trim(k, " "), ".")
 		if len(keys) == 1 {
 			output[k] = v
 		} else {
@@ -163,11 +164,11 @@ func ConvertMapping(input map[string]interface{}) map[string]interface{} {
 func parseTags(key string)(string, []XMLAttr) {
 	var tag string
 	var attrs []XMLAttr
-	if strings.Contains(key, "#") {
-		// person#id=13,name=zhangsan  =>  <persion id="13" name = "zhangsan">
-		index := strings.Index(key, "#")
+	if strings.Contains(key, "@") {
+		// person@{id=13,name=zhangsan}  =>  <persion id="13" name = "zhangsan">
+		index := strings.Index(key, "@")
 		tag = key[:index]
-		attrArr := strings.Split(key[index+1:], ",")
+		attrArr := strings.Split(strings.TrimRight(strings.TrimLeft(key[index+1:], "{"), "}"), ",")
 		for _, attr := range attrArr {
 			kv := strings.Split(attr, "=")
 			if len(kv) == 2 {
