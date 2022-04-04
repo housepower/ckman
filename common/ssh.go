@@ -230,19 +230,18 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 		}
 	}(in, out, &buf)
 
-	_, err = session.Output(shell)
+	_, err = session.CombinedOutput(shell)
 	if err != nil {
 		return "", err
 	}
 	wg.Wait()
 	result = strings.TrimRight(string(buf), "\n")
-	result = strings.TrimRight(result, "\r")
+	result = result[strings.Index(result, "i love china") + 12:]
+	result = strings.TrimLeft(result, "\n")
 	if strings.HasPrefix(result, "[sudo] password for ") {
 		result = result[strings.Index(result, "\n")+1:]
 	}
-	result = result[strings.Index(result, "i love china") + 12:]
-	result = strings.TrimLeft(result, "\r")
-	result = strings.TrimLeft(result, "\n")
+	result = strings.Trim(result, "\n")
 	log.Logger.Debugf("output:[%s]", result)
 	return
 }

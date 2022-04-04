@@ -20,14 +20,14 @@ func TestXMLFile_XMLWrite(t *testing.T) {
 
 func TestXMLFile_Merge(t *testing.T) {
 	input := map[string]interface{}{
-		"a.b.c":          "bar",
-		"a.b.d":          "foo",
-		"a.e":            "baz",
-		"a.g.k#id=13":    "hello",
-		"d":              true,
-		"kk#aaa=1,bbb=2": 1080,
-		"volumes.disk":   []string{"hdfs1", "hdfs2", "local"},
-		"m.n":            "[1,2,3,4]",
+		"a.b.c":               "bar",
+		"a.b.d":               "foo",
+		"a.e":                 "baz",
+		"a.g.k@{id=13}":       "hello",
+		"d":                   true,
+		"kk@{aaa=1,bbb=2}.cc": 1080,
+		"volumes.disk":        []string{"hdfs1", "hdfs2", "local"},
+		"m.n":                 "[1,2,3,4]",
 	}
 
 	xml := NewXmlFile("merge_test.xml")
