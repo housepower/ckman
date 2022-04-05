@@ -1,7 +1,8 @@
 <yandex>
-    <kk aaa="1" bbb="2">
-        <cc>1080</cc>
-    </kk>
+    <d>true</d>
+    <title lang="en" size="4">
+        <header>header123</header>
+    </title>
     <volumes>
         <disk>hdfs1</disk>
         <disk>hdfs2</disk>
@@ -14,14 +15,13 @@
         <n>4</n>
     </m>
     <a>
-        <g>
-            <k id="13">hello</k>
-        </g>
         <b>
             <d>foo</d>
             <c>bar</c>
         </b>
         <e>baz</e>
+        <g>
+            <k id="13">hello</k>
+        </g>
     </a>
-    <d>true</d>
 </yandex>

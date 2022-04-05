@@ -1,34 +1,40 @@
 <yandex>
-    <default_replica_name>{replica}</default_replica_name>
-    <tcp_port>9000</tcp_port>
-    <logger>
-        <level>debug</level>
-    </logger>
-    <default_replica_path>/clickhouse/tables/{cluster}/{database}/{table}/{shard}</default_replica_path>
-    <access_control_path>/clickhouse/access/</access_control_path>
-    <format_schema_path>/clickhouse/format_schemas/</format_schema_path>
-    <asynchronous_metric_log>
+    <user_files_path>/clickhouse/user_files/</user_files_path>
+    <query_thread_log>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
         <flush_interval_milliseconds>30000</flush_interval_milliseconds>
         <partition_by>toYYYYMMDD(event_date)</partition_by>
-    </asynchronous_metric_log>
+    </query_thread_log>
+    <max_table_size_to_drop>0</max_table_size_to_drop>
+    <tcp_port>9000</tcp_port>
+    <default_replica_name>{replica}</default_replica_name>
+    <trace_log>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+    </trace_log>
+    <query_views_log>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+    </query_views_log>
     <storage_configuration>
         <disks>
+            <ssd>
+                <keep_free_space_bytes>1024</keep_free_space_bytes>
+                <type>local</type>
+                <path>/data01/clickhouse</path>
+            </ssd>
+            <s3>
+                <endpoint>localhost:1200/var/s3</endpoint>
+                <access_key_id>123456</access_key_id>
+                <secret_access_key>654321</secret_access_key>
+                <type>s3</type>
+            </s3>
             <hdfs1>
                 <type>hdfs</type>
                 <endpoint>localhost:8020/admin/abc</endpoint>
             </hdfs1>
-            <ssd>
-                <type>local</type>
-                <path>/data01/clickhouse</path>
-                <keep_free_space_bytes>10000</keep_free_space_bytes>
-            </ssd>
-            <s3>
-                <access_key_id>123456</access_key_id>
-                <secret_access_key>654321</secret_access_key>
-                <type>s3</type>
-                <endpoint>localhost:1200/var/s3</endpoint>
-            </s3>
         </disks>
         <policies>
             <hdfs_only>
@@ -56,25 +62,49 @@
             </s3_only>
         </policies>
     </storage_configuration>
-    <max_table_size_to_drop>0</max_table_size_to_drop>
-    <trace_log>
+    <part_log>
         <partition_by>toYYYYMMDD(event_date)</partition_by>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
         <flush_interval_milliseconds>30000</flush_interval_milliseconds>
-    </trace_log>
-    <user_files_path>/clickhouse/user_files/</user_files_path>
-    <query_thread_log>
-        <partition_by>toYYYYMMDD(event_date)</partition_by>
+    </part_log>
+    <prometheus>
+        <asynchronous_metrics>true</asynchronous_metrics>
+        <status_info>true</status_info>
+        <endpoint>/metrics</endpoint>
+        <port>9363</port>
+        <metrics>true</metrics>
+        <events>true</events>
+    </prometheus>
+    <asynchronous_metric_log>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
         <flush_interval_milliseconds>30000</flush_interval_milliseconds>
-    </query_thread_log>
-    <path>/clickhouse/</path>
-    <listen_host>::</listen_host>
-    <metric_log>
         <partition_by>toYYYYMMDD(event_date)</partition_by>
-        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
-        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
-    </metric_log>
+    </asynchronous_metric_log>
+    <merge_tree>
+        <parts_to_throw_insert>300</parts_to_throw_insert>
+        <replicated_fetches_http_send_timeout>0</replicated_fetches_http_send_timeout>
+        <allow_floating_point_partition_key>0</allow_floating_point_partition_key>
+        <max_bytes_to_merge_at_max_space_in_pool>161061273600</max_bytes_to_merge_at_max_space_in_pool>
+        <replicated_deduplication_window>100</replicated_deduplication_window>
+        <inactive_parts_to_throw_insert>0</inactive_parts_to_throw_insert>
+        <max_delay_to_insert>1</max_delay_to_insert>
+        <old_parts_lifetime>480</old_parts_lifetime>
+        <max_bytes_to_merge_at_min_space_in_pool>1048576</max_bytes_to_merge_at_min_space_in_pool>
+        <merge_max_block_size>8192</merge_max_block_size>
+        <replicated_fetches_http_receive_timeout>0</replicated_fetches_http_receive_timeout>
+        <inactive_parts_to_delay_insert>0</inactive_parts_to_delay_insert>
+        <check_sample_column_is_correct>true</check_sample_column_is_correct>
+        <replicated_fetches_http_connection_timeout>0</replicated_fetches_http_connection_timeout>
+        <max_parts_in_total>100000</max_parts_in_total>
+        <allow_remote_fs_zero_copy_replication>1</allow_remote_fs_zero_copy_replication>
+        <parts_to_delay_insert>150</parts_to_delay_insert>
+        <non_replicated_deduplication_window>0</non_replicated_deduplication_window>
+        <max_partitions_to_read>-1</max_partitions_to_read>
+        <replicated_deduplication_window_seconds>604800</replicated_deduplication_window_seconds>
+        <max_suspicious_broken_parts>5</max_suspicious_broken_parts>
+        <max_part_loading_threads>auto</max_part_loading_threads>
+    </merge_tree>
+    <default_replica_path>/clickhouse/tables/{cluster}/{database}/{table}/{shard}</default_replica_path>
     <query_log>
         <partition_by>toYYYYMMDD(event_date)</partition_by>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
@@ -83,24 +113,18 @@
     <distributed_ddl>
         <path>/clickhouse/task_queue/ddl/abc</path>
     </distributed_ddl>
-    <max_partition_size_to_drop>0</max_partition_size_to_drop>
-    <query_views_log>
-        <partition_by>toYYYYMMDD(event_date)</partition_by>
-        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
-        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
-    </query_views_log>
-    <part_log>
-        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
-        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
-        <partition_by>toYYYYMMDD(event_date)</partition_by>
-    </part_log>
-    <prometheus>
-        <endpoint>/metrics</endpoint>
-        <port>9363</port>
-        <metrics>true</metrics>
-        <events>true</events>
-        <asynchronous_metrics>true</asynchronous_metrics>
-        <status_info>true</status_info>
-    </prometheus>
     <tmp_path>/clickhouse/tmp/</tmp_path>
+    <max_partition_size_to_drop>0</max_partition_size_to_drop>
+    <metric_log>
+        <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
+        <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+    </metric_log>
+    <format_schema_path>/clickhouse/format_schemas/</format_schema_path>
+    <logger>
+        <level>information</level>
+    </logger>
+    <listen_host>::</listen_host>
+    <access_control_path>/clickhouse/access/</access_control_path>
+    <path>/clickhouse/</path>
 </yandex>
