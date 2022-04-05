@@ -5,6 +5,7 @@ import (
 	"github.com/go-errors/errors"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -187,10 +188,17 @@ func parseTags(key string)(string, []XMLAttr) {
 }
 
 func (xml *XMLFile) mapping(output map[string]interface{}){
-	for k, v := range output {
+	keys := make([]string, 0)
+	for k := range output {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		v := output[k]
 		tag, attrs := parseTags(k)
 		rt := reflect.TypeOf(v)
-		switch (rt.Kind()) {
+		switch rt.Kind() {
 		case reflect.Map:
 			xml.BeginwithAttr(tag, attrs)
 			xml.mapping(v.(map[string]interface{}))
