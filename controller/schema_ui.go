@@ -160,15 +160,15 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionEN: "Composed of Disks, Policies. The Disk name mentioned by Policies must be defined in Disks. Clickhouse has built-in Policy and Disk named Default. ",
 	})
 	params.MustRegister(conf, "Expert", &common.Parameter{
-		LabelZH:  "专家配置",
-		LabelEN:  "Expert Config",
+		LabelZH:  "自定义配置项",
+		LabelEN:  "Custom Config",
 		DescriptionZH: `自定义配置文件，语法接近xpath(https://www.w3schools.com/xml/xpath_syntax.asp);
 举例：title[@lang='en', @size=4]/header:header123， 最终生成的配置为:
 <title lang="en" size="4">
     <header>header123</header>
 </title>
 非专业人士请勿填写此项`,
-		DescriptionEN: `Custom configuration files, close to xpath syntax style(https://www.w3schools.com/xml/xpath_syntax.asp);
+		DescriptionEN: `Custom configuration items, similar to xpath syntax(https://www.w3schools.com/xml/xpath_syntax.asp);
 For example: title[@lang='en', @size=4]/header:header123, the final generated configuration is:
 <title lang="en" size="4">
     <header>header123</header>
@@ -407,15 +407,15 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		DescriptionEN: "Composed of Disks, Policies. The Disk name mentioned by Policies must be defined in Disks. Clickhouse has built-in Policy and Disk named Default. ",
 	})
 	params.MustRegister(conf, "Expert", &common.Parameter{
-		LabelZH:  "专家配置",
-		LabelEN:  "Expert Config",
+		LabelZH:  "自定义配置项",
+		LabelEN:  "Custom Config",
 		DescriptionZH: `自定义配置文件，语法接近xpath(https://www.w3schools.com/xml/xpath_syntax.asp);
 举例：title[@lang='en', @size=4]/header:header123， 最终生成的配置为:
 <title lang="en" size="4">
     <header>header123</header>
 </title>
 非专业人士请勿填写此项`,
-		DescriptionEN: `Custom configuration files, close to xpath syntax style(https://www.w3schools.com/xml/xpath_syntax.asp);
+		DescriptionEN: `Custom configuration items, similar to xpath syntax(https://www.w3schools.com/xml/xpath_syntax.asp);
 For example: title[@lang='en', @size=4]/header:header123, the final generated configuration is:
 <title lang="en" size="4">
     <header>header123</header>
