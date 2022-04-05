@@ -162,17 +162,17 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(conf, "Expert", &common.Parameter{
 		LabelZH:  "专家配置",
 		LabelEN:  "Expert Config",
-		DescriptionZH: `自定义配置文件，不同层级之间以.分开，属性与tag之间以@分开;
-举例：aaa@{k=v}.bbb: ccc， 最终生成的配置为:
-<aaa k="v">
-	<bbb>ccc</bbb>
-</aaa>
+		DescriptionZH: `自定义配置文件，语法接近xpath(https://www.w3schools.com/xml/xpath_syntax.asp);
+举例：title[@lang='en', @size=4]/header:header123， 最终生成的配置为:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
 非专业人士请勿填写此项`,
-		DescriptionEN: `Custom configuration files, separated by . between different levels, separated by @ between attributes and tags
-For example: aaa@{k=v}.bbb: ccc, the final generated configuration is:
-<aaa k="v">
-	<bbb>ccc</bbb>
-</aaa>
+		DescriptionEN: `Custom configuration files, close to xpath syntax style(https://www.w3schools.com/xml/xpath_syntax.asp);
+For example: title[@lang='en', @size=4]/header:header123, the final generated configuration is:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
 Non-professionals please do not fill in this`,
 		Required: "false",
 	})
@@ -409,17 +409,17 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(conf, "Expert", &common.Parameter{
 		LabelZH:  "专家配置",
 		LabelEN:  "Expert Config",
-		DescriptionZH: `自定义配置文件，不同层级之间以.分开，属性与tag之间以@分开;
-举例：aaa@{k=v}.bbb: ccc， 最终生成的配置为:
-<aaa k="v">
-	<bbb>ccc</bbb>
-</aaa>
+		DescriptionZH: `自定义配置文件，语法接近xpath(https://www.w3schools.com/xml/xpath_syntax.asp);
+举例：title[@lang='en', @size=4]/header:header123， 最终生成的配置为:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
 非专业人士请勿填写此项`,
-		DescriptionEN: `Custom configuration files, separated by . between different levels, separated by @ between attributes and tags
-For example: aaa@{k=v}.bbb: ccc, the final generated configuration is:
-<aaa k="v">
-	<bbb>ccc</bbb>
-</aaa>
+		DescriptionEN: `Custom configuration files, close to xpath syntax style(https://www.w3schools.com/xml/xpath_syntax.asp);
+For example: title[@lang='en', @size=4]/header:header123, the final generated configuration is:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
 Non-professionals please do not fill in this`,
 		Required: "false",
 	})
