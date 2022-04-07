@@ -74,9 +74,9 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "SSH 访问节点的方式，可使用公钥或者密码，使用公钥时需将公钥文件放到conf目录下",
 		DescriptionEN: "Authenticate type of connect node, you need copy id_rsa to conf/ if use public key",
 		Candidates: []common.Candidate{
-			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)",},
-			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)",},
-			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证",},
+			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)"},
+			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)"},
+			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证"},
 		},
 		Default: "2",
 	})
@@ -160,8 +160,8 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionEN: "Composed of Disks, Policies. The Disk name mentioned by Policies must be defined in Disks. Clickhouse has built-in Policy and Disk named Default. ",
 	})
 	params.MustRegister(conf, "Expert", &common.Parameter{
-		LabelZH:  "自定义配置项",
-		LabelEN:  "Custom Config",
+		LabelZH: "自定义配置项",
+		LabelEN: "Custom Config",
 		DescriptionZH: `自定义配置文件，语法接近xpath(https://www.w3schools.com/xml/xpath_syntax.asp);
 举例：title[@lang='en', @size=4]/header:header123， 最终生成的配置为:
 <title lang="en" size="4">
@@ -268,6 +268,7 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "Expert Mode",
 		DescriptionZH: "专家模式的S3参数, 请参考: https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-s3",
 		DescriptionEN: "configure S3 params by yourself, please visit: https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-s3",
+		Required:      "false",
 	})
 
 	var diskhdfs model.DiskHdfs
@@ -305,7 +306,6 @@ Non-professionals please do not fill in this`,
 		LabelZH: "MaxDataPartSizeBytes",
 		LabelEN: "MaxDataPartSizeBytes",
 	})
-
 
 	var userconf model.UsersConf
 	params.MustRegister(userconf, "Users", &common.Parameter{
@@ -349,9 +349,9 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		DescriptionZH: "SSH 访问节点的方式，可使用公钥或者密码，使用公钥时需将公钥文件放到conf目录下",
 		DescriptionEN: "Authenticate type of connect node, you need copy id_rsa to conf/ if use public key",
 		Candidates: []common.Candidate{
-			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)",},
-			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)",},
-			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证",},
+			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)"},
+			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)"},
+			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证"},
 		},
 	})
 	params.MustRegister(conf, "SshPassword", &common.Parameter{
@@ -407,8 +407,8 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		DescriptionEN: "Composed of Disks, Policies. The Disk name mentioned by Policies must be defined in Disks. Clickhouse has built-in Policy and Disk named Default. ",
 	})
 	params.MustRegister(conf, "Expert", &common.Parameter{
-		LabelZH:  "自定义配置项",
-		LabelEN:  "Custom Config",
+		LabelZH: "自定义配置项",
+		LabelEN: "Custom Config",
 		DescriptionZH: `自定义配置文件，语法接近xpath(https://www.w3schools.com/xml/xpath_syntax.asp);
 举例：title[@lang='en', @size=4]/header:header123， 最终生成的配置为:
 <title lang="en" size="4">
@@ -515,6 +515,7 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "Expert Mode",
 		DescriptionZH: "专家模式的S3参数, 请参考: https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-s3",
 		DescriptionEN: "configure S3 params by yourself, please visit: https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-s3",
+		Required:      "false",
 	})
 
 	var diskhdfs model.DiskHdfs
