@@ -2,6 +2,7 @@ package zookeeper
 
 import (
 	"fmt"
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/repository"
 	"path"
 	"path/filepath"
@@ -106,11 +107,12 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 			leader := strings.Split(string(leaderBytes), " ")[0]
 
 			for replicaIndex, replica := range shard.Replicas {
+				// the clickhouse version 20.5.x already Remove leader election, refer to : allow multiple leaders https://github.com/ClickHouse/ClickHouse/pull/11639
+				const featureVersion = "20.5.x"
 				logPointer := ""
-				// Remove leader election, step 2: allow multiple leaders https://github.com/ClickHouse/ClickHouse/pull/11639
-				if leader == "all" {
+				if common.CompareClickHouseVersion(conf.Version,  featureVersion) >= 0 {
 					logPointer = "Multiple leaders"
-				}else{
+				} else {
 					if leader == replica.Ip {
 						logPointer = "Leader"
 					} else {
@@ -119,7 +121,7 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 				}
 				path = fmt.Sprintf("%s/replicas/%s/log_pointer", zooPath, replica.Ip)
 				pointer, _, _ := z.Conn.Get(path)
-				logPointer = logPointer + string(pointer)
+				logPointer = logPointer + fmt.Sprintf("[%s]",pointer)
 				replicas[replicaIndex] = logPointer
 			}
 		}
