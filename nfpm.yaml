@@ -5,7 +5,7 @@
 name: "ckman"
 arch: ${GOARCH}
 platform: "linux"
-version: "trunk"
+version: ${VERSION}
 section: "default"
 priority: "extra"
 provides:
@@ -53,6 +53,9 @@ contents:
   - src: ./resources/server.crt
     dst: /etc/ckman/conf/server.crt
     type: config|noreplace
+  - src: ./resources/postgres.sql
+    dst: /etc/ckman/dbscript/postgres.sql
+    type: config
   - src: ./resources/ckman.service
     dst: /etc/systemd/system/ckman.service
     type: config
