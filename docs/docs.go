@@ -1753,6 +1753,12 @@ var doc = `{
                     "type": "string",
                     "example": "test"
                 },
+                "expert": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "hosts": {
                     "type": "array",
                     "items": {
@@ -1772,9 +1778,6 @@ var doc = `{
                 "logic_cluster": {
                     "type": "string",
                     "example": "logic_test"
-                },
-                "mergeTreeConf": {
-                    "$ref": "#/definitions/model.MergeTreeConf"
                 },
                 "password": {
                     "type": "string",
@@ -2093,17 +2096,6 @@ var doc = `{
                 "username": {
                     "type": "string",
                     "example": "ckman"
-                }
-            }
-        },
-        "model.MergeTreeConf": {
-            "type": "object",
-            "properties": {
-                "expert": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
                 }
             }
         },
