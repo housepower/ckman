@@ -3,7 +3,10 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
+	_ "github.com/ClickHouse/clickhouse-go/lib/column"
 	"github.com/housepower/ckman/repository"
+	"github.com/shopspring/decimal"
+	"math/big"
 	"net"
 	"sort"
 	"strings"
@@ -479,6 +482,11 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 		return nil, err
 	}
 
+	colTypes, errType := rows.ColumnTypes()
+	if errType != nil {
+		return nil, errType
+	}
+
 	colData := make([][]interface{}, 0)
 	colNames := make([]interface{}, len(cols))
 	// Create a slice of interface{}'s to represent each column,
@@ -501,8 +509,16 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 		// storing it in the map with the name of the column as the key.
 		m := make([]interface{}, len(cols))
 		for i := range columnPointers {
+			colType :=colTypes[i]
 			val := columnPointers[i].(*interface{})
-			m[i] = *val
+			if strings.HasPrefix(colType.DatabaseTypeName(), "Decimal("){
+				_, scale,_ :=colType.DecimalSize()
+				value :=*val
+				byteValue := value.([]uint8)
+				m[i] =decimal.NewFromBigInt(rawToBigInt(byteValue),int32(-scale))
+			}else {
+				m[i] = *val
+			}
 		}
 
 		colData = append(colData, m)
@@ -513,7 +529,32 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 
 	return colData, nil
 }
-
+func rawToBigInt(v []byte) *big.Int {
+	// LittleEndian to BigEndian
+	endianSwap(v, false)
+	var lt = new(big.Int)
+	if len(v) > 0 && v[0]&0x80 != 0 {
+		// [0] ^ will +1
+		for i := 0; i < len(v); i++ {
+			v[i] = ^v[i]
+		}
+		lt.SetBytes(v)
+		// neg ^ will -1
+		lt.Not(lt)
+	} else {
+		lt.SetBytes(v)
+	}
+	return lt
+}
+func endianSwap(src []byte, not bool) {
+	for i := 0; i < len(src)/2; i++ {
+		if not {
+			src[i], src[len(src)-i-1] = ^src[len(src)-i-1], ^src[i]
+		} else {
+			src[i], src[len(src)-i-1] = src[len(src)-i-1], src[i]
+		}
+	}
+}
 func (ck *CkService) FetchSchemerFromOtherNode(host, password string) error {
 	names, statements, err := business.GetCreateReplicaObjects(ck.DB, host, model.ClickHouseDefaultUser, password)
 	if err != nil {
