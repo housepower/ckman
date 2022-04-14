@@ -1,9 +1,9 @@
 # nfpm example config file
 #
-# check https://nfpm.goreleaser.com/configuration.html for detailed usage
+# check https://nfpm.goreleaser.com/configuration/ for detailed usage
 #
 name: "ckman"
-arch: "amd64"
+arch: ${GOARCH}
 platform: "linux"
 version: "trunk"
 section: "default"

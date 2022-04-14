@@ -85,6 +85,10 @@ definitions:
       cluster:
         example: test
         type: string
+      expert:
+        additionalProperties:
+          type: string
+        type: object
       hosts:
         example:
         - 192.168.0.1
@@ -100,8 +104,6 @@ definitions:
       logic_cluster:
         example: logic_test
         type: string
-      mergeTreeConf:
-        $ref: '#/definitions/model.MergeTreeConf'
       password:
         example: "123456"
         type: string
@@ -330,13 +332,6 @@ definitions:
       username:
         example: ckman
         type: string
-    type: object
-  model.MergeTreeConf:
-    properties:
-      expert:
-        additionalProperties:
-          type: string
-        type: object
     type: object
   model.PingClusterReq:
     properties:

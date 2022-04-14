@@ -74,9 +74,9 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "SSH 访问节点的方式，可使用公钥或者密码，使用公钥时需将公钥文件放到conf目录下",
 		DescriptionEN: "Authenticate type of connect node, you need copy id_rsa to conf/ if use public key",
 		Candidates: []common.Candidate{
-			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)",},
-			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)",},
-			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证",},
+			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)"},
+			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)"},
+			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证"},
 		},
 		Default: "2",
 	})
@@ -159,9 +159,21 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "由disks, policies两部分构成。policies提到的disk名必须在disks中定义。ClickHouse内置了名为default的policy和disk。",
 		DescriptionEN: "Composed of Disks, Policies. The Disk name mentioned by Policies must be defined in Disks. Clickhouse has built-in Policy and Disk named Default. ",
 	})
-	params.MustRegister(conf, "MergeTreeConf", &common.Parameter{
-		LabelZH:  "MergeTree配置",
-		LabelEN:  "MergeTree Config",
+	params.MustRegister(conf, "Expert", &common.Parameter{
+		LabelZH: "自定义配置项",
+		LabelEN: "Custom Config",
+		DescriptionZH: `自定义配置文件，语法接近xpath(https://www.w3schools.com/xml/xpath_syntax.asp);
+举例：title[@lang='en', @size=4]/header:header123， 最终生成的配置为:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
+非专业人士请勿填写此项`,
+		DescriptionEN: `Custom configuration items, similar to xpath syntax(https://www.w3schools.com/xml/xpath_syntax.asp);
+For example: title[@lang='en', @size=4]/header:header123, the final generated configuration is:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
+Non-professionals please do not fill in this`,
 		Required: "false",
 	})
 	params.MustRegister(conf, "UsersConf", &common.Parameter{
@@ -256,6 +268,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelEN:       "Expert Mode",
 		DescriptionZH: "专家模式的S3参数, 请参考: https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-s3",
 		DescriptionEN: "configure S3 params by yourself, please visit: https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-s3",
+		Required:      "false",
 	})
 
 	var diskhdfs model.DiskHdfs
@@ -292,15 +305,6 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(vol, "MaxDataPartSizeBytes", &common.Parameter{
 		LabelZH: "MaxDataPartSizeBytes",
 		LabelEN: "MaxDataPartSizeBytes",
-	})
-
-	var mergetree model.MergeTreeConf
-	params.MustRegister(mergetree, "Expert", &common.Parameter{
-		LabelZH:       "专家模式",
-		LabelEN:       "Expert",
-		DescriptionZH: "自定义配置merge_tree的配置项，生成在config.d/merge_tree.xml中, 请参考: https://clickhouse.tech/docs/en/operations/settings/merge-tree-settings/",
-		DescriptionEN: "define the configuration items for configuring merge_tree, generated in config.d/merge_tree.xml, please visit: https://clickhouse.tech/docs/en/operations/settings/merge-tree-settings/",
-		Required:      "false",
 	})
 
 	var userconf model.UsersConf
@@ -345,9 +349,9 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		DescriptionZH: "SSH 访问节点的方式，可使用公钥或者密码，使用公钥时需将公钥文件放到conf目录下",
 		DescriptionEN: "Authenticate type of connect node, you need copy id_rsa to conf/ if use public key",
 		Candidates: []common.Candidate{
-			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)",},
-			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)",},
-			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证",},
+			{Value: "0", LabelEN: "Password(save)", LabelZH: "密码认证(保存密码)"},
+			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)"},
+			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证"},
 		},
 	})
 	params.MustRegister(conf, "SshPassword", &common.Parameter{
@@ -402,9 +406,21 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		DescriptionZH: "由disks, policies两部分构成。policies提到的disk名必须在disks中定义。ClickHouse内置了名为default的policy和disk。",
 		DescriptionEN: "Composed of Disks, Policies. The Disk name mentioned by Policies must be defined in Disks. Clickhouse has built-in Policy and Disk named Default. ",
 	})
-	params.MustRegister(conf, "MergeTreeConf", &common.Parameter{
-		LabelZH:  "MergeTree配置",
-		LabelEN:  "MergeTree Config",
+	params.MustRegister(conf, "Expert", &common.Parameter{
+		LabelZH: "自定义配置项",
+		LabelEN: "Custom Config",
+		DescriptionZH: `自定义配置文件，语法接近xpath(https://www.w3schools.com/xml/xpath_syntax.asp);
+举例：title[@lang='en', @size=4]/header:header123， 最终生成的配置为:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
+非专业人士请勿填写此项`,
+		DescriptionEN: `Custom configuration items, similar to xpath syntax(https://www.w3schools.com/xml/xpath_syntax.asp);
+For example: title[@lang='en', @size=4]/header:header123, the final generated configuration is:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
+Non-professionals please do not fill in this`,
 		Required: "false",
 	})
 	params.MustRegister(conf, "UsersConf", &common.Parameter{
@@ -499,6 +515,7 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:       "Expert Mode",
 		DescriptionZH: "专家模式的S3参数, 请参考: https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-s3",
 		DescriptionEN: "configure S3 params by yourself, please visit: https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-s3",
+		Required:      "false",
 	})
 
 	var diskhdfs model.DiskHdfs
@@ -535,15 +552,6 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(vol, "MaxDataPartSizeBytes", &common.Parameter{
 		LabelZH: "MaxDataPartSizeBytes",
 		LabelEN: "MaxDataPartSizeBytes",
-	})
-
-	var mergetree model.MergeTreeConf
-	params.MustRegister(mergetree, "Expert", &common.Parameter{
-		LabelZH:       "专家模式",
-		LabelEN:       "Expert",
-		DescriptionZH: "自定义配置merge_tree的配置项，生成在config.d/merge_tree.xml中， 请参考: https://clickhouse.tech/docs/en/operations/settings/merge-tree-settings/",
-		DescriptionEN: "define the configuration items for configuring merge_tree, generated in config.d/merge_tree.xml, please visit: https://clickhouse.tech/docs/en/operations/settings/merge-tree-settings/",
-		Required:      "false",
 	})
 
 	var userconf model.UsersConf
