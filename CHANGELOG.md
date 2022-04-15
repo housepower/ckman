@@ -1,3 +1,14 @@
+# v2.2.4
+- delete record when destory cluster && check timeout issue
+- do not response such errors when prometheus address is invalid
+- handle special characters
+- support expert config
+- fix AWS S3 expert config required issue
+- fix reliaca Status bug
+- support postgres as persistent policy
+- fix move_factor issue
+- adapted for arm64
+
 # v2.2.3
 - more messages show in task list
 - fix logic cluster config issue
