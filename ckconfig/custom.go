@@ -118,8 +118,8 @@ func storage(storage *model.Storage) map[string]interface{} {
 					"prefer_not_to_merge":      vol.PreferNotToMerge,
 				}
 			}
-			volumes["move_factor"] = policy.MoveFactor
 			policyMapping["volumes"] = volumes
+			policyMapping["move_factor"] = policy.MoveFactor
 			policies[policy.Name] = policyMapping
 		}
 		storage_configuration["policies"] = policies

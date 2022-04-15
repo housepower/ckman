@@ -56,7 +56,7 @@ build:pre
 .PHONY: package
 package:build
 	@rm -rf ${PKGFULLDIR_TMP}
-	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package
+	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package ${PKGFULLDIR_TMP}/dbscript
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/rebalancer ${PKGFULLDIR_TMP}/bin
@@ -71,6 +71,7 @@ package:build
 	@cp ${SHDIR}/resources/password ${PKGFULLDIR_TMP}/conf/password
 	@cp ${SHDIR}/resources/server.key ${PKGFULLDIR_TMP}/conf/server.key
 	@cp ${SHDIR}/resources/server.crt ${PKGFULLDIR_TMP}/conf/server.crt
+	@cp ${SHDIR}/resources/postgres.sql ${PKGFULLDIR_TMP}/dbscript/postgres.sql
 	@cp ${SHDIR}/README.md ${PKGFULLDIR_TMP}
 	@test ! -f resources/eoi_public_key.pub || (sed -i "s|#public_key:|${PUB_KEY}|" ${PKGFULLDIR_TMP}/conf/ckman.yaml)
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}
@@ -89,15 +90,11 @@ docker-sh:
 
 .PHONY: rpm
 rpm:build
-	@sed "s/trunk/${VERSION}/g" nfpm.yaml > nfpm_${VERSION}.yaml
-	nfpm -f nfpm_${VERSION}.yaml pkg --packager rpm --target .
-	@rm nfpm_${VERSION}.yaml
+	nfpm -f nfpm.yaml pkg --packager rpm --target .
 
 .PHONY: deb
 deb:build
-	@sed "s/trunk/${VERSION}/g" nfpm.yaml > nfpm_${VERSION}.yaml
-	nfpm -f nfpm_${VERSION}.yaml pkg --packager deb --target .
-	@rm nfpm_${VERSION}.yaml
+	nfpm -f nfpm.yaml pkg --packager deb --target .
 
 .PHONY: test-ci
 test-ci:package
@@ -121,7 +118,11 @@ docker-image:build
 release:
 	make docker-image VERSION=${VERSION}
 	make rpm VERSION=${VERSION}
+	make deb VERSION=${VERSION}
 	make package VERSION=${VERSION}
+	make rpm VERSION=${VERSION} GOARCH=arm64
+	make deb VERSION=${VERSION} GOARCH=arm64
+	make package VERSION=${VERSION} GOARCH=arm64
 	docker push quay.io/housepower/ckman:${VERSION}
 	docker push quay.io/housepower/ckman:latest
 

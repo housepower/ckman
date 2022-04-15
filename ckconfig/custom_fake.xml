@@ -102,12 +102,12 @@
                 </volumes>
             </default>
             <hdfs_only>
+                <move_factor>0.3</move_factor>
                 <volumes>
                     <main>
                         <disk>hdfs1</disk>
                         <max_data_part_size_bytes>1000000</max_data_part_size_bytes>
                     </main>
-                    <move_factor>0.3</move_factor>
                 </volumes>
             </hdfs_only>
             <s3_only>

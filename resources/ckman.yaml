@@ -6,7 +6,7 @@ server:
   #keyfile:
   pprof: true
   session_timeout: 3600
-  # support local, mysql
+  # support local, mysql, postgres
   persistent_policy: local
   task_interval: 5
   #public_key:

@@ -64,8 +64,8 @@
 如果需要编译成`rpm`包或`deb`包，需要安装`nfpm`:
 
 ```bash
-wget -q https://github.com/goreleaser/nfpm/releases/download/v2.2.4/nfpm_2.2.4_Linux_x86_64.tar.gz 
-tar -xzvf nfpm_2.2.4_Linux_x86_64.tar.gz 
+wget -q https://github.com/goreleaser/nfpm/releases/download/v2.15.1/nfpm_2.15.1_Linux_x86_64.tar.gz 
+tar -xzvf nfpm_2.15.1_Linux_x86_64.tar.gz 
 cp nfpm /usr/local/bin
 ```
 
@@ -157,6 +157,16 @@ make frontend
 -   `swagger_enable`
     -   是否开启`swagger`文档
     -   默认不开启
+-   `task_interval`
+    -   执行异步运维动作的扫描时间间隔
+    -   前端请求部署、升级、销毁以及增删节点等比较耗时的操作时，`ckman`先记录状态，然后使用另外的协程异步扫描处理，异步扫描的时间间隔通过该参数可配，默认为`5`秒
+-   `persistant_policy`
+    -   持久化策略，主要用来存储集群的配置信息，包括集群配置、逻辑集群映射关系 、查询语句历史记录、运维操作状态等。
+    -   持久化策略支持`local`、`mysql`和`postgres`
+        -   `local`：存储到本地，在`conf`目录下生成一个`clusters.json`文件，不支持集群，为默认配置
+        -   `mysql`：持久化到`mysql`，支持`ckman`集群，支持`HA`，需要提前创建数据库，数据库编码为`UTF-8`，不需要创建表，`ckman`会自动创建数据库表 
+        -   `postgres`：持久化到`postgres`，支持`ckman`集群，支持`HA`，需要提前创建数据库，并且需要提前创建数据库表。建表语句内置在`dbscript/postgres.sql`中。
+        -   除`local`策略外，其他持久化策略都依赖`persistent_config`中的配置项，当然`local`也可以配置该项。
 
 示例如下：
 
@@ -170,7 +180,10 @@ server:
   pprof: true
   swagger_enable: true
   session_timeout: 3600
-  #public_key: 
+  # support local, mysql, postgres
+  persistent_policy: local
+  task_interval: 5
+  #public_key:
 ```
 
 ## log
@@ -198,23 +211,45 @@ log:
   max_age: 10
 ```
 
-## prometheus
+## persistent_config
 
--   `hosts`
-    -   `prometheus`监控的`ip`地址及端口
-    -   可以配置多组
--   `timeout`
-    -   `prometheus`连接的超时时间
+### mysql & postgres
 
-示例如下：
+`mysql`和`postgres`配置项基本一致，主要涉及以下配置项：
 
-```yaml
-prometheus:
-  hosts:
-    - 127.0.0.1:9090
-  # second
-  timeout: 10
-```
+-   `host`
+
+    -   连接数据库的ip地址
+
+-   `port`
+
+    -   连接数据库的端口号，如`mysql`默认为`3306`，`postgres`默认为`5432`
+
+-   `user`
+
+    -   连接数据库的用户
+
+-   `password`
+
+    -   连接数据库的密码，需要加密，可使用下面命令获得密码的密文 
+
+    ```bash
+    ckman --encrypt 123456 
+    E310E892E56801CED9ED98AA177F18E6
+    ```
+
+-   `database`
+
+    -   需要连接的数据库，需提前创建，并且保证编码为`UTF-8`
+
+### local
+
+-   `format`
+    -   本地文件格式，支持`JSON`和`yaml`，默认为`json`
+-   `config_dir`
+    -   本地文件的目录，需要填写路径，默认为`ckman`工作路径的`conf`目录下
+-   `config_file`
+    -   本地文件的文件名，默认为`clusters`
 
 ## nacos
 
@@ -229,7 +264,7 @@ prometheus:
 -   `user_name`
     -   登录`nacos`的用户名
 -   `password`
-    -   登录`nacos`的密码
+    -   登录`nacos`的密码，需要加密，加密规则同持久化策略数据库密码加密规则
 -   `namespace`
     -   指定`nacos`的`namespace`，默认为`DEFAULT`
 -   `group`
@@ -292,30 +327,64 @@ nacos:
 >       -   如果要增加节点的副本数，可通过增加节点完成，创建集群时最多只能指定一个副本
 >       -   如果没有开启副本，则有几个节点就有几个`shard`
 >       -   注意：集群是否支持副本在部署集群时就已经决定了，后续不可更改
+>       
 >   -   `Zookeeper Node List`: `zk`列表
+>       
 >       -   `ckman`并没有提供`zookeeper`集群搭建的功能，因此在部署集群之前，需要将`zookeeper`集群搭建好。
+>       
 >   -   `ZooKeeper Port`: `zk`端口，默认是`2181`
+>
 >   -   `ZK Status Port`: `zookeeper`指标监控的端口，默认`8080` 
+>       
 >       -   该功能是`zookeeper v3.5.0`以上版本开始支持的，如果`zk`版本太旧，无法从界面看到`zk`的指标
+>       
 >   -   `Data path`: `ck`节点数据存放的路径
+>
 >   -   `Cluster Username`: `ck`的用户名
+>       
 >       -   注意：`default`用户作为保留用户，此处不能填`default`。
+>       
 >   -   `Cluster Password`: `ck`的密码
+>
 >   -   `SSH Username`: `ssh`登录`ck`节点的用户名
+>       
 >       -   该用户必须具有`root`权限或是`sudo`权限，可以是普通用户，只需要该普通用户具有`sudo`权限即可。
+>       
 >   -   `AuthenticateType`: 认证方式
 >       -   支持三种认证方式：` 0-密码认证(保存密码) `， 1-密`码认证(不保存密码)` ，`2-公钥认证`
 >       -   默认方式为公钥认证，公钥认证需要配置免密登录， 并将证书(`.ssh/id_rsa`)拷贝到`ckman`的工作目录的`conf`下（`rpm`安装位置为`/etc/ckman/conf`），同时需要保证`ckman`与用户对`id_rsa`有可读权限。
 >       -   如果认证方式为密码认证（不保存密码），则后续运维操作如增删节点、启停集群以及升级等，都需要手动输入密码
+>       
 >   -   `SSH Password`: `ssh`登录`ck`节点的密码
+>
 >   -   `SSH Port`: `ssh`端口，默认是`22`
+>
 >   -   `Storage`: 存储策略
 >       -   `disks`
 >           -   支持`local`，`hdfs`，`s3`三种磁盘，`clickhouse`内置了名为`default`的磁盘策略
 >           -   注意`hdfs`只有在`ck`版本大于`21.9`时才支持。
 >       -   `policies`
 >           -   策略的磁盘必须要在上述`disks`中存在。
->   -   `Mergetree Config`: `MergeTree`相关的配置
+>       
+>   -   `Custom Config`:自定义配置项
+>
+>       -   自定义配置项最终生成在`config.d/custom.xml`中，在`clickhouse`启动时会与默认的`config.xml`进行`merge`，形成最终的`config.xml`配置文件
+>
+>       -   自定义配置项提供一个空的`key-value`模板，`key`的写法尽量靠近`xpath`语法标准（请参阅：https://www.w3schools.com/xml/xpath_syntax.asp），不同`xml`层级之间以`/`分隔 ，`attr`属性以`[]`包裹，每个属性的`key`以 `@`开头，举例如下：
+>
+>           key填写内容： `title[@lang='en', @size=4]/header`
+>
+>           value填写内容：`header123`
+>
+>           则生成的`xml`样式如下：
+>
+>           ```xml
+>           <title lang="en" size="4"> 
+>               <header>header123</header> 
+>           </title>
+>           ```
+>
+>           
 
 通过此种方式安装部署成功的集群的`mode`就是`deploy`，可以对其进行删、改、`rebalance`、启停、升级以及节点的增删等操作。
 
@@ -361,7 +430,7 @@ nacos:
 
 ### 销毁集群
 
-集群销毁后，该集群在物理上都不存在了。因为销毁集群动作不止会停止掉当前集群，还会将节点上的ClickHouse卸载，相关目录清空，所以该动作应该慎重操作。
+集群销毁后，该集群在物理上都不存在了。因为销毁集群动作不止会停止掉当前集群，还会将节点上的`ClickHouse`卸载，相关目录清空，所以该动作应该慎重操作。
 
 ### 增加节点
 
@@ -384,7 +453,7 @@ nacos:
 
 ## 监控管理
 
-ckman提供了ClickHouse相关的一些指标监控项。这些监控项依赖于从prometheus中获取数据，因此，需要提前配置好prometheus。相关配置教程见[ckman部署文档](./guide/deploy.md)。
+`ckman`提供了`ClickHouse`相关的一些指标监控项。这些监控项依赖于从`prometheus`中获取数据，因此，需要提前配置好`prometheus`。相关配置教程见[ckman部署文档](./guide/deploy.md)。
 
 ![image-20210302181407722](img/image-20210302181407722.png)
 
@@ -427,10 +496,14 @@ ckman提供了ClickHouse相关的一些指标监控项。这些监控项依赖�
 >       -   列数
 >   -   `Rows`
 >       -   行数
->   -   `Parts`
->       -   分数数
->   -   `Disk Space`
->       -   使用磁盘
+>   -   `Partitions`
+>       -   当前所有未合并的分区数 
+>   -   `Parts Count`
+>       -   分区数
+>   -   `Disk Space(uncompress)`
+>       -   使用磁盘（未压缩）
+>   -   `Disk Space(compress)`
+>       -   使用磁盘（压缩），该大小是最终数据落盘的占用空间
 >   -   `RWStatus`
 >       -   读写状态， `TRUE`代表可读写，`FALSE`代表不可读写
 >   -   `Completed Queries in last 24h`
@@ -1304,8 +1377,8 @@ ckman提供了ClickHouse相关的一些指标监控项。这些监控项依赖�
 -   [x] 存储策略（支持`Local`、`HDFS`、`S3`等）
 -   [x] 支持修改集群配置
 -   [ ] 部署`zookeeper`
--   [ ] ``prometheus`自动探测`node`节点并更新配置
--   [ ] 引入任务列表，对部署、升级等耗时比较长的操作改为异步操作，前端显示任务进度
+-   [ ] `prometheus`自动探测`node`节点并更新配置
+-   [x] 引入任务列表，对部署、升级等耗时比较长的操作改为异步操作，前端显示任务进度
 -   [ ] 数据安全管理
     -   [ ] 用户/角色/权限模型
     -   [ ] 对数据表以及行的权限控制
