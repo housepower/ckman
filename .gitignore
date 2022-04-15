@@ -2,6 +2,7 @@ ckman
 test/*
 vendor/*
 *.rpm
+*.deb
 *.tar.gz
 .DS_Store
 .idea/

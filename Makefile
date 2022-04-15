@@ -10,8 +10,8 @@ DATE=$(shell date +%y%m%d)
 TIME=$(shell date --iso-8601=seconds 2>/dev/null)
 OS=$(shell uname)
 OSLOWER=$(shell uname | tr '[:upper:]' '[:lower:]')
-ARCH=$(shell uname -m)
-TARNAME=${PKGDIR}-${VERSION}-${DATE}.${OS}.$(ARCH).tar.gz
+GOARCH?=$(shell go env |grep GOARCH |cut -d\" -f2)
+TARNAME=${PKGDIR}-${VERSION}-${DATE}.${OS}.$(GOARCH).tar.gz
 TAG?=$(shell date +%y%m%d)
 LDFLAGS=-ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=${VERSION}"
 PUB_KEY=$(shell cat resources/eoi_public_key.pub 2>/dev/null)
