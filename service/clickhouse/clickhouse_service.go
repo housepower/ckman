@@ -48,21 +48,15 @@ func (ck *CkService) InitCkService() error {
 		return errors.Errorf("can't find any host")
 	}
 
-	hasConnect := false
-	var lastError error
-	for _, host := range ck.Config.Hosts {
-		connect, err := common.ConnectClickHouse(host, ck.Config.Port, model.ClickHouseDefaultDB, ck.Config.User, ck.Config.Password)
-		if err == nil {
-			ck.DB = connect
-			hasConnect = true
-			break
-		} else {
-			lastError = err
-		}
+	host,err := common.GetRandomHost(ck.Config)
+	if err != nil {
+		return err
 	}
-	if !hasConnect {
-		return lastError
+	connect, err := common.ConnectClickHouse(host, ck.Config.Port, model.ClickHouseDefaultDB, ck.Config.User, ck.Config.Password)
+	if err != nil {
+		return err
 	}
+	ck.DB = connect
 	return nil
 }
 
@@ -674,7 +668,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 	return metrics, nil
 }
 
-func getHostSessions(service *CkService, query string) ([]*model.CkSessionInfo, error) {
+func getHostSessions(service *CkService, query, host string) ([]*model.CkSessionInfo, error) {
 	list := make([]*model.CkSessionInfo, 0)
 
 	value, err := service.QueryInfo(query)
@@ -690,6 +684,7 @@ func getHostSessions(service *CkService, query string) ([]*model.CkSessionInfo, 
 		session.QueryId = value[i][4].(string)
 		session.Address = value[i][5].(net.IP).String()
 		session.Threads = len(value[i][6].([]uint64))
+		session.Host = host
 		list = append(list, session)
 	}
 
@@ -710,7 +705,7 @@ func getCkSessions(conf *model.CKManClickHouseConfig, limit int, query string) (
 				return
 			}
 
-			sessions, err := getHostSessions(service, query)
+			sessions, err := getHostSessions(service, query, innerHost)
 			if err != nil {
 				lastError = err
 			}
