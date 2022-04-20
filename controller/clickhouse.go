@@ -685,7 +685,7 @@ func (ck *ClickHouseController) UpgradeCluster(c *gin.Context) {
 	}
 
 	d := deploy.NewCkDeploy(conf)
-	d.Packages = deploy.BuildPackages(req.PackageVersion)
+	d.Packages = deploy.BuildPackages(req.PackageVersion, req.PackageType)
 	d.Ext.UpgradePolicy = req.Policy
 	d.Conf.Hosts = chHosts
 
@@ -803,7 +803,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 	}
 
 	d := deploy.NewCkDeploy(conf)
-	d.Packages = deploy.BuildPackages(conf.Version)
+	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType)
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKDestory, d)
 	if err != nil {
 		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
@@ -1020,7 +1020,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	// install clickhouse and start service on the new node
 	d := deploy.NewCkDeploy(conf)
 	d.Conf.Hosts = req.Ips
-	d.Packages = deploy.BuildPackages(conf.Version)
+	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType)
 	d.Conf.Shards = shards
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKAddNode, d)
@@ -1080,7 +1080,7 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 	}
 
 	d := deploy.NewCkDeploy(conf)
-	d.Packages = deploy.BuildPackages(conf.Version)
+	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType)
 	d.Conf.Hosts = []string{ip}
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKDeleteNode, d)
@@ -1799,7 +1799,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	if storageChanged {
 		diskMapping := make(map[string]int64)
 		query := "SELECT disk_name, SUM(bytes_on_disk) AS used FROM system.parts WHERE disk_name != 'default' GROUP BY disk_name"
-		svr := clickhouse.NewCkService(&cluster)
+		svr := clickhouse.NewCkService(conf)
 		if err := svr.InitCkService(); err != nil {
 			return false, err
 		}

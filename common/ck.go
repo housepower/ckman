@@ -6,7 +6,6 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
-	"math/rand"
 	"net/url"
 	"strconv"
 	"strings"
@@ -144,21 +143,6 @@ func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig) ([]string, error)
 	}
 	log.Logger.Debugf("hosts: %v", hosts)
 	return hosts, nil
-}
-
-func GetRandomHost(conf *model.CKManClickHouseConfig)(string, error) {
-	hosts, err := GetShardAvaliableHosts(conf)
-	if err != nil {
-		return "", err
-	}
-	rand.Seed(time.Now().Unix())
-	max := len(hosts)
-	min := 0
-	if max <= 0 {
-		return "", errors.Wrapf(nil, "can't get any host")
-	}
-	idx := rand.Intn(max-min) + min
-	return hosts[idx], nil
 }
 
 /*

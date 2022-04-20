@@ -35,10 +35,12 @@ type Parameter struct {
 	Visiable      string //empty means: true(visiable)
 	Required      string //empty means: false(optional) iff field type is Ptr
 	InputType     string
+	Filter        string //js code segment, work with Candidates list
 	Candidates    []Candidate
 	Default       string
 	Regexp        string
 	Range         *Range
+	Editable      string
 }
 
 const (
@@ -178,6 +180,11 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 	}
 	sb.WriteString(`, "required": `)
 	sb.WriteString(nullableString(param.Required))
+	if param.Editable == "" {
+		param.Editable = "true"
+	}
+	sb.WriteString(`, "editable": `)
+	sb.WriteString(nullableString(param.Editable))
 	for rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
 	}
@@ -209,6 +216,8 @@ func marshalSchemaRecursive(params map[string]*Parameter, rt reflect.Type, param
 				sb.WriteString(fmt.Sprintf(`{"label_en": %v, "label_zh": %v, "value": %v}`, nullableString(cand.LabelEN), nullableString(cand.LabelZH), nullableString(cand.Value)))
 			}
 			sb.WriteByte(byte(']'))
+			sb.WriteString(`, "filter": `)
+			sb.WriteString(nullableString(param.Filter))
 		}
 		sb.WriteString(`, "default": `)
 		sb.WriteString(nullableString(param.Default))

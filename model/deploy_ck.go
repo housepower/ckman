@@ -1,14 +1,8 @@
 package model
 
 const (
-	CkClusterImport       string = "import"
-	CkClusterDeploy       string = "deploy"
-	CkClientPackagePrefix string = "clickhouse-client"
-	CkClientPackageSuffix string = "2.noarch.rpm"
-	CkCommonPackagePrefix string = "clickhouse-common-static"
-	CkCommonPackageSuffix string = "2.x86_64.rpm"
-	CkServerPackagePrefix string = "clickhouse-server"
-	CkServerPackageSuffix string = "2.noarch.rpm"
+	CkClusterImport string = "import"
+	CkClusterDeploy string = "deploy"
 
 	ClickHouseDefaultDB          string = "default"
 	ClickHouseDefaultUser        string = "default"
@@ -19,6 +13,7 @@ const (
 	SshDefaultPort               int    = 22
 	PromHostDefault              string = "127.0.0.1"
 	PromPortDefault              int    = 9090
+	PkgTypeDefault               string = "x86_64.rpm"
 	ClickHouseUserProfileDefault string = "default"
 	ClickHouseUserQuotaDefault   string = "default"
 	ClickHouseUserNetIpDefault   string = "::/0"
@@ -61,6 +56,8 @@ type CkImportConfig struct {
 }
 
 type CKManClickHouseConfig struct {
+	PkgType          string    `json:"pkgType" example:"Linux.x86_64.rpm"`
+	PkgName          string    `json:"pkgName" example:"clickhouse-server-22.3.3.44.noarch.rpm"`
 	Version          string    `json:"version" example:"21.9.1.7647"`
 	Cluster          string    `json:"cluster" example:"test"`
 	LogicCluster     *string   `json:"logic_cluster" yaml:"logic_cluster" example:"logic_test"`
@@ -219,5 +216,9 @@ func (config *CKManClickHouseConfig) Normalize() {
 	}
 	if config.PromPort == 0 {
 		config.PromPort = PromPortDefault
+	}
+
+	if config.PkgType == "" {
+		config.PkgType = PkgTypeDefault
 	}
 }

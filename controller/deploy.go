@@ -51,7 +51,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	}
 
 	tmp := deploy.NewCkDeploy(conf)
-	tmp.Packages = deploy.BuildPackages(conf.Version)
+	tmp.Packages = deploy.BuildPackages(conf.Version, conf.PkgType)
 
 	taskId, err := deploy.CreateNewTask(conf.Cluster, model.TaskTypeCKDeploy, tmp)
 	if err != nil {
@@ -67,6 +67,24 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 		return errors.Errorf("cluster %s is exist", conf.Cluster)
 	}
 
+	pkgs, ok := common.CkPackages.Load(conf.PkgType)
+	if !ok {
+		return errors.Errorf("pkgtype %s have no packages on  server", conf.PkgType)
+	}
+	found := false
+	var file common.CkPackageFile
+	for _, pkg := range pkgs.(common.CkPackageFiles) {
+		if pkg.PkgName == conf.PkgName {
+			found = true
+			file = pkg
+			break
+		}
+	}
+	if found {
+		conf.Version = file.Version
+	} else {
+		return errors.Errorf("package %s not found on server", conf.PkgName)
+	}
 	if len(conf.Hosts) == 0 {
 		return errors.Errorf("can't find any host")
 	}

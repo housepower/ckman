@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/housepower/ckman/log"
+	"math/rand"
 	"net"
 	"os"
 	"path"
@@ -247,4 +248,19 @@ func ConvertDuration(start, end time.Time) string {
 	}
 	result += fmt.Sprintf("%ds", sec)
 	return result
+}
+
+func Shuffle(value []string) []string {
+	rand.Seed(time.Now().UnixNano())
+
+	arr := make([]string, len(value))
+	for index, a := range value {
+		arr[index] = a
+	}
+
+	rand.Shuffle(len(arr), func(i, j int) {
+		arr[i], arr[j] = arr[j], arr[i]
+	})
+
+	return arr
 }

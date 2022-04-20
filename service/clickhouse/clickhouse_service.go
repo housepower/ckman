@@ -48,15 +48,22 @@ func (ck *CkService) InitCkService() error {
 		return errors.Errorf("can't find any host")
 	}
 
-	host,err := common.GetRandomHost(ck.Config)
-	if err != nil {
-		return err
+	hasConnect := false
+	var lastError error
+	hosts := common.Shuffle(ck.Config.Hosts)
+	for _, host := range hosts {
+		connect, err := common.ConnectClickHouse(host, ck.Config.Port, model.ClickHouseDefaultDB, ck.Config.User, ck.Config.Password)
+		if err == nil {
+			ck.DB = connect
+			hasConnect = true
+			break
+		} else {
+			lastError = err
+		}
 	}
-	connect, err := common.ConnectClickHouse(host, ck.Config.Port, model.ClickHouseDefaultDB, ck.Config.User, ck.Config.Password)
-	if err != nil {
-		return err
+	if !hasConnect {
+		return lastError
 	}
-	ck.DB = connect
 	return nil
 }
 

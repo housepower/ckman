@@ -3,26 +3,22 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/deploy"
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
+	"github.com/pkg/errors"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
-	"strings"
-
-	"github.com/gin-gonic/gin"
-	"github.com/housepower/ckman/config"
-	"github.com/housepower/ckman/log"
-	"github.com/housepower/ckman/model"
-	"github.com/pkg/errors"
 )
 
 const (
-	DefaultPackageDirectory string = "package"
 	FormPackageFieldName    string = "package"
 	InitialByClusterPeer    string = "is_initial_by_cluster_peer"
 )
@@ -79,6 +75,11 @@ func (p *PackageController) Upload(c *gin.Context) {
 		}
 	}
 
+	err = common.GetPackages()
+	if err != nil {
+		model.WrapMsg(c, model.UPLOAD_PEER_PACKAGE_FAIL, err)
+		return
+	}
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
@@ -95,7 +96,15 @@ func ParserFormData(request *http.Request) (string, error) {
 
 	log.Logger.Infof("Upload File: %s", handler.Filename)
 	log.Logger.Infof("File Size: %d", handler.Size)
-	localFile := path.Join(config.GetWorkDirectory(), DefaultPackageDirectory, handler.Filename)
+	dir := path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory)
+	_, err = os.Stat(dir)
+	if os.IsNotExist(err) {
+		err := os.MkdirAll(dir, 0777)
+		if err != nil {
+			return "", err
+		}
+	}
+	localFile := path.Join(dir, handler.Filename)
 	localFd, err := os.OpenFile(localFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		log.Logger.Errorf("Create local file %s fail: %v", localFile, err)
@@ -161,79 +170,35 @@ func UploadFileByURL(url string, localFile string) error {
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":["20.8.5.45"]}"
 // @Router /api/v1/package [get]
 func (p *PackageController) List(c *gin.Context) {
-	files, err := GetAllFiles(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory))
-	if err != nil {
-		model.WrapMsg(c, model.LIST_PACKAGE_FAIL, err)
-		return
+	pkgType := c.Query("pkgType")
+	if pkgType == "" {
+		pkgType = "all"
 	}
-
-	versions := GetAllVersions(files)
-	model.WrapMsg(c, model.SUCCESS, versions)
-}
-
-func GetAllFiles(dirPth string) ([]string, error) {
-	files := make([]string, 0)
-
-	dir, err := os.ReadDir(dirPth)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, fi := range dir {
-		if !fi.IsDir() {
-			if ok := strings.HasSuffix(fi.Name(), ".rpm"); ok {
-				files = append(files, fi.Name())
+	pkgs := common.GetAllPackages()
+	var resp []model.PkgInfo
+	if pkgType == "all" {
+		for k, v := range pkgs {
+			for _, p := range v {
+				pi := model.PkgInfo{
+					Version: p.Version,
+					PkgType: k,
+					PkgName: p.PkgName,
+				}
+				resp = append(resp, pi)
 			}
 		}
-	}
-
-	sort.Strings(files)
-	return files, nil
-}
-
-type VersionFiles []string
-
-func (v VersionFiles) Len() int { return len(v) }
-func (v VersionFiles) Swap(i, j int) { v[i], v[j] = v[j], v[i] }
-func (v VersionFiles) Less(i, j int) bool { return common.CompareClickHouseVersion(v[i], v[j]) < 0 }
-
-func GetAllVersions(files VersionFiles) []string {
-	versions := make(VersionFiles, 0)
-	ckClientMap := make(map[string]bool)
-	ckCommonMap := make(map[string]bool)
-	ckServerMap := make(map[string]bool)
-
-	for _, file := range files {
-		end := strings.LastIndex(file, "-")
-		if strings.HasPrefix(file, model.CkClientPackagePrefix) && strings.HasSuffix(file, model.CkClientPackageSuffix) {
-			start := len(model.CkClientPackagePrefix) + 1
-			version := file[start:end]
-			ckClientMap[version] = true
-			continue
-		}
-		if strings.HasPrefix(file, model.CkCommonPackagePrefix) && strings.HasSuffix(file, model.CkCommonPackageSuffix) {
-			start := len(model.CkCommonPackagePrefix) + 1
-			version := file[start:end]
-			ckCommonMap[version] = true
-			continue
-		}
-		if strings.HasPrefix(file, model.CkServerPackagePrefix) && strings.HasSuffix(file, model.CkServerPackageSuffix) {
-			start := len(model.CkServerPackagePrefix) + 1
-			version := file[start:end]
-			ckServerMap[version] = true
-			continue
+	} else {
+		v, _ := pkgs[pkgType]
+		for _, p := range v {
+			pi := model.PkgInfo{
+				Version: p.Version,
+				PkgType: pkgType,
+				PkgName: p.PkgName,
+			}
+			resp = append(resp, pi)
 		}
 	}
-
-	for key := range ckCommonMap {
-		_, clientOk := ckClientMap[key]
-		_, serverOk := ckServerMap[key]
-		if clientOk && serverOk {
-			versions = append(versions, key)
-		}
-	}
-	sort.Sort(sort.Reverse(versions))
-	return versions
+	model.WrapMsg(c, model.SUCCESS, resp)
 }
 
 // @Summary Delete package
@@ -246,9 +211,10 @@ func GetAllVersions(files VersionFiles) []string {
 // @Router /api/v1/package [delete]
 func (p *PackageController) Delete(c *gin.Context) {
 	packageVersion := c.Query("packageVersion")
-	packages := deploy.BuildPackages(packageVersion)
+	packageType := c.Query("packageType")
+	packages := deploy.BuildPackages(packageVersion, packageType)
 	for _, packageName := range packages {
-		if err := os.Remove(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory, packageName)); err != nil {
+		if err := os.Remove(path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory, packageName)); err != nil {
 			model.WrapMsg(c, model.DELETE_LOCAL_PACKAGE_FAIL, err)
 			return
 		}
@@ -280,7 +246,11 @@ func (p *PackageController) Delete(c *gin.Context) {
 			}
 		}
 	}
-
+	err := common.GetPackages()
+	if err != nil {
+		model.WrapMsg(c, model.DELETE_PEER_PACKAGE_FAIL, err)
+		return
+	}
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 

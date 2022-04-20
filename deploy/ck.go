@@ -21,9 +21,13 @@ import (
 	"github.com/housepower/ckman/model"
 )
 
-func init(){
+func init() {
 	gob.Register(CKDeploy{})
 }
+
+const (
+	CkSvrName string = "clickhouse-server"
+)
 
 type CKDeploy struct {
 	DeployBase
@@ -32,12 +36,10 @@ type CKDeploy struct {
 	Ext       model.CkDeployExt
 }
 
-
-
-func NewCkDeploy(conf model.CKManClickHouseConfig)*CKDeploy{
+func NewCkDeploy(conf model.CKManClickHouseConfig) *CKDeploy {
 	return &CKDeploy{
 		Conf: &conf,
-		DeployBase:DeployBase{
+		DeployBase: DeployBase{
 			pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
 		},
 	}
@@ -134,7 +136,7 @@ func (d *CKDeploy) Init() error {
 func (d *CKDeploy) Prepare() error {
 	files := make([]string, 0)
 	for _, file := range d.Packages {
-		files = append(files, path.Join(config.GetWorkDirectory(), "package", file))
+		files = append(files, path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory, file))
 	}
 
 	var lastError error
@@ -157,8 +159,9 @@ func (d *CKDeploy) Prepare() error {
 }
 
 func (d *CKDeploy) Install() error {
+	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmds := make([]string, 0)
-	cmds = append(cmds, fmt.Sprintf("DEBIAN_FRONTEND=noninteractive rpm --force --nosignature -ivh %s %s %s", path.Join(common.TmpWorkDirectory, d.Packages[0]), path.Join(common.TmpWorkDirectory, d.Packages[1]), path.Join(common.TmpWorkDirectory, d.Packages[2])))
+	cmds = append(cmds, cmdIns.InstallCmd(d.Packages))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("mkdir -p %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
@@ -167,7 +170,7 @@ func (d *CKDeploy) Install() error {
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			cmd1 := "systemctl stop clickhouse-server"
+			cmd1 := cmdIns.StopCmd(CkSvrName)
 			_, _ = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd1)
 
 			cmd2 := strings.Join(cmds, ";")
@@ -189,10 +192,9 @@ func (d *CKDeploy) Install() error {
 }
 
 func (d *CKDeploy) Uninstall() error {
+	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmds := make([]string, 0)
-	for _, pack := range d.Packages {
-		cmds = append(cmds, fmt.Sprintf("rpm -e %s", pack))
-	}
+	cmds = append(cmds, cmdIns.Uninstall(d.Packages))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, "rm -rf /etc/clickhouse-server")
 	cmds = append(cmds, "rm -rf /etc/clickhouse-client")
@@ -219,7 +221,8 @@ func (d *CKDeploy) Uninstall() error {
 }
 
 func (d *CKDeploy) Upgrade() error {
-	cmd := fmt.Sprintf("DEBIAN_FRONTEND=noninteractive rpm --force --nosignature -Uvh %s %s %s", path.Join(common.TmpWorkDirectory, d.Packages[0]), path.Join(common.TmpWorkDirectory, d.Packages[1]), path.Join(common.TmpWorkDirectory, d.Packages[2]))
+	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
+	cmd := cmdIns.UpgradeCmd(d.Packages)
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
@@ -345,6 +348,12 @@ func (d *CKDeploy) Config() error {
 						lastError = err
 						return
 					}
+
+					cmd := "chown -R clickhouse:clickhouse /etc/clickhouse-server"
+					if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd); err != nil {
+						lastError = err
+						return
+					}
 				})
 			}
 			d.pool.Wait()
@@ -358,11 +367,12 @@ func (d *CKDeploy) Config() error {
 }
 
 func (d *CKDeploy) Start() error {
+	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			cmd := "systemctl start clickhouse-server"
+			cmd := cmdIns.StartCmd(CkSvrName)
 			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
 			if err != nil {
 				lastError = err
@@ -380,11 +390,12 @@ func (d *CKDeploy) Start() error {
 }
 
 func (d *CKDeploy) Stop() error {
+	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			cmd := "systemctl stop clickhouse-server"
+			cmd := cmdIns.StopCmd(CkSvrName)
 			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
 			if err != nil {
 				lastError = err
@@ -402,11 +413,12 @@ func (d *CKDeploy) Stop() error {
 }
 
 func (d *CKDeploy) Restart() error {
+	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			cmd := "systemctl restart clickhouse-server"
+			cmd := cmdIns.RestartCmd(CkSvrName)
 			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
 			if err != nil {
 				lastError = err
@@ -628,10 +640,22 @@ func ClearLogicCluster(cluster, logic string, reconf bool) error {
 	return nil
 }
 
-func BuildPackages(version string)[]string {
+func BuildPackages(version, pkgType string) []string {
 	packages := make([]string, 3)
-	packages[0] = fmt.Sprintf("%s-%s-%s", model.CkCommonPackagePrefix, version, model.CkCommonPackageSuffix)
-	packages[1] = fmt.Sprintf("%s-%s-%s", model.CkServerPackagePrefix, version, model.CkServerPackageSuffix)
-	packages[2] = fmt.Sprintf("%s-%s-%s", model.CkClientPackagePrefix, version, model.CkClientPackageSuffix)
+	pkgs, ok := common.CkPackages.Load(pkgType)
+	if !ok {
+		return packages
+	}
+	for _, pkg := range pkgs.(common.CkPackageFiles) {
+		if pkg.Version == version {
+			if pkg.Module == common.PkgModuleCommon {
+				packages[0] = pkg.PkgName
+			} else if pkg.Module == common.PkgModuleServer {
+				packages[1] = pkg.PkgName
+			} else if pkg.Module == common.PkgModuleClient {
+				packages[2] = pkg.PkgName
+			}
+		}
+	}
 	return packages
 }

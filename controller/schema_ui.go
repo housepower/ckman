@@ -3,13 +3,11 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
-	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
 	"io"
 	"net/http"
-	"path"
 	"strings"
 )
 
@@ -27,20 +25,30 @@ var schemaHandleFunc = map[string]func() common.ConfigParams{
 	GET_SCHEMA_UI_CONFIG: RegistUpdateConfigSchema,
 }
 
-func getVersionLists() []common.Candidate {
-	var versionLists []common.Candidate
-	files, err := GetAllFiles(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory))
-	if err != nil {
-		return nil
-	}
-	versions := GetAllVersions(files)
-	for _, version := range versions {
+func getPkgType() []common.Candidate {
+	pkgs := common.GetAllPackages()
+	var lists []common.Candidate
+	for pkgType := range pkgs {
 		can := common.Candidate{
-			Value: version,
+			Value: pkgType,
 		}
-		versionLists = append(versionLists, can)
+		lists = append(lists, can)
 	}
-	return versionLists
+	return lists
+}
+
+func getPkgLists() []common.Candidate {
+	packages := common.GetAllPackages()
+	var pkgLists []common.Candidate
+	for _, pkgs := range packages {
+		for _, pkg := range pkgs {
+			can := common.Candidate{
+				Value: pkg.PkgName,
+			}
+			pkgLists = append(pkgLists, can)
+		}
+	}
+	return pkgLists
 }
 
 func NewSchemaUIController() *SchemaUIController {
@@ -624,12 +632,21 @@ func GetSchemaParams(typo string, conf model.CKManClickHouseConfig) common.Confi
 
 	if typo == GET_SCHEMA_UI_DEPLOY {
 		// get version list every time
-		params.MustRegister(conf, "Version", &common.Parameter{
+		params.MustRegister(conf, "PkgName", &common.Parameter{
 			LabelZH:       "ClickHouse版本",
-			LabelEN:       "Package Version",
-			DescriptionZH: "需要部署的ClickHouse集群的版本号，需提前上传安装包",
-			DescriptionEN: "which version of clickhouse will deployed, need upload rpm package before",
-			Candidates:    getVersionLists(),
+			LabelEN:       "Package Name",
+			DescriptionZH: "需要部署的ClickHouse集群的安装包版本，只显示common安装包，但需提前上传common、server、client安装包",
+			DescriptionEN: "which package of clickhouse will deployed, need upload rpm package before",
+			Candidates:    getPkgLists(),
+			Filter:        "\"PkgName\".indexOf(PkgType) !== -1",
+		})
+
+		params.MustRegister(conf, "PkgType", &common.Parameter{
+			LabelZH:       "安装包类型",
+			LabelEN:       "Package Type",
+			DescriptionZH: "安装包的类型，表示当前安装包是什么系统架构，什么压缩格式",
+			DescriptionEN: "The type of the installation package, indicating what system architecture and compression format",
+			Candidates:    getPkgType(),
 		})
 	}
 	return params

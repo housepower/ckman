@@ -141,7 +141,7 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 	// stop the node
 	deploy.SetNodeStatus(task, model.NodeStatusStop, model.ALL_NODES_DEFAULT)
 	d := deploy.NewCkDeploy(*conf)
-	d.Packages = deploy.BuildPackages(conf.Version)
+	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType)
 	d.Conf.Hosts = []string{ip}
 	if err := d.Stop(); err != nil {
 		log.Logger.Warnf("can't stop node %s, ignore it", ip)
