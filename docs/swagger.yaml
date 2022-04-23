@@ -110,6 +110,12 @@ definitions:
       path:
         example: /var/lib/
         type: string
+      pkgName:
+        example: clickhouse-server-22.3.3.44.noarch.rpm
+        type: string
+      pkgType:
+        example: Linux.x86_64.rpm
+        type: string
       port:
         example: 9000
         type: integer
@@ -258,6 +264,9 @@ definitions:
     type: object
   model.CkUpgradeCkReq:
     properties:
+      packageType:
+        example: Linux.x86_64.rpm
+        type: string
       packageVersion:
         example: 20.9.3.45
         type: string
@@ -763,7 +772,7 @@ paths:
       summary: Stop ClickHouse node
   /api/v1/ck/open_sessions/{clusterName}:
     get:
-      description: Get open sessions
+      description: Kill open sessions
       parameters:
       - default: test
         description: cluster name
@@ -784,7 +793,7 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: Get open sessions
+      summary: Kill open sessions
   /api/v1/ck/ping/{clusterName}:
     post:
       description: check clickhousr server in cluster wether useful
@@ -1338,15 +1347,15 @@ paths:
       summary: Upload package
   /api/v1/task/{taskId}:
     delete:
-      description: Get running task count
+      description: delete task by taskid
       responses:
         "200":
-          description: '{"retCode":"0000","retMsg":"success","entity":3}'
+          description: '{"retCode":"0000","retMsg":"success","entity":nil}'
           schema:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: GetRunningTaskCount
+      summary: DeleteTask
     get:
       description: Get task by taskId
       parameters:
@@ -1363,6 +1372,16 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: GetTaskById
+    put:
+      description: stop task by taskid
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"success","entity":nil}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: StopTask
   /api/v1/task/lists:
     get:
       description: Get all tasklist

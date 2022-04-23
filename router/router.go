@@ -44,6 +44,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.GET(fmt.Sprintf("/ck/get/:%s", controller.ClickHouseClusterPath), ckController.GetClusterStatus)
 	groupV1.GET(fmt.Sprintf("/ck/table_metric/:%s", controller.ClickHouseClusterPath), ckController.GetTableMetric)
 	groupV1.GET(fmt.Sprintf("/ck/open_sessions/:%s", controller.ClickHouseClusterPath), ckController.GetOpenSessions)
+	groupV1.PUT(fmt.Sprintf("/ck/open_sessions/:%s", controller.ClickHouseClusterPath), ckController.KillOpenSessions)
 	groupV1.GET(fmt.Sprintf("/ck/slow_sessions/:%s", controller.ClickHouseClusterPath), ckController.GetSlowSessions)
 	groupV1.POST(fmt.Sprintf("/ck/node/:%s", controller.ClickHouseClusterPath), ckController.AddNode)
 	groupV1.DELETE(fmt.Sprintf("/ck/node/:%s", controller.ClickHouseClusterPath), ckController.DeleteNode)
@@ -68,4 +69,5 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.GET("/task/lists", taskController.TasksList)
 	groupV1.GET("/task/running", taskController.GetRunningTaskCount)
 	groupV1.DELETE(fmt.Sprintf("/task/:%s", controller.TaskIdPath), taskController.DeleteTask)
+	groupV1.PUT(fmt.Sprintf("/task/:%s", controller.TaskIdPath), taskController.StopTask)
 }

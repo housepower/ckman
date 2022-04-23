@@ -582,8 +582,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get open sessions",
-                "summary": "Get open sessions",
+                "description": "Kill open sessions",
+                "summary": "Kill open sessions",
                 "parameters": [
                     {
                         "type": "string",
@@ -1516,17 +1516,34 @@ var doc = `{
                     }
                 }
             },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "stop task by taskid",
+                "summary": "StopTask",
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":nil}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get running task count",
-                "summary": "GetRunningTaskCount",
+                "description": "delete task by taskid",
+                "summary": "DeleteTask",
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":3}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":nil}",
                         "schema": {
                             "type": "string"
                         }
@@ -1787,6 +1804,14 @@ var doc = `{
                     "type": "string",
                     "example": "/var/lib/"
                 },
+                "pkgName": {
+                    "type": "string",
+                    "example": "clickhouse-server-22.3.3.44.noarch.rpm"
+                },
+                "pkgType": {
+                    "type": "string",
+                    "example": "Linux.x86_64.rpm"
+                },
                 "port": {
                     "type": "integer",
                     "example": 9000
@@ -1990,6 +2015,10 @@ var doc = `{
         "model.CkUpgradeCkReq": {
             "type": "object",
             "properties": {
+                "packageType": {
+                    "type": "string",
+                    "example": "Linux.x86_64.rpm"
+                },
                 "packageVersion": {
                     "type": "string",
                     "example": "20.9.3.45"

@@ -98,11 +98,11 @@ func (t *TaskController) GetRunningTaskCount(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, count)
 }
 
-// @Summary GetRunningTaskCount
-// @Description Get running task count
+// @Summary DeleteTask
+// @Description delete task by taskid
 // @version 1.0
 // @Security ApiKeyAuth
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":3}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Router /api/v1/task/{taskId} [delete]
 func (t *TaskController) DeleteTask(c *gin.Context) {
 	taskId := c.Param(TaskIdPath)
@@ -124,6 +124,41 @@ func (t *TaskController) DeleteTask(c *gin.Context) {
 
 	if err := repository.Ps.DeleteTask(taskId); err != nil {
 		model.WrapMsg(c, model.DELETE_TASK_FAIL, err)
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, nil)
+}
+
+
+// @Summary StopTask
+// @Description stop task by taskid
+// @version 1.0
+// @Security ApiKeyAuth
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Router /api/v1/task/{taskId} [put]
+func (t *TaskController) StopTask(c *gin.Context) {
+	taskId := c.Param(TaskIdPath)
+	if taskId == "" {
+		err := fmt.Errorf("expect taskId but got null")
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+	task, err := repository.Ps.GetTaskbyTaskId(taskId)
+	if err != nil {
+		model.WrapMsg(c, model.STOP_TASK_FAIL, err)
+		return
+	}
+	if task.Status != model.TaskStatusRunning && task.Status != model.TaskStatusWaiting {
+		err := errors.Errorf("can't stop task while status is %d", task.Status)
+		model.WrapMsg(c, model.STOP_TASK_FAIL, err)
+		return
+	}
+
+	task.Status = model.TaskStatusStopped
+	task.Message = "Manual cancellation, only modifies the task status, does not actually stop the task"
+	if err := repository.Ps.UpdateTask(task); err != nil {
+		model.WrapMsg(c, model.STOP_TASK_FAIL, err)
 		return
 	}
 

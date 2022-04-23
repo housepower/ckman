@@ -14,6 +14,7 @@ const (
 	TaskStatusRunning int = 1
 	TaskStatusSuccess int = 2
 	TaskStatusFailed  int = 3
+	TaskStatusStopped int = 4
 
 	TaskTypeCKDeploy     string = "clickhouse.deploy"
 	TaskTypeCKUpgrade    string = "clickhouse.upgrade"

@@ -926,6 +926,7 @@ func (ck *ClickHouseController) GetClusterStatus(c *gin.Context) {
 	}
 
 	info := model.CkClusterInfoRsp{
+		PkgType:      conf.PkgType,
 		Status:       globalStatus,
 		Version:      conf.Version,
 		Nodes:        statusList,
@@ -1247,6 +1248,33 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 	}
 
 	model.WrapMsg(c, model.SUCCESS, sessions)
+}
+
+// @Summary Kill open sessions
+// @Description Kill open sessions
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param limit query string false "sessions limit" default(10)
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"startTime":1609997894,"queryDuration":1,"query":"SELECT DISTINCT name FROM system.tables","user":"eoi","queryId":"62dce71d-9294-4e47-9d9b-cf298f73233d","address":"192.168.21.73","threads":2}]}"
+// @Router /api/v1/ck/open_sessions/{clusterName} [get]
+func (ck *ClickHouseController) KillOpenSessions(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	host := c.Query("host")
+	queryId := c.Query("query_id")
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	err = clickhouse.KillCkOpenSessions(&conf, host, queryId)
+	if err != nil {
+		model.WrapMsg(c, model.STOP_TASK_FAIL, err)
+		return
+	}
+	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
 // @Summary Get slow sessions

@@ -7,6 +7,7 @@ const (
 )
 
 type CkClusterInfoRsp struct {
+	PkgType      string          `json:"pkgType"`
 	Status       string          `json:"status"`
 	Version      string          `json:"version"`
 	Nodes        []CkClusterNode `json:"nodes"`

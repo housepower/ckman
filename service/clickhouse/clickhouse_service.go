@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go"
 	"github.com/housepower/ckman/repository"
 	"net"
 	"sort"
@@ -736,6 +737,19 @@ func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 	query := fmt.Sprintf("select subtractSeconds(now(), elapsed) AS query_start_time, toUInt64(elapsed*1000) AS query_duration_ms,  query, initial_user, initial_query_id, initial_address, thread_ids, (extractAllGroups(query, '(from|FROM)\\s+(\\w+\\.)?(\\w+)')[1])[3] AS tbl_name from system.processes WHERE tbl_name != '' AND tbl_name != 'processes' AND tbl_name != 'query_log' AND is_initial_query=1 ORDER BY query_duration_ms DESC limit %d", limit)
 	log.Logger.Debugf("query: %s", query)
 	return getCkSessions(conf, limit, query)
+}
+
+func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId string)error{
+	db, err := common.ConnectClickHouse(host, conf.Port, clickhouse.DefaultDatabase, conf.User, conf.Password)
+	if err != nil {
+		return err
+	}
+	query := fmt.Sprintf("KILL QUERY WHERE query_id = '%s'", queryId)
+	_, err = db.Exec(query)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetCkSlowSessions(conf *model.CKManClickHouseConfig, cond model.SessionCond) ([]*model.CkSessionInfo, error) {

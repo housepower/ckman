@@ -641,6 +641,9 @@ func ClearLogicCluster(cluster, logic string, reconf bool) error {
 }
 
 func BuildPackages(version, pkgType string) []string {
+	if pkgType == "" {
+		pkgType = model.PkgTypeDefault
+	}
 	packages := make([]string, 3)
 	pkgs, ok := common.CkPackages.Load(pkgType)
 	if !ok {
