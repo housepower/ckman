@@ -56,8 +56,8 @@ type CkImportConfig struct {
 }
 
 type CKManClickHouseConfig struct {
-	PkgType          string    `json:"pkgType" example:"Linux.x86_64.rpm"`
-	PkgName          string    `json:"pkgName" example:"clickhouse-server-22.3.3.44.noarch.rpm"`
+	PkgType          string    `json:"pkgType" example:"x86_64.rpm"`
+	PkgName          string    `json:"pkgName" example:"clickhouse-common-static-22.3.3.44.noarch.rpm"`
 	Version          string    `json:"version" example:"21.9.1.7647"`
 	Cluster          string    `json:"cluster" example:"test"`
 	LogicCluster     *string   `json:"logic_cluster" yaml:"logic_cluster" example:"logic_test"`

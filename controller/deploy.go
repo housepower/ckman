@@ -91,9 +91,13 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 	if conf.Hosts, err = common.ParseHosts(conf.Hosts); err != nil {
 		return err
 	}
-	if conf.IsReplica && len(conf.Hosts)%2 == 1 {
-		return errors.Errorf("When supporting replica, the number of nodes must be even")
+
+	if err = MatchingPlatfrom(conf); err != nil {
+		return err
 	}
+	//if conf.IsReplica && len(conf.Hosts)%2 == 1 {
+	//	return errors.Errorf("When supporting replica, the number of nodes must be even")
+	//}
 	conf.Shards = GetShardsbyHosts(conf.Hosts, conf.IsReplica)
 	if len(conf.ZkNodes) == 0 {
 		return errors.Errorf("zookeeper nodes must not be empty")
@@ -201,6 +205,9 @@ func GetShardsbyHosts(hosts []string, isReplica bool) []model.CkShard {
 				shard.Replicas = make([]model.CkReplica, 0)
 			}
 		}
+		if len(shard.Replicas) > 0 {
+			shards = append(shards, shard)
+		}
 	} else {
 		for _, host := range hosts {
 			shard := model.CkShard{Replicas: []model.CkReplica{{Ip: host}}}
@@ -225,4 +232,23 @@ func checkAccess(localPath string, conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-
+func MatchingPlatfrom(conf *model.CKManClickHouseConfig) error {
+	arch := strings.Split(conf.PkgType, ".")[0]
+	if arch == "amd64" {
+		arch = "x86_64"
+	}
+	if arch == "arm64" {
+		arch = "aarch64"
+	}
+	cmd  := "uname -m"
+	for _, host := range conf.Hosts {
+		result, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd)
+		if err != nil {
+			return errors.Errorf("host %s get platform failed: %v", host, err)
+		}
+		if result != arch {
+			return errors.Errorf("arch %s mismatched, pkgType: %s", arch, conf.PkgType)
+		}
+	}
+	return nil
+}

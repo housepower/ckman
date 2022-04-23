@@ -172,7 +172,7 @@ func UploadFileByURL(url string, localFile string) error {
 func (p *PackageController) List(c *gin.Context) {
 	pkgType := c.Query("pkgType")
 	if pkgType == "" {
-		pkgType = "all"
+		pkgType = model.PkgTypeDefault
 	}
 	pkgs := common.GetAllPackages()
 	var resp []model.PkgInfo
@@ -211,7 +211,7 @@ func (p *PackageController) List(c *gin.Context) {
 // @Router /api/v1/package [delete]
 func (p *PackageController) Delete(c *gin.Context) {
 	packageVersion := c.Query("packageVersion")
-	packageType := c.Query("packageType")
+	packageType := c.Query("pkgType")
 	packages := deploy.BuildPackages(packageVersion, packageType)
 	for _, packageName := range packages {
 		if err := os.Remove(path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory, packageName)); err != nil {

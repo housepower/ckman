@@ -566,6 +566,40 @@
                         "ApiKeyAuth": []
                     }
                 ],
+                "description": "Get open sessions",
+                "summary": "Get open sessions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "10",
+                        "description": "sessions limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[{\"startTime\":1609997894,\"queryDuration\":1,\"query\":\"SELECT DISTINCT name FROM system.tables\",\"user\":\"eoi\",\"queryId\":\"62dce71d-9294-4e47-9d9b-cf298f73233d\",\"address\":\"192.168.21.73\",\"threads\":2}]}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Kill open sessions",
                 "summary": "Kill open sessions",
                 "parameters": [
@@ -1790,11 +1824,11 @@
                 },
                 "pkgName": {
                     "type": "string",
-                    "example": "clickhouse-server-22.3.3.44.noarch.rpm"
+                    "example": "clickhouse-common-static-22.3.3.44.noarch.rpm"
                 },
                 "pkgType": {
                     "type": "string",
-                    "example": "Linux.x86_64.rpm"
+                    "example": "x86_64.rpm"
                 },
                 "port": {
                     "type": "integer",

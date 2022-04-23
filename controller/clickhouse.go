@@ -178,6 +178,7 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 	if cluster.Mode == model.CkClusterImport {
 		_ = clickhouse.GetCkClusterConfig(&cluster)
 	}
+	cluster.Normalize()
 	model.WrapMsg(c, model.SUCCESS, cluster)
 }
 
@@ -203,6 +204,7 @@ func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 				continue
 			}
 		}
+		cluster.Normalize()
 		clusters[key] = cluster
 	}
 
@@ -901,6 +903,7 @@ func (ck *ClickHouseController) GetClusterStatus(c *gin.Context) {
 			return
 		}
 	}
+	conf.Normalize()
 	statusList := clickhouse.GetCkClusterStatus(&conf)
 
 	globalStatus := model.CkStatusGreen
@@ -1257,7 +1260,7 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 // @Param clusterName path string true "cluster name" default(test)
 // @Param limit query string false "sessions limit" default(10)
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"startTime":1609997894,"queryDuration":1,"query":"SELECT DISTINCT name FROM system.tables","user":"eoi","queryId":"62dce71d-9294-4e47-9d9b-cf298f73233d","address":"192.168.21.73","threads":2}]}"
-// @Router /api/v1/ck/open_sessions/{clusterName} [get]
+// @Router /api/v1/ck/open_sessions/{clusterName} [put]
 func (ck *ClickHouseController) KillOpenSessions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	host := c.Query("host")
