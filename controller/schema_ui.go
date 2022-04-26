@@ -345,6 +345,44 @@ Non-professionals please do not fill in this`,
 func RegistUpdateConfigSchema() common.ConfigParams {
 	var params common.ConfigParams = make(map[string]*common.Parameter)
 	var conf model.CKManClickHouseConfig
+	params.MustRegister(conf, "Version", &common.Parameter{
+		LabelZH:       "ClickHouse版本",
+		LabelEN:       "Version",
+		DescriptionZH: "需要部署的ClickHouse集群的安装包版本",
+		DescriptionEN: "which version of clickhouse ",
+		Editable:      "false",
+	})
+
+	params.MustRegister(conf, "PkgType", &common.Parameter{
+		LabelZH:       "安装包类型",
+		LabelEN:       "Package Type",
+		DescriptionZH: "安装包的类型，表示当前安装包是什么系统架构，什么压缩格式",
+		DescriptionEN: "The type of the installation package, indicating what system architecture and compression format",
+		Editable:      "false",
+	})
+	params.MustRegister(conf, "Cluster", &common.Parameter{
+		LabelZH:       "物理集群名",
+		LabelEN:       "Cluster Name",
+		DescriptionZH: "不得与本ckman管理的其他集群名重复",
+		DescriptionEN: "not allow to duplicate with exist name",
+		Editable:      "false",
+	})
+	params.MustRegister(conf, "LogicCluster", &common.Parameter{
+		LabelZH:       "逻辑集群名",
+		LabelEN:       "Logic Name",
+		DescriptionZH: "逻辑集群，存在于物理集群之上",
+		DescriptionEN: "require physical cluster",
+		Editable:      "false",
+	})
+
+	params.MustRegister(conf, "Path", &common.Parameter{
+		LabelZH:       "数据存储路径",
+		LabelEN:       "Data Path",
+		DescriptionZH: "ClickHouse存储数据的路径，路径需要存在且必须以'/'结尾",
+		DescriptionEN: "path need exist, must end with '/'",
+		Editable:      "false",
+	})
+
 	params.MustRegister(conf, "SshUser", &common.Parameter{
 		LabelZH:       "系统账户名",
 		LabelEN:       "SSH Username",
@@ -374,6 +412,27 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelZH:       "SSH 端口",
 		LabelEN:       "SSH Port",
 		DescriptionZH: "不得为空",
+	})
+	params.MustRegister(conf, "IsReplica", &common.Parameter{
+		LabelZH:       "是否为多副本",
+		LabelEN:       "Replica",
+		DescriptionZH: "物理集群的每个shard是否为多副本, 生产环境建议每个shard为两副本",
+		DescriptionEN: "Whether each Shard of the cluster is multiple replication, we suggest each shard have two copies.",
+		Editable:      "false",
+	})
+	params.MustRegister(conf, "Hosts", &common.Parameter{
+		LabelZH:       "集群结点IP地址列表",
+		LabelEN:       "ClickHouse Node List",
+		DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
+		DescriptionEN: "ClickHouse Node ip, support CIDR or Range.designation by ckman automatically",
+		Editable:      "false",
+	})
+	params.MustRegister(conf, "ZkNodes", &common.Parameter{
+		LabelZH:       "ZooKeeper集群结点列表",
+		LabelEN:       "Zookeeper Node List",
+		DescriptionZH: "每段为单个IP，或者IP范围，或者网段掩码",
+		DescriptionEN: "Zookeeper Node ip, support CIDR or Range.",
+		Editable:      "false",
 	})
 	params.MustRegister(conf, "ZkPort", &common.Parameter{
 		LabelZH: "ZooKeeper集群监听端口",
