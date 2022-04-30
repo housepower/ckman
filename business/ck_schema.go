@@ -45,7 +45,7 @@ func GetCreateReplicaObjects(db *sql.DB, host, user, password string) (names, st
 			database AS name, 
 			concat('CREATE DATABASE IF NOT EXISTS "', name, '"') AS create_db_query
 		FROM system.tables
-		WHERE database != 'system'
+		WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')
 		SETTINGS skip_unavailable_shards = 1`,
 		"system.tables", system_tables,
 	))
@@ -54,7 +54,8 @@ func GetCreateReplicaObjects(db *sql.DB, host, user, password string) (names, st
 			name, 
 			replaceRegexpOne(create_table_query, 'CREATE (TABLE|VIEW|MATERIALIZED VIEW)', 'CREATE \\1 IF NOT EXISTS')
 		FROM system.tables
-		WHERE database != 'system' AND create_table_query != '' AND name NOT LIKE '.inner%'
+		WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA') 
+        AND create_table_query != '' AND name NOT LIKE '.inner%'
 		ORDER BY if(engine='Distributed', 1, 0), if(match(create_table_query, 'CREATE (MATERIALIZED )?VIEW'), 1, 0), name
 		SETTINGS skip_unavailable_shards = 1`,
 		"system.tables",

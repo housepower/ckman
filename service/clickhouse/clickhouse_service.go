@@ -896,7 +896,7 @@ INNER JOIN
         database,
         name
     FROM system.tables
-    WHERE match(engine, 'Distributed') AND (database != 'system')
+    WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA') )
 ) AS t2 ON t1.table = t2.name
 GROUP BY
     database,
