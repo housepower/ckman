@@ -897,7 +897,7 @@ INNER JOIN
         name
     FROM system.tables
     WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA') )
-) AS t2 ON t1.table = t2.name
+) AS t2 ON t1.table = t2.name and t1.database=t2.database
 GROUP BY
     database,
     table
@@ -905,21 +905,22 @@ ORDER BY
     database`
 
 	tblLists := make(map[string]map[string][]string)
-	tblMapping := make(map[string][]string)
-	var preValue string
 	value, err := ck.QueryInfo(query)
 	for i := 1; i < len(value); i++ {
+		tblMapping := make(map[string][]string)
 		database := value[i][0].(string)
 		table := value[i][1].(string)
 		cols := value[i][2].([]string)
-		tblMapping[table] = cols
-		if preValue != "" && preValue != database {
-			tblLists[preValue] = tblMapping
-			tblMapping = make(map[string][]string)
+		tableMap, isExist := tblLists[database]
+		if isExist {
+			tblMapping = tableMap
+			tblMapping[table] = cols
+			tblLists[database] = tblMapping
+		} else {
+			tblMapping[table] = cols
+			tblLists[database] = tblMapping
 		}
-		preValue = database
 	}
-	tblLists[preValue] = tblMapping
 	return tblLists, err
 }
 
