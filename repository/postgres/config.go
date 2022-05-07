@@ -23,5 +23,5 @@ func (config *PostgresConfig) Normalize() {
 	config.MaxOpenConns = common.GetIntegerwithDefault(config.MaxOpenConns, PG_MAX_OPEN_CONNS_DEFAULT)
 	config.ConnMaxLifetime = common.GetIntegerwithDefault(config.ConnMaxLifetime, PG_MAX_LIFETIME_DEFAULT)
 	config.ConnMaxIdleTime = common.GetIntegerwithDefault(config.ConnMaxIdleTime, PG_MAX_IDLE_TIME_DEFAULT)
-	config.Password = common.AesDecryptECB(config.Password)
+	_ = common.Gsypt.Unmarshal(&config)
 }

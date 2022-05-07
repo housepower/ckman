@@ -23,5 +23,5 @@ func (config *MysqlConfig) Normalize() {
 	config.MaxOpenConns = common.GetIntegerwithDefault(config.MaxOpenConns, MYSQL_MAX_OPEN_CONNS_DEFAULT)
 	config.ConnMaxLifetime = common.GetIntegerwithDefault(config.ConnMaxLifetime, MYSQL_MAX_LIFETIME_DEFAULT)
 	config.ConnMaxIdleTime = common.GetIntegerwithDefault(config.ConnMaxIdleTime, MYSQL_MAX_IDLE_TIME_DEFAULT)
-	config.Password = common.AesDecryptECB(config.Password)
+	_ = common.Gsypt.Unmarshal(&config)
 }
