@@ -52,6 +52,11 @@ func main() {
 		fmt.Printf("Parse config file %s fail: %v\n", ConfigFilePath, err)
 		os.Exit(1)
 	}
+	err := common.Gsypt.Unmarshal(&config.GlobalConfig)
+	if err != nil {
+		fmt.Printf("gsypt config file %s fail: %v\n", ConfigFilePath, err)
+		os.Exit(1)
+	}
 	log.InitLogger(LogFilePath, &config.GlobalConfig.Log)
 
 	cntxt := &daemon.Context{
@@ -81,7 +86,7 @@ func main() {
 	selfIP := common.GetOutboundIP().String()
 	signalCh := make(chan os.Signal, 1)
 
-	err := repository.InitPersistent()
+	err = repository.InitPersistent()
 	if err != nil {
 		log.Logger.Fatalf("init persistent failed:%v", err)
 	}
