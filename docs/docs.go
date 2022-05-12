@@ -2165,10 +2165,6 @@ var doc = `{
         "model.PingClusterReq": {
             "type": "object",
             "properties": {
-                "database": {
-                    "type": "string",
-                    "example": "default"
-                },
                 "password": {
                     "type": "string",
                     "example": "123456"

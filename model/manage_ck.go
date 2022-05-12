@@ -30,7 +30,6 @@ type AddNodeReq struct {
 }
 
 type PingClusterReq struct {
-	Database string `json:"database" example:"default"`
 	User     string `json:"user" example:"ck"`
 	Password string `json:"password" example:"123456"`
 }

@@ -344,9 +344,6 @@ definitions:
     type: object
   model.PingClusterReq:
     properties:
-      database:
-        example: default
-        type: string
       password:
         example: "123456"
         type: string
