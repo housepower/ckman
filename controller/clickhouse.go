@@ -1373,7 +1373,7 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 		failNum := 0
 		for _, replica := range shard.Replicas {
 			host := replica.Ip
-			_, err = common.ConnectClickHouse(host, conf.Port, req.Database, req.User, req.Password)
+			_, err = common.ConnectClickHouse(host, conf.Port, client.DefaultDatabase, req.User, req.Password)
 			if err != nil {
 				log.Logger.Error("err: %v", err)
 				failNum++
