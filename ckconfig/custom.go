@@ -29,6 +29,7 @@ func yandex(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]inter
 	output["user_files_path"] = fmt.Sprintf("%sclickhouse/user_files/", conf.Path)
 	output["access_control_path"] = fmt.Sprintf("%sclickhouse/access/", conf.Path)
 	output["format_schema_path"] = fmt.Sprintf("%sclickhouse/format_schemas/", conf.Path)
+	output["database_atomic_delay_before_drop_table_sec"] = 0
 	return output
 }
 
