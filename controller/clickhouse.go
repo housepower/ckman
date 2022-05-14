@@ -1751,6 +1751,18 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 		return errors.Errorf("ssh password must not be empty")
 	}
 
+	if conf.LogicCluster != nil {
+		if con.LogicCluster != nil {
+			if *conf.LogicCluster != *con.LogicCluster {
+				return errors.Errorf("not support change logic cluster from one to another")
+			}
+		}
+	} else {
+		if con.LogicCluster != nil {
+			return errors.Errorf("can't remove cluster from a logic cluster")
+		}
+	}
+
 	disks := make([]string, 0)
 	disks = append(disks, "default")
 	if conf.Storage != nil {
@@ -1818,13 +1830,15 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	storageChanged := !reflect.DeepEqual(cluster.Storage, conf.Storage)
 	expertChanged := !reflect.DeepEqual(cluster.Expert, conf.Expert)
 	userconfChanged := !reflect.DeepEqual(cluster.UsersConf, conf.UsersConf)
+	logicChaned := !reflect.DeepEqual(cluster.LogicCluster, conf.LogicCluster)
 	if cluster.Port == conf.Port &&
 		cluster.AuthenticateType == conf.AuthenticateType &&
 		cluster.SshUser == conf.SshUser &&
 		cluster.SshPassword == conf.SshPassword &&
 		cluster.SshPort == conf.SshPort &&
 		cluster.Password == conf.Password && !storageChanged && !expertChanged &&
-		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort && !userconfChanged {
+		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
+		!userconfChanged && !logicChaned{
 		return false, errors.Errorf("all config are the same, it's no need to update")
 	}
 	if storageChanged {
@@ -1873,6 +1887,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	cluster.PromPort = conf.PromPort
 	cluster.Expert = conf.Expert
 	cluster.UsersConf = conf.UsersConf
+	cluster.LogicCluster = conf.LogicCluster
 	if err := common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err
 	}

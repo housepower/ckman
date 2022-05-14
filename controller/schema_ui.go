@@ -370,9 +370,8 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(conf, "LogicCluster", &common.Parameter{
 		LabelZH:       "逻辑集群名",
 		LabelEN:       "Logic Name",
-		DescriptionZH: "逻辑集群，存在于物理集群之上",
-		DescriptionEN: "require physical cluster",
-		Editable:      "false",
+		DescriptionZH: "逻辑集群，存在于物理集群之上， 仅支持将未设置逻辑集群的物理集群加入已有逻辑集群",
+		DescriptionEN: "require physical cluster, only supports adding a physical cluster without a logical cluster to an existed",
 	})
 
 	params.MustRegister(conf, "Path", &common.Parameter{

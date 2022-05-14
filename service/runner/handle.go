@@ -252,10 +252,45 @@ func CKSettingHandle(task *model.Task) error {
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
-	if err := repository.Ps.UpdateCluster(*d.Conf); err != nil {
-		return err
+
+	// sync table schema when logic cluster exists
+	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
+	if d.Conf.LogicCluster != nil {
+		logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
+		if err == nil && len(logics) > 0 {
+			for _, logic := range logics {
+				if cluster, err := repository.Ps.GetClusterbyName(logic); err == nil {
+					if clickhouse.SyncLogicSchema(cluster, *d.Conf) {
+						break
+					}
+				}
+			}
+		}
 	}
 
+	if err := repository.Ps.Begin(); err != nil {
+		return err
+	}
+	if err := repository.Ps.UpdateCluster(*d.Conf); err != nil {
+		_ = repository.Ps.Rollback()
+		return err
+	}
+	if d.Conf.LogicCluster != nil {
+		logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
+		if err != nil {
+			if err == repository.ErrRecordNotFound {
+				logics = append(logics, d.Conf.Cluster)
+				_ = repository.Ps.CreateLogicCluster(*d.Conf.LogicCluster, logics)
+			} else {
+				_ = repository.Ps.Rollback()
+				return err
+			}
+		}else {
+			logics = append(logics, d.Conf.Cluster)
+			_ = repository.Ps.UpdateLogicCluster(*d.Conf.LogicCluster, logics)
+		}
+	}
+	_ = repository.Ps.Commit()
 	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
 	return nil
 }
