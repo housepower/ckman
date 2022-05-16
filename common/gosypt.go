@@ -58,25 +58,25 @@ func (gsypt *Gosypt) Unmarshal(v interface{}) error {
 	if rt.Kind() == reflect.Struct {
 		v, err := gsypt.structHandle(rt, rv)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 		rv.Set(v)
 	} else if rt.Kind() == reflect.Slice || rt.Kind() == reflect.Array {
 		v, err := gsypt.sliceHandle(rt, rv)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 		rv.Set(v)
 	} else if rt.Kind() == reflect.Map {
 		v, err := gsypt.mapHandle(rt, rv)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 		rv.Set(v)
 	} else if rt.Kind() == reflect.Interface {
 		v, err := gsypt.interfaceHandle(rt, rv)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 		rv.Set(v)
 	} else if rt.Kind() == reflect.String {
@@ -92,7 +92,7 @@ func (gsypt *Gosypt) sliceHandle(rt reflect.Type, rv reflect.Value) (reflect.Val
 			rv.Index(j).Set(gsypt.stringHandle(rv.Index(j)))
 		} else {
 			if err := gsypt.Unmarshal(rv.Index(j).Addr().Interface()); err != nil {
-				return rv, err
+				return rv, errors.Wrap(err, "")
 			}
 		}
 	}
@@ -108,7 +108,7 @@ func (gsypt *Gosypt) mapHandle(rt reflect.Type, rv reflect.Value) (reflect.Value
 		} else {
 			v := rv.MapIndex(key).Interface()
 			if err := gsypt.Unmarshal(&v); err != nil {
-				return rv, err
+				return rv, errors.Wrap(err, "")
 			}
 			rv.SetMapIndex(key, reflect.ValueOf(v))
 		}
@@ -135,7 +135,7 @@ func (gsypt *Gosypt) structHandle(rt reflect.Type, rv reflect.Value) (reflect.Va
 			rv.Field(i).Set(gsypt.stringHandle(rvf))
 		} else {
 			if err := gsypt.Unmarshal(rvf.Addr().Interface()); err != nil {
-				return rv, err
+				return rv, errors.Wrap(err, "")
 			}
 		}
 	}

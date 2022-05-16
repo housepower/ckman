@@ -75,7 +75,7 @@ func VerifyPassword(pwd string) error {
 func HashPassword(pwd string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 	return string(hash), nil
 }
@@ -157,7 +157,7 @@ type TempFile struct {
 func NewTempFile(dir, prefix string) (TempFile, error) {
 	f, err := os.CreateTemp(dir, prefix)
 	if err != nil {
-		return TempFile{}, err
+		return TempFile{}, errors.Wrap(err, "")
 	}
 	defer f.Close()
 	file := TempFile{
@@ -170,7 +170,7 @@ func NewTempFile(dir, prefix string) (TempFile, error) {
 func DeepCopyByGob(dst, src interface{}) error {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(src); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	return gob.NewDecoder(bytes.NewBuffer(buf.Bytes())).Decode(dst)
 }
@@ -187,12 +187,12 @@ func ArraySearch(target string, str_array []string) bool {
 func ReplaceTemplateString(src *string, replace map[string]interface{}) error {
 	t, err := template.New("T1").Parse(*src)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	buf := new(bytes.Buffer)
 	err = t.Execute(buf, replace)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	*src = buf.String()
 	return nil

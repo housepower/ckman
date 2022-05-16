@@ -323,7 +323,7 @@ func (this *CKRebalance) DoRebalance() (err error) {
 			var tbls []*TblPartitions
 			if tbls, err = this.GetState(database, table); err != nil {
 				log.Logger.Errorf("got error %+v", err)
-				return err
+				return errors.Wrap(err, "")
 			}
 			this.GeneratePlan(fmt.Sprintf("%s.%s", database, table), tbls)
 
@@ -341,7 +341,7 @@ func (this *CKRebalance) DoRebalance() (err error) {
 			}
 			this.Pool.Wait()
 			if gotError {
-				return err
+				return errors.Wrap(err, "")
 			}
 			log.Logger.Infof("table %s rebalance done", table)
 		}

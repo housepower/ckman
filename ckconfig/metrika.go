@@ -3,6 +3,7 @@ package ckconfig
 import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
+	"github.com/pkg/errors"
 )
 
 func GenerateMetrikaXML(filename string, conf *model.CKManClickHouseConfig)(string, error){
@@ -15,7 +16,7 @@ func GenerateMetrikaXML(filename string, conf *model.CKManClickHouseConfig)(stri
 	xml.End("yandex")
 	err := xml.Dump()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 	return filename, nil
 }
@@ -31,7 +32,7 @@ func GenerateMetrikaXMLwithLogic(filename string, conf *model.CKManClickHouseCon
 	xml.End("yandex")
 	err := xml.Dump()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 	return filename, nil
 }

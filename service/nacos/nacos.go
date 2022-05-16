@@ -30,7 +30,7 @@ func InitNacosClient(config *config.CKManNacosConfig, log string) (*NacosClient,
 
 	logDir, err := filepath.Abs(filepath.Dir(log))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	if config.Enabled {
@@ -66,7 +66,7 @@ func InitNacosClient(config *config.CKManNacosConfig, log string) (*NacosClient,
 			},
 		)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "")
 		}
 
 		// Create config client for dynamic configuration
@@ -77,7 +77,7 @@ func InitNacosClient(config *config.CKManNacosConfig, log string) (*NacosClient,
 			},
 		)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "")
 		}
 
 		return &NacosClient{
@@ -147,18 +147,18 @@ func (c *NacosClient) Start(ipHttp string, portHttp int) error {
 
 	err := c.Subscribe()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	err = c.ListenConfig()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	var metadata map[string]string
 	_, err = c.RegisterInstance(ipHttp, portHttp, metadata)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	return nil
@@ -171,12 +171,12 @@ func (c *NacosClient) Stop(ip string, port int) error {
 
 	_, err := c.DeregisterInstance(ip, port)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	err = c.Unsubscribe()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	if c.Config != nil {
@@ -185,7 +185,7 @@ func (c *NacosClient) Stop(ip string, port int) error {
 			Group:  c.GroupName,
 		})
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 
@@ -202,7 +202,7 @@ func (c *NacosClient) PublishConfig(content string) error {
 			Content: content,
 		})
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 
@@ -231,7 +231,7 @@ func (c *NacosClient) ListenConfig() error {
 			Group:    c.GroupName,
 			OnChange: ListenConfigCallback,
 		})
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	return nil

@@ -3,10 +3,10 @@ package controller
 import (
 	"fmt"
 	"github.com/housepower/ckman/repository"
+	"github.com/pkg/errors"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-errors/errors"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/deploy"
@@ -89,11 +89,11 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 		return errors.Errorf("can't find any host")
 	}
 	if conf.Hosts, err = common.ParseHosts(conf.Hosts); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	if err = MatchingPlatfrom(conf); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	//if conf.IsReplica && len(conf.Hosts)%2 == 1 {
 	//	return errors.Errorf("When supporting replica, the number of nodes must be even")
@@ -130,7 +130,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 		return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.Path))
 	}
 	if err = checkAccess(conf.Path, conf); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	disks := make([]string, 0)
@@ -143,8 +143,8 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 				if !strings.HasSuffix(disk.DiskLocal.Path, "/") {
 					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
 				}
-				if err := checkAccess(disk.DiskLocal.Path, conf); err != nil {
-					return err
+				if err = checkAccess(disk.DiskLocal.Path, conf); err != nil {
+					return errors.Wrap(err, "")
 				}
 			case "hdfs":
 				if !strings.HasSuffix(disk.DiskHdfs.Endpoint, "/") {
@@ -222,7 +222,7 @@ func checkAccess(localPath string, conf *model.CKManClickHouseConfig) error {
 	for _, host := range conf.Hosts {
 		output, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 		access := strings.Trim(output, "\n")
 		if access != "0" {

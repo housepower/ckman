@@ -1888,8 +1888,8 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	cluster.Expert = conf.Expert
 	cluster.UsersConf = conf.UsersConf
 	cluster.LogicCluster = conf.LogicCluster
-	if err := common.DeepCopyByGob(conf, cluster); err != nil {
-		return false, err
+	if err = common.DeepCopyByGob(conf, cluster); err != nil {
+		return false, errors.Wrap(err, "")
 	}
 	return restart, nil
 }

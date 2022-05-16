@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/pkg/errors"
 	"io"
 	"os"
 	"path"
@@ -89,13 +90,13 @@ func fillDefault(c *CKManConfig) {
 func ParseConfigFile(path, version string) error {
 	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	GlobalConfig.ConfigFile = path
@@ -104,7 +105,7 @@ func ParseConfigFile(path, version string) error {
 	fillDefault(&GlobalConfig)
 	err = yaml.Unmarshal(data, &GlobalConfig)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	return nil
 }
@@ -112,17 +113,17 @@ func ParseConfigFile(path, version string) error {
 func MarshConfigFile() error {
 	out, err := yaml.Marshal(GlobalConfig)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	localFd, err := os.OpenFile(GlobalConfig.ConfigFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	defer localFd.Close()
 
-	if _, err := localFd.Write(out); err != nil {
-		return err
+	if _, err = localFd.Write(out); err != nil {
+		return errors.Wrap(err, "")
 	}
 
 	return nil

@@ -2,7 +2,7 @@ package common
 
 import (
 	"fmt"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"os"
 	"reflect"
 	"sort"
@@ -117,12 +117,12 @@ func (xml *XMLFile) Dump() error {
 	}
 	fi, err := os.OpenFile(xml.name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	defer fi.Close()
 	nbytes, err := fi.WriteString(xml.context)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	if nbytes != len(xml.context) {
 		return errors.Errorf("write xml file %s failed.", xml.name)

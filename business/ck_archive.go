@@ -320,7 +320,7 @@ func (this *ArchiveHDFS) ExportToHDFS() (err error) {
 	wg.Wait()
 	if atomic.LoadInt32(&cntErrors) != 0 {
 		log.Logger.Errorf("export failed")
-		return err
+		return errors.Wrap(err, "")
 	} else {
 		du := uint64(time.Since(t0).Seconds())
 		size := atomic.LoadUint64(&estSize)

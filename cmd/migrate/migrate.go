@@ -86,20 +86,20 @@ func ParseConfig()(MigrateConfig, error) {
 	var config MigrateConfig
 	f, err := os.Open(cmdOps.ConfigFile)
 	if err != nil {
-		return MigrateConfig{}, err
+		return MigrateConfig{}, errors.Wrap(err, "")
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return MigrateConfig{}, err
+		return MigrateConfig{}, errors.Wrap(err, "")
 	}
 	if len(data) == 0 {
 		return MigrateConfig{}, errors.New("empty config file")
 	}
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
-		return MigrateConfig{}, err
+		return MigrateConfig{}, errors.Wrap(err, "")
 	}
 	return config, nil
 }
@@ -146,42 +146,42 @@ func Migrate()error{
 		return err
 	}
 
-	if err := pdst.Begin(); err != nil {
-		return err
+	if err = pdst.Begin(); err != nil {
+		return errors.Wrap(err, "")
 	}
 	for _, cluster := range clusters {
-		err := pdst.CreateCluster(cluster)
+		err = pdst.CreateCluster(cluster)
 		if err != nil {
 			_ = pdst.Rollback()
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 	for logic, physics := range logics {
-		err := pdst.CreateLogicCluster(logic, physics)
+		err = pdst.CreateLogicCluster(logic, physics)
 		if err != nil {
 			_ = pdst.Rollback()
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 
 	for _, v := range historys {
-		err := pdst.CreateQueryHistory(v)
+		err = pdst.CreateQueryHistory(v)
 		if err != nil {
 			_ = pdst.Rollback()
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 
 	for _, v := range tasks {
-		err := pdst.CreateTask(v)
+		err = pdst.CreateTask(v)
 		if err != nil {
 			_ = pdst.Rollback()
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 
 	if err = pdst.Commit(); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	return nil
 }

@@ -91,7 +91,7 @@ func ParserFormData(request *http.Request) (string, error) {
 	clientFd, handler, err := request.FormFile(FormPackageFieldName)
 	if err != nil {
 		log.Logger.Errorf("Form file fail: %v", err)
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 
 	log.Logger.Infof("Upload File: %s", handler.Filename)
@@ -99,9 +99,9 @@ func ParserFormData(request *http.Request) (string, error) {
 	dir := path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory)
 	_, err = os.Stat(dir)
 	if os.IsNotExist(err) {
-		err := os.MkdirAll(dir, 0777)
+		err = os.MkdirAll(dir, 0777)
 		if err != nil {
-			return "", err
+			return "", errors.Wrap(err, "")
 		}
 	}
 	localFile := path.Join(dir, handler.Filename)
@@ -116,7 +116,7 @@ func ParserFormData(request *http.Request) (string, error) {
 	if err != nil {
 		log.Logger.Errorf("Write local file %s fail: %v", localFile, err)
 		os.Remove(localFile)
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 
 	return localFile, nil
@@ -125,7 +125,7 @@ func ParserFormData(request *http.Request) (string, error) {
 func UploadFileByURL(url string, localFile string) error {
 	file, err := os.Open(localFile)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	defer file.Close()
 
@@ -133,17 +133,17 @@ func UploadFileByURL(url string, localFile string) error {
 	writer := multipart.NewWriter(body)
 	part, err := writer.CreateFormFile(FormPackageFieldName, filepath.Base(localFile))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	_, err = io.Copy(part, file)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	writer.Close()
 
 	request, err := http.NewRequest("POST", url, body)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	request.Header.Add("Content-Type", writer.FormDataContentType())
 	request.Header.Add(InitialByClusterPeer, "true")
@@ -151,7 +151,7 @@ func UploadFileByURL(url string, localFile string) error {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	defer response.Body.Close()
 
@@ -257,14 +257,14 @@ func (p *PackageController) Delete(c *gin.Context) {
 func DeleteFileByURL(url string) error {
 	request, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	request.Header.Add(InitialByClusterPeer, "true")
 
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	defer response.Body.Close()
 

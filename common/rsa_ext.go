@@ -3,7 +3,7 @@ package common
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"errors"
+	"github.com/pkg/errors"
 	"io"
 	"math/big"
 )
@@ -52,10 +52,10 @@ func pubKeyIO(pub *rsa.PublicKey, in io.Reader, out io.Writer, isEncrytp bool) (
 			b, err = pubKeyDecrypt(pub, b)
 		}
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 		if _, err = out.Write(b); err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 }
@@ -74,7 +74,7 @@ func priKeyIO(pri *rsa.PrivateKey, r io.Reader, w io.Writer, isEncrytp bool) (er
 			if err == io.EOF {
 				return nil
 			}
-			return err
+			return errors.Wrap(err, "")
 		}
 		if size < k {
 			b = buf[:size]
@@ -87,10 +87,10 @@ func priKeyIO(pri *rsa.PrivateKey, r io.Reader, w io.Writer, isEncrytp bool) (er
 			b, err = rsa.DecryptPKCS1v15(rand.Reader, pri, b)
 		}
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 		if _, err = w.Write(b); err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 }
@@ -140,7 +140,7 @@ func priKeyEncrypt(rand io.Reader, priv *rsa.PrivateKey, hashed []byte) ([]byte,
 	m := new(big.Int).SetBytes(em)
 	c, err := decrypt(rand, priv, m)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 	copyWithLeftPad(em, c.Bytes())
 	return em, nil

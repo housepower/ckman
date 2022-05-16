@@ -61,13 +61,13 @@ func getZkStatus(host string, port int) ([]byte, error) {
 	url := fmt.Sprintf("http://%s:%d/commands/mntr", host, port)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 	defer response.Body.Close()
 
@@ -77,7 +77,7 @@ func getZkStatus(host string, port int) ([]byte, error) {
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	return body, nil

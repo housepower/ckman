@@ -12,7 +12,7 @@ func ParseHosts(hosts []string)([]string, error) {
 	for _, host := range hosts{
 		ips, err := ParseIPRange(host)
 		if err != nil {
-			return allHosts, err
+			return allHosts, errors.Wrap(err, "")
 		}
 		allHosts = append(allHosts, ips...)
 	}
@@ -24,12 +24,12 @@ func ParseIPRange(s string)([]string, error){
 	var err error
 	if strings.Contains(s, "-") {
 		if ips, err = ipRangeParse(s); err != nil {
-			return ips, err
+			return ips, errors.Wrap(err, "")
 		}
 	} else if strings.Contains(s, "/") {
 		ips, err = ipCIDR(s)
 		if err != nil {
-			return ips, err
+			return ips, errors.Wrap(err, "")
 		}
 	} else {
 		ips = append(ips, s)
@@ -71,11 +71,11 @@ func ipRangeParse(s string)([]string, error) {
 	}
 	begin, err := InetAtoN(ipAddrs[0])
 	if err != nil {
-		return ips, err
+		return ips, errors.Wrap(err, "")
 	}
 	end, err := InetAtoN(ipAddrs[1])
 	if err != nil {
-		return ips, err
+		return ips, errors.Wrap(err, "")
 	}
 
 	if begin > end {
@@ -96,7 +96,7 @@ func ipRangeParse(s string)([]string, error) {
 func ipCIDR(s string)([]string, error){
 	ip, ipnet, err := net.ParseCIDR(s)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	var ips []string

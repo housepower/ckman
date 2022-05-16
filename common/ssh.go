@@ -36,11 +36,11 @@ func sshConnectwithPassword(user, password string) (*ssh.ClientConfig, error) {
 func sshConnectwithPublickKey(user string) (*ssh.ClientConfig, error) {
 	key, err := os.ReadFile(path.Join(config.GetWorkDirectory(), "conf", "id_rsa"))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 	return &ssh.ClientConfig{
 		User: user,
@@ -66,7 +66,7 @@ func SSHConnect(user, password, host string, port int) (*ssh.Client, error) {
 		clientConfig, err = sshConnectwithPassword(user, password)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	// connet to ssh
@@ -74,7 +74,7 @@ func SSHConnect(user, password, host string, port int) (*ssh.Client, error) {
 
 	if client, err = ssh.Dial("tcp", addr, clientConfig); err != nil {
 		err = errors.Wrapf(err, "")
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	return client, nil
@@ -95,7 +95,7 @@ func SFTPConnect(user, password, host string, port int) (*sftp.Client, error) {
 		clientConfig, err = sshConnectwithPassword(user, password)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	// connet to ssh
@@ -188,16 +188,16 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 	}
 	err = session.RequestPty("xterm", 80, 40, modes)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 	in, err := session.StdinPipe()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 
 	out, err := session.StdoutPipe()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 
 	var wg sync.WaitGroup
@@ -232,7 +232,7 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 
 	_, err = session.CombinedOutput(shell)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 	wg.Wait()
 	result = strings.TrimSpace(string(buf))
@@ -248,7 +248,7 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 func ScpUploadFiles(files []string, remotePath, user, password, ip string, port int) error {
 	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	defer sftpClient.Close()
 
@@ -259,7 +259,7 @@ func ScpUploadFiles(files []string, remotePath, user, password, ip string, port 
 		remoteFile := path.Join(remotePath, path.Base(file))
 		err = ScpUploadFile(file, remoteFile, user, password, ip, port)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 	return nil
@@ -268,26 +268,26 @@ func ScpUploadFiles(files []string, remotePath, user, password, ip string, port 
 func ScpUploadFile(localFile, remoteFile, user, password, ip string, port int) error {
 	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	defer sftpClient.Close()
 	// delete remote file first, beacuse maybe the remote file exists and created by root
 	cmd := fmt.Sprintf("rm -rf %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)))
 	_, err = RemoteExecute(user, password, ip, port, cmd)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	err = SFTPUpload(sftpClient, localFile, path.Join(TmpWorkDirectory, path.Base(remoteFile)))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	if path.Dir(remoteFile) != TmpWorkDirectory {
 		cmd := fmt.Sprintf("cp %s %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)), remoteFile)
 		_, err = RemoteExecute(user, password, ip, port, cmd)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 
@@ -297,7 +297,7 @@ func ScpUploadFile(localFile, remoteFile, user, password, ip string, port int) e
 func ScpDownloadFiles(files []string, localPath, user, password, ip string, port int) error {
 	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	defer sftpClient.Close()
 
@@ -305,7 +305,7 @@ func ScpDownloadFiles(files []string, localPath, user, password, ip string, port
 		baseName := path.Base(file)
 		err = SFTPDownload(sftpClient, file, path.Join(localPath, baseName))
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 	return nil
@@ -314,13 +314,13 @@ func ScpDownloadFiles(files []string, localPath, user, password, ip string, port
 func ScpDownloadFile(remoteFile, localFile, user, password, ip string, port int) error {
 	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	defer sftpClient.Close()
 
 	err = SFTPDownload(sftpClient, remoteFile, localFile)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	return nil
 }
@@ -328,7 +328,7 @@ func ScpDownloadFile(remoteFile, localFile, user, password, ip string, port int)
 func RemoteExecute(user, password, host string, port int, cmd string) (string, error) {
 	client, err := SSHConnect(user, password, host, port)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 	defer client.Close()
 

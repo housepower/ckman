@@ -3,6 +3,8 @@ package prometheus
 import (
 	"context"
 	"fmt"
+	"github.com/housepower/ckman/log"
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/housepower/ckman/model"
@@ -32,7 +34,7 @@ func (p *PrometheusService) QueryMetric(params *model.MetricQueryReq) (m.Value, 
 		Address: fmt.Sprintf("http://%s", p.Host),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	v1api := v1.NewAPI(client)
@@ -41,7 +43,7 @@ func (p *PrometheusService) QueryMetric(params *model.MetricQueryReq) (m.Value, 
 
 	result, _, err := v1api.Query(ctx, params.Metric, time.Unix(params.Time, 0))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	return result, nil
@@ -54,7 +56,7 @@ func (p *PrometheusService) QueryRangeMetric(params *model.MetricQueryRangeReq) 
 		Address: fmt.Sprintf("http://%s", p.Host),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	v1api := v1.NewAPI(client)
@@ -68,6 +70,7 @@ func (p *PrometheusService) QueryRangeMetric(params *model.MetricQueryRangeReq) 
 	}
 	result, _, err := v1api.QueryRange(ctx, params.Metric, r)
 	if err != nil {
+		log.Logger.Errorf("get query range failed: %v", err)
 		return nil, nil
 	}
 

@@ -3,6 +3,7 @@ package ckconfig
 import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
+	"github.com/pkg/errors"
 )
 
 func GenerateHostXML(filename string, conf *model.CKManClickHouseConfig, host string)(string, error){
@@ -28,7 +29,7 @@ func GenerateHostXML(filename string, conf *model.CKManClickHouseConfig, host st
 	xml.End("yandex")
 	err := xml.Dump()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 	return filename, nil
 }

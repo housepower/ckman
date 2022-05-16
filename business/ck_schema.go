@@ -115,7 +115,7 @@ INNER JOIN
 	log.Logger.Debugf("query:%s", query)
 	rows, err := db.Query(query)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	defer rows.Close()
@@ -144,8 +144,8 @@ INNER JOIN
 			"clusterName": clusterName,
 			"logictbl":    logictbl,
 		}
-		if err := common.ReplaceTemplateString(&localsql, replaceTmpl); err != nil {
-			return nil, err
+		if err = common.ReplaceTemplateString(&localsql, replaceTmpl); err != nil {
+			return nil, errors.Wrap(err, "")
 		}
 		localsqls = append(localsqls, localsql)
 
@@ -153,8 +153,8 @@ INNER JOIN
 			database, localtbl, clusterName, database, localtbl, clusterName, database, localtbl)
 		distsqls = append(distsqls, distsql)
 
-		if err := common.ReplaceTemplateString(&logicsql, replaceTmpl); err != nil {
-			return nil, err
+		if err = common.ReplaceTemplateString(&logicsql, replaceTmpl); err != nil {
+			return nil, errors.Wrap(err, "")
 		}
 		logicsqls = append(logicsqls, logicsql)
 	}

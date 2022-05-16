@@ -6,8 +6,8 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"io"
 )
 
@@ -50,7 +50,7 @@ func (encry RSAEncryption) GetPublicKey(publicKey string) (*rsa.PublicKey, error
 	// x509 parse public key
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 	return pub.(*rsa.PublicKey), err
 }
@@ -66,7 +66,7 @@ func (encry RSAEncryption) GetPrivateKey(privateKey string) (*rsa.PrivateKey, er
 	}
 	pri2, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 	return pri2.(*rsa.PrivateKey), nil
 }
@@ -80,7 +80,7 @@ func (encry RSAEncryption) Decode(encode []byte, publicKey string) ([]byte, erro
 	output := bytes.NewBuffer(nil)
 	err := pubKeyIO(pubkey, bytes.NewReader(databs), output, false)
 	if err != nil {
-		return []byte(""), err
+		return []byte(""), errors.Wrap(err, "")
 	}
 	return io.ReadAll(output)
 }
@@ -94,11 +94,11 @@ func (encry RSAEncryption) Encode(decode []byte, privateKey string) ([]byte, err
 	output := bytes.NewBuffer(nil)
 	err := priKeyIO(prikey, bytes.NewReader(decode), output, true)
 	if err != nil {
-		return []byte(""), err
+		return []byte(""), errors.Wrap(err, "")
 	}
 	rsadata, err := io.ReadAll(output)
 	if err != nil {
-		return []byte(""), err
+		return []byte(""), errors.Wrap(err, "")
 	}
 	return []byte(base64.StdEncoding.EncodeToString(rsadata)), nil
 }

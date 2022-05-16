@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"github.com/housepower/ckman/config"
+	"github.com/pkg/errors"
 	"os"
 	"path"
 	"reflect"
@@ -139,7 +140,7 @@ func GetPackages() error {
 	})
 	dir, err := os.ReadDir(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	for _, fi := range dir {

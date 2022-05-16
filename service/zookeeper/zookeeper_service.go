@@ -39,7 +39,7 @@ func NewZkService(nodes []string, port int) (*ZkService, error) {
 
 	c, e, err := zk.Connect(servers, time.Second)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	zkService.Conn = c
@@ -57,7 +57,7 @@ func GetZkService(clusterName string) (*ZkService, error) {
 		if err == nil {
 			service, err := NewZkService(conf.ZkNodes, conf.ZkPort)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "")
 			}
 			ZkServiceCache.SetDefault(clusterName, service)
 			return service, nil
@@ -70,7 +70,7 @@ func GetZkService(clusterName string) (*ZkService, error) {
 func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.ZkReplicatedTableStatus, error) {
 	err := clickhouse.GetReplicaZkPath(conf)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	tableStatus := make([]model.ZkReplicatedTableStatus, len(conf.ZooPath))

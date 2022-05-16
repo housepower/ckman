@@ -7,12 +7,13 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
+	"github.com/pkg/errors"
 	"time"
 )
 
 func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, error) {
 	if hasEffectiveTasks(clusterName) {
-		err := fmt.Errorf("create task failed, cluster %s has another task already running", clusterName)
+		err := errors.Errorf("create task failed, cluster %s has another task already running", clusterName)
 		return "", err
 	}
 
@@ -51,7 +52,7 @@ func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, er
 	}
 	err := repository.Ps.CreateTask(task)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "")
 	}
 	return task.TaskId, nil
 }

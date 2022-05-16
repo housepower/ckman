@@ -3,6 +3,7 @@ package ckconfig
 import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
+	"github.com/pkg/errors"
 )
 
 type HostInfo struct {
@@ -42,7 +43,7 @@ func GenerateUsersXML(filename string, conf *model.CKManClickHouseConfig)(string
 	xml.End("users")
 	xml.End("yandex")
 	if err := xml.Dump(); err != nil {
-		return filename, err
+		return filename, errors.Wrap(err, "")
 	}
 	return filename, nil
 }
@@ -66,7 +67,7 @@ func GenerateProfilesXML(filename string, hostinfo HostInfo)(string, error){
 	xml.End("profiles")
 	xml.End("yandex")
 	if err := xml.Dump(); err != nil {
-		return filename, err
+		return filename, errors.Wrap(err, "")
 	}
 	return filename, nil
 }

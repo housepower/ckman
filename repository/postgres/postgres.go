@@ -6,6 +6,7 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
+	"github.com/pkg/errors"
 	driver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -37,11 +38,11 @@ func (mp *PostgresPersistent) Init(config interface{}) error {
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	sqlDB, err := db.DB()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	// set connection pool
@@ -145,12 +146,12 @@ func (mp *PostgresPersistent) GetAllClusters() (map[string]model.CKManClickHouse
 	clusterMapping := make(map[string]model.CKManClickHouseConfig)
 	tx := mp.Client.Find(&tables)
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
-		return nil, tx.Error
+		return nil, errors.Wrap(tx.Error, "")
 	}
 	for _, table := range tables {
 		var conf model.CKManClickHouseConfig
 		if err := json.Unmarshal([]byte(table.Config), &conf); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "")
 		}
 		repository.DecodePasswd(&conf)
 		clusterMapping[table.ClusterName] = conf
@@ -163,7 +164,7 @@ func (mp *PostgresPersistent) GetAllLogicClusters() (map[string][]string, error)
 	logicMapping := make(map[string][]string)
 	tx := mp.Client.Find(&tables)
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
-		return nil, tx.Error
+		return nil, errors.Wrap(tx.Error, "")
 	}
 	for _, table := range tables {
 		physics := strings.Split(table.PhysicClusters, ",")
@@ -180,7 +181,7 @@ func (mp *PostgresPersistent) CreateCluster(conf model.CKManClickHouseConfig) er
 	repository.EncodePasswd(&conf)
 	config, err := json.Marshal(conf)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	table := TblCluster{
 		ClusterName: conf.Cluster,
@@ -212,7 +213,7 @@ func (mp *PostgresPersistent) UpdateCluster(conf model.CKManClickHouseConfig) er
 	repository.EncodePasswd(&conf)
 	config, err := json.Marshal(conf)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	table := TblCluster{
 		ClusterName: conf.Cluster,
@@ -250,7 +251,7 @@ func (mp *PostgresPersistent) GetAllQueryHistory() (map[string]model.QueryHistor
 	historys := make(map[string]model.QueryHistory)
 	tx := mp.Client.Find(&tables)
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
-		return nil, tx.Error
+		return nil, errors.Wrap(tx.Error, "")
 	}
 	for _, table := range tables {
 		history := model.QueryHistory{
@@ -268,7 +269,7 @@ func (mp *PostgresPersistent) GetQueryHistoryByCluster(cluster string) ([]model.
 	var tables []TblQueryHistory
 	tx := mp.Client.Where("cluster = ?", cluster).Order("create_time DESC").Limit(100).Find(&tables)
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
-		return nil, tx.Error
+		return nil, errors.Wrap(tx.Error, "")
 	}
 	var historys []model.QueryHistory
 	for _, table := range tables {
@@ -352,7 +353,7 @@ func (mp *PostgresPersistent) GetEarliestQuery() (model.QueryHistory, error) {
 func (mp *PostgresPersistent) CreateTask(task model.Task) error {
 	config, err := json.Marshal(task)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	table := TblTask{
@@ -370,7 +371,7 @@ func (mp *PostgresPersistent) CreateTask(task model.Task) error {
 func (mp *PostgresPersistent) UpdateTask(task model.Task) error {
 	config, err := json.Marshal(task)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	table := TblTask{
 		TaskId: task.TaskId,
@@ -390,14 +391,14 @@ func (mp *PostgresPersistent) GetAllTasks() ([]model.Task, error) {
 	var tables []TblTask
 	tx := mp.Client.Find(&tables).Order("status")
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
-		return nil, tx.Error
+		return nil, errors.Wrap(tx.Error, "")
 	}
 	var tasks []model.Task
 	var err error
 	for _, table := range tables {
 		var task model.Task
 		if err = json.Unmarshal([]byte(table.Task), &task); err != nil {
-			return []model.Task{}, err
+			return []model.Task{}, errors.Wrap(err, "")
 		}
 		tasks = append(tasks, task)
 	}
@@ -417,14 +418,14 @@ func (mp *PostgresPersistent) GetPengdingTasks(serverIp string) ([]model.Task, e
 	var tables []TblTask
 	tx := mp.Client.Where("status = ?", model.TaskStatusWaiting).Find(&tables)
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
-		return nil, tx.Error
+		return nil, errors.Wrap(tx.Error, "")
 	}
 	var tasks []model.Task
 	var err error
 	for _, table := range tables {
 		var task model.Task
 		if err = json.Unmarshal([]byte(table.Task), &task); err != nil {
-			return []model.Task{}, err
+			return []model.Task{}, errors.Wrap(err, "")
 		}
 		if task.ServerIp == serverIp {
 			tasks = append(tasks, task)
@@ -451,7 +452,7 @@ func wrapError(err error) error {
 	if err == gorm.ErrRecordNotFound {
 		err = repository.ErrRecordNotFound
 	}
-	return err
+	return errors.Wrap(err, "")
 }
 
 func NewPostgresPersistent() *PostgresPersistent {

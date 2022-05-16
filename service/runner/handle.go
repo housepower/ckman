@@ -7,6 +7,7 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/service/clickhouse"
+	"github.com/pkg/errors"
 )
 
 var TaskHandleFunc = map[string]func(task *model.Task) error{
@@ -21,11 +22,11 @@ var TaskHandleFunc = map[string]func(task *model.Task) error{
 func UnmarshalConfig(config interface{}, v interface{}) error {
 	data, err := json.Marshal(config)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	err = json.Unmarshal(data, v)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	switch v.(type) {
 	case *deploy.CKDeploy:
@@ -40,11 +41,11 @@ func UnmarshalConfig(config interface{}, v interface{}) error {
 func CKDeployHandle(task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	if err := DeployCkCluster(task, d); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	// sync table schema when logic cluster exists
@@ -67,7 +68,7 @@ func CKDeployHandle(task *model.Task) error {
 	}
 	if err := repository.Ps.CreateCluster(*d.Conf); err != nil {
 		_ = repository.Ps.Rollback()
-		return err
+		return errors.Wrap(err, "")
 	}
 	if d.Conf.LogicCluster != nil {
 		logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
@@ -77,7 +78,7 @@ func CKDeployHandle(task *model.Task) error {
 				_ = repository.Ps.CreateLogicCluster(*d.Conf.LogicCluster, logics)
 			} else {
 				_ = repository.Ps.Rollback()
-				return err
+				return errors.Wrap(err, "")
 			}
 		}else {
 			logics = append(logics, d.Conf.Cluster)
@@ -92,7 +93,7 @@ func CKDeployHandle(task *model.Task) error {
 func CKDestoryHandle(task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	conf, err := repository.Ps.GetClusterbyName(d.Conf.Cluster)
@@ -102,7 +103,7 @@ func CKDestoryHandle(task *model.Task) error {
 
 	common.CloseConns(conf.Hosts)
 	if err = DestroyCkCluster(task, d, &conf); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
@@ -112,7 +113,7 @@ func CKDestoryHandle(task *model.Task) error {
 	if conf.LogicCluster != nil {
 		if err = deploy.ClearLogicCluster(conf.Cluster, *conf.LogicCluster, true); err != nil {
 			_ = repository.Ps.Rollback()
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 
@@ -139,7 +140,7 @@ func CKDestoryHandle(task *model.Task) error {
 
 	if err = repository.Ps.DeleteCluster(conf.Cluster); err != nil {
 		_ = repository.Ps.Rollback()
-		return err
+		return errors.Wrap(err, "")
 	}
 	_ = repository.Ps.Commit()
 
@@ -162,7 +163,7 @@ func CKDeleteNodeHandle(task *model.Task) error {
 
 	err = DeleteCkClusterNode(task, &conf, ip)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	common.CloseConns([]string{ip})
 
@@ -187,7 +188,7 @@ func CKAddNodeHandle(task *model.Task) error {
 
 	err = AddCkClusterNode(task, &conf, &d)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusConfigExt, model.ALL_NODES_DEFAULT)
@@ -209,7 +210,7 @@ func CKAddNodeHandle(task *model.Task) error {
 
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
 	if err = repository.Ps.UpdateCluster(conf); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
@@ -219,7 +220,7 @@ func CKAddNodeHandle(task *model.Task) error {
 func CKUpgradeHandle(task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	conf, err := repository.Ps.GetClusterbyName(d.Conf.Cluster)
@@ -229,12 +230,12 @@ func CKUpgradeHandle(task *model.Task) error {
 
 	err = UpgradeCkCluster(task, d)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	conf.Version = d.Conf.Version
 
 	if err = repository.Ps.UpdateCluster(conf); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
@@ -244,11 +245,11 @@ func CKUpgradeHandle(task *model.Task) error {
 func CKSettingHandle(task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	if err := ConfigCkCluster(task, d); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
@@ -269,11 +270,11 @@ func CKSettingHandle(task *model.Task) error {
 	}
 
 	if err := repository.Ps.Begin(); err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	if err := repository.Ps.UpdateCluster(*d.Conf); err != nil {
 		_ = repository.Ps.Rollback()
-		return err
+		return errors.Wrap(err, "")
 	}
 	if d.Conf.LogicCluster != nil {
 		logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
@@ -283,7 +284,7 @@ func CKSettingHandle(task *model.Task) error {
 				_ = repository.Ps.CreateLogicCluster(*d.Conf.LogicCluster, logics)
 			} else {
 				_ = repository.Ps.Rollback()
-				return err
+				return errors.Wrap(err, "")
 			}
 		}else {
 			logics = append(logics, d.Conf.Cluster)

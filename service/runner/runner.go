@@ -7,6 +7,7 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
+	"github.com/pkg/errors"
 	"runtime/debug"
 	"time"
 )
@@ -79,7 +80,7 @@ func (runner *RunnerService) ProcesswithTaskType(task model.Task) error {
 	if err := TaskHandleFunc[task.TaskType](&task); err != nil {
 		deploy.SetNodeStatus(&task, model.NodeStatusFailed, model.ALL_NODES_DEFAULT)
 		_ = deploy.SetTaskStatus(&task, model.TaskStatusFailed, err.Error())
-		return err
+		return errors.Wrap(err,  "")
 	}
 	return deploy.SetTaskStatus(&task, model.TaskStatusSuccess, model.TaskStatusMap[model.TaskStatusSuccess])
 }
