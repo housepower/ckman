@@ -2,9 +2,7 @@ package common
 
 import (
 	"bytes"
-	"crypto/md5"
 	"encoding/gob"
-	"encoding/hex"
 	"fmt"
 	"github.com/housepower/ckman/log"
 	"math/rand"
@@ -112,13 +110,6 @@ func EnvBoolVar(value *bool, key string) {
 	}
 }
 
-func MaxInt(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
-}
-
 const (
 	_         = iota
 	KB uint64 = 1 << (10 * iota)
@@ -142,11 +133,6 @@ func ConvertDisk(size uint64) string {
 	} else {
 		return fmt.Sprintf("%.2fPB", float64(size)/float64(PB))
 	}
-}
-
-func Decimal(value float64) float64 {
-	value, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", value), 64)
-	return value
 }
 
 type TempFile struct {
@@ -175,15 +161,6 @@ func DeepCopyByGob(dst, src interface{}) error {
 	return gob.NewDecoder(bytes.NewBuffer(buf.Bytes())).Decode(dst)
 }
 
-func ArraySearch(target string, str_array []string) bool {
-	for _, str := range str_array {
-		if target == str {
-			return true
-		}
-	}
-	return false
-}
-
 func ReplaceTemplateString(src *string, replace map[string]interface{}) error {
 	t, err := template.New("T1").Parse(*src)
 	if err != nil {
@@ -210,11 +187,6 @@ func GetIntegerwithDefault(value, defaul int) int {
 		return defaul
 	}
 	return value
-}
-
-func Md5CheckSum(s string) string {
-	sum := md5.Sum([]byte(s))
-	return hex.EncodeToString(sum[:16])
 }
 
 // GetOutboundIP get preferred outbound ip of this machine

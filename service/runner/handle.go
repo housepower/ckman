@@ -55,7 +55,7 @@ func CKDeployHandle(task *model.Task) error {
 		if err == nil && len(logics) > 0 {
 			for _, logic := range logics {
 				if cluster, err := repository.Ps.GetClusterbyName(logic); err == nil {
-					if clickhouse.SyncLogicSchema(cluster, *d.Conf) {
+					if clickhouse.SyncLogicTable(cluster, *d.Conf) {
 						break
 					}
 				}
@@ -261,7 +261,7 @@ func CKSettingHandle(task *model.Task) error {
 		if err == nil && len(logics) > 0 {
 			for _, logic := range logics {
 				if cluster, err := repository.Ps.GetClusterbyName(logic); err == nil {
-					if clickhouse.SyncLogicSchema(cluster, *d.Conf) {
+					if clickhouse.SyncLogicTable(cluster, *d.Conf) {
 						break
 					}
 				}

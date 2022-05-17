@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/go-errors/errors"
 	jsoniter "github.com/json-iterator/go"
 	"io"
 	"net/http"
@@ -227,7 +228,8 @@ func ginJWTAuth() gin.HandlerFunc {
 
 		// Verify client ip
 		if claims.ClientIP != c.ClientIP() {
-			model.WrapMsg(c, model.JWT_TOKEN_IP_MISMATCH, nil)
+			err := errors.Errorf("cliams.ClientIP: %s, c.ClientIP:%s", claims.ClientIP, c.ClientIP())
+			model.WrapMsg(c, model.JWT_TOKEN_IP_MISMATCH, err)
 			c.Abort()
 			return
 		}

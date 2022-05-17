@@ -367,7 +367,7 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 					con, err := repository.Ps.GetClusterbyName(cluster)
 					if err == nil {
 						// conf is current cluster, we believe that local table must be exist
-						clickhouse.SyncLogicSchema(conf, con)
+						clickhouse.SyncLogicTable(conf, con)
 						continue
 					}
 				}
@@ -428,6 +428,49 @@ func (ck *ClickHouseController) DeleteDistTableOnLogic(c *gin.Context) {
 		if err = ckService.DeleteDistTblOnLogic(&params); err != nil {
 			model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, err)
 			return
+		}
+	}
+
+	model.WrapMsg(c, model.SUCCESS, nil)
+}
+
+// @Summary SyncLogicTable
+// @Description Sync Logic Table Schema
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(logic_test)
+// @Param req body model.DistLogicTableReq true "request body"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":null}"
+// @Router /api/v1/ck/dist_logic_table/{clusterName} [put]
+func (ck *ClickHouseController) SyncLogicSchema(c *gin.Context) {
+	var req model.DistLogicTableReq
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, clusterName)
+		return
+	}
+	if conf.LogicCluster != nil {
+		physics, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
+		if err == nil {
+			if err = clickhouse.SyncLogicSchema(physics, req); err != nil {
+				var exception *client.Exception
+				if errors.As(err, &exception) {
+					if exception.Code == 60 && clusterName != conf.Cluster {
+						//means local table is not exist, will auto sync schema
+						con, err := repository.Ps.GetClusterbyName(clusterName)
+						if err == nil {
+							// conf is current cluster, we believe that local table must be exist
+							clickhouse.SyncLogicTable(conf, con)
+						}
+					}
+				}
+			}
 		}
 	}
 
