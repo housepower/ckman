@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
+	"sort"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -134,7 +135,11 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 	}
 
 	disks := make([]string, 0)
+	localPath :=  make([]string, 0)
+	hdfsEndpoints := make([]string, 0)
+	s3Endpoints := make([]string, 0)
 	disks = append(disks, "default")
+	localPath = append(localPath, conf.Path)
 	if conf.Storage != nil {
 		for _, disk := range conf.Storage.Disks {
 			disks = append(disks, disk.Name)
@@ -146,6 +151,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 				if err = checkAccess(disk.DiskLocal.Path, conf); err != nil {
 					return errors.Wrap(err, "")
 				}
+				localPath = append(localPath, disk.DiskLocal.Path)
 			case "hdfs":
 				if !strings.HasSuffix(disk.DiskHdfs.Endpoint, "/") {
 					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
@@ -153,13 +159,24 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 				if common.CompareClickHouseVersion(conf.Version, "21.9") < 0 {
 					return errors.Errorf("clickhouse do not support hdfs storage policy while version < 21.9 ")
 				}
+				hdfsEndpoints = append(hdfsEndpoints, disk.DiskHdfs.Endpoint)
 			case "s3":
 				if !strings.HasSuffix(disk.DiskS3.Endpoint, "/") {
 					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
 				}
+				s3Endpoints = append(s3Endpoints, disk.DiskS3.Endpoint)
 			default:
 				return errors.Errorf("unsupport disk type %s", disk.Type)
 			}
+		}
+		if err = EnsurePathNonPrefix(localPath); err != nil {
+			return errors.Wrap(err, "")
+		}
+		if err = EnsurePathNonPrefix(hdfsEndpoints); err != nil {
+			return errors.Wrap(err, "")
+		}
+		if err = EnsurePathNonPrefix(s3Endpoints); err != nil {
+			return errors.Wrap(err, "")
 		}
 		for _, policy := range conf.Storage.Policies {
 			for _, vol := range policy.Volumns {
@@ -248,6 +265,24 @@ func MatchingPlatfrom(conf *model.CKManClickHouseConfig) error {
 		}
 		if result != arch {
 			return errors.Errorf("arch %s mismatched, pkgType: %s", arch, conf.PkgType)
+		}
+	}
+	return nil
+}
+
+func EnsurePathNonPrefix(paths []string) error {
+	if len(paths) < 2 {
+		return nil
+	}
+	sort.Strings(paths)
+	for i := 1; i < len(paths); i++ {
+		curr := paths[i]
+		prev := paths[i-1]
+		if prev == curr {
+			return errors.Errorf("path %s is duplicate", curr)
+		}
+		if strings.HasPrefix(curr, prev) {
+			return errors.Errorf("path %s is subdir of path %s", curr, prev)
 		}
 	}
 	return nil
