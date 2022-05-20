@@ -272,6 +272,12 @@ func (d *CKDeploy) Config() error {
 		innerIndex := index
 		innerHost := host
 		_ = d.pool.Submit(func() {
+			//clear config first
+			cmd := "rm -rf /etc/clickhouse-server/config.d/*.xml /etc/clickhouse-server/users.d/*.xml"
+			if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd); err != nil {
+				lastError = err
+				return
+			}
 			confFiles := confFiles
 			userFiles := userFiles
 			profilesFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "profiles")
@@ -314,9 +320,10 @@ func (d *CKDeploy) Config() error {
 			cmds := make([]string, 0)
 			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/config.d/%s /etc/clickhouse-server/config.d/host.xml", hostFile.BaseName))
 			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/users.d/%s /etc/clickhouse-server/users.d/profiles.xml", profilesFile.BaseName))
+			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/users.d/users_%s.xml /etc/clickhouse-server/users.d/users.xml", d.Conf.Cluster))
 			cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
 
-			cmd := strings.Join(cmds, ";")
+			cmd = strings.Join(cmds, ";")
 			if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd); err != nil {
 				lastError = err
 				return
