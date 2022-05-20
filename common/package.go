@@ -107,7 +107,7 @@ func parsePkgName(fname string) CkPackageFile {
 				clickhouse-server-22.3.3.44-amd64.tgz
 			*/
 			version = fields[vidx]
-			arch = strings.Split(fields[vidx], ".")[0]
+			arch = strings.Split(fields[vidx+1], ".")[0]
 		} else if len(fields) == vidx+1 {
 			/*
 				clickhouse-common-static-22.3.2.2.tgz
