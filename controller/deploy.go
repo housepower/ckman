@@ -52,7 +52,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	}
 
 	tmp := deploy.NewCkDeploy(conf)
-	tmp.Packages = deploy.BuildPackages(conf.Version, conf.PkgType)
+	tmp.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 
 	taskId, err := deploy.CreateNewTask(conf.Cluster, model.TaskTypeCKDeploy, tmp)
 	if err != nil {
@@ -85,6 +85,15 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 		conf.Version = file.Version
 	} else {
 		return errors.Errorf("package %s not found on server", conf.PkgName)
+	}
+	if strings.HasSuffix(conf.PkgType, common.PkgSuffixTgz) {
+		if conf.Cwd == "" {
+			return errors.Errorf("cwd can't be empty for tgz deployment")
+		}
+		conf.NeedSudo = false
+		if err = checkAccess(conf.Cwd, conf); err != nil {
+			return errors.Wrapf(err, "check access error")
+		}
 	}
 	if len(conf.Hosts) == 0 {
 		return errors.Errorf("can't find any host")
@@ -235,9 +244,14 @@ func GetShardsbyHosts(hosts []string, isReplica bool) []model.CkShard {
 }
 
 func checkAccess(localPath string, conf *model.CKManClickHouseConfig) error {
-	cmd := fmt.Sprintf(`su sshd -s /bin/bash -c "cd %s && echo $?"`, localPath)
+	cmd := ""
+	if conf.NeedSudo {
+		cmd = fmt.Sprintf(`su sshd -s /bin/bash -c "cd %s && echo $?"`, localPath)
+	} else {
+		cmd = fmt.Sprintf("cd %s && echo $?", localPath)
+	}
 	for _, host := range conf.Hosts {
-		output, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd)
+		output, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd, conf.NeedSudo)
 		if err != nil {
 			return errors.Wrap(err, "")
 		}
@@ -259,7 +273,7 @@ func MatchingPlatfrom(conf *model.CKManClickHouseConfig) error {
 	}
 	cmd  := "uname -m"
 	for _, host := range conf.Hosts {
-		result, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd)
+		result, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd, conf.NeedSudo)
 		if err != nil {
 			return errors.Errorf("host %s get platform failed: %v", host, err)
 		}

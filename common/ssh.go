@@ -74,7 +74,7 @@ func SSHConnect(user, password, host string, port int) (*ssh.Client, error) {
 
 	if client, err = ssh.Dial("tcp", addr, clientConfig); err != nil {
 		err = errors.Wrapf(err, "")
-		return nil, errors.Wrap(err, "")
+		return nil, err
 	}
 
 	return client, nil
@@ -245,7 +245,7 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 	return
 }
 
-func ScpUploadFiles(files []string, remotePath, user, password, ip string, port int) error {
+func ScpUploadFiles(files []string, remotePath, user, password, ip string, port int, needsudo bool) error {
 	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
 		return errors.Wrap(err, "")
@@ -257,7 +257,7 @@ func ScpUploadFiles(files []string, remotePath, user, password, ip string, port 
 			continue
 		}
 		remoteFile := path.Join(remotePath, path.Base(file))
-		err = ScpUploadFile(file, remoteFile, user, password, ip, port)
+		err = ScpUploadFile(file, remoteFile, user, password, ip, port, needsudo)
 		if err != nil {
 			return errors.Wrap(err, "")
 		}
@@ -265,7 +265,7 @@ func ScpUploadFiles(files []string, remotePath, user, password, ip string, port 
 	return nil
 }
 
-func ScpUploadFile(localFile, remoteFile, user, password, ip string, port int) error {
+func ScpUploadFile(localFile, remoteFile, user, password, ip string, port int, needsudo bool) error {
 	sftpClient, err := SFTPConnect(user, password, ip, port)
 	if err != nil {
 		return errors.Wrap(err, "")
@@ -273,7 +273,7 @@ func ScpUploadFile(localFile, remoteFile, user, password, ip string, port int) e
 	defer sftpClient.Close()
 	// delete remote file first, beacuse maybe the remote file exists and created by root
 	cmd := fmt.Sprintf("rm -rf %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)))
-	_, err = RemoteExecute(user, password, ip, port, cmd)
+	_, err = RemoteExecute(user, password, ip, port, cmd, needsudo)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -284,8 +284,8 @@ func ScpUploadFile(localFile, remoteFile, user, password, ip string, port int) e
 	}
 
 	if path.Dir(remoteFile) != TmpWorkDirectory {
-		cmd := fmt.Sprintf("cp %s %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)), remoteFile)
-		_, err = RemoteExecute(user, password, ip, port, cmd)
+		cmd = fmt.Sprintf("cp %s %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)), remoteFile)
+		_, err = RemoteExecute(user, password, ip, port, cmd,needsudo)
 		if err != nil {
 			return errors.Wrap(err, "")
 		}
@@ -325,14 +325,14 @@ func ScpDownloadFile(remoteFile, localFile, user, password, ip string, port int)
 	return nil
 }
 
-func RemoteExecute(user, password, host string, port int, cmd string) (string, error) {
+func RemoteExecute(user, password, host string, port int, cmd string, needsudo bool) (string, error) {
 	client, err := SSHConnect(user, password, host, port)
 	if err != nil {
-		return "", errors.Wrap(err, "")
+		return "", errors.Wrap(err, fmt.Sprintf("host: %s",host))
 	}
 	defer client.Close()
 
-	finalScript := genFinalScript(user, cmd)
+	finalScript := genFinalScript(user, cmd, needsudo)
 	var output string
 	if output, err = SSHRun(client, password, finalScript); err != nil {
 		return "", errors.Wrap(err, fmt.Sprintf("run '%s' on host %s fail: %s", cmd, host, output))
@@ -340,9 +340,9 @@ func RemoteExecute(user, password, host string, port int, cmd string) (string, e
 	return output, nil
 }
 
-func genFinalScript(user, cmd string) string {
+func genFinalScript(user, cmd string, needsudo bool) string {
 	var shell string
-	if user != "root" {
+	if user != "root" && needsudo {
 		cmds := strings.Split(cmd, ";")
 		for index, command := range cmds {
 			cmds[index] = fmt.Sprintf("sudo %s", command)

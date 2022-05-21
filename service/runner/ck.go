@@ -142,7 +142,7 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 	// stop the node
 	deploy.SetNodeStatus(task, model.NodeStatusStop, model.ALL_NODES_DEFAULT)
 	d := deploy.NewCkDeploy(*conf)
-	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType)
+	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	d.Conf.Hosts = []string{ip}
 	if err = d.Stop(); err != nil {
 		log.Logger.Warnf("can't stop node %s, ignore it", ip)
@@ -274,7 +274,7 @@ func upgradePackage(task *model.Task, d deploy.CKDeploy, timeout int) error {
 	}
 	deploy.SetNodeStatus(task, model.NodeStatusStop, node)
 	if err := d.Stop(); err != nil {
-		return errors.Wrap(err, "")
+		log.Logger.Warnf("stop cluster %s failed: %v", d.Conf.Cluster, err)
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusPrepare, node)

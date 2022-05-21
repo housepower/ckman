@@ -730,7 +730,7 @@ func (ck *ClickHouseController) UpgradeCluster(c *gin.Context) {
 	}
 
 	d := deploy.NewCkDeploy(conf)
-	d.Packages = deploy.BuildPackages(req.PackageVersion, req.PackageType)
+	d.Packages = deploy.BuildPackages(req.PackageVersion, conf.PkgType, conf.Cwd)
 	d.Ext.UpgradePolicy = req.Policy
 	d.Conf.Hosts = chHosts
 
@@ -848,7 +848,7 @@ func (ck *ClickHouseController) DestroyCluster(c *gin.Context) {
 	}
 
 	d := deploy.NewCkDeploy(conf)
-	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType)
+	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKDestory, d)
 	if err != nil {
 		model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
@@ -1067,7 +1067,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	// install clickhouse and start service on the new node
 	d := deploy.NewCkDeploy(conf)
 	d.Conf.Hosts = req.Ips
-	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType)
+	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	d.Conf.Shards = shards
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKAddNode, d)
@@ -1127,7 +1127,7 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 	}
 
 	d := deploy.NewCkDeploy(conf)
-	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType)
+	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	d.Conf.Hosts = []string{ip}
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKDeleteNode, d)

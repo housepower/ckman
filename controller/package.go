@@ -212,8 +212,8 @@ func (p *PackageController) List(c *gin.Context) {
 func (p *PackageController) Delete(c *gin.Context) {
 	packageVersion := c.Query("packageVersion")
 	packageType := c.Query("pkgType")
-	packages := deploy.BuildPackages(packageVersion, packageType)
-	for _, packageName := range packages {
+	packages := deploy.BuildPackages(packageVersion, packageType, "")
+	for _, packageName := range packages.PkgLists {
 		if err := os.Remove(path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory, packageName)); err != nil {
 			model.WrapMsg(c, model.DELETE_LOCAL_PACKAGE_FAIL, err)
 			return

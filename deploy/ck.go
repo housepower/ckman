@@ -57,7 +57,7 @@ func (d *CKDeploy) Init() error {
 		innerHost := host
 		_ = d.pool.Submit(func() {
 			cmd := "cat /proc/meminfo | grep MemTotal | awk '{print $2}'"
-			output, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
+			output, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
 			if err != nil {
 				lastError = err
 				return
@@ -75,7 +75,7 @@ func (d *CKDeploy) Init() error {
 			d.HostInfos[innerIndex] = info
 			if d.Ext.Ipv6Enable {
 				cmd2 := "grep lo /proc/net/if_inet6 >/dev/null 2>&1; echo $?"
-				output, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd2)
+				output, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd2,d.Conf.NeedSudo)
 				if err != nil {
 					lastError = err
 					return
@@ -104,7 +104,7 @@ func (d *CKDeploy) Init() error {
 			innerReplica := replica
 			_ = d.pool.Submit(func() {
 				cmd := "hostname -f"
-				output, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerReplica.Ip, d.Conf.SshPort, cmd)
+				output, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerReplica.Ip, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
 				if err != nil {
 					lastError = err
 					return
@@ -134,8 +134,9 @@ func (d *CKDeploy) Init() error {
 }
 
 func (d *CKDeploy) Prepare() error {
+	d.Conf.Normalize()
 	files := make([]string, 0)
-	for _, file := range d.Packages {
+	for _, file := range d.Packages.PkgLists {
 		files = append(files, path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory, file))
 	}
 
@@ -143,7 +144,7 @@ func (d *CKDeploy) Prepare() error {
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			if err := common.ScpUploadFiles(files, common.TmpWorkDirectory, d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort); err != nil {
+			if err := common.ScpUploadFiles(files, common.TmpWorkDirectory, d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort,  d.Conf.NeedSudo); err != nil {
 				lastError = err
 				return
 			}
@@ -159,25 +160,45 @@ func (d *CKDeploy) Prepare() error {
 }
 
 func (d *CKDeploy) Install() error {
+	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmds := make([]string, 0)
 	cmds = append(cmds, cmdIns.InstallCmd(d.Packages))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("mkdir -p %s", path.Join(d.Conf.Path, "clickhouse")))
-	cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
-
+	if d.Conf.NeedSudo {
+		cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", path.Join(d.Conf.Path, "clickhouse")))
+	}
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			cmd1 := cmdIns.StopCmd(CkSvrName)
-			_, _ = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd1)
+			cmd1 := cmdIns.StopCmd(CkSvrName, d.Conf.Cwd)
+			_, _ = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd1, d.Conf.NeedSudo)
 
 			cmd2 := strings.Join(cmds, ";")
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd2)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd2, d.Conf.NeedSudo)
 			if err != nil {
 				lastError = err
 				return
+			}
+			if !d.Conf.NeedSudo {
+				//tgz deployment, try to add auto start
+				extractDir := ""
+				for _, pkg := range d.Packages.PkgLists {
+					if strings.Contains(pkg, common.PkgModuleServer) {
+						lastIndex := strings.LastIndex(pkg, "-")
+						extractDir = pkg[:lastIndex]
+						break
+					}
+				}
+
+				cmd3 := fmt.Sprintf("cp /tmp/%s/etc/init.d/clickhouse-server /etc/init.d/;", extractDir)
+				cmd3 += fmt.Sprintf("cp /tmp/%s/lib/systemd/system/clickhouse-server.service /etc/systemd/system/", extractDir)
+				_, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd3, true)
+				if err != nil {
+					log.Logger.Warnf("try to config autorestart failed:%v", err)
+				}
 			}
 
 			log.Logger.Debugf("host %s install done", innerHost)
@@ -192,19 +213,21 @@ func (d *CKDeploy) Install() error {
 }
 
 func (d *CKDeploy) Uninstall() error {
+	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmds := make([]string, 0)
 	cmds = append(cmds, cmdIns.Uninstall(d.Packages))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
-	cmds = append(cmds, "rm -rf /etc/clickhouse-server")
-	cmds = append(cmds, "rm -rf /etc/clickhouse-client")
-
+	if d.Conf.NeedSudo {
+		cmds = append(cmds, "rm -rf /etc/clickhouse-server")
+		cmds = append(cmds, "rm -rf /etc/clickhouse-client")
+	}
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
 			cmd := strings.Join(cmds, ";")
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd,d.Conf.NeedSudo)
 			if err != nil {
 				lastError = err
 				return
@@ -221,13 +244,14 @@ func (d *CKDeploy) Uninstall() error {
 }
 
 func (d *CKDeploy) Upgrade() error {
+	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmd := cmdIns.UpgradeCmd(d.Packages)
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
 			if err != nil {
 				lastError = err
 				return
@@ -244,6 +268,7 @@ func (d *CKDeploy) Upgrade() error {
 }
 
 func (d *CKDeploy) Config() error {
+	d.Conf.Normalize()
 	confFiles := make([]string, 0)
 	userFiles := make([]string, 0)
 
@@ -266,20 +291,27 @@ func (d *CKDeploy) Config() error {
 		return errors.Wrap(err, "")
 	}
 	userFiles = append(userFiles, users)
-
+	var remotePath string
+	if d.Conf.NeedSudo {
+		remotePath = "/etc/clickhouse-server"
+	} else {
+		remotePath = path.Join(d.Conf.Cwd, "etc", "clickhouse-server")
+	}
 	var lastError error
 	for index, host := range d.Conf.Hosts {
 		innerIndex := index
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			//clear config first
-			cmd := "rm -rf /etc/clickhouse-server/config.d/*.xml /etc/clickhouse-server/users.d/*.xml"
-			if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd); err != nil {
-				lastError = err
-				return
-			}
 			confFiles := confFiles
 			userFiles := userFiles
+			if d.Conf.NeedSudo {
+				//clear config first
+				cmd := "rm -rf /etc/clickhouse-server/config.d/*.xml /etc/clickhouse-server/users.d/*.xml"
+				if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo); err != nil {
+					lastError = err
+					return
+				}
+			}
 			profilesFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "profiles")
 			if err != nil {
 				lastError = err
@@ -306,25 +338,24 @@ func (d *CKDeploy) Config() error {
 			}
 			confFiles = append(confFiles, hostXml)
 
-			_, _ = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, host, d.Conf.SshPort, "rm -rf /etc/clickhouse-server/config.d/* /etc/clickhouse-server/users.d/*")
-
-			if err := common.ScpUploadFiles(confFiles, "/etc/clickhouse-server/config.d/", d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort); err != nil {
+			if err := common.ScpUploadFiles(confFiles, path.Join(remotePath, "config.d"), d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, d.Conf.NeedSudo); err != nil {
 				lastError = err
 				return
 			}
-			if err := common.ScpUploadFiles(userFiles, "/etc/clickhouse-server/users.d/", d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort); err != nil {
+			if err := common.ScpUploadFiles(userFiles, path.Join(remotePath, "users.d"), d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, d.Conf.NeedSudo); err != nil {
 				lastError = err
 				return
 			}
 
 			cmds := make([]string, 0)
-			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/config.d/%s /etc/clickhouse-server/config.d/host.xml", hostFile.BaseName))
-			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/users.d/%s /etc/clickhouse-server/users.d/profiles.xml", profilesFile.BaseName))
-			cmds = append(cmds, fmt.Sprintf("mv /etc/clickhouse-server/users.d/users_%s.xml /etc/clickhouse-server/users.d/users.xml", d.Conf.Cluster))
-			cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
-
-			cmd = strings.Join(cmds, ";")
-			if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd); err != nil {
+			cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "config.d", hostFile.BaseName), path.Join(remotePath, "config.d", "host.xml")))
+			cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "users.d", profilesFile.BaseName), path.Join(remotePath, "users.d", "profiles.xml")))
+			cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "users.d", fmt.Sprintf("users_%s.xml", d.Conf.Cluster)), path.Join(remotePath, "users.d", "users.xml")))
+			if d.Conf.NeedSudo {
+				cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
+			}
+			cmd := strings.Join(cmds, ";")
+			if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo); err != nil {
 				lastError = err
 				return
 			}
@@ -338,6 +369,7 @@ func (d *CKDeploy) Config() error {
 	if d.Conf.LogicCluster != nil {
 		logicMetrika, deploys := GenLogicMetrika(d)
 		for _, deploy := range deploys {
+			deploy.Conf.Normalize()
 			metrikaFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "metrika")
 			if err != nil {
 				return err
@@ -351,15 +383,16 @@ func (d *CKDeploy) Config() error {
 				innerHost := host
 				deploy := deploy
 				_ = d.pool.Submit(func() {
-					if err := common.ScpUploadFile(m, "/etc/clickhouse-server/config.d/metrika.xml", deploy.Conf.SshUser, deploy.Conf.SshPassword, innerHost, deploy.Conf.SshPort); err != nil {
+					if err := common.ScpUploadFile(m, path.Join(remotePath, "config.d", "metrika.xml"), deploy.Conf.SshUser, deploy.Conf.SshPassword, innerHost, deploy.Conf.SshPort, deploy.Conf.NeedSudo); err != nil {
 						lastError = err
 						return
 					}
-
-					cmd := "chown -R clickhouse:clickhouse /etc/clickhouse-server"
-					if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd); err != nil {
-						lastError = err
-						return
+					if d.Conf.NeedSudo {
+						cmd := "chown -R clickhouse:clickhouse /etc/clickhouse-server"
+						if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo); err != nil {
+							lastError = err
+							return
+						}
 					}
 				})
 			}
@@ -374,13 +407,14 @@ func (d *CKDeploy) Config() error {
 }
 
 func (d *CKDeploy) Start() error {
+	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			cmd := cmdIns.StartCmd(CkSvrName)
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
+			cmd := cmdIns.StartCmd(CkSvrName, d.Conf.Cwd)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
 			if err != nil {
 				lastError = err
 				return
@@ -397,13 +431,14 @@ func (d *CKDeploy) Start() error {
 }
 
 func (d *CKDeploy) Stop() error {
+	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			cmd := cmdIns.StopCmd(CkSvrName)
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
+			cmd := cmdIns.StopCmd(CkSvrName,d.Conf.Cwd)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
 			if err != nil {
 				lastError = err
 				return
@@ -420,13 +455,14 @@ func (d *CKDeploy) Stop() error {
 }
 
 func (d *CKDeploy) Restart() error {
+	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			cmd := cmdIns.RestartCmd(CkSvrName)
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd)
+			cmd := cmdIns.RestartCmd(CkSvrName, d.Conf.Cwd)
+			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
 			if err != nil {
 				lastError = err
 				return
@@ -443,6 +479,7 @@ func (d *CKDeploy) Restart() error {
 }
 
 func (d *CKDeploy) Check(timeout int) error {
+	d.Conf.Normalize()
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
@@ -469,7 +506,7 @@ func (d *CKDeploy) Check(timeout int) error {
 						return
 					}
 				case <-ticker2.C:
-					lastError = model.CheckTimeOutErr
+					lastError = errors.Wrapf(model.CheckTimeOutErr, "clickhouse-server may start failed, please check the clickhouse-server log")
 					return
 				}
 			}
@@ -537,6 +574,7 @@ func ConfigLogicOtherCluster(clusterName string) error {
 	d.Conf.Cluster = clusterName
 	metrika, deploys := GenLogicMetrika(d)
 	for _, deploy := range deploys {
+		deploy.Conf.Normalize()
 		logicFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "metrika")
 		if err != nil {
 			return errors.Wrap(err, "")
@@ -544,18 +582,26 @@ func ConfigLogicOtherCluster(clusterName string) error {
 		defer os.Remove(logicFile.FullName)
 		m, _ := ckconfig.GenerateMetrikaXMLwithLogic(logicFile.FullName, deploy.Conf, metrika)
 		var lastError error
+		var remotePath string
+		if d.Conf.NeedSudo {
+			remotePath = "/etc/clickhouse-server"
+		} else {
+			remotePath = path.Join(d.Conf.Cwd, "etc", "clickhouse-server")
+		}
 		for _, host := range d.Conf.Hosts {
 			host := host
 			deploy := deploy
 			_ = d.pool.Submit(func() {
-				if err := common.ScpUploadFile(m, "/etc/clickhouse-server/config.d/metrika.xml", deploy.Conf.SshUser, deploy.Conf.SshPassword, host, deploy.Conf.SshPort); err != nil {
+				if err := common.ScpUploadFile(m, path.Join(remotePath, "metrika.xml"), deploy.Conf.SshUser, deploy.Conf.SshPassword, host, deploy.Conf.SshPort,d.Conf.NeedSudo); err != nil {
 					lastError = err
 					return
 				}
-				cmd := "chown -R clickhouse:clickhouse /etc/clickhouse-server"
-				if _, err := common.RemoteExecute(deploy.Conf.SshUser, deploy.Conf.SshPassword, host, deploy.Conf.SshPort, cmd); err != nil {
-					lastError = err
-					return
+				if d.Conf.NeedSudo {
+					cmd := "chown -R clickhouse:clickhouse /etc/clickhouse-server"
+					if _, err := common.RemoteExecute(deploy.Conf.SshUser, deploy.Conf.SshPassword, host, deploy.Conf.SshPort, cmd, d.Conf.NeedSudo); err != nil {
+						lastError = err
+						return
+					}
 				}
 			})
 		}
@@ -647,25 +693,29 @@ func ClearLogicCluster(cluster, logic string, reconf bool) error {
 	return nil
 }
 
-func BuildPackages(version, pkgType string) []string {
+func BuildPackages(version, pkgType, cwd string) Packages {
 	if pkgType == "" {
 		pkgType = model.PkgTypeDefault
 	}
-	packages := make([]string, 3)
+	pkgLists := make([]string, 3)
 	pkgs, ok := common.CkPackages.Load(pkgType)
 	if !ok {
-		return packages
+		return Packages{}
 	}
 	for _, pkg := range pkgs.(common.CkPackageFiles) {
 		if pkg.Version == version {
 			if pkg.Module == common.PkgModuleCommon {
-				packages[0] = pkg.PkgName
+				pkgLists[0] = pkg.PkgName
 			} else if pkg.Module == common.PkgModuleServer {
-				packages[1] = pkg.PkgName
+				pkgLists[1] = pkg.PkgName
 			} else if pkg.Module == common.PkgModuleClient {
-				packages[2] = pkg.PkgName
+				pkgLists[2] = pkg.PkgName
 			}
 		}
 	}
-	return packages
+
+	return Packages{
+		PkgLists: pkgLists,
+		Cwd:      cwd,
+	}
 }

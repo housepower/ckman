@@ -63,7 +63,7 @@ func hasEffectiveTasks(clusterName string) bool {
 		return false
 	}
 	for _, task := range tasks {
-		if task.Status == model.TaskStatusFailed || task.Status == model.TaskStatusSuccess {
+		if task.Status == model.TaskStatusFailed || task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusStopped{
 			continue
 		}
 		if clusterName == task.ClusterName {

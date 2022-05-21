@@ -6,12 +6,12 @@ import (
 )
 
 type CmdAdpt interface {
-	StartCmd(svr string) string
-	StopCmd(svr string) string
-	RestartCmd(svr string) string
-	InstallCmd(pkgs []string) string
-	UpgradeCmd(pkgs []string) string
-	Uninstall(pkgs []string) string
+	StartCmd(svr, cwd string) string
+	StopCmd(svr, cwd string) string
+	RestartCmd(svr, cwd string) string
+	InstallCmd(pkgs Packages) string
+	UpgradeCmd(pkgs Packages) string
+	Uninstall(pkgs Packages) string
 }
 
 type CmdFactory interface {

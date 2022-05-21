@@ -34,6 +34,7 @@ var TaskStatusMap = map[int]string{
 	TaskStatusRunning: "Running",
 	TaskStatusSuccess: "Success",
 	TaskStatusFailed:  "Failed",
+	TaskStatusStopped: "Stopped",
 }
 
 type Internationalization struct {

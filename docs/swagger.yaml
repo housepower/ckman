@@ -85,6 +85,9 @@ definitions:
       cluster:
         example: test
         type: string
+      cwd:
+        example: /home/eoi/clickhouse
+        type: string
       expert:
         additionalProperties:
           type: string
@@ -264,11 +267,8 @@ definitions:
     type: object
   model.CkUpgradeCkReq:
     properties:
-      packageType:
-        example: Linux.x86_64.rpm
-        type: string
       packageVersion:
-        example: 20.9.3.45
+        example: 22.3.6.5
         type: string
       policy:
         example: Rolling

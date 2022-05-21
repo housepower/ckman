@@ -15,4 +15,6 @@ func TestCompareClickHouseVersion(t *testing.T) {
 	assert.Equal(t, -1, CompareClickHouseVersion("21.9.x.x", "21.10.x.x"))
 	assert.Equal(t, -1, CompareClickHouseVersion("21.9.3.45", "21.9.3.2403"))
 	assert.Equal(t, -1, CompareClickHouseVersion("21.9.3", "21.10.8.2403"))
+	assert.Equal(t, 0, CompareClickHouseVersion("22.3.3.44",  "22.x"))
+	assert.Equal(t, -1, CompareClickHouseVersion("21.9.3.45",  "22.x"))
 }
