@@ -154,8 +154,7 @@ type CkTableCost struct {
 }
 
 type CkUpgradeCkReq struct {
-	PackageType     string `json:"packageType" example:"Linux.x86_64.rpm"`
-	PackageVersion  string `json:"packageVersion" example:"20.9.3.45"`
+	PackageVersion  string `json:"packageVersion" example:"22.3.6.5"`
 	Policy          string `json:"policy" example:"Rolling"`
 	SkipSameVersion bool   `json:"skip" example:"true"`
 }

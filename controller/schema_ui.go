@@ -70,6 +70,13 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "逻辑集群，存在于物理集群之上",
 		DescriptionEN: "require physical cluster",
 	})
+	params.MustRegister(conf, "Cwd", &common.Parameter{
+		LabelZH:       "工作路径",
+		LabelEN:       "WorkingDirectory",
+		DescriptionZH: "工作路径，仅tgz部署时需要",
+		DescriptionEN: "Working directory, only required for tgz deployment",
+		Visiable:      "PkgType.indexOf('tgz') !== -1",
+	})
 	params.MustRegister(conf, "SshUser", &common.Parameter{
 		LabelZH:       "系统账户名",
 		LabelEN:       "SSH Username",
@@ -358,6 +365,14 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:       "Package Type",
 		DescriptionZH: "安装包的类型，表示当前安装包是什么系统架构，什么压缩格式",
 		DescriptionEN: "The type of the installation package, indicating what system architecture and compression format",
+		Editable:      "false",
+	})
+	params.MustRegister(conf, "Cwd", &common.Parameter{
+		LabelZH:       "工作路径",
+		LabelEN:       "WorkingDirectory",
+		DescriptionZH: "工作路径，仅tgz部署时需要",
+		DescriptionEN: "Working directory, only required for tgz deployment",
+		Visiable:      "PkgType.indexOf('tgz') !== -1",
 		Editable:      "false",
 	})
 	params.MustRegister(conf, "Cluster", &common.Parameter{

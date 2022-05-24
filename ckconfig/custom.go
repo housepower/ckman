@@ -6,10 +6,11 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
+	"path"
 	"strings"
 )
 
-func yandex(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interface{} {
+func root(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interface{} {
 	output := make(map[string]interface{})
 	output["max_table_size_to_drop"] = 0
 	output["max_table_size_to_drop"] = 0
@@ -31,6 +32,11 @@ func yandex(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]inter
 	output["access_control_path"] = fmt.Sprintf("%sclickhouse/access/", conf.Path)
 	output["format_schema_path"] = fmt.Sprintf("%sclickhouse/format_schemas/", conf.Path)
 	output["database_atomic_delay_before_drop_table_sec"] = 0
+	userDirectories := make(map[string]interface{})
+	userDirectories["local_directory"] = map[string]interface{}{
+		"path": fmt.Sprintf("%sclickhouse/access/", conf.Path),
+	}
+	output["user_directories"] = userDirectories
 	return output
 }
 
@@ -64,11 +70,15 @@ func system_log() map[string]interface{} {
 	return output
 }
 
-func logger() map[string]interface{} {
+func logger(conf *model.CKManClickHouseConfig) map[string]interface{} {
 	output := make(map[string]interface{})
-	output["logger"] = map[string]interface{}{
-		"level": "debug",
+	loggerMap := make(map[string]interface{})
+	loggerMap["level"] = "debug"
+	if !conf.NeedSudo {
+		loggerMap["log"] = path.Join(conf.Cwd, "log", "clickhouse-server", "clickhouse-server.log")
+		loggerMap["errorlog"] = path.Join(conf.Cwd, "log", "clickhouse-server", "clickhouse-server.err.log")
 	}
+	output["logger"] = loggerMap
 	return output
 }
 
@@ -140,18 +150,22 @@ func expert(exp map[string]string) map[string]interface{} {
 }
 
 func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ipv6Enable bool) (string, error) {
+	rootTag := "yandex"
+	if common.CompareClickHouseVersion(conf.Version, "22.x") >= 0 {
+		rootTag = "clickhouse"
+	}
 	custom := make(map[string]interface{})
 	mergo.Merge(&custom, expert(conf.Expert)) //expert have the highest priority
-	mergo.Merge(&custom, yandex(conf, ipv6Enable))
-	mergo.Merge(&custom, logger())
+	mergo.Merge(&custom, root(conf, ipv6Enable))
+	mergo.Merge(&custom, logger(conf))
 	mergo.Merge(&custom, system_log())
 	mergo.Merge(&custom, distributed_ddl(conf.Cluster))
 	mergo.Merge(&custom, prometheus())
 	mergo.Merge(&custom, storage(conf.Storage))
 	xml := common.NewXmlFile(filename)
-	xml.Begin("yandex")
+	xml.Begin(rootTag)
 	xml.Merge(custom)
-	xml.End("yandex")
+	xml.End(rootTag)
 	if err := xml.Dump(); err != nil {
 		return filename, errors.Wrap(err, "")
 	}

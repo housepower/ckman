@@ -1,5 +1,9 @@
 package model
 
+import (
+	"strings"
+)
+
 const (
 	CkClusterImport string = "import"
 	CkClusterDeploy string = "deploy"
@@ -56,10 +60,11 @@ type CkImportConfig struct {
 }
 
 type CKManClickHouseConfig struct {
+	Cluster          string    `json:"cluster" example:"test"`
 	PkgType          string    `json:"pkgType" example:"x86_64.rpm"`
 	PkgName          string    `json:"pkgName" example:"clickhouse-common-static-22.3.3.44.noarch.rpm"`
 	Version          string    `json:"version" example:"21.9.1.7647"`
-	Cluster          string    `json:"cluster" example:"test"`
+	Cwd              string    `json:"cwd" example:"/home/eoi/clickhouse"`
 	LogicCluster     *string   `json:"logic_cluster" yaml:"logic_cluster" example:"logic_test"`
 	Port             int       `json:"port" example:"9000"`
 	IsReplica        bool      `json:"isReplica" example:"true"`
@@ -85,6 +90,7 @@ type CKManClickHouseConfig struct {
 	Mode     string            `json:"mode" swaggerignore:"true"`
 	HttpPort int               `json:"httpPort" swaggerignore:"true"`
 	ZooPath  map[string]string `json:"zooPath" swaggerignore:"true"`
+	NeedSudo bool              `json:"needSudo" swaggerignore:"true"`
 }
 
 // Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes
@@ -220,5 +226,13 @@ func (config *CKManClickHouseConfig) Normalize() {
 
 	if config.PkgType == "" {
 		config.PkgType = PkgTypeDefault
+	}
+
+	if !strings.HasSuffix(config.PkgType, "tgz") {
+		config.Cwd = ""
+	}
+
+	if config.Cwd == "" {
+		config.NeedSudo = true
 	}
 }

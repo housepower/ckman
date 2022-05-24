@@ -1,19 +1,22 @@
-<yandex>
-    <access_control_path>/clickhouse/access/</access_control_path>
+<clickhouse>
+    <access_control_path>/data01/clickhouse/access/</access_control_path>
     <asynchronous_metric_log>
         <flush_interval_milliseconds>30000</flush_interval_milliseconds>
         <partition_by>toYYYYMMDD(event_date)</partition_by>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
     </asynchronous_metric_log>
+    <database_atomic_delay_before_drop_table_sec>0</database_atomic_delay_before_drop_table_sec>
     <default_replica_name>{replica}</default_replica_name>
     <default_replica_path>/clickhouse/tables/{cluster}/{database}/{table}/{shard}</default_replica_path>
     <distributed_ddl>
         <path>/clickhouse/task_queue/ddl/abc</path>
     </distributed_ddl>
-    <format_schema_path>/clickhouse/format_schemas/</format_schema_path>
+    <format_schema_path>/data01/clickhouse/format_schemas/</format_schema_path>
     <listen_host>::</listen_host>
     <logger>
+        <errorlog>/home/eoi/clickhouse/log/clickhouse-server/clickhouse-server.err.log</errorlog>
         <level>information</level>
+        <log>/home/eoi/clickhouse/log/clickhouse-server/clickhouse-server.log</log>
     </logger>
     <max_partition_size_to_drop>0</max_partition_size_to_drop>
     <max_table_size_to_drop>0</max_table_size_to_drop>
@@ -51,7 +54,7 @@
         <partition_by>toYYYYMMDD(event_date)</partition_by>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
     </part_log>
-    <path>/clickhouse/</path>
+    <path>/data01/clickhouse/</path>
     <prometheus>
         <asynchronous_metrics>true</asynchronous_metrics>
         <endpoint>/metrics</endpoint>
@@ -120,11 +123,16 @@
         </policies>
     </storage_configuration>
     <tcp_port>9000</tcp_port>
-    <tmp_path>/clickhouse/tmp/</tmp_path>
+    <tmp_path>/data01/clickhouse/tmp/</tmp_path>
     <trace_log>
         <flush_interval_milliseconds>30000</flush_interval_milliseconds>
         <partition_by>toYYYYMMDD(event_date)</partition_by>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
     </trace_log>
-    <user_files_path>/clickhouse/user_files/</user_files_path>
-</yandex>
+    <user_directories>
+        <local_directory>
+            <path>/data01/clickhouse/access/</path>
+        </local_directory>
+    </user_directories>
+    <user_files_path>/data01/clickhouse/user_files/</user_files_path>
+</clickhouse>

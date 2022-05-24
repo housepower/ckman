@@ -1840,6 +1840,10 @@ var doc = `{
                     "type": "string",
                     "example": "test"
                 },
+                "cwd": {
+                    "type": "string",
+                    "example": "/home/eoi/clickhouse"
+                },
                 "expert": {
                     "type": "object",
                     "additionalProperties": {
@@ -2085,13 +2089,9 @@ var doc = `{
         "model.CkUpgradeCkReq": {
             "type": "object",
             "properties": {
-                "packageType": {
-                    "type": "string",
-                    "example": "Linux.x86_64.rpm"
-                },
                 "packageVersion": {
                     "type": "string",
-                    "example": "20.9.3.45"
+                    "example": "22.3.6.5"
                 },
                 "policy": {
                     "type": "string",

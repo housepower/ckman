@@ -14,32 +14,32 @@ func (DebFacotry) Create() CmdAdpt {
 
 type DebPkg struct {}
 
-func (p *DebPkg)StartCmd(svr string) string{
+func (p *DebPkg)StartCmd(svr, cwd string) string{
 	return "service " + svr + " start"
 }
-func (p *DebPkg)StopCmd(svr string) string{
+func (p *DebPkg)StopCmd(svr, cwd string) string{
 	return "service " + svr + " stop"
 }
 
-func (p *DebPkg)RestartCmd(svr string) string {
+func (p *DebPkg)RestartCmd(svr, cwd string) string {
 	return "service " + svr + " restart"
 }
 
-func (p *DebPkg)InstallCmd(pkgs []string) string{
-	for idx, pkg := range pkgs {
-		pkgs[idx] = path.Join(common.TmpWorkDirectory, pkg)
+func (p *DebPkg)InstallCmd(pkgs Packages) string{
+	for idx, pkg := range pkgs.PkgLists {
+		pkgs.PkgLists[idx] = path.Join(common.TmpWorkDirectory, pkg)
 	}
-	return "DEBIAN_FRONTEND=noninteractive dpkg -i " + strings.Join(pkgs, " ")
+	return "DEBIAN_FRONTEND=noninteractive dpkg -i " + strings.Join(pkgs.PkgLists, " ")
 }
 
-func (p *DebPkg) UpgradeCmd(pkgs []string) string {
-	for idx, pkg := range pkgs {
-		pkgs[idx] = path.Join(common.TmpWorkDirectory, pkg)
+func (p *DebPkg) UpgradeCmd(pkgs Packages) string {
+	for idx, pkg := range pkgs.PkgLists {
+		pkgs.PkgLists[idx] = path.Join(common.TmpWorkDirectory, pkg)
 	}
-	return "DEBIAN_FRONTEND=noninteractive dpkg -i " + strings.Join(pkgs, " ")
+	return "DEBIAN_FRONTEND=noninteractive dpkg -i " + strings.Join(pkgs.PkgLists, " ")
 }
 
-func (p *DebPkg) Uninstall(pkgs []string) string {
+func (p *DebPkg) Uninstall(pkgs Packages) string {
 	return "dpkg -P clickhouse-client clickhouse-common-static  clickhouse-server"
 }
 

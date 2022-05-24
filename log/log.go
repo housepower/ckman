@@ -5,17 +5,21 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"strings"
 )
 
 var Logger *zap.SugaredLogger
 
 func InitLogger(path string, config *config.CKManLogConfig) {
+	errPath := strings.TrimSuffix(path, ".log") + ".err.log"
 	writeSyncer := getLogWriter(path, config)
+	errSyncer := getLogWriter(errPath, config)
 	encoder := getEncoder()
 	level := zapcore.InfoLevel
 	_ = level.UnmarshalText([]byte(config.Level))
-	core := zapcore.NewCore(encoder, writeSyncer, level)
-
+	infocore := zapcore.NewCore(encoder, writeSyncer, level)
+	errcore := zapcore.NewCore(encoder, errSyncer, zapcore.ErrorLevel)
+	core := zapcore.NewTee(infocore, errcore)
 	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
 	Logger = logger.Sugar()
 }
