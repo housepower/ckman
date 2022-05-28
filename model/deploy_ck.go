@@ -144,6 +144,7 @@ type UsersConf struct {
 	Users    []User
 	Profiles []Profile
 	Quotas   []Quota
+	Expert   map[string]string
 }
 
 type User struct {
@@ -175,12 +176,12 @@ type TblRowPolicy struct {
 type Profile struct {
 	Name string
 	// https://clickhouse.tech/docs/en/operations/settings/permissions-for-queries/
-	ReadOnly   *int
-	AllowDDL   *int
-	MaxThreads *int
+	ReadOnly   int
+	AllowDDL   int
+	MaxThreads int
 	// https://clickhouse.tech/docs/en/operations/settings/query-complexity/
-	MaxMemoryUsage              *int64
-	MaxMemoryUsageForAllQueries *int64
+	MaxMemoryUsage              int64
+	MaxMemoryUsageForAllQueries int64
 	Expert                      map[string]string
 }
 

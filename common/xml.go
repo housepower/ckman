@@ -2,11 +2,12 @@ package common
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"os"
 	"reflect"
 	"sort"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type XMLFile struct {
@@ -27,7 +28,19 @@ func NewXmlFile(name string) *XMLFile {
 	}
 }
 
+func escape(context string) string {
+	context = strings.ReplaceAll(context, "&", "&amp;")
+	context = strings.ReplaceAll(context, "<", "&lt;")
+	context = strings.ReplaceAll(context, ">", "&gt;")
+	context = strings.ReplaceAll(context, "'", "&apos;")
+	context = strings.ReplaceAll(context, "\"", "&quot;")
+	return context
+}
+
 func finalValue(value interface{}) interface{} {
+	if _, ok := value.(string); ok {
+		value = escape(value.(string))
+	}
 	rv := reflect.ValueOf(value)
 	for rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
@@ -162,7 +175,7 @@ func ConvertMapping(input map[string]interface{}) map[string]interface{} {
 	return output
 }
 
-func parseTags(key string)(string, []XMLAttr) {
+func parseTags(key string) (string, []XMLAttr) {
 	var tag string
 	var attrs []XMLAttr
 	if strings.Contains(key, "[") {
@@ -187,7 +200,7 @@ func parseTags(key string)(string, []XMLAttr) {
 	return tag, attrs
 }
 
-func (xml *XMLFile) mapping(output map[string]interface{}){
+func (xml *XMLFile) mapping(output map[string]interface{}) {
 	keys := make([]string, 0)
 	for k := range output {
 		keys = append(keys, k)
@@ -204,10 +217,15 @@ func (xml *XMLFile) mapping(output map[string]interface{}){
 			xml.mapping(v.(map[string]interface{}))
 			xml.End(tag)
 		case reflect.Array, reflect.Slice:
-			//only support array in deepest level
 			rv := reflect.ValueOf(v)
 			for i := 0; i < rv.Len(); i++ {
-				xml.WritewithAttr(tag, rv.Index(i), attrs)
+				if rt.Elem().Kind() == reflect.Map {
+					xml.BeginwithAttr(tag, attrs)
+					xml.mapping(rv.Index(i).Interface().(map[string]interface{}))
+					xml.End(tag)
+				} else {
+					xml.WritewithAttr(tag, rv.Index(i), attrs)
+				}
 			}
 		default:
 			xml.WritewithAttr(tag, v, attrs)

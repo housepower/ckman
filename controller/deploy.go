@@ -2,10 +2,11 @@ package controller
 
 import (
 	"fmt"
-	"github.com/housepower/ckman/repository"
-	"github.com/pkg/errors"
 	"sort"
 	"strings"
+
+	"github.com/housepower/ckman/repository"
+	"github.com/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
@@ -64,7 +65,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 	var err error
-	if  repository.Ps.ClusterExists(conf.Cluster) {
+	if repository.Ps.ClusterExists(conf.Cluster) {
 		return errors.Errorf("cluster %s is exist", conf.Cluster)
 	}
 
@@ -144,7 +145,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 	}
 
 	disks := make([]string, 0)
-	localPath :=  make([]string, 0)
+	localPath := make([]string, 0)
 	hdfsEndpoints := make([]string, 0)
 	s3Endpoints := make([]string, 0)
 	disks = append(disks, "default")
@@ -197,6 +198,35 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 			}
 		}
 	}
+
+	var profiles []string
+	profiles = append(profiles, model.ClickHouseUserProfileDefault)
+	if len(conf.UsersConf.Profiles) > 0 {
+		for _, profile := range conf.UsersConf.Profiles {
+			if common.ArraySearch(profile.Name, profiles) {
+				return errors.Errorf("profile %s is duplicate", profile.Name)
+			}
+			if profile.Name == model.ClickHouseUserProfileDefault {
+				return errors.Errorf("profile can't be default")
+			}
+			profiles = append(profiles, profile.Name)
+		}
+	}
+
+	var quotas []string
+	quotas = append(quotas, model.ClickHouseUserQuotaDefault)
+	if len(conf.UsersConf.Profiles) > 0 {
+		for _, quota := range conf.UsersConf.Quotas {
+			if common.ArraySearch(quota.Name, profiles) {
+				return errors.Errorf("quota %s is duplicate", quota.Name)
+			}
+			if quota.Name == model.ClickHouseUserQuotaDefault {
+				return errors.Errorf("quota can't be default")
+			}
+			quotas = append(quotas, quota.Name)
+		}
+	}
+
 	var usernames []string
 	if len(conf.UsersConf.Users) > 0 {
 		for _, user := range conf.UsersConf.Users {
@@ -208,6 +238,12 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 			}
 			if user.Name == "" || user.Password == "" {
 				return errors.Errorf("username or password can't be empty")
+			}
+			if !common.ArraySearch(user.Profile, profiles) {
+				return errors.Errorf("profile %s is invalid", user.Profile)
+			}
+			if !common.ArraySearch(user.Quota, quotas) {
+				return errors.Errorf("quota %s is invalid", user.Quota)
 			}
 			usernames = append(usernames, user.Name)
 		}
@@ -271,7 +307,7 @@ func MatchingPlatfrom(conf *model.CKManClickHouseConfig) error {
 	if arch == "arm64" {
 		arch = "aarch64"
 	}
-	cmd  := "uname -m"
+	cmd := "uname -m"
 	for _, host := range conf.Hosts {
 		result, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd, conf.NeedSudo)
 		if err != nil {
