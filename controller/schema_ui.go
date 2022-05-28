@@ -1,14 +1,15 @@
 package controller
 
 import (
+	"io"
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
-	"io"
-	"net/http"
-	"strings"
 )
 
 const (
@@ -330,6 +331,33 @@ Non-professionals please do not fill in this`,
 		DescriptionEN: "normal user config management",
 		Required:      "false",
 	})
+	params.MustRegister(userconf, "Profiles", &common.Parameter{
+		LabelZH:  "配置管理",
+		LabelEN:  "Profiles",
+		Required: "false",
+	})
+	params.MustRegister(userconf, "Quotas", &common.Parameter{
+		LabelZH:  "配额管理",
+		LabelEN:  "Quotas",
+		Required: "false",
+	})
+	params.MustRegister(userconf, "Expert", &common.Parameter{
+		LabelZH: "用户高级配置",
+		LabelEN: "User Custom Config",
+		DescriptionZH: `自定义配置文件，语法接近xpath(https://www.w3schools.com/xml/xpath_syntax.asp);
+举例：title[@lang='en', @size=4]/header:header123， 最终生成的配置为:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
+非专业人士请勿填写此项`,
+		DescriptionEN: `Custom configuration items, similar to xpath syntax(https://www.w3schools.com/xml/xpath_syntax.asp);
+For example: title[@lang='en', @size=4]/header:header123, the final generated configuration is:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
+Non-professionals please do not fill in this`,
+		Required: "false",
+	})
 
 	var user model.User
 	params.MustRegister(user, "Name", &common.Parameter{
@@ -345,7 +373,210 @@ Non-professionals please do not fill in this`,
 		DescriptionEN: "can't be empty",
 		InputType:     common.InputPassword,
 	})
+	params.MustRegister(user, "Profile", &common.Parameter{
+		LabelZH:       "限额",
+		LabelEN:       "Profile",
+		DescriptionZH: "设置用户相关参数，如：最大内存使用、只读等",
+		DescriptionEN: "Set user-related parameters, such as: maximum memory usage, read-only, etc",
+		Required:      "false",
+	})
+	params.MustRegister(user, "Quota", &common.Parameter{
+		LabelZH:       "配额",
+		LabelEN:       "Quota",
+		DescriptionZH: "配额允许您在一段时间内跟踪或限制资源使用情况",
+		DescriptionEN: "Quotas allow you to track or limit resource usage over a period of time. ",
+		Required:      "false",
+	})
+	params.MustRegister(user, "Networks", &common.Parameter{
+		LabelZH:       "允许登录地址",
+		LabelEN:       "NetWorks",
+		DescriptionZH: "用户可以连接到 ClickHouse 服务器的网络列表。",
+		DescriptionEN: "List of networks from which the user can connect to the ClickHouse server.",
+		Required:      "false",
+	})
+	params.MustRegister(user, "DbRowPolices", &common.Parameter{
+		LabelZH:       "访问权限",
+		LabelEN:       "DbRowPolices",
+		DescriptionZH: "设置数据库及表的访问权限",
+		DescriptionEN: "Set database and table access permissions",
+		Required:      "false",
+	})
 
+	var dbRow model.DbRowPolicy
+	params.MustRegister(dbRow, "Database", &common.Parameter{
+		LabelZH:       "数据库",
+		LabelEN:       "Database",
+		DescriptionZH: "用户只能访问的数据库",
+		DescriptionEN: "Databases that users can only access",
+	})
+	params.MustRegister(dbRow, "TblRowPolicies", &common.Parameter{
+		LabelZH:       "行访问权限",
+		LabelEN:       "TblRowPolicies",
+		DescriptionZH: "用户只能访问数据库的哪些行",
+		DescriptionEN: "Which rows of the database the user can only access",
+		Required:      "false",
+	})
+
+	var networks model.Networks
+	params.MustRegister(networks, "IPs", &common.Parameter{
+		LabelZH:       "IP列表",
+		LabelEN:       "IPs",
+		DescriptionZH: "用户能访问的数据库表",
+		DescriptionEN: "IP address or network mask",
+		Required:      "false",
+	})
+	params.MustRegister(networks, "Hosts", &common.Parameter{
+		LabelZH:       "主机列表",
+		LabelEN:       "Hosts",
+		DescriptionZH: "用户能访问的数据库表",
+		DescriptionEN: "o check access, a DNS query is performed, and all returned IP addresses are compared to the peer address.",
+		Required:      "false",
+	})
+	params.MustRegister(networks, "HostRegexps", &common.Parameter{
+		LabelZH:       "主机名正则匹配",
+		LabelEN:       "HostRegexps",
+		DescriptionZH: "主机名正则表达式匹配",
+		DescriptionEN: "Regular expression for hostnames",
+		Required:      "false",
+	})
+
+	var tblRow model.TblRowPolicy
+	params.MustRegister(tblRow, "Table", &common.Parameter{
+		LabelZH:       "表名",
+		LabelEN:       "Table",
+		DescriptionZH: "用户能访问的数据库表",
+		DescriptionEN: "Which table the user can only access",
+	})
+	params.MustRegister(tblRow, "Filter", &common.Parameter{
+		LabelZH:       "过滤器",
+		LabelEN:       "Filter",
+		DescriptionZH: "过滤器可以是任何产生 UInt8 类型值的表达式。它通常包含比较和逻辑运算符。不为此用户返回从 database_name.table1 中筛选结果为 0 的行。过滤与 PREWHERE 操作不兼容，并禁用 WHERE→PREWHERE 优化。",
+		DescriptionEN: "The filter can be any expression resulting in a UInt8-type value. It usually contains comparisons and logical operators. Rows from database_name.table1 where filter results to 0 are not returned for this user. The filtering is incompatible with PREWHERE operations and disables WHERE→PREWHERE optimization.",
+	})
+
+	var profile model.Profile
+	params.MustRegister(profile, "Name", &common.Parameter{
+		LabelZH: "配置名称",
+		LabelEN: "Name",
+	})
+	params.MustRegister(profile, "ReadOnly", &common.Parameter{
+		LabelZH:       "只读约束",
+		LabelEN:       "ReadOnly",
+		DescriptionZH: "限制除 DDL 查询之外的所有类型的查询的权限。",
+		DescriptionEN: "Restricts permissions for all types of queries except DDL queries.",
+		Candidates: []common.Candidate{
+			{Value: "0", LabelEN: "Default", LabelZH: "不限制"},
+			{Value: "1", LabelEN: "Read", LabelZH: "只读权限"},
+			{Value: "2", LabelEN: "Read and Set", LabelZH: "读权限和设置权限"},
+		},
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(profile, "AllowDDL", &common.Parameter{
+		LabelZH:       "DDL权限",
+		LabelEN:       "AllowDDL",
+		DescriptionZH: "限制除 DDL 查询之外的所有类型的查询的权限",
+		DescriptionEN: "Restricts permissions for DDL queries",
+		Candidates: []common.Candidate{
+			{Value: "0", LabelEN: "Not Allowed", LabelZH: "不允许 "},
+			{Value: "1", LabelEN: "Allowed", LabelZH: "允许"},
+		},
+		Default:  "1",
+		Required: "false",
+	})
+	params.MustRegister(profile, "MaxThreads", &common.Parameter{
+		LabelZH:       "最大线程数",
+		LabelEN:       "MaxThreads",
+		DescriptionZH: "查询处理线程的最大数量，不包括从远程服务器检索数据的线程",
+		DescriptionEN: "The maximum number of query processing threads, excluding threads for retrieving data from remote servers (see the ‘max_distributed_connections’ parameter).",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxMemoryUsage", &common.Parameter{
+		LabelZH:       "最大使用内存",
+		LabelEN:       "MaxMemoryUsage",
+		DescriptionZH: "用于在单个服务器上运行查询的最大RAM量",
+		DescriptionEN: "The maximum amount of RAM to use for running a query on a single server.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxMemoryUsageForAllQueries", &common.Parameter{
+		LabelZH:       "用户查询可用最大内存",
+		LabelEN:       "MaxMemoryUsageForAllQueries",
+		DescriptionZH: "在单个ClickHouse服务进程中，所有运行的查询累加在一起，限制使用的最大内存用量，默认为0不做限制",
+		DescriptionEN: "In a single ClickHouse service process, all running queries are accumulated together to limit the maximum memory usage. The default value is 0 and no limit is imposed.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "Expert", &common.Parameter{
+		LabelZH:       "专家配置",
+		LabelEN:       "Expert",
+		DescriptionZH: "限额高级配置，参考：https://clickhouse.com/docs/en/operations/settings/settings-profiles/",
+		DescriptionEN: "Advanced configuration of quota, refer to https://clickhouse.com/docs/en/operations/settings/settings-profiles/",
+		Required:      "false",
+	})
+
+	var quota model.Quota
+	params.MustRegister(quota, "Name", &common.Parameter{
+		LabelZH: "配额名称",
+		LabelEN: "Name",
+	})
+	params.MustRegister(quota, "Intervals", &common.Parameter{
+		LabelZH:       "周期",
+		LabelEN:       "Interval",
+		DescriptionZH: "配额生效的周期时段",
+		DescriptionEN: "Restrictions for a time period. You can set many intervals with different restrictions.",
+	})
+
+	var interval model.Interval
+	params.MustRegister(interval, "Duration", &common.Parameter{
+		LabelZH:       "周期时间",
+		LabelEN:       "Duration",
+		DescriptionZH: "周期的有效时长，默认为1小时",
+		DescriptionEN: "Length of the interval.",
+		Default:       "3600",
+	})
+	params.MustRegister(interval, "Queries", &common.Parameter{
+		LabelZH:       "请求总数限制",
+		LabelEN:       "Queries",
+		DescriptionZH: "0为不限制",
+		DescriptionEN: "Length of the interval.",
+		Default:       "0",
+		Required:      "false",
+	})
+	params.MustRegister(interval, "QuerySelects", &common.Parameter{
+		LabelZH:  "查询限制",
+		LabelEN:  "QuerySelects",
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(interval, "QueryInserts", &common.Parameter{
+		LabelZH:  "插入限制",
+		LabelEN:  "QueryInserts",
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(interval, "Errors", &common.Parameter{
+		LabelZH:  "错误限制",
+		LabelEN:  "Errors",
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(interval, "ResultRows", &common.Parameter{
+		LabelZH:  "返回行限制",
+		LabelEN:  "ResultRows",
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(interval, "ReadRows", &common.Parameter{
+		LabelZH:  "读取行限制",
+		LabelEN:  "ReadRows",
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(interval, "ExecutionTime", &common.Parameter{
+		LabelZH:  "执行时间限制",
+		LabelEN:  "ExecutionTime",
+		Default:  "0",
+		Required: "false",
+	})
 	return params
 }
 
@@ -643,6 +874,33 @@ Non-professionals please do not fill in this`,
 		DescriptionEN: "normal user config management",
 		Required:      "false",
 	})
+	params.MustRegister(userconf, "Profiles", &common.Parameter{
+		LabelZH:  "配置管理",
+		LabelEN:  "Profiles",
+		Required: "false",
+	})
+	params.MustRegister(userconf, "Quotas", &common.Parameter{
+		LabelZH:  "配额管理",
+		LabelEN:  "Quotas",
+		Required: "false",
+	})
+	params.MustRegister(userconf, "Expert", &common.Parameter{
+		LabelZH: "用户高级配置",
+		LabelEN: "User Custom Config",
+		DescriptionZH: `自定义配置文件，语法接近xpath(https://www.w3schools.com/xml/xpath_syntax.asp);
+举例：title[@lang='en', @size=4]/header:header123， 最终生成的配置为:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
+非专业人士请勿填写此项`,
+		DescriptionEN: `Custom configuration items, similar to xpath syntax(https://www.w3schools.com/xml/xpath_syntax.asp);
+For example: title[@lang='en', @size=4]/header:header123, the final generated configuration is:
+<title lang="en" size="4">
+    <header>header123</header>
+</title>
+Non-professionals please do not fill in this`,
+		Required: "false",
+	})
 
 	var user model.User
 	params.MustRegister(user, "Name", &common.Parameter{
@@ -657,6 +915,210 @@ Non-professionals please do not fill in this`,
 		DescriptionZH: "用户密码，不可为空",
 		DescriptionEN: "can't be empty",
 		InputType:     common.InputPassword,
+	})
+	params.MustRegister(user, "Profile", &common.Parameter{
+		LabelZH:       "限额",
+		LabelEN:       "Profile",
+		DescriptionZH: "设置用户相关参数，如：最大内存使用、只读等",
+		DescriptionEN: "Set user-related parameters, such as: maximum memory usage, read-only, etc",
+		Required:      "false",
+	})
+	params.MustRegister(user, "Quota", &common.Parameter{
+		LabelZH:       "配额",
+		LabelEN:       "Quota",
+		DescriptionZH: "配额允许您在一段时间内跟踪或限制资源使用情况",
+		DescriptionEN: "Quotas allow you to track or limit resource usage over a period of time. ",
+		Required:      "false",
+	})
+	params.MustRegister(user, "Networks", &common.Parameter{
+		LabelZH:       "允许登录地址",
+		LabelEN:       "NetWorks",
+		DescriptionZH: "用户可以连接到 ClickHouse 服务器的网络列表。",
+		DescriptionEN: "List of networks from which the user can connect to the ClickHouse server.",
+		Required:      "false",
+	})
+	params.MustRegister(user, "DbRowPolices", &common.Parameter{
+		LabelZH:       "访问权限",
+		LabelEN:       "DbRowPolices",
+		DescriptionZH: "设置数据库及表的访问权限",
+		DescriptionEN: "Set database and table access permissions",
+		Required:      "false",
+	})
+
+	var dbRow model.DbRowPolicy
+	params.MustRegister(dbRow, "Database", &common.Parameter{
+		LabelZH:       "数据库",
+		LabelEN:       "Database",
+		DescriptionZH: "用户只能访问的数据库",
+		DescriptionEN: "Databases that users can only access",
+	})
+	params.MustRegister(dbRow, "TblRowPolicies", &common.Parameter{
+		LabelZH:       "行访问权限",
+		LabelEN:       "TblRowPolicies",
+		DescriptionZH: "用户只能访问数据库的哪些行",
+		DescriptionEN: "Which rows of the database the user can only access",
+		Required:      "false",
+	})
+
+	var networks model.Networks
+	params.MustRegister(networks, "IPs", &common.Parameter{
+		LabelZH:       "IP列表",
+		LabelEN:       "IPs",
+		DescriptionZH: "用户能访问的数据库表",
+		DescriptionEN: "IP address or network mask",
+		Required:      "false",
+	})
+	params.MustRegister(networks, "Hosts", &common.Parameter{
+		LabelZH:       "主机列表",
+		LabelEN:       "Hosts",
+		DescriptionZH: "用户能访问的数据库表",
+		DescriptionEN: "o check access, a DNS query is performed, and all returned IP addresses are compared to the peer address.",
+		Required:      "false",
+	})
+	params.MustRegister(networks, "HostRegexps", &common.Parameter{
+		LabelZH:       "主机名正则匹配",
+		LabelEN:       "HostRegexps",
+		DescriptionZH: "主机名正则表达式匹配",
+		DescriptionEN: "Regular expression for hostnames",
+		Required:      "false",
+	})
+
+	var tblRow model.TblRowPolicy
+	params.MustRegister(tblRow, "Table", &common.Parameter{
+		LabelZH:       "表名",
+		LabelEN:       "Table",
+		DescriptionZH: "用户能访问的数据库表",
+		DescriptionEN: "Which table the user can only access",
+	})
+	params.MustRegister(tblRow, "Filter", &common.Parameter{
+		LabelZH:       "过滤器",
+		LabelEN:       "Filter",
+		DescriptionZH: "过滤器可以是任何产生 UInt8 类型值的表达式。它通常包含比较和逻辑运算符。不为此用户返回从 database_name.table1 中筛选结果为 0 的行。过滤与 PREWHERE 操作不兼容，并禁用 WHERE→PREWHERE 优化。",
+		DescriptionEN: "The filter can be any expression resulting in a UInt8-type value. It usually contains comparisons and logical operators. Rows from database_name.table1 where filter results to 0 are not returned for this user. The filtering is incompatible with PREWHERE operations and disables WHERE→PREWHERE optimization.",
+	})
+
+	var profile model.Profile
+	params.MustRegister(profile, "Name", &common.Parameter{
+		LabelZH: "配置名称",
+		LabelEN: "Name",
+	})
+	params.MustRegister(profile, "ReadOnly", &common.Parameter{
+		LabelZH:       "只读约束",
+		LabelEN:       "ReadOnly",
+		DescriptionZH: "限制除 DDL 查询之外的所有类型的查询的权限。",
+		DescriptionEN: "Restricts permissions for all types of queries except DDL queries.",
+		Candidates: []common.Candidate{
+			{Value: "0", LabelEN: "Default", LabelZH: "不限制"},
+			{Value: "1", LabelEN: "Read", LabelZH: "只读权限"},
+			{Value: "2", LabelEN: "Read and Set", LabelZH: "读权限和设置权限"},
+		},
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(profile, "AllowDDL", &common.Parameter{
+		LabelZH:       "DDL权限",
+		LabelEN:       "AllowDDL",
+		DescriptionZH: "限制除 DDL 查询之外的所有类型的查询的权限",
+		DescriptionEN: "Restricts permissions for DDL queries",
+		Candidates: []common.Candidate{
+			{Value: "0", LabelEN: "Not Allowed", LabelZH: "不允许 "},
+			{Value: "1", LabelEN: "Allowed", LabelZH: "允许"},
+		},
+		Default:  "1",
+		Required: "false",
+	})
+	params.MustRegister(profile, "MaxThreads", &common.Parameter{
+		LabelZH:       "最大线程数",
+		LabelEN:       "MaxThreads",
+		DescriptionZH: "查询处理线程的最大数量，不包括从远程服务器检索数据的线程",
+		DescriptionEN: "The maximum number of query processing threads, excluding threads for retrieving data from remote servers (see the ‘max_distributed_connections’ parameter).",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxMemoryUsage", &common.Parameter{
+		LabelZH:       "最大使用内存",
+		LabelEN:       "MaxMemoryUsage",
+		DescriptionZH: "用于在单个服务器上运行查询的最大RAM量",
+		DescriptionEN: "The maximum amount of RAM to use for running a query on a single server.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxMemoryUsageForAllQueries", &common.Parameter{
+		LabelZH:       "用户查询可用最大内存",
+		LabelEN:       "MaxMemoryUsageForAllQueries",
+		DescriptionZH: "在单个ClickHouse服务进程中，所有运行的查询累加在一起，限制使用的最大内存用量，默认为0不做限制",
+		DescriptionEN: "In a single ClickHouse service process, all running queries are accumulated together to limit the maximum memory usage. The default value is 0 and no limit is imposed.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "Expert", &common.Parameter{
+		LabelZH:       "专家配置",
+		LabelEN:       "Expert",
+		DescriptionZH: "限额高级配置，参考：https://clickhouse.com/docs/en/operations/settings/settings-profiles/",
+		DescriptionEN: "Advanced configuration of quota, refer to https://clickhouse.com/docs/en/operations/settings/settings-profiles/",
+		Required:      "false",
+	})
+
+	var quota model.Quota
+	params.MustRegister(quota, "Name", &common.Parameter{
+		LabelZH: "配额名称",
+		LabelEN: "Name",
+	})
+	params.MustRegister(quota, "Intervals", &common.Parameter{
+		LabelZH:       "周期",
+		LabelEN:       "Interval",
+		DescriptionZH: "配额生效的周期时段",
+		DescriptionEN: "Restrictions for a time period. You can set many intervals with different restrictions.",
+	})
+
+	var interval model.Interval
+	params.MustRegister(interval, "Duration", &common.Parameter{
+		LabelZH:       "周期时间",
+		LabelEN:       "Duration",
+		DescriptionZH: "周期的有效时长，默认为1小时",
+		DescriptionEN: "Length of the interval.",
+		Default:       "3600",
+	})
+	params.MustRegister(interval, "Queries", &common.Parameter{
+		LabelZH:       "请求总数限制",
+		LabelEN:       "Queries",
+		DescriptionZH: "0为不限制",
+		DescriptionEN: "Length of the interval.",
+		Default:       "0",
+		Required:      "false",
+	})
+	params.MustRegister(interval, "QuerySelects", &common.Parameter{
+		LabelZH:  "查询限制",
+		LabelEN:  "QuerySelects",
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(interval, "QueryInserts", &common.Parameter{
+		LabelZH:  "插入限制",
+		LabelEN:  "QueryInserts",
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(interval, "Errors", &common.Parameter{
+		LabelZH:  "错误限制",
+		LabelEN:  "Errors",
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(interval, "ResultRows", &common.Parameter{
+		LabelZH:  "返回行限制",
+		LabelEN:  "ResultRows",
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(interval, "ReadRows", &common.Parameter{
+		LabelZH:  "读取行限制",
+		LabelEN:  "ReadRows",
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(interval, "ExecutionTime", &common.Parameter{
+		LabelZH:  "执行时间限制",
+		LabelEN:  "ExecutionTime",
+		Default:  "0",
+		Required: "false",
 	})
 
 	return params

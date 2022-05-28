@@ -1,0 +1,50 @@
+<clickhouse>
+    <users>
+        <default>
+            <access_management>1</access_management>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <password>qaz-wsx</password>
+            <profile>default</profile>
+            <quota>default</quota>
+        </default>
+        <eoitek>
+            <database>
+                <itoa>
+                    <tbl_t3>
+                        <filter>id &lt;= 30000</filter>
+                    </tbl_t3>
+                </itoa>
+                <test>
+                    <tbl_t1>
+                        <filter>id &gt; 100</filter>
+                    </tbl_t1>
+                    <tbl_t2>
+                        <filter>id &gt; 5000</filter>
+                    </tbl_t2>
+                </test>
+            </database>
+            <networks>
+                <host>ck08</host>
+                <host>ck10</host>
+                <host>ck12</host>
+                <host_regexp>^example\d\d-\d\d-\d\.host\.ru$</host_regexp>
+                <ip>192.168.110.8</ip>
+                <ip>192.168.110.10</ip>
+                <ip>192.168.110.12</ip>
+            </networks>
+            <password>123456</password>
+            <profile>default</profile>
+            <quota>readonly</quota>
+        </eoitek>
+        <test>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <password>123123</password>
+            <profile>default</profile>
+            <quota>default</quota>
+        </test>
+    </users>
+</clickhouse>

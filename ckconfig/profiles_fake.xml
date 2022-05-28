@@ -1,0 +1,29 @@
+<clickhouse>
+    <profiles>
+        <default>
+            <allow_drop_detached>1</allow_drop_detached>
+            <distributed_aggregation_memory_efficient>1</distributed_aggregation_memory_efficient>
+            <distributed_ddl_task_timeout>15</distributed_ddl_task_timeout>
+            <joined_subquery_requires_alias>0</joined_subquery_requires_alias>
+            <max_bytes_before_external_group_by>8589934592000</max_bytes_before_external_group_by>
+            <max_memory_usage>17179869184000</max_memory_usage>
+            <max_memory_usage_for_all_queries>25769803776000</max_memory_usage_for_all_queries>
+            <max_query_size>1073741824</max_query_size>
+            <use_uncompressed_cache>0</use_uncompressed_cache>
+        </default>
+        <readonly>
+            <allow_ddl>1</allow_ddl>
+            <max_memory_usage>0</max_memory_usage>
+            <max_memory_usage_for_all_queries>0</max_memory_usage_for_all_queries>
+            <max_threads>16</max_threads>
+            <readonly>0</readonly>
+        </readonly>
+        <readwrite>
+            <allow_ddl>0</allow_ddl>
+            <max_memory_usage>2147483648</max_memory_usage>
+            <max_memory_usage_for_all_queries>2576980377</max_memory_usage_for_all_queries>
+            <max_threads>32</max_threads>
+            <readonly>1</readonly>
+        </readwrite>
+    </profiles>
+</clickhouse>

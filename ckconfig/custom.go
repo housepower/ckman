@@ -2,12 +2,13 @@ package ckconfig
 
 import (
 	"fmt"
+	"path"
+	"strings"
+
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
 	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
-	"path"
-	"strings"
 )
 
 func root(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interface{} {
@@ -112,7 +113,7 @@ func storage(storage *model.Storage) map[string]interface{} {
 				diskMapping["access_key_id"] = disk.DiskS3.AccessKeyID
 				diskMapping["secret_access_key"] = disk.DiskS3.SecretAccessKey
 				diskMapping["region"] = disk.DiskS3.Region
-				mergo.Merge(&diskMapping, disk.DiskS3.Expert)
+				mergo.Merge(&diskMapping, expert(disk.DiskS3.Expert))
 			}
 			disks[disk.Name] = diskMapping
 		}

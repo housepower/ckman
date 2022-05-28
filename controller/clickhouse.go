@@ -2,11 +2,12 @@ package controller
 
 import (
 	"fmt"
-	"github.com/housepower/ckman/repository"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/housepower/ckman/repository"
 
 	client "github.com/ClickHouse/clickhouse-go"
 	"github.com/gin-gonic/gin"
@@ -1845,6 +1846,34 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 		}
 	}
 
+	var profiles []string
+	profiles = append(profiles, model.ClickHouseUserProfileDefault)
+	if len(conf.UsersConf.Profiles) > 0 {
+		for _, profile := range conf.UsersConf.Profiles {
+			if common.ArraySearch(profile.Name, profiles) {
+				return errors.Errorf("profile %s is duplicate", profile.Name)
+			}
+			if profile.Name == model.ClickHouseUserProfileDefault {
+				return errors.Errorf("profile can't be default")
+			}
+			profiles = append(profiles, profile.Name)
+		}
+	}
+
+	var quotas []string
+	quotas = append(quotas, model.ClickHouseUserQuotaDefault)
+	if len(conf.UsersConf.Profiles) > 0 {
+		for _, quota := range conf.UsersConf.Quotas {
+			if common.ArraySearch(quota.Name, profiles) {
+				return errors.Errorf("quota %s is duplicate", quota.Name)
+			}
+			if quota.Name == model.ClickHouseUserQuotaDefault {
+				return errors.Errorf("quota can't be default")
+			}
+			quotas = append(quotas, quota.Name)
+		}
+	}
+
 	var usernames []string
 	if len(conf.UsersConf.Users) > 0 {
 		for _, user := range conf.UsersConf.Users {
@@ -1856,6 +1885,12 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 			}
 			if user.Name == "" || user.Password == "" {
 				return errors.Errorf("username or password can't be empty")
+			}
+			if !common.ArraySearch(user.Profile, profiles) {
+				return errors.Errorf("profile %s is invalid", user.Profile)
+			}
+			if !common.ArraySearch(user.Quota, quotas) {
+				return errors.Errorf("quota %s is invalid", user.Quota)
 			}
 			usernames = append(usernames, user.Name)
 		}
@@ -1881,7 +1916,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		cluster.SshPort == conf.SshPort &&
 		cluster.Password == conf.Password && !storageChanged && !expertChanged &&
 		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
-		!userconfChanged && !logicChaned{
+		!userconfChanged && !logicChaned {
 		return false, errors.Errorf("all config are the same, it's no need to update")
 	}
 	if storageChanged {
