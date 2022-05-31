@@ -3,8 +3,6 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go"
-	"github.com/housepower/ckman/repository"
 	"math"
 	"net"
 	"reflect"
@@ -12,6 +10,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go"
+	"github.com/housepower/ckman/repository"
 
 	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
@@ -293,6 +294,7 @@ func (ck *CkService) CreateDistTblOnLogic(params *model.DistLogicTblParams) erro
 		params.Database, ClickHouseDistTableOnLogicPrefix, params.TableName, params.ClusterName,
 		params.Database, params.TableName, params.LogicCluster, params.Database, params.TableName)
 
+	log.Logger.Debug(createSql)
 	if _, err := ck.DB.Exec(createSql); err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -303,6 +305,7 @@ func (ck *CkService) CreateDistTblOnLogic(params *model.DistLogicTblParams) erro
 func (ck *CkService) DeleteDistTblOnLogic(params *model.DistLogicTblParams) error {
 	deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s`",
 		params.Database, ClickHouseDistTableOnLogicPrefix, params.TableName, params.ClusterName)
+	log.Logger.Debug(deleteSql)
 	if _, err := ck.DB.Exec(deleteSql); err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -509,7 +512,7 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 			m[i] = *val
 			if reflect.TypeOf(m[i]).Kind() == reflect.Float64 {
 				v := m[i].(float64)
-				if math.IsNaN(v)  {
+				if math.IsNaN(v) {
 					m[i] = "NaN"
 				} else if math.IsInf(v, 0) {
 					m[i] = "Inf"
@@ -749,7 +752,7 @@ func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 	return getCkSessions(conf, limit, query)
 }
 
-func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId string)error{
+func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId string) error {
 	db, err := common.ConnectClickHouse(host, conf.Port, clickhouse.DefaultDatabase, conf.User, conf.Password)
 	if err != nil {
 		return errors.Wrap(err, "")
@@ -980,95 +983,5 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig) bool {
 			}
 		}
 	}
-
 	return true
 }
-
-func SyncLogicSchema(clusters []string, req model.DistLogicTableReq) error{
-	tableLists := make(map[string]common.Map)
-	for _, cluster := range clusters {
-		conf, err := repository.Ps.GetClusterbyName(cluster)
-		if err != nil {
-			return errors.Wrap(err, "")
-		}
-		ckService := NewCkService(&conf)
-		if err = ckService.InitCkService(); err != nil {
-			return errors.Wrap(err, "")
-		}
-		query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database = '%s' AND table = '%s'", req.Database, req.LocalTable)
-		log.Logger.Debugf("query: %s", query)
-		rows, err := ckService.DB.Query(query)
-		if err != nil {
-			return errors.Wrap(err, "")
-		}
-		tblMap := make(common.Map)
-		for rows.Next() {
-			var name, typ string
-			if err = rows.Scan(&name, &typ); err != nil {
-				return errors.Wrap(err, "")
-			}
-			tblMap[name] = typ
-		}
-		tableLists[cluster] = tblMap
-	}
-
-	allCols := make(common.Map)
-	for _, cols := range tableLists {
-		allCols = allCols.Union(cols).(common.Map)
-	}
-
-	for cluster, cols := range tableLists {
-		needAdds := allCols.Difference(cols).(common.Map)
-		conf, err := repository.Ps.GetClusterbyName(cluster)
-		if err != nil {
-			return errors.Wrap(err, "")
-		}
-		ckService := NewCkService(&conf)
-		if err = ckService.InitCkService(); err != nil {
-			return errors.Wrap(err, "")
-		}
-		for k, v := range needAdds {
-			query := fmt.Sprintf("ALTER TABLE %s.%s ON CLUSTER %s ADD COLUMN `%s` %s", req.Database, req.LocalTable, cluster, k, v)
-			log.Logger.Debugf("query:%s", query)
-			_,err = ckService.DB.Exec(query)
-			if err != nil {
-				return errors.Wrap(err, "")
-			}
-		}
-
-		// 删除分布式表并重建
-		deleteSql := fmt.Sprintf("DROP TABLE `%s`.`%s%s` ON CLUSTER `%s`",
-			req.Database, ClickHouseDistributedTablePrefix, req.LocalTable, cluster)
-		log.Logger.Debugf(deleteSql)
-		if _, err = ckService.DB.Exec(deleteSql); err != nil {
-			return errors.Wrap(err, "")
-		}
-
-		create := fmt.Sprintf("CREATE TABLE `%s`.`%s%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
-			req.Database, ClickHouseDistributedTablePrefix, req.LocalTable, cluster, req.Database, req.LocalTable,
-			cluster, req.Database, req.LocalTable)
-		log.Logger.Debugf(create)
-		if _, err = ckService.DB.Exec(create); err != nil {
-			return errors.Wrap(err, "")
-		}
-
-		// 删除逻辑表并重建（如果有的话）
-		if conf.LogicCluster != nil {
-			distParams := model.DistLogicTblParams{
-				Database:     req.Database,
-				TableName:    req.LocalTable,
-				ClusterName:  cluster,
-				LogicCluster: *conf.LogicCluster,
-			}
-			if err = ckService.DeleteDistTblOnLogic(&distParams); err != nil {
-				return errors.Wrap(err, "")
-			}
-			if err = ckService.CreateDistTblOnLogic(&distParams); err != nil {
-				return errors.Wrap(err, "")
-			}
-		}
-	}
-
-	return nil
-}
-
