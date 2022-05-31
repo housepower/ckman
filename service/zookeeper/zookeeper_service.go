@@ -2,13 +2,14 @@ package zookeeper
 
 import (
 	"fmt"
-	"github.com/housepower/ckman/common"
-	"github.com/housepower/ckman/repository"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/repository"
 
 	"github.com/go-zookeeper/zk"
 	"github.com/housepower/ckman/model"
@@ -110,18 +111,18 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 				// the clickhouse version 20.5.x already Remove leader election, refer to : allow multiple leaders https://github.com/ClickHouse/ClickHouse/pull/11639
 				const featureVersion = "20.5.x"
 				logPointer := ""
-				if common.CompareClickHouseVersion(conf.Version,  featureVersion) >= 0 {
-					logPointer = "Multiple leaders"
+				if common.CompareClickHouseVersion(conf.Version, featureVersion) >= 0 {
+					logPointer = "ML"
 				} else {
 					if leader == replica.Ip {
-						logPointer = "Leader"
+						logPointer = "L"
 					} else {
-						logPointer = "Follower"
+						logPointer = "F"
 					}
 				}
 				path = fmt.Sprintf("%s/replicas/%s/log_pointer", zooPath, replica.Ip)
 				pointer, _, _ := z.Conn.Get(path)
-				logPointer = logPointer + fmt.Sprintf("[%s]",pointer)
+				logPointer = logPointer + fmt.Sprintf("[%s]", pointer)
 				replicas[replicaIndex] = logPointer
 			}
 		}
