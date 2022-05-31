@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/housepower/ckman/common"
-	"github.com/housepower/ckman/repository"
-	"github.com/housepower/ckman/service/runner"
 	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/repository"
+	"github.com/housepower/ckman/service/cron"
+	"github.com/housepower/ckman/service/runner"
 
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
@@ -30,14 +32,14 @@ const (
 )
 
 var (
-	Version          = ""
-	BuildTimeStamp   = ""
-	GitCommitHash    = ""
-	Daemon           = false
-	ConfigFilePath   = ""
-	LogFilePath      = ""
-	PidFilePath      = ""
-	EncryptPassword  = ""
+	Version         = ""
+	BuildTimeStamp  = ""
+	GitCommitHash   = ""
+	Daemon          = false
+	ConfigFilePath  = ""
+	LogFilePath     = ""
+	PidFilePath     = ""
+	EncryptPassword = ""
 )
 
 // @title Swagger Example API
@@ -104,40 +106,42 @@ func main() {
 
 	runnerServ := runner.NewRunnerService(selfIP, config.GlobalConfig.Server)
 	runnerServ.Start()
+	defer runnerServ.Stop()
+
+	cronSvr := cron.NewCronService(config.GlobalConfig.Cron)
+	if err = cronSvr.Start(); err != nil {
+		log.Logger.Fatalf("Failed to start cron service, %v", err)
+	}
+	defer cronSvr.Stop()
 
 	// start http server
 	svr := server.NewApiServer(&config.GlobalConfig, signalCh)
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}
+	defer svr.Stop()
 	log.Logger.Infof("start http server %s:%d success", selfIP, config.GlobalConfig.Server.Port)
 
 	//block here, waiting for terminal signal
-	handleSignal(signalCh, svr, runnerServ)
+	handleSignal(signalCh)
 }
 
-func handleSignal(ch chan os.Signal, svr *server.ApiServer, runnerServ *runner.RunnerService) {
+func handleSignal(ch chan os.Signal) {
 	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	sig := <-ch
 	log.Logger.Infof("receive signal: %v", sig)
 	log.Logger.Warn("ckman exiting...")
 	switch sig {
 	case syscall.SIGINT, syscall.SIGTERM:
-		_ = termHandler(svr, runnerServ)
+		_ = termHandler()
 	case syscall.SIGHUP:
-		_ = termHandler(svr, runnerServ)
+		_ = termHandler()
 		_ = reloadHandler()
 	}
 	signal.Stop(ch)
 }
 
-func termHandler(svr *server.ApiServer, runnerServ *runner.RunnerService) error {
-	if err := svr.Stop(); err != nil {
-		return err
-	}
-
-	runnerServ.Stop()
-
+func termHandler() error {
 	var hosts []string
 	common.ConnectPool.Range(func(k, v interface{}) bool {
 		hosts = append(hosts, k.(string))
@@ -175,7 +179,7 @@ var VersionCmd = &cobra.Command{
 
 func InitCmd() {
 	var rootCmd = &cobra.Command{
-		Use:   "ckman",
+		Use: "ckman",
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&ConfigFilePath, "conf", "c", "conf/ckman.yaml", "Task file path")
@@ -207,4 +211,3 @@ func InitCmd() {
 	fmt.Printf("ckman-%v is running...\n", Version)
 	fmt.Printf("See more information in %s\n", LogFilePath)
 }
-

@@ -24,6 +24,10 @@ log:
   # day
   max_age: 10
 
+# cron job task
+cron:
+  sync_logic_schema: "0 * * * * ?"
+
 
 #persistent_config:
 #  # if peristent_policy is mysql, must config this
@@ -46,6 +50,6 @@ nacos:
     - 127.0.0.1
   port: 8848
   user_name: nacos
-  # you can use ./ckman --encrypt nacos to get password like: A7561228101CB07938FAFF00C4444546
+  # you can use './ckman --encrypt nacos' to get password like: A7561228101CB07938FAFF00C4444546
   password: ENC(A7561228101CB07938FAFF00C4444546)
   #namespace:

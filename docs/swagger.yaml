@@ -650,29 +650,6 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Create Distribute Table on logic cluster
-    put:
-      description: Sync Logic Table Schema
-      parameters:
-      - default: logic_test
-        description: cluster name
-        in: path
-        name: clusterName
-        required: true
-        type: string
-      - description: request body
-        in: body
-        name: req
-        required: true
-        schema:
-          $ref: '#/definitions/model.DistLogicTableReq'
-      responses:
-        "200":
-          description: '{"retCode":"0000","retMsg":"ok","entity":null}'
-          schema:
-            type: string
-      security:
-      - ApiKeyAuth: []
-      summary: SyncLogicTable
   /api/v1/ck/get/{clusterName}:
     get:
       description: Get ClickHouse cluster status

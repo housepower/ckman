@@ -318,42 +318,6 @@ var doc = `{
             }
         },
         "/api/v1/ck/dist_logic_table/{clusterName}": {
-            "put": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Sync Logic Table Schema",
-                "summary": "SyncLogicTable",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "logic_test",
-                        "description": "cluster name",
-                        "name": "clusterName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "request body",
-                        "name": "req",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.DistLogicTableReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":null}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
             "post": {
                 "security": [
                     {

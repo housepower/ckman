@@ -1,13 +1,14 @@
 package config
 
 import (
-	"github.com/pkg/errors"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"gopkg.in/yaml.v3"
 )
@@ -21,12 +22,17 @@ type ClusterNode struct {
 	Port int    `json:"port"`
 }
 
+type CronJob struct {
+	SyncLogicSchema string `yaml:"sync_logic_schema"`
+}
+
 type CKManConfig struct {
 	ConfigFile       string `yaml:"-"`
 	Server           CKManServerConfig
 	Log              CKManLogConfig
 	PersistentConfig map[string]map[string]interface{} `yaml:"persistent_config"`
 	Nacos            CKManNacosConfig
+	Cron             CronJob
 	Version          string `yaml:"-"`
 }
 
