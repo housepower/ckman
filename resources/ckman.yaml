@@ -4,7 +4,6 @@
 # If password not including by ENC(), that means it's a plaintext.
 
 server:
-  id: 1
   port: 8808
   https: false
   #certfile:

@@ -37,7 +37,6 @@ type CKManConfig struct {
 }
 
 type CKManServerConfig struct {
-	Id               int
 	Bind             string
 	Ip               string
 	Port             int
