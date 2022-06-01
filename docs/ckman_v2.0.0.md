@@ -1,7 +1,6 @@
 
 # 导语
-> 本文档为`ckman v2.0.0` 说明文档。
-本文档主要针对使用`ckman`的开发人员、产品经理、架构师，以及任何对`ckman`功能、技术架构感兴趣的同学。通过本文档，可以了解到`ckman`的功能、设计原理，接口规范，以及未来规划等。
+>   本文档主要针对使用`ckman`的开发人员、产品经理、架构师，以及任何对`ckman`功能、技术架构感兴趣的同学。通过本文档，可以了解到`ckman`的功能、设计原理，接口规范，以及未来规划等。
 
 # 概述
 
@@ -41,6 +40,10 @@
 -   增加或删除集群节点
 -   对集群（或节点）进行启停
 -   实现数据再均衡
+-   存储策略配置
+-   用户权限配额控制
+-   集群配置文件最佳实践及定制化能力 
+-   简单`SQL`查询能力
 
 ### 监控ClickHouse集群
 
@@ -125,14 +128,12 @@ make frontend
 
 # 架构设计
 
-![image-20210418095016306](img/image-20210418095016306.png)
+![image-20220601104151507](img/image-20220601104151507.png)
 
 # 配置文件
 
 ## server
 
--   `id`
-    -   `ckman`集群`id`，同一个集群的`ckman`的`id`号配置必须不同
 -   `port`
     -   `ckman`的监听端口
     -   默认为`8808`
@@ -140,11 +141,13 @@ make frontend
     -   是否监听`https`
     -   默认为`false`
 -   `certfile`
-    -   `https`的证书文件，如果开启了`https`
+    -   `https`的证书文件路径，如果开启了`https`，必须要有证书文件
     -    默认使用`conf`下的`server.crt`
+    -    注意证书文件的路径`ckman`需要有访问权限
 -   `keyfile`
-    -   `https`的`key`文件，如果开启了`https`
+    -   `https`的`key`文件路径，如果开启了`https`，必须要有`key`文件
     -   默认使用`conf`下的`server.key`
+    -   注意`key`文件的路径`ckman`需要有访问权限
 -   `pprof`
     -   是否支持`pprof`监控
     -   默认为`true`
@@ -211,6 +214,13 @@ log:
   max_age: 10
 ```
 
+## cron
+
+定时任务相关的配置。支持`cron`表达式，格式为：`Second | Minute | Hour | Dom | Month | Dow | Descriptor`
+
+-   `sync_logic_schema`
+    -   同步逻辑表的`schema `定时任务，  默认为`1`分钟一次。
+
 ## persistent_config
 
 ### mysql & postgres
@@ -219,7 +229,7 @@ log:
 
 -   `host`
 
-    -   连接数据库的ip地址
+    -   连接数据库的`ip`地址
 
 -   `port`
 
@@ -231,11 +241,17 @@ log:
 
 -   `password`
 
-    -   连接数据库的密码，需要加密，可使用下面命令获得密码的密文 
+    -   连接数据库的密码，可选择是否加密，如果需要加密，可使用下面命令获得密码的密文 。
 
-    ```bash
-    ckman --encrypt 123456 
-    E310E892E56801CED9ED98AA177F18E6
+        ```bash
+        ckman --encrypt 123456 
+        E310E892E56801CED9ED98AA177F18E6
+        ```
+
+    -   如果数据库密码选择加密，请使用`ENC()`将密文包含起来，如：
+
+    ```yaml
+    password: ENC(E310E892E56801CED9ED98AA177F18E6)
     ```
 
 -   `database`
@@ -264,7 +280,7 @@ log:
 -   `user_name`
     -   登录`nacos`的用户名
 -   `password`
-    -   登录`nacos`的密码，需要加密，加密规则同持久化策略数据库密码加密规则
+    -   登录`nacos`的密码，加密规则同持久化策略数据库密码，同样，如果需要加密，需要以`ENC()`将密文包含起来。
 -   `namespace`
     -   指定`nacos`的`namespace`，默认为`DEFAULT`
 -   `group`
@@ -299,16 +315,18 @@ nacos:
 
 点击主页的` Create a ClickHouse Cluster`，就会进入创建集群的界面：
 
-![image-20210918151300408](img/image-20210918151300408.png)
+![image-20220601111255235](img/image-20220601111255235.png)
 
 需要填写的项主要有以下：
 
+>   -   `Cluster Name`： 集群的名字，注意不要和`ckman`已有的名字重合
+>   -   `Package Type`: 安装包类型，用来区分平台和架构，不需要自己填写，上传安装包后可通过下拉框选择。
+>       -   如果选择的平台和架构不正确，如在`arm`的机器上部署`x86`的安装包，则不会成功。
 >   -   `ClickHouse Version`: `ck`的版本，不需要自己填写，通过下拉列表选择，下拉列表中会列出`ckman`服务器中所有的安装包版本。
 >       -   此处版本信息只会列出当前`ckman`服务下的安装包版本，如果配置了多中心，其他`ckman`的安装包是无法看见的
 >       -   在部署集群之前，需要先上传安装包。部署的集群版本是基于上传安装包的版本的。
->   -   `Cluster Name`： 集群的名字，注意不要和`ckman`已有的名字重合
 >   -   `Logic Name`：逻辑集群名字，可以指定，也可以不指定
->   -   `ClickHouse TCP Port`: `clickhouse`的`TCP`端口，默认是`9000`，当然也可以自己指定
+>   -   `TCP Port`: `clickhouse`的`TCP`端口，默认是`9000`，当然也可以自己指定
 >   -   `ClickHouse Node List`: `clickhouse`节点列表，支持简写
 >
 >   >   **对于`clickhouse`节点机器，推荐配置如下：**
@@ -323,8 +341,9 @@ nacos:
 >   >   - 创建一个普通账户并加入`wheel`组，允许其`sudo`切换（是否输入密码均可）到超级用户
 >
 >   -   `Replica`： 是否开启副本，默认是关闭
->       -   如果开启了副本，默认是1个`shard`一个副本，所以节点数量一定要是偶数，否则会报错
->       -   如果要增加节点的副本数，可通过增加节点完成，创建集群时最多只能指定一个副本
+>       
+>       -   如果开启了副本，默认是1个`shard`2个副本，如果节点是奇数，则最后一个 `shard`为`1`个副本。
+>       -   如果要增加节点的副本数，可通过增加节点完成，创建集群时最多只能指定2个副本
 >       -   如果没有开启副本，则有几个节点就有几个`shard`
 >       -   注意：集群是否支持副本在部署集群时就已经决定了，后续不可更改
 >       
@@ -366,15 +385,22 @@ nacos:
 >       -   `policies`
 >           -   策略的磁盘必须要在上述`disks`中存在。
 >       
+>   -   `User Config`：用户配置
+>
+>       -   `Users`：配置用户的名字 ，密码，以及使用什么`profile`和`quota`策略
+>       -   `Profiles`：配置信息，规定了资源使用以及是否只读等权限策略
+>       -   `Quotas`: 配额配置，该配置项规定了一段时间内查询、插入等使用的资源配置
+>       -   `User Custom Config`: 用户自定义配置 ，规则同下面的`Custom Config`，不过该项自定义配置最终生成在`users.xml`中。
+>
 >   -   `Custom Config`:自定义配置项
 >
 >       -   自定义配置项最终生成在`config.d/custom.xml`中，在`clickhouse`启动时会与默认的`config.xml`进行`merge`，形成最终的`config.xml`配置文件
 >
 >       -   自定义配置项提供一个空的`key-value`模板，`key`的写法尽量靠近`xpath`语法标准（请参阅：https://www.w3schools.com/xml/xpath_syntax.asp），不同`xml`层级之间以`/`分隔 ，`attr`属性以`[]`包裹，每个属性的`key`以 `@`开头，举例如下：
 >
->           key填写内容： `title[@lang='en', @size=4]/header`
+>           `key`填写内容： `title[@lang='en', @size=4]/header`
 >
->           value填写内容：`header123`
+>           `value`填写内容：`header123`
 >
 >           则生成的`xml`样式如下：
 >
@@ -540,7 +566,7 @@ nacos:
 
 ### Open Sessions
 
-显示当前正在进行的会话。
+显示当前正在进行的会话，如果有正在执行的`SQL`，可通过界面将其`kill`掉。
 
 ![image-20210301151056577](img/image-20210301151056577.png)
 
@@ -556,7 +582,7 @@ nacos:
 
 `ckman`还提供了简单的`clickhouse`查询的页面。通过该页面可以查询集群中的数据。
 
-![image-20210301151624044](img/image-20210301151624044.png)
+![image-20220601112950781](img/image-20220601112950781.png)
 
 >   注意：
 >
@@ -1342,15 +1368,51 @@ nacos:
 
 ```json
 {
-	"retCode": "0000",
-	"retMsg": "ok",
-	"entity": ["21.4.6.55", "21.3.9.83", "20.9.3.45"]
+  "retCode": "0000",
+  "retMsg": "ok",
+  "entity": [
+    {
+      "version": "22.3.3.44",
+      "pkgType": "aarch64.rpm",
+      "pkgName": "clickhouse-common-static-22.3.3.44-2.aarch64.rpm"
+    },
+    {
+      "version": "22.3.6.5",
+      "pkgType": "amd64.tgz",
+      "pkgName": "clickhouse-common-static-22.3.6.5-amd64.tgz"
+    },
+    {
+      "version": "22.3.3.44",
+      "pkgType": "x86_64.rpm",
+      "pkgName": "clickhouse-common-static-22.3.3.44.x86_64.rpm"
+    },
+    {
+      "version": "21.9.5.16",
+      "pkgType": "x86_64.rpm",
+      "pkgName": "clickhouse-common-static-21.9.5.16-2.x86_64.rpm"
+    },
+    {
+      "version": "21.8.15.7",
+      "pkgType": "x86_64.rpm",
+      "pkgName": "clickhouse-common-static-21.8.15.7-2.x86_64.rpm"
+    },
+    {
+      "version": "21.8.13.6",
+      "pkgType": "x86_64.rpm",
+      "pkgName": "clickhouse-common-static-21.8.13.6-2.x86_64.rpm"
+    },
+    {
+      "version": "21.8.9.13",
+      "pkgType": "x86_64.rpm",
+      "pkgName": "clickhouse-common-static-21.8.9.13-2.x86_64.rpm"
+    }
+  ]
 }
 ```
 
 ### [POST]/api/v1/package
 
-上传ClickHouse的rpm安装包。
+上传ClickHouse的安装包。
 
 注意安装包上传时需要三个安装包都上传（`server`、`client`、`common`）。上传成功后，会显示在安装包列表中。
 
@@ -1379,11 +1441,14 @@ nacos:
 -   [ ] 部署`zookeeper`
 -   [ ] `prometheus`自动探测`node`节点并更新配置
 -   [x] 引入任务列表，对部署、升级等耗时比较长的操作改为异步操作，前端显示任务进度
--   [ ] 数据安全管理
-    -   [ ] 用户/角色/权限模型
-    -   [ ] 对数据表以及行的权限控制
+-   [x] 数据安全管理
+    -   [x] 用户/角色/权限模型
+    -   [x] 对数据表以及行的权限控制
 -   [ ] 集群迁移
     -   [ ] 换机器，`shard`数量不变
     -   [ ] 从一个集群换到另一个集群，可能`shard`数量不一样
 -   [ ] 前端页面优化
+-   [ ] 支持只读用户
+-   [ ] 云原生适配 
+-   [ ] `clickhouse-keeper`支持
 
