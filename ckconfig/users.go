@@ -62,7 +62,7 @@ func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
 					}
 					database[rowsdb.Database] = rowpolicies
 				}
-				normal["database"] = database
+				normal["databases"] = database
 			}
 			userConf[normalUser.Name] = normal
 		}
