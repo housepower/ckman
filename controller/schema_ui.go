@@ -373,6 +373,18 @@ Non-professionals please do not fill in this`,
 		DescriptionEN: "can't be empty",
 		InputType:     common.InputPassword,
 	})
+	params.MustRegister(user, "EncryptType", &common.Parameter{
+		LabelZH:       "密码加密算法",
+		LabelEN:       "EncryptType",
+		DescriptionZH: "密码保存时使用什么加密方式，默认明文",
+		DescriptionEN: "What encryption method is used when the password is saved, the default is plaintext",
+		Candidates: []common.Candidate{
+			{Value: "0", LabelEN: "PLAINTEXT", LabelZH: "PLAINTEXT"},
+			{Value: "1", LabelEN: "SHA256_HEX", LabelZH: "SHA256_HEX"},
+			{Value: "2", LabelEN: "DOUBLE_SHA1_HEX", LabelZH: "DOUBLE_SHA1_HEX"},
+		},
+		Default: "0",
+	})
 	params.MustRegister(user, "Profile", &common.Parameter{
 		LabelZH:       "限额",
 		LabelEN:       "Profile",
@@ -915,6 +927,18 @@ Non-professionals please do not fill in this`,
 		DescriptionZH: "用户密码，不可为空",
 		DescriptionEN: "can't be empty",
 		InputType:     common.InputPassword,
+	})
+	params.MustRegister(user, "EncryptType", &common.Parameter{
+		LabelZH:       "密码加密算法",
+		LabelEN:       "EncryptType",
+		DescriptionZH: "密码保存时使用什么加密方式，默认明文",
+		DescriptionEN: "What encryption method is used when the password is saved, the default is plaintext",
+		Candidates: []common.Candidate{
+			{Value: "0", LabelEN: "PLAINTEXT", LabelZH: "PLAINTEXT"},
+			{Value: "1", LabelEN: "SHA256_HEX", LabelZH: "SHA256_HEX"},
+			{Value: "2", LabelEN: "DOUBLE_SHA1_HEX", LabelZH: "DOUBLE_SHA1_HEX"},
+		},
+		Default: "0",
 	})
 	params.MustRegister(user, "Profile", &common.Parameter{
 		LabelZH:       "限额",

@@ -150,6 +150,7 @@ type UsersConf struct {
 type User struct {
 	Name         string
 	Password     string
+	EncryptType  int
 	Profile      string        // shall be in Profiles
 	Quota        string        // shall be in Quotas
 	Networks     Networks      // List of networks from which the user can connect to the ClickHouse server.

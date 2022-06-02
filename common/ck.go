@@ -1,16 +1,20 @@
 package common
 
 import (
+	"crypto/sha1"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
-	"github.com/housepower/ckman/log"
-	"github.com/housepower/ckman/model"
-	"github.com/pkg/errors"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
+	"github.com/pkg/errors"
 )
 
 var ConnectPool sync.Map
@@ -31,7 +35,7 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 	if conn, ok := ConnectPool.Load(host); ok {
 		c := conn.(Connection)
 		err := c.db.Ping()
-		if err ==  nil{
+		if err == nil {
 			if c.dsn == dsn {
 				return c.db, nil
 			} else {
@@ -78,7 +82,7 @@ func GetConnection(host string) *sql.DB {
 	if conn, ok := ConnectPool.Load(host); ok {
 		db := conn.(Connection).db
 		err := db.Ping()
-		if err ==  nil {
+		if err == nil {
 			return db
 		}
 	}
@@ -150,7 +154,7 @@ func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig) ([]string, error)
 	v1 > v2 return 1
 	v1 < v2 return -1
 */
-func CompareClickHouseVersion(v1, v2 string)int {
+func CompareClickHouseVersion(v1, v2 string) int {
 	s1 := strings.Split(v1, ".")
 	s2 := strings.Split(v2, ".")
 	for i := 0; i < len(s1); i++ {
@@ -160,8 +164,8 @@ func CompareClickHouseVersion(v1, v2 string)int {
 		if s1[i] == "x" || s2[i] == "x" {
 			continue
 		}
-		f1,_ := strconv.Atoi(s1[i])
-		f2,_ := strconv.Atoi(s2[i])
+		f1, _ := strconv.Atoi(s1[i])
+		f2, _ := strconv.Atoi(s2[i])
 		if f1 > f2 {
 			return 1
 		} else if f1 < f2 {
@@ -169,4 +173,50 @@ func CompareClickHouseVersion(v1, v2 string)int {
 		}
 	}
 	return 0
+}
+
+const (
+	PLAINTEXT = iota
+	SHA256_HEX
+	DOUBLE_SHA1_HEX
+)
+
+//echo -n "cyc2010" |sha256sum |tr -d "-"
+//a40943925ca51a95de7d39bc8c31757207d53b5e7114e695c04db63b6868f3e1
+func sha256sum(plaintext string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(plaintext)))
+}
+
+//echo -n "cyc2010" | sha1sum | tr -d '-' | xxd -r -p | sha1sum | tr -d '-'
+//812b8fad11eb25a3cf4cc2c54ae10a4948a0c25b
+func hexsha1sum(plaintext string) string {
+	sum := fmt.Sprintf("%x", sha1.Sum([]byte(plaintext)))
+	xxd, _ := hex.DecodeString(sum)
+	return fmt.Sprintf("%x", sha1.Sum(xxd))
+}
+
+func CkPassword(passwd string, algorithm int) string {
+	var result string
+	switch algorithm {
+	case SHA256_HEX:
+		result = sha256sum(passwd)
+	case DOUBLE_SHA1_HEX:
+		result = hexsha1sum(passwd)
+	default:
+		result = passwd
+	}
+	return result
+}
+
+func CkPasswdLabel(algorithm int) string {
+	var result string
+	switch algorithm {
+	case SHA256_HEX:
+		result = "password_sha256_hex"
+	case DOUBLE_SHA1_HEX:
+		result = "password_double_sha1_hex"
+	default:
+		result = "password"
+	}
+	return result
 }
