@@ -1,3 +1,20 @@
+# v2.2.5
+- refactor package management
+- add api: kill open session & stop running task
+- matching paltform when deploy
+- config editable
+- fix add node failed over 22.x
+- fix tableList Duplication bug
+- use gsypt to encode password
+- ping cluster use default database
+- add `database_atomic_delay_before_drop_table_sec`
+- add swagger link and document link
+- config logic cluster
+- check path non-prefix
+- support tgz deployment without root
+- users conf with profiles and quotas
+- make a cron job to sync logic table schema
+
 # v2.2.4
 - delete record when destory cluster && check timeout issue
 - do not response such errors when prometheus address is invalid
