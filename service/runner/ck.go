@@ -2,17 +2,17 @@ package runner
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/zookeeper"
 	"github.com/pkg/errors"
-	"strings"
 )
 
-
-func DeployCkCluster(task *model.Task, d deploy.CKDeploy)error{
+func DeployCkCluster(task *model.Task, d deploy.CKDeploy) error {
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
 	if err := d.Init(); err != nil {
 		return errors.Wrap(err, "")
@@ -47,9 +47,7 @@ func DeployCkCluster(task *model.Task, d deploy.CKDeploy)error{
 
 func DestroyCkCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKManClickHouseConfig) error {
 	deploy.SetNodeStatus(task, model.NodeStatusStop, model.ALL_NODES_DEFAULT)
-	if err := d.Stop(); err != nil {
-		return errors.Wrap(err, "")
-	}
+	_ = d.Stop()
 
 	deploy.SetNodeStatus(task, model.NodeStatusUninstall, model.ALL_NODES_DEFAULT)
 	if err := d.Uninstall(); err != nil {
@@ -325,4 +323,3 @@ func ConfigCkCluster(task *model.Task, d deploy.CKDeploy) error {
 	}
 	return nil
 }
-

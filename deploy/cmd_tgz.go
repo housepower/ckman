@@ -2,8 +2,9 @@ package deploy
 
 import (
 	"fmt"
-	"github.com/housepower/ckman/common"
 	"strings"
+
+	"github.com/housepower/ckman/common"
 )
 
 type TgzFacotry struct{}
@@ -12,20 +13,20 @@ func (TgzFacotry) Create() CmdAdpt {
 	return &TgzPkg{}
 }
 
-type TgzPkg struct {}
+type TgzPkg struct{}
 
-func (p *TgzPkg)StartCmd(svr, cwd string) string{
+func (p *TgzPkg) StartCmd(svr, cwd string) string {
 	return fmt.Sprintf("%s/bin/%s --config-file=%s/etc/%s/config.xml --pid-file=%s/run/%s.pid --daemon", cwd, svr, cwd, svr, cwd, svr)
 }
-func (p *TgzPkg)StopCmd(svr, cwd string) string{
+func (p *TgzPkg) StopCmd(svr, cwd string) string {
 	return fmt.Sprintf("ps -ef |grep %s/bin/%s |grep -v grep |awk '{print $2}' |xargs kill", cwd, svr)
 }
 
-func (p *TgzPkg)RestartCmd(svr, cwd string) string {
+func (p *TgzPkg) RestartCmd(svr, cwd string) string {
 	return p.StopCmd(svr, cwd) + ";" + p.StartCmd(svr, cwd)
 }
 
-func (p *TgzPkg)InstallCmd(pkgs Packages) string{
+func (p *TgzPkg) InstallCmd(pkgs Packages) string {
 	content := fmt.Sprintf("mkdir -p %s/bin %s/etc/clickhouse-server/config.d %s/etc/clickhouse-server/users.d %s/log/clickhouse-server %s/run %s/data/clickhouse;", pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd)
 	for _, pkg := range pkgs.PkgLists {
 		lastIndex := strings.LastIndex(pkg, "-")
@@ -50,6 +51,5 @@ func (p *TgzPkg) UpgradeCmd(pkgs Packages) string {
 }
 
 func (p *TgzPkg) Uninstall(pkgs Packages) string {
-	return fmt.Sprintf("rm -rf %s", pkgs.Cwd)
+	return fmt.Sprintf("rm -rf %s/*", pkgs.Cwd)
 }
-

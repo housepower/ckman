@@ -6,6 +6,7 @@ vendor/*
 *.tar.gz
 .DS_Store
 .idea/
+.vscode/
 coverage.out
 coverage-all.out
 cscope.*
