@@ -1638,6 +1638,7 @@ func (ck *ClickHouseController) GetConfig(c *gin.Context) {
 		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, nil)
 		return
 	}
+	cluster.Normalize()
 	data, err := params.MarshalConfig(cluster)
 	if err != nil {
 		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, nil)
@@ -1843,9 +1844,11 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 			if user.Name == "" || user.Password == "" {
 				return errors.Errorf("username or password can't be empty")
 			}
+			user.Profile = common.GetStringwithDefault(user.Profile, model.ClickHouseUserProfileDefault)
 			if !common.ArraySearch(user.Profile, profiles) {
 				return errors.Errorf("profile %s is invalid", user.Profile)
 			}
+			user.Quota = common.GetStringwithDefault(user.Quota, model.ClickHouseUserQuotaDefault)
 			if !common.ArraySearch(user.Quota, quotas) {
 				return errors.Errorf("quota %s is invalid", user.Quota)
 			}
