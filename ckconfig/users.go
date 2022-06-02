@@ -30,7 +30,7 @@ func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
 	if len(conf.UsersConf.Users) > 0 {
 		for _, normalUser := range conf.UsersConf.Users {
 			normal := make(map[string]interface{})
-			normal["password"] = normalUser.Password
+			normal[common.CkPasswdLabel(normalUser.EncryptType)] = common.CkPassword(normalUser.Password, normalUser.EncryptType)
 			normal["profile"] = common.GetStringwithDefault(normalUser.Profile, model.ClickHouseUserProfileDefault)
 			normal["quota"] = common.GetStringwithDefault(normalUser.Quota, model.ClickHouseUserQuotaDefault)
 			networks := make(map[string]interface{})
