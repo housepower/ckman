@@ -74,14 +74,18 @@ func CKDeployHandle(task *model.Task) error {
 		logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
 		if err != nil {
 			if err == repository.ErrRecordNotFound {
-				logics = append(logics, d.Conf.Cluster)
+				if !common.ArraySearch(d.Conf.Cluster, logics) {
+					logics = append(logics, d.Conf.Cluster)
+				}
 				_ = repository.Ps.CreateLogicCluster(*d.Conf.LogicCluster, logics)
 			} else {
 				_ = repository.Ps.Rollback()
 				return errors.Wrap(err, "")
 			}
 		}else {
-			logics = append(logics, d.Conf.Cluster)
+			if !common.ArraySearch(d.Conf.Cluster, logics) {
+				logics = append(logics, d.Conf.Cluster)
+			}
 			_ = repository.Ps.UpdateLogicCluster(*d.Conf.LogicCluster, logics)
 		}
 	}
