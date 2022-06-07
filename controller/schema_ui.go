@@ -103,6 +103,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionEN: "can't be empty",
 		Visiable:      "AuthenticateType != '2'",
 		InputType:     common.InputPassword,
+		Required:      "false",
 	})
 	params.MustRegister(conf, "SshPort", &common.Parameter{
 		LabelZH:       "SSH 端口",
@@ -664,6 +665,7 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		DescriptionEN: "can't be empty",
 		Visiable:      "AuthenticateType != '2'",
 		InputType:     common.InputPassword,
+		Required:      "false",
 	})
 	params.MustRegister(conf, "SshPort", &common.Parameter{
 		LabelZH:       "SSH 端口",

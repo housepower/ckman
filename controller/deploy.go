@@ -134,9 +134,6 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 		return errors.Errorf("ssh user must not be empty")
 	}
 
-	if conf.AuthenticateType != model.SshPasswordUsePubkey && conf.SshPassword == "" {
-		return errors.Errorf("ssh password must not be empty")
-	}
 	if !strings.HasSuffix(conf.Path, "/") {
 		return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.Path))
 	}
@@ -287,7 +284,15 @@ func checkAccess(localPath string, conf *model.CKManClickHouseConfig) error {
 		cmd = fmt.Sprintf("cd %s && echo $?", localPath)
 	}
 	for _, host := range conf.Hosts {
-		output, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd, conf.NeedSudo)
+		sshOpts := common.SshOptions{
+			User:             conf.SshUser,
+			Password:         conf.SshPassword,
+			Port:             conf.SshPort,
+			Host:             host,
+			NeedSudo:         conf.NeedSudo,
+			AuthenticateType: conf.AuthenticateType,
+		}
+		output, err := common.RemoteExecute(sshOpts, cmd)
 		if err != nil {
 			return errors.Wrap(err, "")
 		}
@@ -309,7 +314,15 @@ func MatchingPlatfrom(conf *model.CKManClickHouseConfig) error {
 	}
 	cmd := "uname -m"
 	for _, host := range conf.Hosts {
-		result, err := common.RemoteExecute(conf.SshUser, conf.SshPassword, host, conf.SshPort, cmd, conf.NeedSudo)
+		sshOpts := common.SshOptions{
+			User:             conf.SshUser,
+			Password:         conf.SshPassword,
+			Port:             conf.SshPort,
+			Host:             host,
+			NeedSudo:         conf.NeedSudo,
+			AuthenticateType: conf.AuthenticateType,
+		}
+		result, err := common.RemoteExecute(sshOpts, cmd)
 		if err != nil {
 			return errors.Errorf("host %s get platform failed: %v", host, err)
 		}
