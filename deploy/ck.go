@@ -56,8 +56,16 @@ func (d *CKDeploy) Init() error {
 		innerIndex := index
 		innerHost := host
 		_ = d.pool.Submit(func() {
+			sshOpts := common.SshOptions{
+				User:             d.Conf.SshUser,
+				Password:         d.Conf.SshPassword,
+				Port:             d.Conf.SshPort,
+				Host:             innerHost,
+				NeedSudo:         d.Conf.NeedSudo,
+				AuthenticateType: d.Conf.AuthenticateType,
+			}
 			cmd := "cat /proc/meminfo | grep MemTotal | awk '{print $2}'"
-			output, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
+			output, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -75,7 +83,7 @@ func (d *CKDeploy) Init() error {
 			d.HostInfos[innerIndex] = info
 			if d.Ext.Ipv6Enable {
 				cmd2 := "grep lo /proc/net/if_inet6 >/dev/null 2>&1; echo $?"
-				output, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd2, d.Conf.NeedSudo)
+				output, err = common.RemoteExecute(sshOpts, cmd2)
 				if err != nil {
 					lastError = err
 					return
@@ -103,8 +111,16 @@ func (d *CKDeploy) Init() error {
 			innerReplicaIndex := replicaIndex
 			innerReplica := replica
 			_ = d.pool.Submit(func() {
+				sshOpts := common.SshOptions{
+					User:             d.Conf.SshUser,
+					Password:         d.Conf.SshPassword,
+					Port:             d.Conf.SshPort,
+					Host:             innerReplica.Ip,
+					NeedSudo:         d.Conf.NeedSudo,
+					AuthenticateType: d.Conf.AuthenticateType,
+				}
 				cmd := "hostname -f"
-				output, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerReplica.Ip, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
+				output, err := common.RemoteExecute(sshOpts, cmd)
 				if err != nil {
 					lastError = err
 					return
@@ -144,7 +160,15 @@ func (d *CKDeploy) Prepare() error {
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			if err := common.ScpUploadFiles(files, common.TmpWorkDirectory, d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, d.Conf.NeedSudo); err != nil {
+			sshOpts := common.SshOptions{
+				User:             d.Conf.SshUser,
+				Password:         d.Conf.SshPassword,
+				Port:             d.Conf.SshPort,
+				Host:             innerHost,
+				NeedSudo:         d.Conf.NeedSudo,
+				AuthenticateType: d.Conf.AuthenticateType,
+			}
+			if err := common.ScpUploadFiles(files, common.TmpWorkDirectory, sshOpts); err != nil {
 				lastError = err
 				return
 			}
@@ -173,11 +197,19 @@ func (d *CKDeploy) Install() error {
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
+			sshOpts := common.SshOptions{
+				User:             d.Conf.SshUser,
+				Password:         d.Conf.SshPassword,
+				Port:             d.Conf.SshPort,
+				Host:             innerHost,
+				NeedSudo:         d.Conf.NeedSudo,
+				AuthenticateType: d.Conf.AuthenticateType,
+			}
 			cmd1 := cmdIns.StopCmd(CkSvrName, d.Conf.Cwd)
-			_, _ = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd1, d.Conf.NeedSudo)
+			_, _ = common.RemoteExecute(sshOpts, cmd1)
 
 			cmd2 := strings.Join(cmds, ";")
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd2, d.Conf.NeedSudo)
+			_, err := common.RemoteExecute(sshOpts, cmd2)
 			if err != nil {
 				lastError = err
 				return
@@ -195,7 +227,8 @@ func (d *CKDeploy) Install() error {
 
 				cmd3 := fmt.Sprintf("cp /tmp/%s/etc/init.d/clickhouse-server /etc/init.d/;", extractDir)
 				cmd3 += fmt.Sprintf("cp /tmp/%s/lib/systemd/system/clickhouse-server.service /etc/systemd/system/", extractDir)
-				_, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd3, true)
+				sshOpts.NeedSudo = true
+				_, err = common.RemoteExecute(sshOpts, cmd3)
 				if err != nil {
 					log.Logger.Warnf("try to config autorestart failed:%v", err)
 				}
@@ -226,8 +259,16 @@ func (d *CKDeploy) Uninstall() error {
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
+			sshOpts := common.SshOptions{
+				User:             d.Conf.SshUser,
+				Password:         d.Conf.SshPassword,
+				Port:             d.Conf.SshPort,
+				Host:             innerHost,
+				NeedSudo:         d.Conf.NeedSudo,
+				AuthenticateType: d.Conf.AuthenticateType,
+			}
 			cmd := strings.Join(cmds, ";")
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
+			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -251,7 +292,15 @@ func (d *CKDeploy) Upgrade() error {
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
+			sshOpts := common.SshOptions{
+				User:             d.Conf.SshUser,
+				Password:         d.Conf.SshPassword,
+				Port:             d.Conf.SshPort,
+				Host:             innerHost,
+				NeedSudo:         d.Conf.NeedSudo,
+				AuthenticateType: d.Conf.AuthenticateType,
+			}
+			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -295,12 +344,20 @@ func (d *CKDeploy) Config() error {
 	for index, host := range d.Conf.Hosts {
 		innerIndex := index
 		innerHost := host
+		confFiles := confFiles
 		_ = d.pool.Submit(func() {
-			confFiles := confFiles
+			sshOpts := common.SshOptions{
+				User:             d.Conf.SshUser,
+				Password:         d.Conf.SshPassword,
+				Port:             d.Conf.SshPort,
+				Host:             innerHost,
+				NeedSudo:         d.Conf.NeedSudo,
+				AuthenticateType: d.Conf.AuthenticateType,
+			}
 			if d.Conf.NeedSudo {
 				//clear config first
 				cmd := "rm -rf /etc/clickhouse-server/config.d/*.xml /etc/clickhouse-server/users.d/*.xml"
-				if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo); err != nil {
+				if _, err = common.RemoteExecute(sshOpts, cmd); err != nil {
 					lastError = err
 					return
 				}
@@ -331,11 +388,11 @@ func (d *CKDeploy) Config() error {
 			}
 			confFiles = append(confFiles, hostXml)
 
-			if err := common.ScpUploadFiles(confFiles, path.Join(remotePath, "config.d"), d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, d.Conf.NeedSudo); err != nil {
+			if err := common.ScpUploadFiles(confFiles, path.Join(remotePath, "config.d"), sshOpts); err != nil {
 				lastError = err
 				return
 			}
-			if err := common.ScpUploadFiles([]string{usersXml}, path.Join(remotePath, "users.d"), d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, d.Conf.NeedSudo); err != nil {
+			if err := common.ScpUploadFiles([]string{usersXml}, path.Join(remotePath, "users.d"), sshOpts); err != nil {
 				lastError = err
 				return
 			}
@@ -347,7 +404,7 @@ func (d *CKDeploy) Config() error {
 				cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
 			}
 			cmd := strings.Join(cmds, ";")
-			if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo); err != nil {
+			if _, err = common.RemoteExecute(sshOpts, cmd); err != nil {
 				lastError = err
 				return
 			}
@@ -375,13 +432,21 @@ func (d *CKDeploy) Config() error {
 				innerHost := host
 				deploy := deploy
 				_ = d.pool.Submit(func() {
-					if err := common.ScpUploadFile(m, path.Join(remotePath, "config.d", "metrika.xml"), deploy.Conf.SshUser, deploy.Conf.SshPassword, innerHost, deploy.Conf.SshPort, deploy.Conf.NeedSudo); err != nil {
+					sshOpts := common.SshOptions{
+						User:             deploy.Conf.SshUser,
+						Password:         deploy.Conf.SshPassword,
+						Port:             deploy.Conf.SshPort,
+						Host:             innerHost,
+						NeedSudo:         deploy.Conf.NeedSudo,
+						AuthenticateType: deploy.Conf.AuthenticateType,
+					}
+					if err := common.ScpUploadFile(m, path.Join(remotePath, "config.d", "metrika.xml"), sshOpts); err != nil {
 						lastError = err
 						return
 					}
 					if d.Conf.NeedSudo {
 						cmd := "chown -R clickhouse:clickhouse /etc/clickhouse-server"
-						if _, err = common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo); err != nil {
+						if _, err = common.RemoteExecute(sshOpts, cmd); err != nil {
 							lastError = err
 							return
 						}
@@ -405,8 +470,16 @@ func (d *CKDeploy) Start() error {
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
+			sshOpts := common.SshOptions{
+				User:             d.Conf.SshUser,
+				Password:         d.Conf.SshPassword,
+				Port:             d.Conf.SshPort,
+				Host:             innerHost,
+				NeedSudo:         d.Conf.NeedSudo,
+				AuthenticateType: d.Conf.AuthenticateType,
+			}
 			cmd := cmdIns.StartCmd(CkSvrName, d.Conf.Cwd)
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
+			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -429,8 +502,16 @@ func (d *CKDeploy) Stop() error {
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
+			sshOpts := common.SshOptions{
+				User:             d.Conf.SshUser,
+				Password:         d.Conf.SshPassword,
+				Port:             d.Conf.SshPort,
+				Host:             innerHost,
+				NeedSudo:         d.Conf.NeedSudo,
+				AuthenticateType: d.Conf.AuthenticateType,
+			}
 			cmd := cmdIns.StopCmd(CkSvrName, d.Conf.Cwd)
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
+			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -453,8 +534,16 @@ func (d *CKDeploy) Restart() error {
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
 		_ = d.pool.Submit(func() {
+			sshOpts := common.SshOptions{
+				User:             d.Conf.SshUser,
+				Password:         d.Conf.SshPassword,
+				Port:             d.Conf.SshPort,
+				Host:             innerHost,
+				NeedSudo:         d.Conf.NeedSudo,
+				AuthenticateType: d.Conf.AuthenticateType,
+			}
 			cmd := cmdIns.RestartCmd(CkSvrName, d.Conf.Cwd)
-			_, err := common.RemoteExecute(d.Conf.SshUser, d.Conf.SshPassword, innerHost, d.Conf.SshPort, cmd, d.Conf.NeedSudo)
+			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
 				return
@@ -584,13 +673,21 @@ func ConfigLogicOtherCluster(clusterName string) error {
 			host := host
 			deploy := deploy
 			_ = d.pool.Submit(func() {
-				if err := common.ScpUploadFile(m, path.Join(remotePath, "metrika.xml"), deploy.Conf.SshUser, deploy.Conf.SshPassword, host, deploy.Conf.SshPort, d.Conf.NeedSudo); err != nil {
+				sshOpts := common.SshOptions{
+					User:             deploy.Conf.SshUser,
+					Password:         deploy.Conf.SshPassword,
+					Port:             deploy.Conf.SshPort,
+					Host:             host,
+					NeedSudo:         deploy.Conf.NeedSudo,
+					AuthenticateType: deploy.Conf.AuthenticateType,
+				}
+				if err := common.ScpUploadFile(m, path.Join(remotePath, "metrika.xml"), sshOpts); err != nil {
 					lastError = err
 					return
 				}
-				if d.Conf.NeedSudo {
+				if deploy.Conf.NeedSudo {
 					cmd := "chown -R clickhouse:clickhouse /etc/clickhouse-server"
-					if _, err := common.RemoteExecute(deploy.Conf.SshUser, deploy.Conf.SshPassword, host, deploy.Conf.SshPort, cmd, d.Conf.NeedSudo); err != nil {
+					if _, err := common.RemoteExecute(sshOpts, cmd); err != nil {
 						lastError = err
 						return
 					}

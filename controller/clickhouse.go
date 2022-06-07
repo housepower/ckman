@@ -1561,15 +1561,8 @@ func verifySshPassword(c *gin.Context, conf *model.CKManClickHouseConfig, sshUse
 		return fmt.Errorf("sshUser must not be null")
 	}
 
-	if conf.AuthenticateType == model.SshPasswordSave && sshPassword == "" {
-		return fmt.Errorf("expect sshPassword but got null")
-	}
-
 	if conf.AuthenticateType == model.SshPasswordNotSave {
 		password := c.Query("password")
-		if password == "" {
-			return fmt.Errorf("expect sshPassword but got null")
-		}
 		conf.SshPassword = password
 	}
 	return nil
@@ -1747,10 +1740,6 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 
 	if conf.SshUser == "" {
 		return errors.Errorf("ssh user must not be empty")
-	}
-
-	if conf.AuthenticateType != model.SshPasswordUsePubkey && conf.SshPassword == "" {
-		return errors.Errorf("ssh password must not be empty")
 	}
 
 	if conf.LogicCluster != nil {

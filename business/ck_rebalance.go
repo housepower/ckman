@@ -113,8 +113,16 @@ func (this *CKRebalance) InitSshConns(database string) (err error) {
 			}
 			cmd := fmt.Sprintf("ssh -o StrictHostKeyChecking=false %s ls %s/clickhouse/data/%s", dstHost, this.DataDir, database)
 			log.Logger.Infof("host: %s, command: %s", srcHost, cmd)
+			sshOpts := common.SshOptions{
+				User:             this.OsUser,
+				Password:         this.OsPassword,
+				Port:             this.OsPort,
+				Host:             srcHost,
+				NeedSudo:         true,
+				AuthenticateType: model.SshPasswordSave,
+			}
 			var out string
-			if out, err = common.RemoteExecute(this.OsUser, this.OsPassword, srcHost, this.OsPort, cmd, true); err != nil {
+			if out, err = common.RemoteExecute(sshOpts, cmd); err != nil {
 				err = errors.Wrapf(err, "output: %s", out)
 				return
 			}
@@ -278,8 +286,16 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 			fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, srcDir, dstHost, dstDir),
 			fmt.Sprintf("rm -fr %s", srcDir),
 		}
+		sshOpts := common.SshOptions{
+			User:             this.OsUser,
+			Password:         this.OsPassword,
+			Port:             this.OsPort,
+			Host:             tbl.Host,
+			NeedSudo:         true,
+			AuthenticateType: model.SshPasswordSave,
+		}
 		var out string
-		if out, err = common.RemoteExecute(this.OsUser, this.OsPassword, tbl.Host, this.OsPort, strings.Join(cmds, ";"), true); err != nil {
+		if out, err = common.RemoteExecute(sshOpts, strings.Join(cmds, ";")); err != nil {
 			err = errors.Wrapf(err, "output: %s", out)
 			lock.Unlock()
 			return
