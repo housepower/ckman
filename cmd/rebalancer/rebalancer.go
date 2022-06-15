@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"strings"
+
 	_ "github.com/ClickHouse/clickhouse-go"
 	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
-	"os"
-	"strings"
 )
 
 // Rebalance the whole cluster. It queries every shard to get partitions size, calculates a plan, for each selected partition, detach from source node, rsync to dest node and attach it.
@@ -95,6 +96,8 @@ func main() {
 		DBTables:   make(map[string][]string),
 		RepTables:  make(map[string]map[string]string),
 	}
+
+	defer common.Pool.Close()
 
 	if err = rebalancer.InitCKConns(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)

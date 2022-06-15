@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"strings"
+
 	_ "github.com/ClickHouse/clickhouse-go"
 	"github.com/housepower/ckman/business"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
-	"os"
-	"strings"
 )
 
 // export data of given time range to HDFS
@@ -123,6 +124,8 @@ func main() {
 		Parallelism: cmdOps.Parallelism,
 	}
 	archive.FillArchiveDefault()
+	common.Pool.Resize(archive.Parallelism)
+	defer common.Pool.Close()
 	if err = archive.InitConns(); err != nil {
 		log.Logger.Fatalf("got error %+v", err)
 	}

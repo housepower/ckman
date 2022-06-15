@@ -1,10 +1,11 @@
 package common
 
 import (
+	"testing"
+
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestRemoteExecute(t *testing.T) {

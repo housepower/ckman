@@ -2,19 +2,29 @@ package common
 
 import (
 	"errors"
-	"github.com/housepower/ckman/log"
 	"runtime"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
+
+	"github.com/housepower/ckman/log"
 )
+
+func init() {
+	if Pool == nil {
+		Pool = NewWorkerPool(MaxWorkersDefault, 2*MaxWorkersDefault)
+	}
+}
 
 const (
 	StateRunning uint32 = 0
 	StateStopped uint32 = 1
 )
 
-var MaxWorkersDefault int = MaxInt(2 * runtime.NumCPU(), 10)
+var (
+	MaxWorkersDefault int = MaxInt(2*runtime.NumCPU(), 10)
+	Pool              *WorkerPool
+)
 
 // WorkerPool is a blocked worker pool inspired by https://github.com/gammazero/workerpool/
 type WorkerPool struct {
@@ -26,6 +36,7 @@ type WorkerPool struct {
 	workChan   chan func()
 
 	taskDone *sync.Cond
+	once     sync.Once
 	state    uint32
 	sync.Mutex
 }
@@ -71,7 +82,7 @@ LOOP:
 		}
 	}
 }
-func runFunc(fn func()){
+func runFunc(fn func()) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Logger.Errorf("err:%v\n%v", err, string(debug.Stack()))
@@ -138,4 +149,11 @@ func (w *WorkerPool) Pending() uint64 {
 	w.Lock()
 	defer w.Unlock()
 	return w.inNums - w.outNums
+}
+
+func (w *WorkerPool) Close() {
+	w.StopWait()
+	w.once.Do(func() {
+		close(w.workChan)
+	})
 }

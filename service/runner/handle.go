@@ -2,6 +2,7 @@ package runner
 
 import (
 	"encoding/json"
+
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/model"
@@ -32,7 +33,6 @@ func UnmarshalConfig(config interface{}, v interface{}) error {
 	case *deploy.CKDeploy:
 		d := v.(*deploy.CKDeploy)
 		repository.DecodePasswd(d.Conf)
-		d.CreatePool()
 	case *deploy.ZKDeploy:
 	}
 	return nil
@@ -82,7 +82,7 @@ func CKDeployHandle(task *model.Task) error {
 				_ = repository.Ps.Rollback()
 				return errors.Wrap(err, "")
 			}
-		}else {
+		} else {
 			if !common.ArraySearch(d.Conf.Cluster, logics) {
 				logics = append(logics, d.Conf.Cluster)
 			}
@@ -124,7 +124,7 @@ func CKDestoryHandle(task *model.Task) error {
 	//TODO [L] clear task record and query history
 	historys, err := repository.Ps.GetQueryHistoryByCluster(conf.Cluster)
 	if err == nil {
-		for _,history := range historys {
+		for _, history := range historys {
 			_ = repository.Ps.DeleteQueryHistory(history.CheckSum)
 		}
 	}
@@ -148,7 +148,6 @@ func CKDestoryHandle(task *model.Task) error {
 	}
 	_ = repository.Ps.Commit()
 
-
 	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
 	return nil
 }
@@ -159,7 +158,7 @@ func CKDeleteNodeHandle(task *model.Task) error {
 		return err
 	}
 
-	ip := d.Conf.Hosts[0]  //which node will be deleted
+	ip := d.Conf.Hosts[0] //which node will be deleted
 	conf, err := repository.Ps.GetClusterbyName(d.Conf.Cluster)
 	if err != nil {
 		return nil
@@ -290,7 +289,7 @@ func CKSettingHandle(task *model.Task) error {
 				_ = repository.Ps.Rollback()
 				return errors.Wrap(err, "")
 			}
-		}else {
+		} else {
 			logics = append(logics, d.Conf.Cluster)
 			_ = repository.Ps.UpdateLogicCluster(*d.Conf.LogicCluster, logics)
 		}
@@ -299,5 +298,3 @@ func CKSettingHandle(task *model.Task) error {
 	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
 	return nil
 }
-
-

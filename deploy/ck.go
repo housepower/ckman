@@ -38,10 +38,8 @@ type CKDeploy struct {
 
 func NewCkDeploy(conf model.CKManClickHouseConfig) *CKDeploy {
 	return &CKDeploy{
-		Conf: &conf,
-		DeployBase: DeployBase{
-			pool: common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
-		},
+		Conf:       &conf,
+		DeployBase: DeployBase{},
 	}
 }
 
@@ -55,7 +53,7 @@ func (d *CKDeploy) Init() error {
 	for index, host := range d.Conf.Hosts {
 		innerIndex := index
 		innerHost := host
-		_ = d.pool.Submit(func() {
+		_ = common.Pool.Submit(func() {
 			sshOpts := common.SshOptions{
 				User:             d.Conf.SshUser,
 				Password:         d.Conf.SshPassword,
@@ -97,20 +95,19 @@ func (d *CKDeploy) Init() error {
 			}
 		})
 	}
-	d.pool.StopWait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
 
 	clusterNodeNum := 0
 	lastError = nil
-	d.pool.Restart()
 	for shardIndex, shard := range d.Conf.Shards {
 		for replicaIndex, replica := range shard.Replicas {
 			innerShardIndex := shardIndex
 			innerReplicaIndex := replicaIndex
 			innerReplica := replica
-			_ = d.pool.Submit(func() {
+			_ = common.Pool.Submit(func() {
 				sshOpts := common.SshOptions{
 					User:             d.Conf.SshUser,
 					Password:         d.Conf.SshPassword,
@@ -135,8 +132,7 @@ func (d *CKDeploy) Init() error {
 			})
 		}
 	}
-
-	d.pool.Wait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
@@ -145,7 +141,6 @@ func (d *CKDeploy) Init() error {
 		return errors.Errorf("host name are the same")
 	}
 	log.Logger.Infof("init done")
-
 	return nil
 }
 
@@ -159,7 +154,7 @@ func (d *CKDeploy) Prepare() error {
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.pool.Submit(func() {
+		_ = common.Pool.Submit(func() {
 			sshOpts := common.SshOptions{
 				User:             d.Conf.SshUser,
 				Password:         d.Conf.SshPassword,
@@ -175,7 +170,7 @@ func (d *CKDeploy) Prepare() error {
 			log.Logger.Debugf("host %s prepare done", innerHost)
 		})
 	}
-	d.pool.Wait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
@@ -196,7 +191,7 @@ func (d *CKDeploy) Install() error {
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.pool.Submit(func() {
+		_ = common.Pool.Submit(func() {
 			sshOpts := common.SshOptions{
 				User:             d.Conf.SshUser,
 				Password:         d.Conf.SshPassword,
@@ -237,7 +232,7 @@ func (d *CKDeploy) Install() error {
 			log.Logger.Debugf("host %s install done", innerHost)
 		})
 	}
-	d.pool.Wait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
@@ -258,7 +253,7 @@ func (d *CKDeploy) Uninstall() error {
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.pool.Submit(func() {
+		_ = common.Pool.Submit(func() {
 			sshOpts := common.SshOptions{
 				User:             d.Conf.SshUser,
 				Password:         d.Conf.SshPassword,
@@ -276,7 +271,7 @@ func (d *CKDeploy) Uninstall() error {
 			log.Logger.Debugf("host %s uninstall done", innerHost)
 		})
 	}
-	d.pool.Wait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
@@ -291,7 +286,7 @@ func (d *CKDeploy) Upgrade() error {
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.pool.Submit(func() {
+		_ = common.Pool.Submit(func() {
 			sshOpts := common.SshOptions{
 				User:             d.Conf.SshUser,
 				Password:         d.Conf.SshPassword,
@@ -308,7 +303,7 @@ func (d *CKDeploy) Upgrade() error {
 			log.Logger.Debugf("host %s upgrade done", innerHost)
 		})
 	}
-	d.pool.Wait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
@@ -345,7 +340,7 @@ func (d *CKDeploy) Config() error {
 		innerIndex := index
 		innerHost := host
 		confFiles := confFiles
-		_ = d.pool.Submit(func() {
+		_ = common.Pool.Submit(func() {
 			sshOpts := common.SshOptions{
 				User:             d.Conf.SshUser,
 				Password:         d.Conf.SshPassword,
@@ -411,7 +406,7 @@ func (d *CKDeploy) Config() error {
 			log.Logger.Debugf("host %s config done", innerHost)
 		})
 	}
-	d.pool.Wait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
@@ -431,7 +426,7 @@ func (d *CKDeploy) Config() error {
 			for _, host := range deploy.Conf.Hosts {
 				innerHost := host
 				deploy := deploy
-				_ = d.pool.Submit(func() {
+				_ = common.Pool.Submit(func() {
 					sshOpts := common.SshOptions{
 						User:             deploy.Conf.SshUser,
 						Password:         deploy.Conf.SshPassword,
@@ -453,7 +448,7 @@ func (d *CKDeploy) Config() error {
 					}
 				})
 			}
-			d.pool.Wait()
+			common.Pool.Wait()
 			if lastError != nil {
 				return errors.Wrap(lastError, "")
 			}
@@ -469,7 +464,7 @@ func (d *CKDeploy) Start() error {
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.pool.Submit(func() {
+		_ = common.Pool.Submit(func() {
 			sshOpts := common.SshOptions{
 				User:             d.Conf.SshUser,
 				Password:         d.Conf.SshPassword,
@@ -487,7 +482,7 @@ func (d *CKDeploy) Start() error {
 			log.Logger.Debugf("host %s start done", innerHost)
 		})
 	}
-	d.pool.Wait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
@@ -501,7 +496,7 @@ func (d *CKDeploy) Stop() error {
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.pool.Submit(func() {
+		_ = common.Pool.Submit(func() {
 			sshOpts := common.SshOptions{
 				User:             d.Conf.SshUser,
 				Password:         d.Conf.SshPassword,
@@ -519,7 +514,7 @@ func (d *CKDeploy) Stop() error {
 			log.Logger.Debugf("host %s stop done", innerHost)
 		})
 	}
-	d.pool.Wait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
@@ -533,7 +528,7 @@ func (d *CKDeploy) Restart() error {
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.pool.Submit(func() {
+		_ = common.Pool.Submit(func() {
 			sshOpts := common.SshOptions{
 				User:             d.Conf.SshUser,
 				Password:         d.Conf.SshPassword,
@@ -551,7 +546,7 @@ func (d *CKDeploy) Restart() error {
 			log.Logger.Debugf("host %s restart done", innerHost)
 		})
 	}
-	d.pool.Wait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
@@ -564,7 +559,7 @@ func (d *CKDeploy) Check(timeout int) error {
 	var lastError error
 	for _, host := range d.Conf.Hosts {
 		innerHost := host
-		_ = d.pool.Submit(func() {
+		_ = common.Pool.Submit(func() {
 			// Golang <-time.After() is not garbage collected before expiry.
 			ticker := time.NewTicker(5 * time.Second)
 			ticker2 := time.NewTicker(time.Duration(timeout) * time.Second)
@@ -594,7 +589,7 @@ func (d *CKDeploy) Check(timeout int) error {
 		})
 	}
 
-	d.pool.Wait()
+	common.Pool.Wait()
 	if lastError != nil {
 		return errors.Wrap(lastError, "")
 	}
@@ -672,7 +667,7 @@ func ConfigLogicOtherCluster(clusterName string) error {
 		for _, host := range d.Conf.Hosts {
 			host := host
 			deploy := deploy
-			_ = d.pool.Submit(func() {
+			_ = common.Pool.Submit(func() {
 				sshOpts := common.SshOptions{
 					User:             deploy.Conf.SshUser,
 					Password:         deploy.Conf.SshPassword,
@@ -694,7 +689,7 @@ func ConfigLogicOtherCluster(clusterName string) error {
 				}
 			})
 		}
-		d.pool.Wait()
+		common.Pool.Wait()
 		if lastError != nil {
 			return errors.Wrap(lastError, "")
 		}

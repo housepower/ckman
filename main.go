@@ -88,6 +88,7 @@ func main() {
 	selfIP := common.GetOutboundIP().String()
 	signalCh := make(chan os.Signal, 1)
 
+	defer common.Pool.Close()
 	err = repository.InitPersistent()
 	if err != nil {
 		log.Logger.Fatalf("init persistent failed:%v", err)
