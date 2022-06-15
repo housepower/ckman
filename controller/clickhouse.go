@@ -1632,6 +1632,9 @@ func (ck *ClickHouseController) GetConfig(c *gin.Context) {
 		return
 	}
 	cluster.Normalize()
+	if cluster.AuthenticateType == model.SshPasswordNotSave {
+		cluster.SshPassword = ""
+	}
 	data, err := params.MarshalConfig(cluster)
 	if err != nil {
 		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, nil)

@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -11,13 +12,13 @@ import (
 	"sync"
 	"time"
 
+	scp "github.com/bramvdbogaerde/go-scp"
 	"github.com/housepower/ckman/model"
 
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 
 	"github.com/pkg/errors"
-	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -91,91 +92,62 @@ func SSHConnect(opts SshOptions) (*ssh.Client, error) {
 	return client, nil
 }
 
-func SFTPConnect(opts SshOptions) (*sftp.Client, *ssh.Client, error) {
-	var (
-		addr         string
-		clientConfig *ssh.ClientConfig
-		sshClient    *ssh.Client
-		sftpClient   *sftp.Client
-		err          error
-	)
-
-	if opts.AuthenticateType == model.SshPasswordUsePubkey {
-		clientConfig, err = sshConnectwithPublickKey(opts.User)
-	} else {
-		clientConfig, err = sshConnectwithPassword(opts.User, opts.Password)
-	}
+func ScpConnect(opts SshOptions) (*scp.Client, *ssh.Client, error) {
+	sshClient, err := SSHConnect(opts)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "")
-	}
-
-	// connet to ssh
-	addr = net.JoinHostPort(opts.Host, fmt.Sprintf("%d", opts.Port))
-
-	if sshClient, err = ssh.Dial("tcp", addr, clientConfig); err != nil {
-		err = errors.Wrapf(err, "")
 		return nil, nil, err
 	}
-
 	// create sftp client
-	if sftpClient, err = sftp.NewClient(sshClient); err != nil {
+	var client scp.Client
+	if client, err = scp.NewClientBySSH(sshClient); err != nil {
 		err = errors.Wrapf(err, "")
 		sshClient.Close()
 		return nil, nil, err
 	}
 
-	return sftpClient, sshClient, nil
+	return &client, sshClient, nil
 }
 
-func SFTPUpload(sftpClient *sftp.Client, localFilePath, remoteFilePath string) error {
-	srcFile, err := os.Open(localFilePath)
+// https://stackoverflow.com/questions/41259439/how-to-convert-filemode-to-int
+func GetFilePerm(file string) (string, error) {
+	fileInfo, err := os.Stat(file)
 	if err != nil {
-		err = errors.Wrapf(err, "")
+		return "", errors.Wrapf(err, "GetFilePerm")
+	}
+	perm := fileInfo.Mode().Perm()
+	return fmt.Sprintf("%04o", perm), nil
+}
+
+func ScpUpload(client *scp.Client, localFilePath, remoteFilePath string) error {
+	f, err := os.Open(localFilePath)
+	if err != nil {
+		return errors.Wrapf(err, "os.Open")
+	}
+	defer f.Close()
+	perm, err := GetFilePerm(localFilePath)
+	if err != nil {
+		return errors.Wrapf(err, "")
+	}
+	err = client.CopyFromFile(context.Background(), *f, remoteFilePath, perm)
+	if err != nil {
+		err = errors.Wrapf(err, "CopyFromFile")
 		return err
 	}
-	defer srcFile.Close()
-
-	dstFile, err := sftpClient.Create(remoteFilePath)
-	if err != nil {
-		err = errors.Wrapf(err, "")
-		return err
-	}
-	defer dstFile.Close()
-
-	buf := make([]byte, 1024*1024)
-	for {
-		n, _ := srcFile.Read(buf)
-		if n == 0 {
-			break
-		}
-		_, _ = dstFile.Write(buf[0:n])
-	}
-
 	return nil
 }
 
-func SFTPDownload(sftpClient *sftp.Client, remoteFilePath, localFilePath string) error {
-	dstFile, err := os.Create(localFilePath)
+func ScpDownload(client *scp.Client, remoteFilePath, localFilePath string) error {
+	f, err := os.Create(localFilePath)
 	if err != nil {
 		err = errors.Wrapf(err, "")
 		return err
 	}
-	defer dstFile.Close()
+	defer f.Close()
 
-	srcFile, err := sftpClient.Open(remoteFilePath)
+	err = client.CopyFromRemote(context.Background(), f, remoteFilePath)
 	if err != nil {
 		err = errors.Wrapf(err, "")
 		return err
-	}
-	defer srcFile.Close()
-
-	buf := make([]byte, 1024*1024)
-	for {
-		n, _ := srcFile.Read(buf)
-		if n == 0 {
-			break
-		}
-		_, _ = dstFile.Write(buf[0:n])
 	}
 
 	return nil
@@ -258,18 +230,12 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 }
 
 func ScpUploadFiles(files []string, remotePath string, opts SshOptions) error {
-	sftpClient, sshClient, err := SFTPConnect(opts)
-	if err != nil {
-		return errors.Wrap(err, "")
-	}
-	defer sftpClient.Close()
-	defer sshClient.Close()
 	for _, file := range files {
 		if file == "" {
 			continue
 		}
 		remoteFile := path.Join(remotePath, path.Base(file))
-		err = ScpUploadFile(file, remoteFile, opts)
+		err := ScpUploadFile(file, remoteFile, opts)
 		if err != nil {
 			return errors.Wrap(err, "")
 		}
@@ -278,11 +244,11 @@ func ScpUploadFiles(files []string, remotePath string, opts SshOptions) error {
 }
 
 func ScpUploadFile(localFile, remoteFile string, opts SshOptions) error {
-	sftpClient, sshClient, err := SFTPConnect(opts)
+	client, sshClient, err := ScpConnect(opts)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
-	defer sftpClient.Close()
+	defer client.Close()
 	defer sshClient.Close()
 	// delete remote file first, beacuse maybe the remote file exists and created by root
 	cmd := fmt.Sprintf("rm -rf %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)))
@@ -291,7 +257,7 @@ func ScpUploadFile(localFile, remoteFile string, opts SshOptions) error {
 		return errors.Wrap(err, "")
 	}
 
-	err = SFTPUpload(sftpClient, localFile, path.Join(TmpWorkDirectory, path.Base(remoteFile)))
+	err = ScpUpload(client, localFile, path.Join(TmpWorkDirectory, path.Base(remoteFile)))
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -308,16 +274,16 @@ func ScpUploadFile(localFile, remoteFile string, opts SshOptions) error {
 }
 
 func ScpDownloadFiles(files []string, localPath string, opts SshOptions) error {
-	sftpClient, sshClient, err := SFTPConnect(opts)
+	client, sshClient, err := ScpConnect(opts)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
-	defer sftpClient.Close()
+	defer client.Close()
 	defer sshClient.Close()
 
 	for _, file := range files {
 		baseName := path.Base(file)
-		err = SFTPDownload(sftpClient, file, path.Join(localPath, baseName))
+		err = ScpDownload(client, file, path.Join(localPath, baseName))
 		if err != nil {
 			return errors.Wrap(err, "")
 		}
@@ -326,14 +292,14 @@ func ScpDownloadFiles(files []string, localPath string, opts SshOptions) error {
 }
 
 func ScpDownloadFile(remoteFile, localFile string, opts SshOptions) error {
-	sftpClient, sshClient, err := SFTPConnect(opts)
+	client, sshClient, err := ScpConnect(opts)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
-	defer sftpClient.Close()
+	defer client.Close()
 	defer sshClient.Close()
 
-	err = SFTPDownload(sftpClient, remoteFile, localFile)
+	err = ScpDownload(client, remoteFile, localFile)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
