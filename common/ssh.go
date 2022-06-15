@@ -3,7 +3,6 @@ package common
 import (
 	"bufio"
 	"fmt"
-	"github.com/housepower/ckman/model"
 	"io"
 	"net"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/housepower/ckman/model"
 
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
@@ -90,7 +91,7 @@ func SSHConnect(opts SshOptions) (*ssh.Client, error) {
 	return client, nil
 }
 
-func SFTPConnect(opts SshOptions) (*sftp.Client, error) {
+func SFTPConnect(opts SshOptions) (*sftp.Client, *ssh.Client, error) {
 	var (
 		addr         string
 		clientConfig *ssh.ClientConfig
@@ -105,7 +106,7 @@ func SFTPConnect(opts SshOptions) (*sftp.Client, error) {
 		clientConfig, err = sshConnectwithPassword(opts.User, opts.Password)
 	}
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		return nil, nil, errors.Wrap(err, "")
 	}
 
 	// connet to ssh
@@ -113,16 +114,17 @@ func SFTPConnect(opts SshOptions) (*sftp.Client, error) {
 
 	if sshClient, err = ssh.Dial("tcp", addr, clientConfig); err != nil {
 		err = errors.Wrapf(err, "")
-		return nil, err
+		return nil, nil, err
 	}
 
 	// create sftp client
 	if sftpClient, err = sftp.NewClient(sshClient); err != nil {
 		err = errors.Wrapf(err, "")
-		return nil, err
+		sshClient.Close()
+		return nil, nil, err
 	}
 
-	return sftpClient, nil
+	return sftpClient, sshClient, nil
 }
 
 func SFTPUpload(sftpClient *sftp.Client, localFilePath, remoteFilePath string) error {
@@ -256,12 +258,12 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 }
 
 func ScpUploadFiles(files []string, remotePath string, opts SshOptions) error {
-	sftpClient, err := SFTPConnect(opts)
+	sftpClient, sshClient, err := SFTPConnect(opts)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
 	defer sftpClient.Close()
-
+	defer sshClient.Close()
 	for _, file := range files {
 		if file == "" {
 			continue
@@ -276,11 +278,12 @@ func ScpUploadFiles(files []string, remotePath string, opts SshOptions) error {
 }
 
 func ScpUploadFile(localFile, remoteFile string, opts SshOptions) error {
-	sftpClient, err := SFTPConnect(opts)
+	sftpClient, sshClient, err := SFTPConnect(opts)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
 	defer sftpClient.Close()
+	defer sshClient.Close()
 	// delete remote file first, beacuse maybe the remote file exists and created by root
 	cmd := fmt.Sprintf("rm -rf %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)))
 	_, err = RemoteExecute(opts, cmd)
@@ -305,11 +308,12 @@ func ScpUploadFile(localFile, remoteFile string, opts SshOptions) error {
 }
 
 func ScpDownloadFiles(files []string, localPath string, opts SshOptions) error {
-	sftpClient, err := SFTPConnect(opts)
+	sftpClient, sshClient, err := SFTPConnect(opts)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
 	defer sftpClient.Close()
+	defer sshClient.Close()
 
 	for _, file := range files {
 		baseName := path.Base(file)
@@ -322,11 +326,12 @@ func ScpDownloadFiles(files []string, localPath string, opts SshOptions) error {
 }
 
 func ScpDownloadFile(remoteFile, localFile string, opts SshOptions) error {
-	sftpClient, err := SFTPConnect(opts)
+	sftpClient, sshClient, err := SFTPConnect(opts)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
 	defer sftpClient.Close()
+	defer sshClient.Close()
 
 	err = SFTPDownload(sftpClient, remoteFile, localFile)
 	if err != nil {
@@ -334,8 +339,6 @@ func ScpDownloadFile(remoteFile, localFile string, opts SshOptions) error {
 	}
 	return nil
 }
-
-
 
 func RemoteExecute(opts SshOptions, cmd string) (string, error) {
 	client, err := SSHConnect(opts)

@@ -33,6 +33,8 @@ func (job *CronService) Start() error {
 	job.schedulePadding()
 	job.cron.Start()
 	for k, v := range JobList {
+		k := k
+		v := v
 		if spec, ok := job.jobSchedules[k]; ok {
 			_, _ = job.cron.AddFunc(spec, func() {
 				_ = v()

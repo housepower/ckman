@@ -3,15 +3,16 @@ package business
 import (
 	"database/sql"
 	"fmt"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/k0kubun/pp"
 	"github.com/pkg/errors"
-	"path/filepath"
-	"sort"
-	"strings"
-	"sync"
 )
 
 var (
@@ -31,7 +32,6 @@ type CKRebalance struct {
 	OsUser     string
 	OsPassword string
 	OsPort     int
-	Pool       *common.WorkerPool
 }
 
 // TblPartitions is partitions status of a host. A host never move out and move in at the same iteration.
@@ -226,7 +226,7 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 
 			// There could be multiple executions on the same dest node and partition.
 			lock.Lock()
-			dstChConn  := common.GetConnection(dstHost)
+			dstChConn := common.GetConnection(dstHost)
 			if dstChConn == nil {
 				return fmt.Errorf("can't get connection: %s", dstHost)
 			}
@@ -322,7 +322,6 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 }
 
 func (this *CKRebalance) DoRebalance() (err error) {
-	this.Pool = common.NewWorkerPool(common.MaxWorkersDefault,  2*common.MaxWorkersDefault)
 	for _, database := range this.Databases {
 		tables := this.DBTables[database]
 		for _, table := range tables {
@@ -346,7 +345,7 @@ func (this *CKRebalance) DoRebalance() (err error) {
 			var gotError bool
 			for i := 0; i < len(tbls); i++ {
 				tbl := tbls[i]
-				_ = this.Pool.Submit(func() {
+				_ = common.Pool.Submit(func() {
 					if err := this.ExecutePlan(database, tbl); err != nil {
 						log.Logger.Errorf("host: %s, got error %+v", tbl.Host, err)
 						gotError = true
@@ -355,7 +354,7 @@ func (this *CKRebalance) DoRebalance() (err error) {
 					}
 				})
 			}
-			this.Pool.Wait()
+			common.Pool.Wait()
 			if gotError {
 				return errors.Wrap(err, "")
 			}
