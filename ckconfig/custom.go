@@ -8,7 +8,6 @@ import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
 	"github.com/imdario/mergo"
-	"github.com/pkg/errors"
 )
 
 func root(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interface{} {
@@ -168,7 +167,7 @@ func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ipv6E
 	xml.Merge(custom)
 	xml.End(rootTag)
 	if err := xml.Dump(); err != nil {
-		return filename, errors.Wrap(err, "")
+		return filename, err
 	}
 	return filename, nil
 }

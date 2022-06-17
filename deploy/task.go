@@ -2,13 +2,14 @@ package deploy
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/go-basic/uuid"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
-	"time"
 )
 
 func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, error) {
@@ -52,7 +53,7 @@ func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, er
 	}
 	err := repository.Ps.CreateTask(task)
 	if err != nil {
-		return "", errors.Wrap(err, "")
+		return "", err
 	}
 	return task.TaskId, nil
 }
@@ -63,7 +64,7 @@ func hasEffectiveTasks(clusterName string) bool {
 		return false
 	}
 	for _, task := range tasks {
-		if task.Status == model.TaskStatusFailed || task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusStopped{
+		if task.Status == model.TaskStatusFailed || task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusStopped {
 			continue
 		}
 		if clusterName == task.ClusterName {

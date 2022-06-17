@@ -62,11 +62,11 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 	for _, cluster := range clusters {
 		conf, err := repository.Ps.GetClusterbyName(cluster)
 		if err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 		ckService := clickhouse.NewCkService(&conf)
 		if err = ckService.InitCkService(); err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 		query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database = '%s' AND table = '%s'", database, localTable)
 		log.Logger.Debugf("query: %s", query)
@@ -102,11 +102,11 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 			needAdds := allCols.Difference(cols).(common.Map)
 			conf, err := repository.Ps.GetClusterbyName(cluster)
 			if err != nil {
-				return errors.Wrap(err, "")
+				return err
 			}
 			ckService := clickhouse.NewCkService(&conf)
 			if err = ckService.InitCkService(); err != nil {
-				return errors.Wrap(err, "")
+				return err
 			}
 			for k, v := range needAdds {
 				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN `%s` %s", database, localTable, cluster, k, v)
@@ -140,10 +140,10 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 					LogicCluster: *conf.LogicCluster,
 				}
 				if err = ckService.DeleteDistTblOnLogic(&distParams); err != nil {
-					return errors.Wrap(err, "")
+					return err
 				}
 				if err = ckService.CreateDistTblOnLogic(&distParams); err != nil {
-					return errors.Wrap(err, "")
+					return err
 				}
 			}
 		}

@@ -100,11 +100,11 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 		return errors.Errorf("can't find any host")
 	}
 	if conf.Hosts, err = common.ParseHosts(conf.Hosts); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	if err = MatchingPlatfrom(conf); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	//if conf.IsReplica && len(conf.Hosts)%2 == 1 {
 	//	return errors.Errorf("When supporting replica, the number of nodes must be even")
@@ -156,7 +156,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
 				}
 				if err = checkAccess(disk.DiskLocal.Path, conf); err != nil {
-					return errors.Wrap(err, "")
+					return err
 				}
 				localPath = append(localPath, disk.DiskLocal.Path)
 			case "hdfs":
@@ -177,13 +177,13 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 			}
 		}
 		if err = EnsurePathNonPrefix(localPath); err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 		if err = EnsurePathNonPrefix(hdfsEndpoints); err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 		if err = EnsurePathNonPrefix(s3Endpoints); err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 		for _, policy := range conf.Storage.Policies {
 			for _, vol := range policy.Volumns {
@@ -294,7 +294,7 @@ func checkAccess(localPath string, conf *model.CKManClickHouseConfig) error {
 		}
 		output, err := common.RemoteExecute(sshOpts, cmd)
 		if err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 		access := strings.Trim(output, "\n")
 		if access != "0" {

@@ -2,12 +2,14 @@ package controller
 
 import (
 	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
-	"strings"
 )
 
 const (
@@ -64,7 +66,7 @@ func (t *TaskController) TasksList(c *gin.Context) {
 		model.WrapMsg(c, model.GET_TASK_FAIL, err)
 		return
 	}
-	var resps []model.TaskResp
+	var resps model.TaskResps
 	for _, task := range tasks {
 		typ := strings.Split(task.TaskType, ".")[0]
 		option := model.TaskOptionMap[task.TaskType]
@@ -82,8 +84,11 @@ func (t *TaskController) TasksList(c *gin.Context) {
 		resps = append(resps, resp)
 	}
 	if len(resps) == 0 {
-		resps = []model.TaskResp{}
+		resps = model.TaskResps{}
 	}
+
+	//sort by updateTime
+	sort.Sort(resps)
 	model.WrapMsg(c, model.SUCCESS, resps)
 }
 
@@ -129,7 +134,6 @@ func (t *TaskController) DeleteTask(c *gin.Context) {
 
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
-
 
 // @Summary StopTask
 // @Description stop task by taskid

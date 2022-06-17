@@ -3,10 +3,9 @@ package ckconfig
 import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
-	"github.com/pkg/errors"
 )
 
-func GenerateHostXML(filename string, conf *model.CKManClickHouseConfig, host string)(string, error){
+func GenerateHostXML(filename string, conf *model.CKManClickHouseConfig, host string) (string, error) {
 	shardIndex := 0
 	for i, shard := range conf.Shards {
 		for _, replica := range shard.Replicas {
@@ -29,7 +28,7 @@ func GenerateHostXML(filename string, conf *model.CKManClickHouseConfig, host st
 	xml.End("yandex")
 	err := xml.Dump()
 	if err != nil {
-		return "", errors.Wrap(err, "")
+		return "", err
 	}
 	return filename, nil
 }

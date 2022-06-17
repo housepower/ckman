@@ -97,7 +97,7 @@ func (d *CKDeploy) Init() error {
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 
 	clusterNodeNum := 0
@@ -134,7 +134,7 @@ func (d *CKDeploy) Init() error {
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 
 	if len(HostNameMap) != clusterNodeNum {
@@ -172,7 +172,7 @@ func (d *CKDeploy) Prepare() error {
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 	log.Logger.Infof("prepare done")
 	return nil
@@ -234,7 +234,7 @@ func (d *CKDeploy) Install() error {
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 	log.Logger.Infof("install done")
 	return nil
@@ -273,7 +273,7 @@ func (d *CKDeploy) Uninstall() error {
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 	log.Logger.Infof("uninstall done")
 	return nil
@@ -305,7 +305,7 @@ func (d *CKDeploy) Upgrade() error {
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 	log.Logger.Infof("upgrade done")
 	return nil
@@ -318,14 +318,14 @@ func (d *CKDeploy) Config() error {
 	if d.Conf.LogicCluster == nil {
 		metrika, err := ckconfig.GenerateMetrikaXML(path.Join(config.GetWorkDirectory(), "package", "metrika.xml"), d.Conf)
 		if err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 		confFiles = append(confFiles, metrika)
 	}
 
 	custom, err := ckconfig.GenerateCustomXML(path.Join(config.GetWorkDirectory(), "package", "custom.xml"), d.Conf, d.Ext.Ipv6Enable)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	confFiles = append(confFiles, custom)
 
@@ -408,7 +408,7 @@ func (d *CKDeploy) Config() error {
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 	if d.Conf.LogicCluster != nil {
 		logicMetrika, deploys := GenLogicMetrika(d)
@@ -450,7 +450,7 @@ func (d *CKDeploy) Config() error {
 			}
 			common.Pool.Wait()
 			if lastError != nil {
-				return errors.Wrap(lastError, "")
+				return lastError
 			}
 		}
 	}
@@ -484,7 +484,7 @@ func (d *CKDeploy) Start() error {
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 	log.Logger.Infof("start done")
 	return nil
@@ -516,7 +516,7 @@ func (d *CKDeploy) Stop() error {
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 	log.Logger.Infof("stop done")
 	return nil
@@ -548,7 +548,7 @@ func (d *CKDeploy) Restart() error {
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 	log.Logger.Infof("restart done")
 	return nil
@@ -591,7 +591,7 @@ func (d *CKDeploy) Check(timeout int) error {
 
 	common.Pool.Wait()
 	if lastError != nil {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 	log.Logger.Infof("check done")
 	return nil
@@ -614,10 +614,10 @@ func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 	deploy.Conf.Hosts = chHosts
 
 	if err := deploy.Start(); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	if err := deploy.Check(model.MaxTimeOut); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	return nil
 }
@@ -653,7 +653,7 @@ func ConfigLogicOtherCluster(clusterName string) error {
 		deploy.Conf.Normalize()
 		logicFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "metrika")
 		if err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 		defer os.Remove(logicFile.FullName)
 		m, _ := ckconfig.GenerateMetrikaXMLwithLogic(logicFile.FullName, deploy.Conf, metrika)
@@ -691,7 +691,7 @@ func ConfigLogicOtherCluster(clusterName string) error {
 		}
 		common.Pool.Wait()
 		if lastError != nil {
-			return errors.Wrap(lastError, "")
+			return lastError
 		}
 	}
 	return nil
@@ -769,7 +769,7 @@ func ClearLogicCluster(cluster, logic string, reconf bool) error {
 		if reconf {
 			for _, newLogic := range newPhysics {
 				if err = ConfigLogicOtherCluster(newLogic); err != nil {
-					return errors.Wrap(err, "")
+					return err
 				}
 			}
 		}
