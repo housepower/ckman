@@ -66,7 +66,7 @@ func (ck *CkService) InitCkService() error {
 		}
 	}
 	if !hasConnect {
-		return errors.Wrap(lastError, "")
+		return lastError
 	}
 	return nil
 }
@@ -117,11 +117,10 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 
 	value, err := service.QueryInfo(fmt.Sprintf("SELECT cluster, shard_num, replica_num, host_name, host_address FROM system.clusters WHERE cluster='%s' ORDER BY cluster, shard_num, replica_num", conf.Cluster))
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	if len(value) == 1 {
-		err = fmt.Errorf("cluster %s is not exist, or hosts %v is not in cluster %s", conf.Cluster, hosts, conf.Cluster)
-		return errors.Wrap(err, "")
+		return errors.Errorf("cluster %s is not exist, or hosts %v is not in cluster %s", conf.Cluster, hosts, conf.Cluster)
 	}
 	shardNum := uint32(0)
 	for i := 1; i < len(value); i++ {
@@ -154,7 +153,7 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 
 	value, err = service.QueryInfo("SELECT version()")
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	conf.Version = value[1][0].(string)
 
@@ -423,10 +422,10 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 			LogicCluster: *conf.LogicCluster,
 		}
 		if err := ck.DeleteDistTblOnLogic(&distParams); err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 		if err := ck.CreateDistTblOnLogic(&distParams); err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 	}
 
@@ -443,7 +442,7 @@ func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkColum
 	log.Logger.Debugf(desc)
 	rows, err := ck.DB.Query(desc)
 	if err != nil {
-		return attrs, errors.Wrap(err, "")
+		return attrs, err
 	}
 	defer rows.Close()
 
@@ -531,7 +530,7 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 func (ck *CkService) FetchSchemerFromOtherNode(host, password string) error {
 	names, statements, err := business.GetCreateReplicaObjects(ck.DB, host, model.ClickHouseDefaultUser, password)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	num := len(names)
@@ -549,13 +548,13 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 
 	chHosts, err := common.GetShardAvaliableHosts(conf)
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		return nil, err
 	}
 
 	for _, host := range chHosts {
 		service, err := GetCkNodeService(conf.Cluster, host)
 		if err != nil {
-			return nil, errors.Wrap(err, "")
+			return nil, err
 		}
 
 		// get table names
@@ -586,7 +585,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
 			if err != nil {
-				return nil, errors.Wrap(err, "")
+				return nil, err
 			}
 			for i := 1; i < len(value); i++ {
 				table := value[i][0].(string)
@@ -602,7 +601,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
 			if err != nil {
-				return nil, errors.Wrap(err, "")
+				return nil, err
 			}
 			for i := 1; i < len(value); i++ {
 				table := value[i][0].(string)
@@ -620,7 +619,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 			query = fmt.Sprintf("select table, is_readonly from system.replicas where database = '%s'", database)
 			value, err = service.QueryInfo(query)
 			if err != nil {
-				return nil, errors.Wrap(err, "")
+				return nil, err
 			}
 			for i := 1; i < len(value); i++ {
 				table := value[i][0].(string)
@@ -638,7 +637,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
 			if err != nil {
-				return nil, errors.Wrap(err, "")
+				return nil, err
 			}
 			for i := 1; i < len(value); i++ {
 				table := value[i][0].(string)
@@ -658,7 +657,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 			log.Logger.Infof("host: %s, query: %s", host, query)
 			value, err = service.QueryInfo(query)
 			if err != nil {
-				return nil, errors.Wrap(err, "")
+				return nil, err
 			}
 			for i := 1; i < len(value); i++ {
 				table := value[i][0].(string)
@@ -693,7 +692,7 @@ func getHostSessions(service *CkService, query, host string) ([]*model.CkSession
 
 	value, err := service.QueryInfo(query)
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		return nil, err
 	}
 	for i := 1; i < len(value); i++ {
 		session := new(model.CkSessionInfo)
@@ -733,7 +732,7 @@ func getCkSessions(conf *model.CKManClickHouseConfig, limit int, query string) (
 	}
 	common.Pool.Wait()
 	if lastError != nil {
-		return nil, errors.Wrap(lastError, "")
+		return nil, lastError
 	}
 
 	sort.Sort(model.SessionList(list))
@@ -753,7 +752,7 @@ func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId string) error {
 	db, err := common.ConnectClickHouse(host, conf.Port, clickhouse.DefaultDatabase, conf.User, conf.Password)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	query := fmt.Sprintf("KILL QUERY WHERE query_id = '%s'", queryId)
 	_, err = db.Exec(query)
@@ -774,12 +773,12 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 	service := NewCkService(conf)
 	if err = service.InitCkService(); err != nil {
 		log.Logger.Errorf("all hosts not available, can't get zoopath")
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	databases, dbtables, err := common.GetMergeTreeTables("Replicated\\\\w*MergeTree", service.DB)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	// clear and reload again
@@ -789,7 +788,7 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 			for _, table := range tables {
 				path, err := getReplicaZkPath(service.DB, database, table)
 				if err != nil {
-					return errors.Wrap(err, "")
+					return err
 				}
 				tableName := fmt.Sprintf("%s.%s", database, table)
 				conf.ZooPath[tableName] = path
@@ -889,7 +888,7 @@ func (ck *CkService) ShowCreateTable(tbname, database string) (string, error) {
 	query := fmt.Sprintf("SELECT create_table_query FROM system.tables WHERE database = '%s' AND name = '%s'", database, tbname)
 	value, err := ck.QueryInfo(query)
 	if err != nil {
-		return "", errors.Wrap(err, "")
+		return "", err
 	}
 	schema := value[1][0].(string)
 	return schema, nil
@@ -932,7 +931,7 @@ ORDER BY
 			tblLists[database] = tblMapping
 		}
 	}
-	return tblLists, errors.Wrap(err, "")
+	return tblLists, err
 }
 
 func GetCKVersion(conf *model.CKManClickHouseConfig, host string) (string, error) {
@@ -940,11 +939,11 @@ func GetCKVersion(conf *model.CKManClickHouseConfig, host string) (string, error
 	tmp.Hosts = []string{host}
 	service, err := GetCkService(conf.Cluster)
 	if err != nil {
-		return "", errors.Wrap(err, "")
+		return "", err
 	}
 	value, err := service.QueryInfo("SELECT version()")
 	if err != nil {
-		return "", errors.Wrap(err, "")
+		return "", err
 	}
 	version := value[1][0].(string)
 	return version, nil

@@ -58,7 +58,7 @@ func GetZkService(clusterName string) (*ZkService, error) {
 		if err == nil {
 			service, err := NewZkService(conf.ZkNodes, conf.ZkPort)
 			if err != nil {
-				return nil, errors.Wrap(err, "")
+				return nil, err
 			}
 			ZkServiceCache.SetDefault(clusterName, service)
 			return service, nil
@@ -71,7 +71,7 @@ func GetZkService(clusterName string) (*ZkService, error) {
 func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.ZkReplicatedTableStatus, error) {
 	err := clickhouse.GetReplicaZkPath(conf)
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		return nil, err
 	}
 
 	tableStatus := make([]model.ZkReplicatedTableStatus, len(conf.ZooPath))
@@ -134,7 +134,7 @@ func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) 
 
 func (z *ZkService) DeleteAll(node string) (err error) {
 	children, stat, err := z.Conn.Children(node)
-	if err == zk.ErrNoNode {
+	if errors.Is(err, zk.ErrNoNode) {
 		return nil
 	} else if err != nil {
 		err = errors.Wrap(err, "delete zk node: ")

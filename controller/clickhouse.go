@@ -91,7 +91,7 @@ func (ck *ClickHouseController) ImportCluster(c *gin.Context) {
 	if req.LogicCluster != "" {
 		physics, err := repository.Ps.GetLogicClusterbyName(req.LogicCluster)
 		if err != nil {
-			if err == repository.ErrRecordNotFound {
+			if errors.Is(err, repository.ErrRecordNotFound) {
 				physics = []string{req.Cluster}
 				if err1 := repository.Ps.CreateLogicCluster(req.LogicCluster, physics); err1 != nil {
 					model.WrapMsg(c, model.IMPORT_CK_CLUSTER_FAIL, err1)
@@ -1632,9 +1632,6 @@ func (ck *ClickHouseController) GetConfig(c *gin.Context) {
 		return
 	}
 	cluster.Normalize()
-	if cluster.AuthenticateType == model.SshPasswordNotSave {
-		cluster.SshPassword = ""
-	}
 	data, err := params.MarshalConfig(cluster)
 	if err != nil {
 		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, nil)
@@ -1919,7 +1916,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	cluster.UsersConf = conf.UsersConf
 	cluster.LogicCluster = conf.LogicCluster
 	if err = common.DeepCopyByGob(conf, cluster); err != nil {
-		return false, errors.Wrap(err, "")
+		return false, err
 	}
 	return restart, nil
 }

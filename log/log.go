@@ -1,14 +1,16 @@
 package log
 
 import (
+	"strings"
+
 	"github.com/housepower/ckman/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"strings"
 )
 
 var Logger *zap.SugaredLogger
+var ZapLog *zap.Logger
 
 func InitLogger(path string, config *config.CKManLogConfig) {
 	errPath := strings.TrimSuffix(path, ".log") + ".err.log"
@@ -20,11 +22,11 @@ func InitLogger(path string, config *config.CKManLogConfig) {
 	infocore := zapcore.NewCore(encoder, writeSyncer, level)
 	errcore := zapcore.NewCore(encoder, errSyncer, zapcore.ErrorLevel)
 	core := zapcore.NewTee(infocore, errcore)
-	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
-	Logger = logger.Sugar()
+	ZapLog = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
+	Logger = ZapLog.Sugar()
 }
 
-func InitLoggerConsole(){
+func InitLoggerConsole() {
 	cfg := zap.NewProductionConfig()
 	cfg.Encoding = "console"
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder

@@ -76,7 +76,6 @@ func (this *ArchiveHDFS) InitConns() (err error) {
 		}
 		_, err = common.ConnectClickHouse(host, this.Port, this.Database, this.User, this.Password)
 		if err != nil {
-			err = errors.Wrapf(err, "")
 			return
 		}
 		log.Logger.Infof("initialized clickhouse connection to %s", host)

@@ -79,7 +79,7 @@ func SSHConnect(opts SshOptions) (*ssh.Client, error) {
 		clientConfig, err = sshConnectwithPassword(opts.User, opts.Password)
 	}
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		return nil, err
 	}
 
 	// connet to ssh
@@ -97,7 +97,7 @@ func ScpConnect(opts SshOptions) (*scp.Client, *ssh.Client, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	// create sftp client
+	// create scp client
 	var client scp.Client
 	if client, err = scp.NewClientBySSH(sshClient); err != nil {
 		err = errors.Wrapf(err, "")
@@ -126,7 +126,7 @@ func ScpUpload(client *scp.Client, localFilePath, remoteFilePath string) error {
 	defer f.Close()
 	perm, err := GetFilePerm(localFilePath)
 	if err != nil {
-		return errors.Wrapf(err, "")
+		return err
 	}
 	err = client.CopyFromFile(context.Background(), *f, remoteFilePath, perm)
 	if err != nil {
@@ -137,6 +137,7 @@ func ScpUpload(client *scp.Client, localFilePath, remoteFilePath string) error {
 }
 
 func ScpDownload(client *scp.Client, remoteFilePath, localFilePath string) error {
+	_ = os.Remove(localFilePath) //truncate local file first
 	f, err := os.Create(localFilePath)
 	if err != nil {
 		err = errors.Wrapf(err, "")
@@ -237,7 +238,7 @@ func ScpUploadFiles(files []string, remotePath string, opts SshOptions) error {
 		remoteFile := path.Join(remotePath, path.Base(file))
 		err := ScpUploadFile(file, remoteFile, opts)
 		if err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 	}
 	return nil
@@ -246,7 +247,7 @@ func ScpUploadFiles(files []string, remotePath string, opts SshOptions) error {
 func ScpUploadFile(localFile, remoteFile string, opts SshOptions) error {
 	client, sshClient, err := ScpConnect(opts)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	defer client.Close()
 	defer sshClient.Close()
@@ -254,19 +255,19 @@ func ScpUploadFile(localFile, remoteFile string, opts SshOptions) error {
 	cmd := fmt.Sprintf("rm -rf %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)))
 	_, err = RemoteExecute(opts, cmd)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	err = ScpUpload(client, localFile, path.Join(TmpWorkDirectory, path.Base(remoteFile)))
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	if path.Dir(remoteFile) != TmpWorkDirectory {
 		cmd = fmt.Sprintf("cp %s %s", path.Join(TmpWorkDirectory, path.Base(remoteFile)), remoteFile)
 		_, err = RemoteExecute(opts, cmd)
 		if err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 	}
 
@@ -276,7 +277,7 @@ func ScpUploadFile(localFile, remoteFile string, opts SshOptions) error {
 func ScpDownloadFiles(files []string, localPath string, opts SshOptions) error {
 	client, sshClient, err := ScpConnect(opts)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	defer client.Close()
 	defer sshClient.Close()
@@ -285,7 +286,7 @@ func ScpDownloadFiles(files []string, localPath string, opts SshOptions) error {
 		baseName := path.Base(file)
 		err = ScpDownload(client, file, path.Join(localPath, baseName))
 		if err != nil {
-			return errors.Wrap(err, "")
+			return err
 		}
 	}
 	return nil
@@ -294,14 +295,14 @@ func ScpDownloadFiles(files []string, localPath string, opts SshOptions) error {
 func ScpDownloadFile(remoteFile, localFile string, opts SshOptions) error {
 	client, sshClient, err := ScpConnect(opts)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	defer client.Close()
 	defer sshClient.Close()
 
 	err = ScpDownload(client, remoteFile, localFile)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	return nil
 }

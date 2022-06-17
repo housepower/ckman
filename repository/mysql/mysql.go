@@ -3,14 +3,16 @@ package mysql
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
 	driver "gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"strings"
-	"time"
+	"moul.io/zapgorm2"
 )
 
 type MysqlPersistent struct {
@@ -33,7 +35,11 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 		mp.Config.DataBase)
 
 	log.Logger.Debugf("mysql dsn:%s", dsn)
-	db, err := gorm.Open(driver.Open(dsn), &gorm.Config{})
+	logger := zapgorm2.New(log.ZapLog)
+	logger.SetAsDefault()
+	db, err := gorm.Open(driver.Open(dsn), &gorm.Config{
+		Logger: logger,
+	})
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -367,6 +373,7 @@ func (mp *MysqlPersistent) CreateTask(task model.Task) error {
 }
 
 func (mp *MysqlPersistent) UpdateTask(task model.Task) error {
+	task.UpdateTime = time.Now()
 	config, err := json.Marshal(task)
 	if err != nil {
 		return errors.Wrap(err, "")
@@ -387,9 +394,9 @@ func (mp *MysqlPersistent) DeleteTask(id string) error {
 
 func (mp *MysqlPersistent) GetAllTasks() ([]model.Task, error) {
 	var tables []TblTask
-	tx := mp.Client.Find(&tables).Order("status")
-	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
-		return nil, errors.Wrap(tx.Error, "")
+	tx := mp.Client.Find(&tables)
+	if tx.Error != nil && !errors.Is(tx.Error, gorm.ErrRecordNotFound) {
+		return nil, tx.Error
 	}
 	var tasks []model.Task
 	var err error
@@ -447,10 +454,10 @@ func (mp *MysqlPersistent) GetTaskbyTaskId(id string) (model.Task, error) {
 }
 
 func wrapError(err error) error {
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		err = repository.ErrRecordNotFound
 	}
-	return errors.Wrap(err, "")
+	return err
 }
 
 func NewMysqlPersistent() *MysqlPersistent {

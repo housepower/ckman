@@ -41,11 +41,11 @@ func UnmarshalConfig(config interface{}, v interface{}) error {
 func CKDeployHandle(task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	if err := DeployCkCluster(task, d); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	// sync table schema when logic cluster exists
@@ -62,25 +62,27 @@ func CKDeployHandle(task *model.Task) error {
 			}
 		}
 	}
-
 	if err := repository.Ps.Begin(); err != nil {
 		return err
 	}
+	if d.Conf.AuthenticateType != model.SshPasswordSave {
+		d.Conf.SshPassword = ""
+	}
 	if err := repository.Ps.CreateCluster(*d.Conf); err != nil {
 		_ = repository.Ps.Rollback()
-		return errors.Wrap(err, "")
+		return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 	}
 	if d.Conf.LogicCluster != nil {
 		logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
 		if err != nil {
-			if err == repository.ErrRecordNotFound {
+			if errors.Is(err, repository.ErrRecordNotFound) {
 				if !common.ArraySearch(d.Conf.Cluster, logics) {
 					logics = append(logics, d.Conf.Cluster)
 				}
 				_ = repository.Ps.CreateLogicCluster(*d.Conf.LogicCluster, logics)
 			} else {
 				_ = repository.Ps.Rollback()
-				return errors.Wrap(err, "")
+				return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 			}
 		} else {
 			if !common.ArraySearch(d.Conf.Cluster, logics) {
@@ -97,7 +99,7 @@ func CKDeployHandle(task *model.Task) error {
 func CKDestoryHandle(task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	conf, err := repository.Ps.GetClusterbyName(d.Conf.Cluster)
@@ -107,7 +109,7 @@ func CKDestoryHandle(task *model.Task) error {
 
 	common.CloseConns(conf.Hosts)
 	if err = DestroyCkCluster(task, d, &conf); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
@@ -117,7 +119,7 @@ func CKDestoryHandle(task *model.Task) error {
 	if conf.LogicCluster != nil {
 		if err = deploy.ClearLogicCluster(conf.Cluster, *conf.LogicCluster, true); err != nil {
 			_ = repository.Ps.Rollback()
-			return errors.Wrap(err, "")
+			return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 		}
 	}
 
@@ -144,7 +146,7 @@ func CKDestoryHandle(task *model.Task) error {
 
 	if err = repository.Ps.DeleteCluster(conf.Cluster); err != nil {
 		_ = repository.Ps.Rollback()
-		return errors.Wrap(err, "")
+		return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 	}
 	_ = repository.Ps.Commit()
 
@@ -166,13 +168,13 @@ func CKDeleteNodeHandle(task *model.Task) error {
 
 	err = DeleteCkClusterNode(task, &conf, ip)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	common.CloseConns([]string{ip})
 
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
 	if err = repository.Ps.UpdateCluster(conf); err != nil {
-		return err
+		return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 	}
 	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
 	return nil
@@ -191,7 +193,7 @@ func CKAddNodeHandle(task *model.Task) error {
 
 	err = AddCkClusterNode(task, &conf, &d)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusConfigExt, model.ALL_NODES_DEFAULT)
@@ -205,15 +207,15 @@ func CKAddNodeHandle(task *model.Task) error {
 
 	service := clickhouse.NewCkService(tmp)
 	if err := service.InitCkService(); err != nil {
-		return err
+		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
 	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0], conf.Password); err != nil {
-		return err
+		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
 	if err = repository.Ps.UpdateCluster(conf); err != nil {
-		return errors.Wrap(err, "")
+		return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
@@ -223,7 +225,7 @@ func CKAddNodeHandle(task *model.Task) error {
 func CKUpgradeHandle(task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	conf, err := repository.Ps.GetClusterbyName(d.Conf.Cluster)
@@ -233,12 +235,12 @@ func CKUpgradeHandle(task *model.Task) error {
 
 	err = UpgradeCkCluster(task, d)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	conf.Version = d.Conf.Version
 
 	if err = repository.Ps.UpdateCluster(conf); err != nil {
-		return errors.Wrap(err, "")
+		return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
@@ -248,11 +250,11 @@ func CKUpgradeHandle(task *model.Task) error {
 func CKSettingHandle(task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	if err := ConfigCkCluster(task, d); err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
@@ -273,21 +275,24 @@ func CKSettingHandle(task *model.Task) error {
 	}
 
 	if err := repository.Ps.Begin(); err != nil {
-		return errors.Wrap(err, "")
+		return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
+	}
+	if d.Conf.AuthenticateType != model.SshPasswordSave {
+		d.Conf.SshPassword = ""
 	}
 	if err := repository.Ps.UpdateCluster(*d.Conf); err != nil {
 		_ = repository.Ps.Rollback()
-		return errors.Wrap(err, "")
+		return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 	}
 	if d.Conf.LogicCluster != nil {
 		logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
 		if err != nil {
-			if err == repository.ErrRecordNotFound {
+			if errors.Is(err, repository.ErrRecordNotFound) {
 				logics = append(logics, d.Conf.Cluster)
 				_ = repository.Ps.CreateLogicCluster(*d.Conf.LogicCluster, logics)
 			} else {
 				_ = repository.Ps.Rollback()
-				return errors.Wrap(err, "")
+				return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 			}
 		} else {
 			logics = append(logics, d.Conf.Cluster)

@@ -21,7 +21,6 @@ require (
 	github.com/nacos-group/nacos-sdk-go v1.0.8
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
-	github.com/pkg/sftp v1.13.0
 	github.com/prometheus/client_golang v1.10.0
 	github.com/prometheus/common v0.27.0
 	github.com/spf13/cobra v1.1.3
@@ -30,7 +29,7 @@ require (
 	github.com/swaggo/swag v1.7.1
 	github.com/txn2/txeh v1.3.0
 	github.com/valyala/fastjson v1.6.3
-	go.uber.org/zap v1.17.0
+	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/term v0.0.0-20210503060354-a79de5458b56
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -46,6 +45,7 @@ require (
 	gorm.io/driver/mysql v1.3.3
 	gorm.io/driver/postgres v1.3.4
 	gorm.io/gorm v1.23.1
+	moul.io/zapgorm2 v1.1.3
 )
 
 require (
@@ -86,7 +86,6 @@ require (
 	github.com/jinzhu/now v1.1.4 // indirect
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/kr/fs v0.1.0 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/lestrrat/go-file-rotatelogs v0.0.0-20180223000712-d3151e2a480f // indirect
 	github.com/lestrrat/go-strftime v0.0.0-20180220042222-ba3bf9c1d042 // indirect
@@ -100,11 +99,11 @@ require (
 	github.com/toolkits/concurrent v0.0.0-20150624120057-a4371d70e3e3 // indirect
 	github.com/ugorji/go/codec v1.1.13 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
-	go.uber.org/multierr v1.6.0 // indirect
+	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5 // indirect
 	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/tools v0.1.0 // indirect
+	golang.org/x/tools v0.1.5 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

@@ -98,7 +98,7 @@ func GetMergeTreeTables(engine string, db *sql.DB) ([]string, map[string][]strin
 	log.Logger.Debugf("query: %s", query)
 	if rows, err = db.Query(query); err != nil {
 		err = errors.Wrapf(err, "")
-		return nil, nil, errors.Wrap(err, "")
+		return nil, nil, err
 	}
 	defer rows.Close()
 	var tables []string
@@ -107,7 +107,7 @@ func GetMergeTreeTables(engine string, db *sql.DB) ([]string, map[string][]strin
 		var database, name string
 		if err = rows.Scan(&database, &name); err != nil {
 			err = errors.Wrapf(err, "")
-			return nil, nil, errors.Wrap(err, "")
+			return nil, nil, err
 		}
 		if database != predbname {
 			if predbname != "" {
@@ -137,7 +137,7 @@ func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig) ([]string, error)
 				hosts = append(hosts, replica.Ip)
 				break
 			} else {
-				lastErr = errors.Wrap(err, "")
+				lastErr = err
 			}
 		}
 	}

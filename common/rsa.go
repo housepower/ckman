@@ -7,8 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
+
+	"github.com/pkg/errors"
 )
 
 /*
@@ -80,7 +81,7 @@ func (encry RSAEncryption) Decode(encode []byte, publicKey string) ([]byte, erro
 	output := bytes.NewBuffer(nil)
 	err := pubKeyIO(pubkey, bytes.NewReader(databs), output, false)
 	if err != nil {
-		return []byte(""), errors.Wrap(err, "")
+		return []byte(""), err
 	}
 	return io.ReadAll(output)
 }
@@ -94,7 +95,7 @@ func (encry RSAEncryption) Encode(decode []byte, privateKey string) ([]byte, err
 	output := bytes.NewBuffer(nil)
 	err := priKeyIO(prikey, bytes.NewReader(decode), output, true)
 	if err != nil {
-		return []byte(""), errors.Wrap(err, "")
+		return []byte(""), err
 	}
 	rsadata, err := io.ReadAll(output)
 	if err != nil {

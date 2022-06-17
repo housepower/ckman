@@ -50,7 +50,6 @@ func (this *CKRebalance) InitCKConns() (err error) {
 	for _, host := range this.Hosts {
 		_, err = common.ConnectClickHouse(host, this.Port, model.ClickHouseDefaultDB, this.User, this.Password)
 		if err != nil {
-			err = errors.Wrapf(err, "")
 			return
 		}
 		log.Logger.Infof("initialized clickhouse connection to %s", host)
@@ -66,7 +65,6 @@ func (this *CKRebalance) GetTables() (err error) {
 		return fmt.Errorf("can't get connection: %s", host)
 	}
 	if this.Databases, this.DBTables, err = common.GetMergeTreeTables("MergeTree", db); err != nil {
-		err = errors.Wrapf(err, "")
 		return
 	}
 	return
@@ -123,7 +121,6 @@ func (this *CKRebalance) InitSshConns(database string) (err error) {
 			}
 			var out string
 			if out, err = common.RemoteExecute(sshOpts, cmd); err != nil {
-				err = errors.Wrapf(err, "output: %s", out)
 				return
 			}
 			log.Logger.Debugf("host: %s, output: %s", srcHost, out)
@@ -296,7 +293,6 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 		}
 		var out string
 		if out, err = common.RemoteExecute(sshOpts, strings.Join(cmds, ";")); err != nil {
-			err = errors.Wrapf(err, "output: %s", out)
 			lock.Unlock()
 			return
 		}
@@ -338,7 +334,7 @@ func (this *CKRebalance) DoRebalance() (err error) {
 			var tbls []*TblPartitions
 			if tbls, err = this.GetState(database, table); err != nil {
 				log.Logger.Errorf("got error %+v", err)
-				return errors.Wrap(err, "")
+				return err
 			}
 			this.GeneratePlan(fmt.Sprintf("%s.%s", database, table), tbls)
 
@@ -356,7 +352,7 @@ func (this *CKRebalance) DoRebalance() (err error) {
 			}
 			common.Pool.Wait()
 			if gotError {
-				return errors.Wrap(err, "")
+				return err
 			}
 			log.Logger.Infof("table %s rebalance done", table)
 		}

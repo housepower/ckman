@@ -64,12 +64,10 @@ func GetCreateReplicaObjects(db *sql.DB, host, user, password string) (names, st
 
 	names1, statements1, err := GetObjectListFromClickHouse(db, sqlDBs)
 	if err != nil {
-		err = errors.Wrapf(err, "")
 		return
 	}
 	names2, statements2, err := GetObjectListFromClickHouse(db, sqlTables)
 	if err != nil {
-		err = errors.Wrapf(err, "")
 		return
 	}
 	names = append(names1, names2...)
@@ -145,7 +143,7 @@ INNER JOIN
 			"logictbl":    logictbl,
 		}
 		if err = common.ReplaceTemplateString(&localsql, replaceTmpl); err != nil {
-			return nil, errors.Wrap(err, "")
+			return nil, err
 		}
 		localsqls = append(localsqls, localsql)
 
@@ -154,7 +152,7 @@ INNER JOIN
 		distsqls = append(distsqls, distsql)
 
 		if err = common.ReplaceTemplateString(&logicsql, replaceTmpl); err != nil {
-			return nil, errors.Wrap(err, "")
+			return nil, err
 		}
 		logicsqls = append(logicsqls, logicsql)
 	}

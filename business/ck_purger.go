@@ -3,6 +3,7 @@ package business
 import (
 	"database/sql"
 	"fmt"
+
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/pkg/errors"
@@ -38,7 +39,6 @@ func (this *PurgerRange) InitConns() (err error) {
 		}
 		_, err = common.ConnectClickHouse(host, this.Port, this.Database, this.User, this.Password)
 		if err != nil {
-			err = errors.Wrapf(err, "")
 			return
 		}
 		log.Logger.Infof("initialized clickhouse connection to %s", host)
@@ -147,4 +147,3 @@ func (this *PurgerRange) PurgeTable(table string) (err error) {
 	}
 	return
 }
-

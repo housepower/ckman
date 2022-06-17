@@ -3,11 +3,11 @@ package common
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"github.com/pkg/errors"
 	"io"
 	"math/big"
-)
 
+	"github.com/pkg/errors"
+)
 
 var (
 	ErrDataToLarge     = errors.New("message too long for RSA public key size")
@@ -19,10 +19,9 @@ var (
 	ErrPrivateKey      = errors.New("get private key error")
 )
 
-
 var (
 	bigZero = big.NewInt(0)
-	bigOne = big.NewInt(1)
+	bigOne  = big.NewInt(1)
 )
 
 func pubKeyIO(pub *rsa.PublicKey, in io.Reader, out io.Writer, isEncrytp bool) (err error) {
@@ -140,7 +139,7 @@ func priKeyEncrypt(rand io.Reader, priv *rsa.PrivateKey, hashed []byte) ([]byte,
 	m := new(big.Int).SetBytes(em)
 	c, err := decrypt(rand, priv, m)
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		return nil, err
 	}
 	copyWithLeftPad(em, c.Bytes())
 	return em, nil
@@ -218,7 +217,6 @@ func copyWithLeftPad(dest, src []byte) {
 	}
 	copy(dest[numPaddingBytes:], src)
 }
-
 
 func leftPad(input []byte, size int) (out []byte) {
 	n := len(input)
