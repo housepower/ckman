@@ -592,12 +592,6 @@ func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
 	query = strings.TrimRight(strings.TrimSpace(query), ";")
-	if !strings.Contains(strings.ToLower(query), " limit ") &&
-		strings.HasPrefix(strings.ToLower(query), "select") &&
-		!strings.Contains(query, " SETTINGS ") {
-		// add new lines to prevent limit from being commented
-		query = fmt.Sprintf("%s \n LIMIT 10000", query)
-	}
 
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
