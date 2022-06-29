@@ -35,12 +35,6 @@ definitions:
       name:
         example: test_table
         type: string
-      ttl:
-        items:
-          $ref: '#/definitions/model.CkTableTTL'
-        type: array
-      ttl_type:
-        type: string
     type: object
   model.ArchiveTableReq:
     properties:
@@ -1116,7 +1110,7 @@ paths:
       - ApiKeyAuth: []
       summary: Create Table
     put:
-      description: Alter Table
+      description: Alter Tables TTL
       parameters:
       - default: test
         description: cluster name
@@ -1137,7 +1131,7 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: Alter Table
+      summary: AlterTableTTL
   /api/v1/ck/table_lists/{clusterName}:
     get:
       description: get table lists config

@@ -377,24 +377,6 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 		}
 	}
 
-	if params.TTLType != "" {
-		if params.TTLType == model.TTLTypeModify {
-			if params.TTLExpr != "" {
-				ttl := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY TTL %s", params.DB, params.Name, params.Cluster, params.TTLExpr)
-				log.Logger.Debugf(ttl)
-				if _, err := ck.DB.Exec(ttl); err != nil {
-					return errors.Wrap(err, "")
-				}
-			}
-		} else if params.TTLType == model.TTLTypeRemove {
-			ttl := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` REMOVE TTL", params.DB, params.Name, params.Cluster)
-			log.Logger.Debugf(ttl)
-			if _, err := ck.DB.Exec(ttl); err != nil {
-				return errors.Wrap(err, "")
-			}
-		}
-	}
-
 	// 删除分布式表并重建
 	deleteSql := fmt.Sprintf("DROP TABLE `%s`.`%s%s` ON CLUSTER `%s`",
 		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
@@ -426,6 +408,34 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 		}
 		if err := ck.CreateDistTblOnLogic(&distParams); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func (ck *CkService) AlterTableTTL(req *model.AlterTblsTTLReq) error {
+	if ck.DB == nil {
+		return errors.Errorf("clickhouse service unavailable")
+	}
+
+	for _, table := range req.Tables {
+		if req.TTLType != "" {
+			if req.TTLType == model.TTLTypeModify {
+				if req.TTLExpr != "" {
+					ttl := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY TTL %s", table.Database, table.TableName, ck.Config.Cluster, req.TTLExpr)
+					log.Logger.Debugf(ttl)
+					if _, err := ck.DB.Exec(ttl); err != nil {
+						return errors.Wrap(err, "")
+					}
+				}
+			} else if req.TTLType == model.TTLTypeRemove {
+				ttl := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` REMOVE TTL", table.Database, table.TableName, ck.Config.Cluster)
+				log.Logger.Debugf(ttl)
+				if _, err := ck.DB.Exec(ttl); err != nil {
+					return errors.Wrap(err, "")
+				}
+			}
 		}
 	}
 

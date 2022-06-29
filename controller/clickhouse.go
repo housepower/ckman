@@ -471,9 +471,46 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 		params.DB = model.ClickHouseDefaultDB
 	}
 
+	if err := ckService.AlterTable(&params); err != nil {
+		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, err)
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, nil)
+}
+
+// @Summary AlterTableTTL
+// @Description Alter Tables TTL
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.AlterCkTableReq true "request body"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"
+// @Router /api/v1/ck/table/{clusterName} [put]
+func (ck *ClickHouseController) AlterTableTTL(c *gin.Context) {
+	var req model.AlterTblsTTLReq
+
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+
+	clusterName := c.Param(ClickHouseClusterPath)
+	ckService, err := clickhouse.GetCkService(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, err)
+		return
+	}
+
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+	if req.TTLType != model.TTLTypeModify && req.TTLType != model.TTLTypeRemove {
+		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, fmt.Sprintf("unsupported type:%s", req.TTLType))
 		return
 	}
 	if len(req.TTL) > 0 {
@@ -482,12 +519,10 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 			model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, err)
 			return
 		}
-		params.TTLExpr = strings.Join(express, ",")
+		req.TTLExpr = strings.Join(express, ",")
 	}
 
-	params.TTLType = req.TTLType
-
-	if err := ckService.AlterTable(&params); err != nil {
+	if err := ckService.AlterTableTTL(&req); err != nil {
 		model.WrapMsg(c, model.ALTER_CK_TABLE_FAIL, err)
 		return
 	}

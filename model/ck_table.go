@@ -99,13 +99,13 @@ type CkTableNameTypeAfter struct {
 }
 
 type AlterCkTableReq struct {
-	Name    string                 `json:"name" example:"test_table"`
-	DB      string                 `json:"database" example:"default"`
-	Add     []CkTableNameTypeAfter `json:"add"`
-	Modify  []CkTableNameType      `json:"modify"`
-	Drop    []string               `json:"drop" example:"age"`
-	TTLType string                 `json:"ttl_type"`
-	TTL     []CkTableTTL           `json:"ttl"`
+	Name   string                 `json:"name" example:"test_table"`
+	DB     string                 `json:"database" example:"default"`
+	Add    []CkTableNameTypeAfter `json:"add"`
+	Modify []CkTableNameType      `json:"modify"`
+	Drop   []string               `json:"drop" example:"age"`
+	// TTLType string                 `json:"ttl_type"`
+	// TTL     []CkTableTTL           `json:"ttl"`
 }
 
 type AlterCkTableParams struct {
@@ -115,8 +115,18 @@ type AlterCkTableParams struct {
 	Add     []CkTableNameTypeAfter
 	Drop    []string
 	Modify  []CkTableNameType
-	TTLType string
-	TTLExpr string
+	// TTLType string
+	// TTLExpr string
+}
+
+type AlterTblsTTLReq struct {
+	Tables []struct {
+		Database  string `json:"database" example:"default"`
+		TableName string `json:"tableName" example:"t1"`
+	} `json:"tables"`
+	TTLType string       `json:"ttl_type" example:"MODIFY"`
+	TTL     []CkTableTTL `json:"ttl"`
+	TTLExpr string       `json:"-"`
 }
 
 type DescCkTableParams struct {
