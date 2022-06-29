@@ -1040,8 +1040,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Alter Table",
-                "summary": "Alter Table",
+                "description": "Alter Tables TTL",
+                "summary": "AlterTableTTL",
                 "parameters": [
                     {
                         "type": "string",
@@ -1733,15 +1733,6 @@ var doc = `{
                 "name": {
                     "type": "string",
                     "example": "test_table"
-                },
-                "ttl": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.CkTableTTL"
-                    }
-                },
-                "ttl_type": {
-                    "type": "string"
                 }
             }
         },
