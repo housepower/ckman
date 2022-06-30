@@ -518,12 +518,16 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 		for i := range columnPointers {
 			val := columnPointers[i].(*interface{})
 			m[i] = *val
-			if reflect.TypeOf(m[i]).Kind() == reflect.Float64 {
-				v := m[i].(float64)
-				if math.IsNaN(v) {
-					m[i] = "NaN"
-				} else if math.IsInf(v, 0) {
-					m[i] = "Inf"
+			if m[i] == nil {
+				m[i] = "NULL"
+			} else {
+				if reflect.TypeOf(m[i]).Kind() == reflect.Float64 {
+					v := m[i].(float64)
+					if math.IsNaN(v) {
+						m[i] = "NaN"
+					} else if math.IsInf(v, 0) {
+						m[i] = "Inf"
+					}
 				}
 			}
 		}
