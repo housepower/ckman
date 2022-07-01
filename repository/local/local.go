@@ -114,7 +114,7 @@ func (lp *LocalPersistent) GetLogicClusterbyName(logic string) ([]string, error)
 	if !ok {
 		return []string{}, repository.ErrRecordNotFound
 	}
-	return physics, nil
+	return common.ArrayDistinct(physics), nil
 }
 
 func (lp *LocalPersistent) GetAllClusters() (map[string]model.CKManClickHouseConfig, error) {
@@ -133,7 +133,7 @@ func (lp *LocalPersistent) GetAllLogicClusters() (map[string][]string, error) {
 	defer lp.lock.RUnlock()
 	logicMap := make(map[string][]string)
 	for key, value := range lp.Data.Logics {
-		logicMap[key] = value
+		logicMap[key] = common.ArrayDistinct(value)
 	}
 	return logicMap, nil
 }
@@ -158,7 +158,7 @@ func (lp *LocalPersistent) CreateLogicCluster(logic string, physics []string) er
 	if _, ok := lp.Data.Logics[logic]; ok {
 		return repository.ErrRecordExists
 	}
-	lp.Data.Logics[logic] = physics
+	lp.Data.Logics[logic] = common.ArrayDistinct(physics)
 	if !lp.InTransAction {
 		_ = lp.dump()
 	}
@@ -185,7 +185,7 @@ func (lp *LocalPersistent) UpdateLogicCluster(logic string, physics []string) er
 	if _, ok := lp.Data.Logics[logic]; !ok {
 		return repository.ErrRecordNotFound
 	}
-	lp.Data.Logics[logic] = physics
+	lp.Data.Logics[logic] = common.ArrayDistinct(physics)
 	if !lp.InTransAction {
 		_ = lp.dump()
 	}

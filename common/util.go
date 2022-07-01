@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/housepower/ckman/log"
 	"math/rand"
 	"net"
 	"os"
@@ -15,6 +14,8 @@ import (
 	"text/template"
 	"time"
 	"unicode"
+
+	"github.com/housepower/ckman/log"
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
@@ -201,9 +202,8 @@ func GetOutboundIP() net.IP {
 	return localAddr.IP
 }
 
-
 func ConvertDuration(start, end time.Time) string {
-	hour, min, sec := 0,0,0
+	hour, min, sec := 0, 0, 0
 	d := int(end.Sub(start) / 1e9)
 	sec = d % 60
 	min = d / 60
@@ -215,7 +215,7 @@ func ConvertDuration(start, end time.Time) string {
 	if hour > 0 {
 		result = fmt.Sprintf("%dh ", hour)
 	}
-	if min > 0 || hour > 0{
+	if min > 0 || hour > 0 {
 		result += fmt.Sprintf("%dm ", min)
 	}
 	result += fmt.Sprintf("%ds", sec)
@@ -235,4 +235,19 @@ func Shuffle(value []string) []string {
 	})
 
 	return arr
+}
+
+func ArrayDistinct(arr []string) []string {
+	set := make(map[string]struct{}, len(arr))
+	j := 0
+	for _, v := range arr {
+		_, ok := set[v]
+		if ok {
+			continue
+		}
+		set[v] = struct{}{}
+		arr[j] = v
+		j++
+	}
+	return arr[:j]
 }

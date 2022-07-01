@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
@@ -141,7 +142,7 @@ func (mp *PostgresPersistent) GetLogicClusterbyName(logic string) ([]string, err
 		return []string{}, wrapError(tx.Error)
 	}
 	physics := strings.Split(table.PhysicClusters, ",")
-	return physics, nil
+	return common.ArrayDistinct(physics), nil
 }
 
 func (mp *PostgresPersistent) GetAllClusters() (map[string]model.CKManClickHouseConfig, error) {
@@ -171,7 +172,7 @@ func (mp *PostgresPersistent) GetAllLogicClusters() (map[string][]string, error)
 	}
 	for _, table := range tables {
 		physics := strings.Split(table.PhysicClusters, ",")
-		logicMapping[table.LogicCluster] = physics
+		logicMapping[table.LogicCluster] = common.ArrayDistinct(physics)
 	}
 	return logicMapping, nil
 }
@@ -201,7 +202,7 @@ func (mp *PostgresPersistent) CreateLogicCluster(logic string, physics []string)
 	}
 	table := TblLogic{
 		LogicCluster:   logic,
-		PhysicClusters: strings.Join(physics, ","),
+		PhysicClusters: strings.Join(common.ArrayDistinct(physics), ","),
 	}
 	tx := mp.Client.Create(&table)
 	return wrapError(tx.Error)
@@ -233,7 +234,7 @@ func (mp *PostgresPersistent) UpdateLogicCluster(logic string, physics []string)
 	}
 	table := TblLogic{
 		LogicCluster:   logic,
-		PhysicClusters: strings.Join(physics, ","),
+		PhysicClusters: strings.Join(common.ArrayDistinct(physics), ","),
 	}
 	tx := mp.Client.Model(TblLogic{}).Where("logic_name = ?", logic).Updates(&table)
 	return wrapError(tx.Error)

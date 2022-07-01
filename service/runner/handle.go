@@ -295,7 +295,9 @@ func CKSettingHandle(task *model.Task) error {
 				return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 			}
 		} else {
-			logics = append(logics, d.Conf.Cluster)
+			if !common.ArraySearch(d.Conf.Cluster, logics) {
+				logics = append(logics, d.Conf.Cluster)
+			}
 			_ = repository.Ps.UpdateLogicCluster(*d.Conf.LogicCluster, logics)
 		}
 	}
