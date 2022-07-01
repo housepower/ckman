@@ -195,9 +195,10 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 				}
 			}
 		}
-	} else {
-		//FIXME: maybe distributed table not the same with local table
 	}
+	// } else {
+	// 	//FIXME: maybe distributed table not the same with local table
+	// }
 
 	return nil
 }
