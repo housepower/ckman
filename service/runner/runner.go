@@ -109,6 +109,14 @@ func (runner *RunnerService) Stop() {
 			}
 		case <-timeout.C:
 			log.Logger.Warnf("time out waiting for task running, ignore and force exit.")
+			tasks, _ := repository.Ps.GetAllTasks()
+			for _, task := range tasks {
+				if task.Status == model.TaskStatusRunning {
+					task.Status = model.TaskStatusStopped
+					repository.Ps.UpdateTask(task)
+				}
+			}
+
 			runner.Shutdown()
 			return
 		}
