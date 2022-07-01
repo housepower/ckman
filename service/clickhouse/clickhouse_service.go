@@ -301,7 +301,7 @@ func (ck *CkService) CreateDistTblOnLogic(params *model.DistLogicTblParams) erro
 }
 
 func (ck *CkService) DeleteDistTblOnLogic(params *model.DistLogicTblParams) error {
-	deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s`",
+	deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC",
 		params.Database, ClickHouseDistTableOnLogicPrefix, params.TableName, params.ClusterName)
 	log.Logger.Debug(deleteSql)
 	if _, err := ck.DB.Exec(deleteSql); err != nil {
@@ -316,14 +316,14 @@ func (ck *CkService) DeleteTable(conf *model.CKManClickHouseConfig, params *mode
 		return errors.Errorf("clickhouse service unavailable")
 	}
 
-	deleteSql := fmt.Sprintf("DROP TABLE `%s`.`%s%s` ON CLUSTER `%s`", params.DB, ClickHouseDistributedTablePrefix,
+	deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC", params.DB, ClickHouseDistributedTablePrefix,
 		params.Name, params.Cluster)
 	log.Logger.Debugf(deleteSql)
 	if _, err := ck.DB.Exec(deleteSql); err != nil {
 		return errors.Wrap(err, "")
 	}
 
-	deleteSql = fmt.Sprintf("DROP TABLE `%s`.`%s` ON CLUSTER `%s`", params.DB, params.Name, params.Cluster)
+	deleteSql = fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC", params.DB, params.Name, params.Cluster)
 	log.Logger.Debugf(deleteSql)
 	if _, err := ck.DB.Exec(deleteSql); err != nil {
 		return errors.Wrap(err, "")
@@ -345,10 +345,10 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	for _, value := range params.Add {
 		add := ""
 		if value.After != "" {
-			add = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN `%s` %s %s AFTER `%s`",
+			add = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN IF NOT EXISTS `%s` %s %s AFTER `%s`",
 				params.DB, params.Name, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "), value.After)
 		} else {
-			add = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN `%s` %s %s",
+			add = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN IF NOT EXISTS `%s` %s %s",
 				params.DB, params.Name, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "))
 		}
 		log.Logger.Debugf(add)
@@ -359,7 +359,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 
 	// modify column
 	for _, value := range params.Modify {
-		modify := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY COLUMN `%s` %s %s",
+		modify := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY COLUMN IF EXISTS `%s` %s %s",
 			params.DB, params.Name, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "))
 		log.Logger.Debugf(modify)
 		if _, err := ck.DB.Exec(modify); err != nil {
@@ -369,7 +369,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 
 	// delete column
 	for _, value := range params.Drop {
-		drop := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` DROP COLUMN `%s`",
+		drop := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` DROP COLUMN IF EXISTS `%s`",
 			params.DB, params.Name, params.Cluster, value)
 		log.Logger.Debugf(drop)
 		if _, err := ck.DB.Exec(drop); err != nil {
@@ -378,14 +378,14 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	}
 
 	// 删除分布式表并重建
-	deleteSql := fmt.Sprintf("DROP TABLE `%s`.`%s%s` ON CLUSTER `%s`",
+	deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC",
 		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
 	log.Logger.Debugf(deleteSql)
 	if _, err := ck.DB.Exec(deleteSql); err != nil {
 		return errors.Wrap(err, "")
 	}
 
-	create := fmt.Sprintf("CREATE TABLE `%s`.`%s%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
+	create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
 		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.DB, params.Name,
 		params.Cluster, params.DB, params.Name)
 	log.Logger.Debugf(create)
