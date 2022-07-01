@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	client "github.com/ClickHouse/clickhouse-go"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -25,31 +26,55 @@ func SyncLogicSchema() error {
 
 	//logics is a map, k: logicName, v: clusters
 	for _, clusters := range logics {
-		//For each physical cluster, its table schema can be consistent by default.
-		//Therefore, any physical cluster can be selected for synchronization.
-		cluster := clusters[0]
-		conf, err := repository.Ps.GetClusterbyName(cluster)
-		if err != nil {
-			continue
-		}
-		ckService := clickhouse.NewCkService(&conf)
-		ckService.InitCkService()
-		results, _ := ckService.GetTblLists()
-		for database, tables := range results {
-			var localTables []string
-			for table := range tables {
-				if strings.HasPrefix(table, clickhouse.ClickHouseDistTableOnLogicPrefix) {
-					localTables = append(localTables, strings.TrimPrefix(table, clickhouse.ClickHouseDistTableOnLogicPrefix))
-				}
-			}
-			if len(localTables) == 0 {
+		needCreateTable := make(map[string][]string)
+		for _, cluster := range clusters {
+			conf, err := repository.Ps.GetClusterbyName(cluster)
+			if err != nil {
 				continue
 			}
-			for _, localTable := range localTables {
-				err = syncLogicbyTable(clusters, database, localTable)
-				if err != nil {
-					log.Logger.Errorf("logic %s table %s.%s sync logic table failed: %v", cluster, database, localTable, err)
+			ckService := clickhouse.NewCkService(&conf)
+			ckService.InitCkService()
+			results, _ := ckService.GetTblLists()
+			for database, tables := range results {
+				var localTables []string
+				for table := range tables {
+					if strings.HasPrefix(table, clickhouse.ClickHouseDistTableOnLogicPrefix) {
+						localTables = append(localTables, strings.TrimPrefix(table, clickhouse.ClickHouseDistTableOnLogicPrefix))
+					}
+				}
+				if len(localTables) == 0 {
 					continue
+				}
+				for _, localTable := range localTables {
+					err = syncLogicbyTable(clusters, database, localTable)
+					if err != nil {
+						var exception *client.Exception
+						if errors.As(err, &exception) {
+							if exception.Code == 60 {
+								//means local table is not exist, will auto sync schema
+								needCreateTable[cluster] = clusters
+								log.Logger.Infof("table %s.%s may not exists on one of cluster %v, need to auto create", database, localTable, clusters)
+							}
+						} else {
+							log.Logger.Errorf("logic %s table %s.%s sync logic table failed: %v", cluster, database, localTable, err)
+							continue
+						}
+					}
+				}
+			}
+		}
+
+		//needCreateTable is a map, k is base cluster, v is physic clusters
+		for k, v := range needCreateTable {
+			for _, cluster := range v {
+				if k == cluster {
+					continue
+				}
+				// sync cluster's table with k
+				conf, err1 := repository.Ps.GetClusterbyName(k)
+				con, err2 := repository.Ps.GetClusterbyName(cluster)
+				if err1 == nil && err2 == nil {
+					clickhouse.SyncLogicTable(conf, con)
 				}
 			}
 		}
@@ -109,7 +134,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 				return err
 			}
 			for k, v := range needAdds {
-				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN `%s` %s", database, localTable, cluster, k, v)
+				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN IF NOT EXISTS `%s` %s", database, localTable, cluster, k, v)
 				log.Logger.Debugf("query:%s", query)
 				_, err = ckService.DB.Exec(query)
 				if err != nil {
@@ -117,14 +142,37 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 				}
 			}
 
-			deleteSql := fmt.Sprintf("DROP TABLE `%s`.`%s%s` ON CLUSTER `%s`",
+			if len(needAdds) == 0 {
+				query := fmt.Sprintf("SELECT table, count() from system.columns WHERE database = '%s' AND table in ('%s%s', '%s%s') group by table", database, clickhouse.ClickHouseDistributedTablePrefix, localTable, clickhouse.ClickHouseDistTableOnLogicPrefix, localTable)
+				log.Logger.Debugf("query:%s", query)
+				rows, err := ckService.DB.Query(query)
+				if err != nil {
+					return errors.Wrap(err, "")
+				}
+				needAlterDist := false
+				for rows.Next() {
+					var table string
+					var count int
+					if err = rows.Scan(&table, &count); err != nil {
+						return errors.Wrap(err, "")
+					}
+					if count < len(allCols) {
+						needAlterDist = true
+						break
+					}
+				}
+				if !needAlterDist {
+					continue
+				}
+			}
+			deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC",
 				database, clickhouse.ClickHouseDistributedTablePrefix, localTable, cluster)
 			log.Logger.Debugf(deleteSql)
 			if _, err = ckService.DB.Exec(deleteSql); err != nil {
 				return errors.Wrap(err, "")
 			}
 
-			create := fmt.Sprintf("CREATE TABLE `%s`.`%s%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
+			create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
 				database, clickhouse.ClickHouseDistributedTablePrefix, localTable, cluster, database, localTable,
 				cluster, database, localTable)
 			log.Logger.Debugf(create)
@@ -147,6 +195,8 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 				}
 			}
 		}
+	} else {
+		//FIXME: maybe distributed table not the same with local table
 	}
 
 	return nil

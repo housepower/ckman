@@ -86,6 +86,9 @@ func main() {
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
 
 	selfIP := common.GetOutboundIP().String()
+	if config.GlobalConfig.Server.Ip == "" {
+		config.GlobalConfig.Server.Ip = selfIP
+	}
 	signalCh := make(chan os.Signal, 1)
 
 	defer common.Pool.Close()

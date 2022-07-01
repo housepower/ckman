@@ -146,6 +146,8 @@ func GetWorkDirectory() string {
 func GetClusterPeers() []ClusterNode {
 	list := make([]ClusterNode, 0)
 
+	ClusterMutex.RLock()
+	defer ClusterMutex.RUnlock()
 	for index, node := range ClusterNodes {
 		if GlobalConfig.Server.Ip != node.Ip && GlobalConfig.Server.Port != node.Port {
 			list = append(list, ClusterNodes[index])
@@ -153,4 +155,18 @@ func GetClusterPeers() []ClusterNode {
 	}
 
 	return list
+}
+
+func IsMasterNode() bool {
+	//if disabled nacos, always consider the current node to be the master node
+	if !GlobalConfig.Nacos.Enabled {
+		return true
+	}
+	ClusterMutex.RLock()
+	defer ClusterMutex.RUnlock()
+	if len(ClusterNodes) == 0 {
+		return false
+	}
+	master := ClusterNodes[0]
+	return master.Ip == GlobalConfig.Server.Ip && master.Port == GlobalConfig.Server.Port
 }

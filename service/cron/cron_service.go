@@ -30,6 +30,11 @@ func (job *CronService) schedulePadding() {
 }
 
 func (job *CronService) Start() error {
+	//Ensure that only one node in the same cluster executes scheduled tasks
+	if !config.IsMasterNode() {
+		log.Logger.Debugf("node %s:%d is not master, skip all cron jobs", config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
+		return nil
+	}
 	job.schedulePadding()
 	job.cron.Start()
 	for k, v := range JobList {
