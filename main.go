@@ -15,6 +15,7 @@ import (
 
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
+	_ "github.com/housepower/ckman/repository/dm8"
 	_ "github.com/housepower/ckman/repository/local"
 	_ "github.com/housepower/ckman/repository/mysql"
 	_ "github.com/housepower/ckman/repository/postgres"
