@@ -1,3 +1,8 @@
+# v2.2.7
+- dm8 database adapt
+- handle map is null in frontend
+
+
 # v2.2.6
 - fix: When deploying a cluster and modifying the cluster configuration, an error will be reported if Profiles and quotas are not filled in
 - fix: The cluster installation package type deployed in the old version is not automatically populated, resulting in the problem that the configuration cannot be modified
