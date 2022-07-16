@@ -362,6 +362,12 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 
 	// modify column
 	for _, value := range params.Modify {
+		query := fmt.Sprintf("SELECT CAST(`%s`, '%s') FROM `%s`.`%s`", value.Name, value.Type, params.DB, params.Name)
+		log.Logger.Debug(query)
+		if _, err := ck.DB.Query(query); err != nil {
+			return errors.Wrapf(err, "can't modify %s to %s", value.Name, value.Type)
+		}
+
 		modify := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY COLUMN IF EXISTS `%s` %s %s",
 			params.DB, params.Name, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "))
 		log.Logger.Debugf(modify)
