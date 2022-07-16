@@ -39,8 +39,9 @@ func DeployCkCluster(task *model.Task, d deploy.CKDeploy) error {
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusCheck, model.ALL_NODES_DEFAULT)
-	if err := d.Check(10); err != nil {
-		return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
+	if err := d.Check(30); err != nil {
+		//return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
+		deploy.SetTaskStatus(task, model.TaskStatusFailed, err.Error())
 	}
 	return nil
 }
@@ -217,7 +218,7 @@ func AddCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, d *de
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusCheck, model.ALL_NODES_DEFAULT)
-	if err := d.Check(10); err != nil {
+	if err := d.Check(30); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
 	}
 
@@ -319,7 +320,7 @@ func ConfigCkCluster(task *model.Task, d deploy.CKDeploy) error {
 		if err := d.Restart(); err != nil {
 			return errors.Wrapf(err, "[%s]", model.NodeStatusRestart.EN)
 		}
-		_ = d.Check(10)
+		_ = d.Check(30)
 	}
 	return nil
 }
