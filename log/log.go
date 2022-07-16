@@ -32,8 +32,8 @@ func InitLoggerConsole() {
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	cfg.OutputPaths = []string{"stdout"}
-	logger, _ := cfg.Build()
-	Logger = logger.Sugar()
+	ZapLog, _ = cfg.Build()
+	Logger = ZapLog.Sugar()
 }
 
 func getEncoder() zapcore.Encoder {
