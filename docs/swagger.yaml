@@ -327,6 +327,18 @@ definitions:
         example: test_table
         type: string
     type: object
+  model.GetLogReq:
+    properties:
+      lines:
+        example: 1000
+        type: integer
+      logType:
+        example: normal
+        type: string
+      tail:
+        example: true
+        type: boolean
+    type: object
   model.LoginReq:
     properties:
       password:
@@ -717,6 +729,34 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Add ClickHouse node
+  /api/v1/ck/node/log/{clusterName}:
+    post:
+      description: Get ClickHouse Log
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.GetLogReq'
+      - description: password
+        in: query
+        name: password
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"success","entity":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: GetLog
   /api/v1/ck/node/start/{clusterName}:
     put:
       description: Start ClickHouse node
@@ -1109,6 +1149,30 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Create Table
+    put:
+      description: Alter Table
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.AlterCkTableReq'
+      responses:
+        "200":
+          description: '{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Alter Table
+  /api/v1/ck/table/ttl/{clusterName}:
     put:
       description: Alter Tables TTL
       parameters:

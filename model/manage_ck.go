@@ -30,6 +30,12 @@ type AddNodeReq struct {
 	Shard int      `json:"shard" example:"3"`
 }
 
+type GetLogReq struct {
+	LogType string `json:"logType" example:"normal"`
+	Lines   uint16 `json:"lines" example:"1000"`
+	Tail    bool   `json:"tail" example:"true"`
+}
+
 type PingClusterReq struct {
 	User     string `json:"user" example:"ck"`
 	Password string `json:"password" example:"123456"`

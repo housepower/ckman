@@ -404,6 +404,50 @@
                 }
             }
         },
+        "/api/v1/ck/node/log/{clusterName}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get ClickHouse Log",
+                "summary": "GetLog",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.GetLogReq"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/node/start/{clusterName}": {
             "put": {
                 "security": [
@@ -974,6 +1018,44 @@
                 }
             }
         },
+        "/api/v1/ck/table/ttl/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Alter Tables TTL",
+                "summary": "AlterTableTTL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.AlterCkTableReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"5003\",\"retMsg\":\"alter ClickHouse table failed\",\"entity\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/table/{clusterName}": {
             "get": {
                 "security": [
@@ -1024,8 +1106,8 @@
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Alter Tables TTL",
-                "summary": "AlterTableTTL",
+                "description": "Alter Table",
+                "summary": "Alter Table",
                 "parameters": [
                     {
                         "type": "string",
@@ -2121,6 +2203,23 @@
                 "table_name": {
                     "type": "string",
                     "example": "test_table"
+                }
+            }
+        },
+        "model.GetLogReq": {
+            "type": "object",
+            "properties": {
+                "lines": {
+                    "type": "integer",
+                    "example": 1000
+                },
+                "logType": {
+                    "type": "string",
+                    "example": "normal"
+                },
+                "tail": {
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },

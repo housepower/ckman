@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -488,7 +489,7 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
 // @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"
-// @Router /api/v1/ck/table/{clusterName} [put]
+// @Router /api/v1/ck/table/ttl/{clusterName} [put]
 func (ck *ClickHouseController) AlterTableTTL(c *gin.Context) {
 	var req model.AlterTblsTTLReq
 
@@ -1202,6 +1203,77 @@ func (ck *ClickHouseController) StopNode(c *gin.Context) {
 	}
 
 	model.WrapMsg(c, model.SUCCESS, nil)
+}
+
+// @Summary GetLog
+// @Description Get ClickHouse Log
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.GetLogReq true "request body"
+// @Param password query string false "password"
+// @Failure 200 {string} json "{"retCode":"5053","retMsg":"stop node failed","entity":""}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":null}"
+// @Router /api/v1/ck/node/log/{clusterName} [post]
+func (ck *ClickHouseController) GetLog(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	ip := c.Query("ip")
+	if ip == "" {
+		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, fmt.Errorf("node ip does not exist"))
+		return
+	}
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
+		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, err)
+		return
+	}
+
+	var req model.GetLogReq
+	req.Tail = true
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+
+	var logPath, logName string
+	if strings.Contains(conf.PkgType, "tgz") {
+		logPath = path.Join(conf.Cwd, "log", "clickhouse-server")
+	} else {
+		logPath = "/var/log/clickhouse-server"
+	}
+	if req.LogType == "" || req.LogType == "normal" {
+		logName = path.Join(logPath, "clickhouse-server.log")
+	} else if req.LogType == "error" {
+		logName = path.Join(logPath, "clickhouse-server.err.log")
+	}
+	var cmd string
+	if req.Lines == 0 || req.Lines > 1000 {
+		req.Lines = 1000
+	}
+	if req.Tail {
+		cmd = fmt.Sprintf("tail -%d %s", req.Lines, logName)
+	} else {
+		cmd = fmt.Sprintf("head -%d %s", req.Lines, logName)
+	}
+	opts := common.SshOptions{
+		User:             conf.SshUser,
+		Password:         conf.SshPassword,
+		Port:             conf.SshPort,
+		Host:             ip,
+		NeedSudo:         conf.NeedSudo,
+		AuthenticateType: conf.AuthenticateType,
+	}
+	result, err := common.RemoteExecute(opts, cmd)
+	if err != nil {
+		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, err)
+	}
+	model.WrapMsg(c, model.SUCCESS, result)
 }
 
 // @Summary Get metrics of MergeTree in ClickHouse
