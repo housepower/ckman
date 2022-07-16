@@ -22,6 +22,7 @@ type CkClusterNode struct {
 	ShardNumber   int    `json:"shardNumber"`
 	ReplicaNumber int    `json:"replicaNumber"`
 	Disk          string `json:"disk"`
+	Uptime        string `json:"uptime"`
 }
 
 type AddNodeReq struct {

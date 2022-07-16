@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,4 +20,19 @@ func TestArrayDistinct(t *testing.T) {
 	arr := []string{"test1", "test1", "test2", "test3", "test2", "test1"}
 	out := ArrayDistinct(arr)
 	assert.Equal(t, out, []string{"test1", "test2", "test3"})
+}
+
+func TestFormatReadableTime(t *testing.T) {
+	fmt.Println(FormatReadableTime(26))
+	fmt.Println(FormatReadableTime(68))
+	fmt.Println(FormatReadableTime(0))
+	fmt.Println(FormatReadableTime(60))
+	fmt.Println(FormatReadableTime(262))
+	fmt.Println(FormatReadableTime(3593))
+	fmt.Println(FormatReadableTime(3600))
+	fmt.Println(FormatReadableTime(3604))
+	fmt.Println(FormatReadableTime(77435))
+	fmt.Println(FormatReadableTime(86400))
+	fmt.Println(FormatReadableTime(86402))
+	fmt.Println(FormatReadableTime(858389))
 }

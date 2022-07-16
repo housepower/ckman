@@ -222,6 +222,25 @@ func ConvertDuration(start, end time.Time) string {
 	return result
 }
 
+func FormatReadableTime(seconds uint32) string {
+	var result string
+	var day = seconds / (24 * 3600)
+	if day > 0 {
+		result += fmt.Sprintf("%dd", day)
+	}
+	hour := (seconds - day*3600*24) / 3600
+	if hour > 0 {
+		result += fmt.Sprintf("%dh", hour)
+	}
+	minute := (seconds - day*24*3600 - hour*3600) / 60
+	if minute > 0 {
+		result += fmt.Sprintf("%dm", minute)
+	}
+	second := seconds - day*24*3600 - hour*3600 - minute*60
+	result += fmt.Sprintf("%ds", second)
+	return result
+}
+
 func Shuffle(value []string) []string {
 	rand.Seed(time.Now().UnixNano())
 

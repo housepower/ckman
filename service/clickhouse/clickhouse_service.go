@@ -160,18 +160,19 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-func getNodeDisk(service *CkService) string {
+func getNodeInfo(service *CkService) (string, string) {
 	query := `SELECT
 	formatReadableSize(total_space - free_space) AS used,
-		formatReadableSize(total_space) AS total
+		formatReadableSize(total_space) AS total, uptime() as uptime
 	FROM system.disks`
 	value, err := service.QueryInfo(query)
 	if err != nil {
-		return "NA/NA"
+		return "NA/NA", ""
 	}
 	usedSpace := value[1][0].(string)
 	totalSpace := value[1][1].(string)
-	return fmt.Sprintf("%s/%s", usedSpace, totalSpace)
+	uptime := value[1][2].(uint32)
+	return fmt.Sprintf("%s/%s", usedSpace, totalSpace), common.FormatReadableTime(uptime)
 }
 
 func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode {
@@ -179,6 +180,7 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 	statusList := make([]model.CkClusterNode, len(conf.Hosts))
 	statusMap := make(map[string]string, len(conf.Hosts))
 	diskMap := make(map[string]string, len(conf.Hosts))
+	uptimeMap := make(map[string]string, len(conf.Hosts))
 	var lock sync.RWMutex
 	for _, host := range conf.Hosts {
 		innerHost := host
@@ -200,7 +202,7 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 			} else {
 				lock.Lock()
 				statusMap[innerHost] = model.CkStatusGreen
-				diskMap[innerHost] = getNodeDisk(service)
+				diskMap[innerHost], uptimeMap[innerHost] = getNodeInfo(service)
 				lock.Unlock()
 			}
 		})
@@ -215,6 +217,7 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 				ReplicaNumber: j + 1,
 				Status:        statusMap[replica.Ip],
 				Disk:          diskMap[replica.Ip],
+				Uptime:        uptimeMap[replica.Ip],
 			}
 			statusList[index] = status
 			index++
