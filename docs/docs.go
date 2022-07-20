@@ -1815,6 +1815,12 @@ var doc = `{
                 "name": {
                     "type": "string",
                     "example": "test_table"
+                },
+                "rename": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkTableRename"
+                    }
                 }
             }
         },
@@ -2100,6 +2106,19 @@ var doc = `{
                     "description": "0 split partition by day\n1 split partition by week\n2 split partition by month",
                     "type": "integer",
                     "example": 0
+                }
+            }
+        },
+        "model.CkTableRename": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string",
+                    "example": "col_old"
+                },
+                "to": {
+                    "type": "string",
+                    "example": "col_new"
                 }
             }
         },

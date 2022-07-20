@@ -35,6 +35,10 @@ definitions:
       name:
         example: test_table
         type: string
+      rename:
+        items:
+          $ref: '#/definitions/model.CkTableRename'
+        type: array
     type: object
   model.ArchiveTableReq:
     properties:
@@ -245,6 +249,15 @@ definitions:
           2 split partition by month
         example: 0
         type: integer
+    type: object
+  model.CkTableRename:
+    properties:
+      from:
+        example: col_old
+        type: string
+      to:
+        example: col_new
+        type: string
     type: object
   model.CkTableTTL:
     properties:
