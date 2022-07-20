@@ -98,12 +98,17 @@ type CkTableNameTypeAfter struct {
 	After   string   `json:"after" example:"_timestamp"`
 }
 
+type CkTableRename struct {
+	From string `json:"from" example:"col_old"`
+	To   string `json:"to" example:"col_new"`
+}
 type AlterCkTableReq struct {
 	Name   string                 `json:"name" example:"test_table"`
 	DB     string                 `json:"database" example:"default"`
 	Add    []CkTableNameTypeAfter `json:"add"`
 	Modify []CkTableNameType      `json:"modify"`
 	Drop   []string               `json:"drop" example:"age"`
+	Rename []CkTableRename        `json:"rename"`
 	// TTLType string                 `json:"ttl_type"`
 	// TTL     []CkTableTTL           `json:"ttl"`
 }
@@ -115,6 +120,7 @@ type AlterCkTableParams struct {
 	Add     []CkTableNameTypeAfter
 	Drop    []string
 	Modify  []CkTableNameType
+	Rename  []CkTableRename
 	// TTLType string
 	// TTLExpr string
 }

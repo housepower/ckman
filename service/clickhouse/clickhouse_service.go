@@ -386,6 +386,20 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 		}
 	}
 
+	//rename column
+	for _, value := range params.Rename {
+		if value.From == "" || value.To == "" {
+			return errors.Errorf("form %s or to %s must not be empty", value.From, value.To)
+		}
+		rename := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` RENAME COLUMN IF EXISTS `%s` TO `%s`",
+			params.DB, params.Name, params.Cluster, value.From, value.To)
+
+		log.Logger.Debugf(rename)
+		if _, err := ck.DB.Exec(rename); err != nil {
+			return errors.Wrap(err, "")
+		}
+	}
+
 	// 删除分布式表并重建
 	deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC",
 		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster)
