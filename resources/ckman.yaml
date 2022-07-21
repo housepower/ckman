@@ -26,6 +26,7 @@ log:
 # cron job task
 cron:
   sync_logic_schema: "0 * * * * ?"
+  watch_cluster_status: "0 */3 * * * ?"
 
 
 #persistent_config:

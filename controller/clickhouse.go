@@ -759,6 +759,12 @@ func (ck *ClickHouseController) StartCluster(c *gin.Context) {
 		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, err)
 		return
 	}
+	conf.Watch(model.ALL_NODES_DEFAULT)
+	err = repository.Ps.UpdateCluster(conf)
+	if err != nil {
+		model.WrapMsg(c, model.START_CK_CLUSTER_FAIL, err)
+		return
+	}
 
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
@@ -804,7 +810,7 @@ func (ck *ClickHouseController) StopCluster(c *gin.Context) {
 		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, err)
 		return
 	}
-
+	conf.UnWatch(model.ALL_NODES_DEFAULT)
 	if err = repository.Ps.UpdateCluster(conf); err != nil {
 		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, err)
 		return
@@ -1163,6 +1169,12 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 		model.WrapMsg(c, model.START_CK_NODE_FAIL, err)
 		return
 	}
+	conf.Watch(ip)
+	err = repository.Ps.UpdateCluster(conf)
+	if err != nil {
+		model.WrapMsg(c, model.START_CK_NODE_FAIL, err)
+		return
+	}
 
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
@@ -1198,6 +1210,12 @@ func (ck *ClickHouseController) StopNode(c *gin.Context) {
 	conf.Hosts = []string{ip}
 
 	err = deploy.StopCkCluster(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, err)
+		return
+	}
+	conf.UnWatch(ip)
+	err = repository.Ps.UpdateCluster(conf)
 	if err != nil {
 		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, err)
 		return

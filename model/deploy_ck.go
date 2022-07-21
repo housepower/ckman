@@ -42,6 +42,7 @@ type CkShard struct {
 type CkReplica struct {
 	Ip       string `json:"ip" example:"192.168.101.105"`
 	HostName string `json:"hostname" swaggerignore:"true"`
+	Watch    bool   `json:"watch" swaggerignore:"true"`
 }
 
 type CkImportConfig struct {
@@ -236,5 +237,31 @@ func (config *CKManClickHouseConfig) Normalize() {
 
 	if config.Cwd == "" {
 		config.NeedSudo = true
+	}
+}
+
+func (config *CKManClickHouseConfig) Watch(host string) {
+	if !strings.Contains(config.PkgType, "tgz") {
+		return
+	}
+	for i, shard := range config.Shards {
+		for j, replica := range shard.Replicas {
+			if host == ALL_NODES_DEFAULT || host == replica.Ip {
+				config.Shards[i].Replicas[j].Watch = true
+			}
+		}
+	}
+}
+
+func (config *CKManClickHouseConfig) UnWatch(host string) {
+	if !strings.Contains(config.PkgType, "tgz") {
+		return
+	}
+	for i, shard := range config.Shards {
+		for j, replica := range shard.Replicas {
+			if host == ALL_NODES_DEFAULT || host == replica.Ip {
+				config.Shards[i].Replicas[j].Watch = false
+			}
+		}
 	}
 }
