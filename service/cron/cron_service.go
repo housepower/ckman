@@ -14,7 +14,8 @@ type CronService struct {
 }
 
 var JobList = map[int16]func() error{
-	JOB_SYNC_LOGIC_SCHEMA: SyncLogicSchema,
+	JOB_SYNC_LOGIC_SCHEMA:    SyncLogicSchema,
+	JOB_WATCH_CLUSTER_STATUS: WatchClusterStatus,
 }
 
 func NewCronService(config config.CronJob) *CronService {
@@ -27,6 +28,7 @@ func NewCronService(config config.CronJob) *CronService {
 
 func (job *CronService) schedulePadding() {
 	job.jobSchedules[JOB_SYNC_LOGIC_SCHEMA] = common.GetStringwithDefault(job.config.SyncLogicSchema, SCHEDULE_EVERY_MIN)
+	job.jobSchedules[JOB_WATCH_CLUSTER_STATUS] = common.GetStringwithDefault(job.config.WatchClusterStatus, SCHEDULE_WATCH_DEFAULT)
 }
 
 func (job *CronService) Start() error {

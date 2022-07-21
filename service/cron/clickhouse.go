@@ -6,6 +6,7 @@ import (
 
 	client "github.com/ClickHouse/clickhouse-go"
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
@@ -200,5 +201,32 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 	// 	//FIXME: maybe distributed table not the same with local table
 	// }
 
+	return nil
+}
+
+func WatchClusterStatus() error {
+	log.Logger.Debugf("watch cluster status task triggered")
+	clusters, err := repository.Ps.GetAllClusters()
+	if err != nil {
+		return err
+	}
+	for _, cluster := range clusters {
+		if !strings.Contains(cluster.PkgType, "tgz") {
+			continue
+		}
+		for _, shard := range cluster.Shards {
+			for _, replica := range shard.Replicas {
+				if replica.Watch {
+					if _, err := common.ConnectClickHouse(replica.Ip, cluster.Port, model.ClickHouseDefaultDB, model.ClickHouseDefaultUser, cluster.Password); err == nil {
+						continue
+					}
+					log.Logger.Infof("cluster %s, node %s is watching required, try to restart ...", cluster.Cluster, replica.Ip)
+					d := deploy.NewCkDeploy(cluster)
+					d.Conf.Hosts = []string{replica.Ip}
+					_ = d.Start()
+				}
+			}
+		}
+	}
 	return nil
 }

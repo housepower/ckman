@@ -68,6 +68,7 @@ func CKDeployHandle(task *model.Task) error {
 	if d.Conf.AuthenticateType != model.SshPasswordSave {
 		d.Conf.SshPassword = ""
 	}
+	d.Conf.Watch(model.ALL_NODES_DEFAULT)
 	if err := repository.Ps.CreateCluster(*d.Conf); err != nil {
 		_ = repository.Ps.Rollback()
 		return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
