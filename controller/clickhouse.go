@@ -2017,6 +2017,13 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		}
 	}
 
+	if userconfChanged {
+		if !reflect.DeepEqual(cluster.UsersConf.Profiles, conf.UsersConf.Profiles) ||
+			!reflect.DeepEqual(cluster.UsersConf.Quotas, conf.UsersConf.Quotas) {
+			restart = true
+		}
+	}
+
 	// need restart
 	if cluster.Port != conf.Port || storageChanged || expertChanged {
 		restart = true
