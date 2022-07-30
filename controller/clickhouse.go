@@ -295,7 +295,8 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 		params.StoragePolicy = req.StoragePolicy
 	}
 
-	if err := ckService.CreateTable(&params); err != nil {
+	statements, err := ckService.CreateTable(&params, req.DryRun)
+	if err != nil {
 		clickhouse.DropTableIfExists(params, ckService)
 		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
 		return
@@ -313,7 +314,11 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, nil)
+	if req.DryRun {
+		model.WrapMsg(c, model.SUCCESS, statements)
+	} else {
+		model.WrapMsg(c, model.SUCCESS, nil)
+	}
 }
 
 // @Summary Create Distribute Table on logic cluster

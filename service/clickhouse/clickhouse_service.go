@@ -226,14 +226,17 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 	return statusList
 }
 
-func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
+func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool) ([]string, error) {
+	var statements []string
 	if ck.DB == nil {
-		return errors.Errorf("clickhouse service unavailable")
+		return statements, errors.Errorf("clickhouse service unavailable")
 	}
 
 	ensureDatabaseSql := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` ON CLUSTER `%s`", params.DB, params.Cluster)
-	_, _ = ck.DB.Exec(ensureDatabaseSql)
-
+	statements = append(statements, ensureDatabaseSql)
+	if !dryrun {
+		_, _ = ck.DB.Exec(ensureDatabaseSql)
+	}
 	columns := make([]string, 0)
 	for _, value := range params.Fields {
 		columns = append(columns, fmt.Sprintf("`%s` %s %s", value.Name, value.Type, strings.Join(value.Options, " ")))
@@ -270,24 +273,28 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams) error {
 		create += fmt.Sprintf(" SETTINGS storage_policy = '%s'", params.StoragePolicy)
 	}
 	log.Logger.Debugf(create)
-	if _, err := ck.DB.Exec(create); err != nil {
-		if ok := checkTableIfExists(params.DB, params.Name, params.Cluster); !ok {
-			return err
+	statements = append(statements, create)
+	if !dryrun {
+		if _, err := ck.DB.Exec(create); err != nil {
+			if ok := checkTableIfExists(params.DB, params.Name, params.Cluster); !ok {
+				return statements, err
+			}
 		}
 	}
-
 	create = fmt.Sprintf("CREATE TABLE `%s`.`%s%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
 		params.DB, ClickHouseDistributedTablePrefix, params.Name, params.Cluster, params.DB, params.Name,
 		params.Cluster, params.DB, params.Name)
 	log.Logger.Debugf(create)
-	if _, err := ck.DB.Exec(create); err != nil {
-		name := fmt.Sprintf("%s%s", ClickHouseDistributedTablePrefix, params.Name)
-		if ok := checkTableIfExists(params.DB, name, params.Cluster); !ok {
-			return err
+	statements = append(statements, create)
+	if !dryrun {
+		if _, err := ck.DB.Exec(create); err != nil {
+			name := fmt.Sprintf("%s%s", ClickHouseDistributedTablePrefix, params.Name)
+			if ok := checkTableIfExists(params.DB, name, params.Cluster); !ok {
+				return statements, err
+			}
 		}
 	}
-
-	return nil
+	return statements, nil
 }
 
 func (ck *CkService) CreateDistTblOnLogic(params *model.DistLogicTblParams) error {

@@ -229,7 +229,11 @@ definitions:
         example: age
         type: string
       options:
-        description: example:["DEFAULT now()", "CODEC(NONE)"]
+        example:
+        - DEFAULT now()
+        - CODEC(NONE)
+        - COMMENT
+        - 年龄
         items:
           type: string
         type: array
@@ -262,14 +266,19 @@ definitions:
   model.CkTableTTL:
     properties:
       action:
+        example: toVolume
         type: string
       interval:
+        example: 3
         type: integer
       target:
+        example: main
         type: string
       time_column:
+        example: _timestamp
         type: string
       unit:
+        example: MONTH
         type: string
     type: object
   model.CkUpgradeCkReq:
@@ -292,6 +301,9 @@ definitions:
       distinct:
         example: true
         type: boolean
+      dryrun:
+        example: false
+        type: boolean
       fields:
         items:
           $ref: '#/definitions/model.CkTableNameType'
@@ -308,6 +320,7 @@ definitions:
       partition:
         $ref: '#/definitions/model.CkTablePartition'
       storage_policy:
+        example: external
         type: string
       ttl:
         items:
