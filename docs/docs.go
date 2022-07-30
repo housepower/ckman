@@ -2083,11 +2083,16 @@ var doc = `{
                     "example": "age"
                 },
                 "options": {
-                    "description": "example:[\"DEFAULT now()\", \"CODEC(NONE)\"]",
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "DEFAULT now()",
+                        "CODEC(NONE)",
+                        "COMMENT",
+                        "年龄"
+                    ]
                 },
                 "type": {
                     "type": "string",
@@ -2126,19 +2131,24 @@ var doc = `{
             "type": "object",
             "properties": {
                 "action": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "toVolume"
                 },
                 "interval": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 3
                 },
                 "target": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "main"
                 },
                 "time_column": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "_timestamp"
                 },
                 "unit": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "MONTH"
                 }
             }
         },
@@ -2170,6 +2180,10 @@ var doc = `{
                     "type": "boolean",
                     "example": true
                 },
+                "dryrun": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "fields": {
                     "type": "array",
                     "items": {
@@ -2193,7 +2207,8 @@ var doc = `{
                     "$ref": "#/definitions/model.CkTablePartition"
                 },
                 "storage_policy": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "external"
                 },
                 "ttl": {
                     "type": "array",
