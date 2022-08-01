@@ -30,7 +30,6 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 
 	dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s&read_timeout=300",
 		host, port, url.QueryEscape(database), url.QueryEscape(user), url.QueryEscape(password))
-	log.Logger.Debugf("dsn: %s", dsn)
 
 	if conn, ok := ConnectPool.Load(host); ok {
 		c := conn.(Connection)

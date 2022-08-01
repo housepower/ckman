@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -95,7 +96,6 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 			return err
 		}
 		query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database = '%s' AND table = '%s'", database, localTable)
-		log.Logger.Debugf("query: %s", query)
 		rows, err := ckService.DB.Query(query)
 		if err != nil {
 			return errors.Wrap(err, "")
@@ -145,7 +145,6 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 
 			if len(needAdds) == 0 {
 				query := fmt.Sprintf("SELECT table, count() from system.columns WHERE database = '%s' AND table in ('%s%s', '%s%s') group by table", database, clickhouse.ClickHouseDistributedTablePrefix, localTable, clickhouse.ClickHouseDistTableOnLogicPrefix, localTable)
-				log.Logger.Debugf("query:%s", query)
 				rows, err := ckService.DB.Query(query)
 				if err != nil {
 					return errors.Wrap(err, "")
@@ -228,5 +227,137 @@ func WatchClusterStatus() error {
 			}
 		}
 	}
+	return nil
+}
+
+func SyncDistSchema() error {
+	log.Logger.Debugf("sync distributed schema task triggered")
+	clusters, err := repository.Ps.GetAllClusters()
+	if err != nil {
+		log.Logger.Errorf("get clusters failed: %v", err)
+		return err
+	}
+	for _, conf := range clusters {
+		ckService := clickhouse.NewCkService(&conf)
+		ckService.InitCkService()
+		query := fmt.Sprintf(`SELECT
+    database,
+    name,
+    (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[2] AS cluster,
+    (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[4] AS local
+FROM system.tables
+WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))`)
+		rows, err := ckService.DB.Query(query)
+		if err != nil {
+			continue
+		}
+		for rows.Next() {
+			var database, table, cluster, local string
+			_ = rows.Scan(&database, &table, &cluster, &local)
+			if cluster != conf.Cluster {
+				//ignore logic table
+				continue
+			}
+			err := syncDistTable(local, database, conf, ckService)
+			if err != nil {
+				log.Logger.Warnf("sync distributed table schema failed: %v", err)
+				continue
+			}
+		}
+	}
+	return nil
+}
+
+func syncDistTable(localTable, database string, conf model.CKManClickHouseConfig, ckServide *clickhouse.CkService) error {
+	tableLists := make(map[string]common.Map)
+	dbLists := make(map[string]*sql.DB)
+	for _, host := range conf.Hosts {
+		db, err := common.ConnectClickHouse(host, conf.Port, database, conf.User, conf.Password)
+		if err != nil {
+			err = errors.Wrap(err, host)
+			return err
+		}
+		query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database = '%s' AND table = '%s'", database, localTable)
+		rows, err := db.Query(query)
+		if err != nil {
+			return errors.Wrap(err, host)
+		}
+		tblMap := make(common.Map)
+		for rows.Next() {
+			var name, typ string
+			if err = rows.Scan(&name, &typ); err != nil {
+				return errors.Wrap(err, host)
+			}
+			tblMap[name] = typ
+		}
+		tableLists[host] = tblMap
+		dbLists[host] = db
+	}
+
+	allCols := make(common.Map)
+	for _, cols := range tableLists {
+		allCols = allCols.Union(cols).(common.Map)
+	}
+
+	needAlter := false
+	for _, cols := range tableLists {
+		if len(allCols) > len(cols) {
+			needAlter = true
+		}
+	}
+
+	//sync local table
+	if needAlter {
+		log.Logger.Debugf("need alter table, table %s.%s have different columns on cluster %s", database, localTable, conf.Cluster)
+		for host, cols := range tableLists {
+			needAdds := allCols.Difference(cols).(common.Map)
+			db := dbLists[host]
+			for k, v := range needAdds {
+				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ADD COLUMN IF NOT EXISTS `%s` %s", database, localTable, k, v)
+				log.Logger.Debug(query)
+				_, err := db.Exec(query)
+				if err != nil {
+					return errors.Wrap(err, host)
+				}
+			}
+		}
+	}
+
+	//sync dist table
+	var needAlterDist bool
+	query := fmt.Sprintf("SELECT table, count() from system.columns WHERE database = '%s' AND table = '%s%s' group by table", database, clickhouse.ClickHouseDistributedTablePrefix, localTable)
+	rows, err := ckServide.DB.Query(query)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	for rows.Next() {
+		var table string
+		var count int
+		if err = rows.Scan(&table, &count); err != nil {
+			return errors.Wrap(err, "")
+		}
+		if count < len(allCols) {
+			needAlterDist = true
+		}
+	}
+	for host, db := range dbLists {
+		if needAlterDist {
+			deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` SYNC",
+				database, clickhouse.ClickHouseDistributedTablePrefix, localTable)
+			log.Logger.Debugf(deleteSql)
+			if _, err := db.Exec(deleteSql); err != nil {
+				return errors.Wrap(err, host)
+			}
+
+			create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
+				database, clickhouse.ClickHouseDistributedTablePrefix, localTable, database, localTable,
+				conf.Cluster, database, localTable)
+			log.Logger.Debugf(create)
+			if _, err := db.Exec(create); err != nil {
+				return errors.Wrap(err, host)
+			}
+		}
+	}
+
 	return nil
 }

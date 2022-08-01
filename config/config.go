@@ -25,6 +25,7 @@ type ClusterNode struct {
 type CronJob struct {
 	SyncLogicSchema    string `yaml:"sync_logic_schema"`
 	WatchClusterStatus string `yaml:"watch_cluster_status"`
+	SyncDistSchema     string `yaml:"sync_dist_schema"`
 }
 
 type CKManConfig struct {
