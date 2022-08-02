@@ -30,12 +30,20 @@ func SyncLogicSchema() error {
 	for _, clusters := range logics {
 		needCreateTable := make(map[string][]string)
 		for _, cluster := range clusters {
+			if deploy.HasEffectiveTasks(cluster) {
+				//do not deal all logic cluster
+				log.Logger.Debugf("cluster %s has effective tasks running, ignore sync logic schema job")
+				break
+			}
 			conf, err := repository.Ps.GetClusterbyName(cluster)
 			if err != nil {
 				continue
 			}
 			ckService := clickhouse.NewCkService(&conf)
-			ckService.InitCkService()
+			err = ckService.InitCkService()
+			if err != nil {
+				continue
+			}
 			results, _ := ckService.GetTblLists()
 			for database, tables := range results {
 				var localTables []string
@@ -213,6 +221,10 @@ func WatchClusterStatus() error {
 		if !strings.Contains(cluster.PkgType, "tgz") {
 			continue
 		}
+		if deploy.HasEffectiveTasks(cluster.Cluster) {
+			log.Logger.Debugf("cluster %s has effective tasks running, ignore watch status job")
+			continue
+		}
 		for _, shard := range cluster.Shards {
 			for _, replica := range shard.Replicas {
 				if replica.Watch {
@@ -238,8 +250,15 @@ func SyncDistSchema() error {
 		return err
 	}
 	for _, conf := range clusters {
+		if deploy.HasEffectiveTasks(conf.Cluster) {
+			log.Logger.Debugf("cluster %s has effective tasks running, ignore sync distributed schema job")
+			continue
+		}
 		ckService := clickhouse.NewCkService(&conf)
-		ckService.InitCkService()
+		err := ckService.InitCkService()
+		if err != nil {
+			continue
+		}
 		query := fmt.Sprintf(`SELECT
     database,
     name,
@@ -260,7 +279,7 @@ WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_
 			}
 			err := syncDistTable(local, database, conf, ckService)
 			if err != nil {
-				log.Logger.Warnf("sync distributed table schema failed: %v", err)
+				log.Logger.Warnf("[%s]sync distributed table schema failed: %v", conf.Cluster, err)
 				continue
 			}
 		}
@@ -272,7 +291,7 @@ func syncDistTable(localTable, database string, conf model.CKManClickHouseConfig
 	tableLists := make(map[string]common.Map)
 	dbLists := make(map[string]*sql.DB)
 	for _, host := range conf.Hosts {
-		db, err := common.ConnectClickHouse(host, conf.Port, database, conf.User, conf.Password)
+		db, err := common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
 		if err != nil {
 			err = errors.Wrap(err, host)
 			return err

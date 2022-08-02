@@ -13,7 +13,7 @@ import (
 )
 
 func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, error) {
-	if hasEffectiveTasks(clusterName) {
+	if HasEffectiveTasks(clusterName) {
 		err := errors.Errorf("create task failed, cluster %s has another task already running", clusterName)
 		return "", err
 	}
@@ -58,7 +58,7 @@ func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, er
 	return task.TaskId, nil
 }
 
-func hasEffectiveTasks(clusterName string) bool {
+func HasEffectiveTasks(clusterName string) bool {
 	tasks, err := repository.Ps.GetAllTasks()
 	if err != nil {
 		return false
