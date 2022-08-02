@@ -1166,10 +1166,10 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 		model.WrapMsg(c, model.START_CK_NODE_FAIL, err)
 		return
 	}
+	con := conf
+	con.Hosts = []string{ip}
 
-	conf.Hosts = []string{ip}
-
-	err = deploy.StartCkCluster(&conf)
+	err = deploy.StartCkCluster(&con)
 	if err != nil {
 		model.WrapMsg(c, model.START_CK_NODE_FAIL, err)
 		return
@@ -1212,9 +1212,10 @@ func (ck *ClickHouseController) StopNode(c *gin.Context) {
 		return
 	}
 
-	conf.Hosts = []string{ip}
+	con := conf
+	con.Hosts = []string{ip}
 
-	err = deploy.StopCkCluster(&conf)
+	err = deploy.StopCkCluster(&con)
 	if err != nil {
 		model.WrapMsg(c, model.STOP_CK_NODE_FAIL, err)
 		return
