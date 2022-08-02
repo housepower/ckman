@@ -95,6 +95,8 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 		if err = checkAccess(conf.Cwd, conf); err != nil {
 			return errors.Wrapf(err, "check access error")
 		}
+	} else {
+		conf.NeedSudo = true
 	}
 	if len(conf.Hosts) == 0 {
 		return errors.Errorf("can't find any host")
@@ -281,7 +283,7 @@ func GetShardsbyHosts(hosts []string, isReplica bool) []model.CkShard {
 func checkAccess(localPath string, conf *model.CKManClickHouseConfig) error {
 	cmd := ""
 	if conf.NeedSudo {
-		cmd = fmt.Sprintf(`su sshd -s /bin/bash -c "cd %s && echo $?"`, localPath)
+		cmd = fmt.Sprintf(`su clickhouse -s /bin/bash -c "cd %s && echo $?"`, localPath)
 	} else {
 		cmd = fmt.Sprintf("cd %s && echo $?", localPath)
 	}
@@ -293,6 +295,13 @@ func checkAccess(localPath string, conf *model.CKManClickHouseConfig) error {
 			Host:             host,
 			NeedSudo:         conf.NeedSudo,
 			AuthenticateType: conf.AuthenticateType,
+		}
+		if conf.NeedSudo {
+			// create clickhouse group and user
+			var cmds []string
+			cmds = append(cmds, "groupadd -r clickhouse")
+			cmds = append(cmds, "useradd -r --shell /bin/false --home-dir /nonexistent --user-group clickhouse")
+			_, _ = common.RemoteExecute(sshOpts, strings.Join(cmds, ";"))
 		}
 		output, err := common.RemoteExecute(sshOpts, cmd)
 		if err != nil {
