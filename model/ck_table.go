@@ -160,6 +160,17 @@ type CkTableMetrics struct {
 	QueryCost        CkTableCost `json:"queryCost"`
 }
 
+type PartitionInfo struct {
+	Database     string    `json:"database"`
+	Table        string    `json:"table"`
+	Rows         uint64    `json:"rows"`
+	Compressed   uint64    `json:"compressed"`
+	UnCompressed uint64    `json:"uncompressed"`
+	MinTime      time.Time `json:"min_time"`
+	MaxTime      time.Time `json:"max_time"`
+	DiskName     string    `json:"disk_name"`
+}
+
 type CkTableCost struct {
 	Middle       float64 `json:"middle"`
 	SecondaryMax float64 `json:"secondaryMax"`

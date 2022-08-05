@@ -731,6 +731,74 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig) (map[string]*model.CkT
 	return metrics, nil
 }
 
+func GetPartitions(conf *model.CKManClickHouseConfig, table string) (map[string]model.PartitionInfo, error) {
+	partInfo := make(map[string]model.PartitionInfo)
+
+	chHosts, err := common.GetShardAvaliableHosts(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	dbTbl := strings.SplitN(table, ".", 2)
+	dabatase := dbTbl[0]
+	tableName := dbTbl[1]
+
+	for _, host := range chHosts {
+		service, err := GetCkNodeService(conf.Cluster, host)
+		if err != nil {
+			return nil, err
+		}
+
+		query := fmt.Sprintf(`SELECT
+    partition,
+    sum(rows),
+    sum(data_compressed_bytes),
+    sum(data_uncompressed_bytes),
+    min(min_time),
+    max(max_time),
+    disk_name
+FROM system.parts
+WHERE (database = '%s') AND (table = '%s')
+GROUP BY
+    partition,
+    disk_name
+ORDER BY partition ASC`, dabatase, tableName)
+		log.Logger.Infof("host: %s, query: %s", host, query)
+		value, err := service.QueryInfo(query)
+		if err != nil {
+			return nil, err
+		}
+		for i := 1; i < len(value); i++ {
+			partitionId := value[i][0].(string)
+			if part, ok := partInfo[partitionId]; ok {
+				part.Rows += value[i][1].(uint64)
+				part.Compressed += value[i][2].(uint64)
+				part.UnCompressed += value[i][3].(uint64)
+				minTime := value[i][4].(time.Time)
+				part.MinTime = common.TernaryExpression(part.MinTime.After(minTime), minTime, part.MinTime).(time.Time)
+				maxTime := value[i][5].(time.Time)
+				part.MaxTime = common.TernaryExpression(part.MaxTime.Before(maxTime), maxTime, part.MinTime).(time.Time)
+				part.DiskName = value[i][6].(string)
+				partInfo[partitionId] = part
+			} else {
+				part := model.PartitionInfo{
+					Database:     dabatase,
+					Table:        tableName,
+					Rows:         value[i][1].(uint64),
+					Compressed:   value[i][2].(uint64),
+					UnCompressed: value[i][3].(uint64),
+					MinTime:      value[i][4].(time.Time),
+					MaxTime:      value[i][5].(time.Time),
+					DiskName:     value[i][6].(string),
+				}
+				partInfo[partitionId] = part
+			}
+		}
+	}
+
+	return partInfo, nil
+}
+
 func getHostSessions(service *CkService, query, host string) ([]*model.CkSessionInfo, error) {
 	list := make([]*model.CkSessionInfo, 0)
 

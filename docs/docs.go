@@ -689,6 +689,35 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/partition/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "get partition infomation",
+                "summary": "GetPartitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/ping/{clusterName}": {
             "post": {
                 "security": [
@@ -1300,15 +1329,6 @@ var doc = `{
                 "description": "show create table",
                 "summary": "show create table",
                 "parameters": [
-                    {
-                        "description": "request body",
-                        "name": "req",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.ArchiveTableReq"
-                        }
-                    },
                     {
                         "type": "string",
                         "default": "test",
