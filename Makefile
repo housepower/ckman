@@ -22,6 +22,7 @@ frontend:
 	rm -rf static/dist
 	make -C frontend build
 	cp -r frontend/dist static
+	@test ! -f docs/ckman_documentation.pdf || cp docs/ckman_documentation.pdf static/dist/ckman_documentation.pdf
 
 .PHONY: backend
 backend:
