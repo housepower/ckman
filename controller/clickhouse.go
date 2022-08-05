@@ -1570,6 +1570,35 @@ func (ck *ClickHouseController) PurgeTables(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
+// @Summary GetPartitions
+// @Description get partition infomation
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":"5203", "retMsg":"purger tables range failed", "entity":"error"}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":""}"
+// @Router /api/v1/ck/partition/{clusterName} [get]
+func (ck *ClickHouseController) GetPartitions(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	table := c.Query("table")
+	if table == "" {
+		model.WrapMsg(c, model.INVALID_PARAMS, "table must not be empty")
+	}
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+	partInfo, err := clickhouse.GetPartitions(&conf, table)
+	if err != nil {
+		model.WrapMsg(c, model.GET_CK_TABLE_METRIC_FAIL, err)
+		return
+	}
+	model.WrapMsg(c, model.SUCCESS, partInfo)
+}
+
 // @Summary Archive Tables to HDFS
 // @Description archive tables to hdfs
 // @version 1.0
@@ -1647,7 +1676,6 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 // @Description show create table
 // @version 1.0
 // @Security ApiKeyAuth
-// @Param req body model.ArchiveTableReq true "request body"
 // @Param clusterName path string true "cluster name" default(test)
 // @Failure 200 {string} json "{"retCode":"5205", "retMsg":"show create table schemer failed", "entity":"error"}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":"{\"create_table_query\": \"CREATE TABLE default.apache_access_log (`@collectiontime` DateTime, `@hostname` LowCardinality(String), `@ip` LowCardinality(String), `@path` String, `@lineno` Int64, `@message` String, `agent` String, `auth` String, `bytes` Int64, `clientIp` String, `device_family` LowCardinality(String), `httpversion` LowCardinality(String), `ident` String, `os_family` LowCardinality(String), `os_major` LowCardinality(String), `os_minor` LowCardinality(String), `referrer` String, `request` String, `requesttime` Float64, `response` LowCardinality(String), `timestamp` DateTime64(3), `userAgent_family` LowCardinality(String), `userAgent_major` LowCardinality(String), `userAgent_minor` LowCardinality(String), `verb` LowCardinality(String), `xforwardfor` LowCardinality(String)) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, `@hostname`, `@path`, `@lineno`) SETTINGS index_granularity = 8192 │ ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, `@hostname`, `@path`, `@lineno`) SETTINGS index_granularity = 8192\"}"

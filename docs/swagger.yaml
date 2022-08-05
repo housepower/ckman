@@ -874,6 +874,24 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Kill open sessions
+  /api/v1/ck/partition/{clusterName}:
+    get:
+      description: get partition infomation
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"ok","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: GetPartitions
   /api/v1/ck/ping/{clusterName}:
     post:
       description: check clickhousr server in cluster wether useful
@@ -1262,12 +1280,6 @@ paths:
     get:
       description: show create table
       parameters:
-      - description: request body
-        in: body
-        name: req
-        required: true
-        schema:
-          $ref: '#/definitions/model.ArchiveTableReq'
       - default: test
         description: cluster name
         in: path

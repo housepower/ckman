@@ -270,3 +270,11 @@ func ArrayDistinct(arr []string) []string {
 	}
 	return arr[:j]
 }
+
+func TernaryExpression(condition bool, texpr, fexpr interface{}) interface{} {
+	if condition {
+		return texpr
+	} else {
+		return fexpr
+	}
+}
