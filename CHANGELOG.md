@@ -1,3 +1,19 @@
+# v2.2.8
+- fix: migrate tool panic while init log
+- feat: show uptime
+- feat: do not return error when check failed
+- feat: check type  when alter table
+- feat: add getlog api
+- feat: support rename column when alter table
+- feat: watch cluster status while deployed by tgz
+- fix: restart cluster when change profiles and quotas
+- feat: add dryrun when create table
+- feat: add cron job to sync distributed table
+- fix: check access issue
+- fix: scheduled task security protection
+- fix: upgrade cause permission denied issue
+- feat:add getpartions by table api
+
 # v2.2.7
 - dm8 database adapt
 - handle map is null in frontend
