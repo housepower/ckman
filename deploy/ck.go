@@ -116,14 +116,13 @@ func (d *CKDeploy) Init() error {
 					NeedSudo:         d.Conf.NeedSudo,
 					AuthenticateType: d.Conf.AuthenticateType,
 				}
-				cmd := "hostname -f"
-				output, err := common.RemoteExecute(sshOpts, cmd)
-				if err != nil {
-					lastError = err
-					return
-				}
+				cmd := "hostname"
+				output, _ := common.RemoteExecute(sshOpts, cmd)
 
 				hostname := strings.Trim(output, "\n")
+				if hostname == "" {
+					hostname = innerReplica.Ip
+				}
 				d.Conf.Shards[innerShardIndex].Replicas[innerReplicaIndex].HostName = hostname
 				lock.Lock()
 				HostNameMap[hostname] = true
