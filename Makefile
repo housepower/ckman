@@ -19,10 +19,10 @@ export GOPROXY=https://goproxy.cn,direct
 
 .PHONY: frontend
 frontend:
-	rm -rf static/dist
+	rm -rf static/dist/*
 	make -C frontend build
-	cp -r frontend/dist static
-	@test ! -f docs/ckman_documentation.pdf || cp docs/ckman_documentation.pdf static/dist/ckman_documentation.pdf
+	cp -r frontend/dist static/
+	cp -r static/docs static/dist/
 
 .PHONY: backend
 backend:
@@ -42,8 +42,7 @@ pre:
 	go install github.com/swaggo/swag/cmd/swag@v1.7.1
 
 .PHONY: build
-build:pre
-	@test -d static/dist || (git submodule update --init --recursive && make frontend)
+build:pre frontend
 	pkger
 	swag init
 	go build ${LDFLAGS}
@@ -91,11 +90,11 @@ docker-sh:
 
 .PHONY: rpm
 rpm:build
-	nfpm -f nfpm.yaml pkg --packager rpm --target .
+	 VERSION=${VERSION} nfpm -f nfpm.yaml pkg --packager rpm --target .
 
 .PHONY: deb
 deb:build
-	nfpm -f nfpm.yaml pkg --packager deb --target .
+	 VERSION=${VERSION} nfpm -f nfpm.yaml pkg --packager deb --target .
 
 .PHONY: test-ci
 test-ci:package
@@ -118,11 +117,11 @@ docker-image:build
 .PHONY: release
 release:
 	make docker-image VERSION=${VERSION}
-	make rpm VERSION=${VERSION}
-	make deb VERSION=${VERSION}
+	make rpm
+	make deb
 	make package VERSION=${VERSION}
-	make rpm VERSION=${VERSION} GOARCH=arm64
-	make deb VERSION=${VERSION} GOARCH=arm64
+	make rpm GOARCH=arm64
+	make deb GOARCH=arm64
 	make package VERSION=${VERSION} GOARCH=arm64
 	docker push quay.io/housepower/ckman:${VERSION}
 	docker push quay.io/housepower/ckman:latest

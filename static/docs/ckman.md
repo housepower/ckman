@@ -56,7 +56,7 @@
 
 ## 如何部署ckman
 
-见[ckman部署文档](./guide/deploy.md)。
+见[ckman部署文档](./deploy.md)。
 
 ## 如何使用源码编译ckman
 
@@ -72,15 +72,16 @@ tar -xzvf nfpm_2.15.1_Linux_x86_64.tar.gz
 cp nfpm /usr/local/bin
 ```
 
-如果有编译前端的需求，需要安装`node.js`。前端代码仓库：[github.com/housepower/ckman-fe](https://github.com/housepower/ckman-fe)。可使用如下命令安装：
+编译前端需要安装`yarn`。在CentOS 7上安装yarn: (参考https://linuxize.com/post/how-to-install-yarn-on-centos-7/)
 
-```bash
-wget -q https://nodejs.org/download/release/v14.15.3/node-v14.15.3-linux-x64.tar.gz 
-tar -xzf node-v14.15.3-linux-x64.tar.gz -C /usr/local/ 
-ln -s /usr/local/node-v14.15.3-linux-x64/bin/node /usr/local/bin 
-ln -s /usr/local/node-v14.15.3-linux-x64/bin/npm /usr/local/bin
-ln -s /usr/local/node-v14.15.3-linux-x64/bin/yarn /usr/local/bin
 ```
+$ curl --silent --location https://dl.yarnpkg.com/rpm/yarn.repo | sudo tee /etc/yum.repos.d/yarn.repo
+$ sudo rpm --import https://dl.yarnpkg.com/rpm/pubkey.gpg
+$ sudo yum install yarn
+$ yarn --version
+```
+
+在其他平台上安装`yarn`，请参考[yarn官方文档](https://yarnpkg.com/getting-started/install)。
 
 ### 编译命令
 
@@ -479,7 +480,7 @@ nacos:
 
 ## 监控管理
 
-`ckman`提供了`ClickHouse`相关的一些指标监控项。这些监控项依赖于从`prometheus`中获取数据，因此，需要提前配置好`prometheus`。相关配置教程见[ckman部署文档](./guide/deploy.md)。
+`ckman`提供了`ClickHouse`相关的一些指标监控项。这些监控项依赖于从`prometheus`中获取数据，因此，需要提前配置好`prometheus`。相关配置教程见[ckman部署文档](./deploy.md)。
 
 ![image-20210302181407722](img/image-20210302181407722.png)
 

@@ -17,4 +17,5 @@ rebalancer
 schemer
 migrate
 pkged.go
+static/dist/
 resources/eoi_public_key.pub
