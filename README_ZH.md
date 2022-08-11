@@ -1,10 +1,10 @@
 [ENGLISH](./README.md)|简体中文
 
 # 概述
-ckman是一款管理和监控`ClickHouse`集群的工具。它通过前端界面直观展示集群的相关信息，可以便捷地对集群进行部署、升级，节点的增删等。更多详细信息，请阅读[操作文档](./docs/ckman_v2.0.0.md)。
+ckman是一款管理和监控`ClickHouse`集群的工具。它通过前端界面直观展示集群的相关信息，可以便捷地对集群进行部署、升级，节点的增删等。更多详细信息，请阅读[操作文档](./static/docs/ckman.md)。
 
 # 快速开始
-`ckman`开箱即用，快速部署并开始使用ckman，请点击[安装教程](./docs/guide/deploy.md)。
+`ckman`开箱即用，快速部署并开始使用ckman，请点击[安装教程](./static/docs/deploy.md)。
 
 # 视频教程
 - [B站:clickhouse可视化管理工具ckman使用教程](https://www.bilibili.com/video/BV1gR4y1t75Q/)
@@ -21,7 +21,7 @@ ckman是一款管理和监控`ClickHouse`集群的工具。它通过前端界面
 - 搭配`promethues`等监控工具可以展示更多监控信息
 
 # 如何升级
-如何升级ckman，详见[升级教程](./docs/guide/upgrade.md)。
+如何升级ckman，详见[升级教程](./static/docs/upgrade.md)。
 
 # 开发规划
 请点击[规划线路图](https://github.com/housepower/ckman/wiki)。

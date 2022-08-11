@@ -5,7 +5,7 @@ ENGLISH|[简体中文](./README_ZH.md)
 This is a tool which used to manage and monitor ClickHouse database. It visits the cluster's related information through the front-end interface, which can be easily deployed, upgraded, and the node increases to the cluster. For more information, please read [document](./docs/ckman_v2.0.0.md).
 
 # Quik Start 
-quickly deploy and start using CKMAN, please click the [deploy document](./docs/guide/deploy.md). 
+quickly deploy and start using CKMAN, please click the [deploy document](./static/docs/deploy.md).
 
 # Video Tutorial 
 - [bilibili:Clickhouse visual management tool ckman use tutorial](https://www.bilibili.com/video/BV1gR4y1t75Q/)
@@ -22,7 +22,7 @@ quickly deploy and start using CKMAN, please click the [deploy document](./docs/
 - Show more mertics with `prometheus` 
 
 # How to upgrade
-You can upgrade ckman with [upgrade document](./docs/guide/upgrade.md).
+You can upgrade ckman with [upgrade document](./static/docs/upgrade.md).
 
 # RoadMap
 Please read [roadmap](https://github.com/housepower/ckman/wiki).
