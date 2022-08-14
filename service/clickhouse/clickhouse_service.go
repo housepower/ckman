@@ -1094,3 +1094,19 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig) bool {
 	}
 	return true
 }
+
+func RestoreReplicaTable(conf *model.CKManClickHouseConfig, host, database, table string) error {
+	db, err := common.ConnectClickHouse(host, conf.Port, database, conf.User, conf.Password)
+	if err != nil {
+		return errors.Wrapf(err, "cann't connect to %s", host)
+	}
+	query := "SYSTEM RESTART REPLICA " + table
+	if _, err := db.Exec(query); err != nil {
+		return errors.Wrap(err, host)
+	}
+	query = "SYSTEM RESTORE REPLICA " + table
+	if _, err := db.Exec(query); err != nil {
+		return errors.Wrap(err, host)
+	}
+	return nil
+}

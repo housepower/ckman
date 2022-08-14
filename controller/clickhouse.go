@@ -537,6 +537,44 @@ func (ck *ClickHouseController) AlterTableTTL(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
+// @Summary RestoreReplica
+// @Description restore replica to  recover readonly
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.AlterCkTableReq true "request body"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"
+// @Router /api/v1/ck/table/readoly/{clusterName} [put]
+func (ck *ClickHouseController) RestoreReplica(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	table := c.Query("table")
+	tbls := strings.SplitN(table, ",", 2)
+	if len(tbls) != 2 {
+		model.WrapMsg(c, model.INVALID_PARAMS, fmt.Sprintf("table %s is invalid", table))
+		return
+	}
+	database := tbls[0]
+	tblName := tbls[1]
+
+	for _, host := range conf.Hosts {
+		if err := clickhouse.RestoreReplicaTable(&conf, host, database, tblName); err != nil {
+			model.WrapMsg(c, model.INVALID_PARAMS, err)
+			return
+		}
+	}
+
+	model.WrapMsg(c, model.SUCCESS, nil)
+}
+
 // @Summary Delete Table
 // @Description Delete Table
 // @version 1.0
