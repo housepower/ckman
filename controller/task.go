@@ -26,10 +26,10 @@ func NewTaskController() *TaskController {
 // @Description Get task by taskId
 // @version 1.0
 // @Security ApiKeyAuth
-// @Param taskId query string true "task id"
+// @Param taskId query string true "task id" default(608e9e83-715e-7448-a149-9bef33f38cfe)
 // @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":nil}"
-// @Failure 200 {string} json "{"retCode":"5010","retMsg":"task not exist","entity":nil}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5100","retMsg":"get task failed","entity":nil}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":{\"TaskId\":\"608e9e83-715e-7448-a149-9bef33f38cfe\",\"ClusterName\":\"usertest\",\"Type\":\"clickhouse\",\"Option\":{\"ZH\":\"升级集群\",\"EN\":\"Upgrade\"},\"NodeStatus\":[{\"Host\":\"192.168.110.10\",\"Status\":{\"ZH\":\"上传安装包\",\"EN\":\"Prepare\"}},{\"Host\":\"192.168.110.12\",\"Status\":{\"ZH\":\"上传安装包\",\"EN\":\"Prepare\"}},{\"Host\":\"192.168.110.14\",\"Status\":{\"ZH\":\"上传安装包\",\"EN\":\"Prepare\"}}]}}"
 // @Router /api/v1/task/{taskId} [get]
 func (t *TaskController) GetTaskStatusById(c *gin.Context) {
 	taskId := c.Param(TaskIdPath)
@@ -58,7 +58,7 @@ func (t *TaskController) GetTaskStatusById(c *gin.Context) {
 // @Description Get all tasklist
 // @version 1.0
 // @Security ApiKeyAuth
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":[{\"TaskId\":\"608e9e83-715e-7448-a149-9bef33f38cfe\",\"ClusterName\":\"usertest\",\"Type\":\"clickhouse\",\"Option\":{\"ZH\":\"升级集群\",\"EN\":\"Upgrade\"},\"Status\":\"Success\",\"Message\":\"Success\",\"CreateTime\":\"2022-08-15T10:38:52.319504494+08:00\",\"UpdateTime\":\"2022-08-15T10:39:22.177215927+08:00\",\"Duration\":\"29s\"},{\"TaskId\":\"c6ee8843-36ba-4c88-94dd-0f226cdf8377\",\"ClusterName\":\"abc\",\"Type\":\"clickhouse\",\"Option\":{\"ZH\":\"设置集群\",\"EN\":\"Setting\"},\"Status\":\"Success\",\"Message\":\"Success\",\"CreateTime\":\"2022-08-09T14:28:00.697211511+08:00\",\"UpdateTime\":\"2022-08-09T14:28:59.887673161+08:00\",\"Duration\":\"59s\"}]}"
 // @Router /api/v1/task/lists [get]
 func (t *TaskController) TasksList(c *gin.Context) {
 	tasks, err := repository.Ps.GetAllTasks()
@@ -107,6 +107,8 @@ func (t *TaskController) GetRunningTaskCount(c *gin.Context) {
 // @Description delete task by taskid
 // @version 1.0
 // @Security ApiKeyAuth
+// @Param taskId query string true "taskId" default(608e9e83-715e-7448-a149-9bef33f38cfe)
+// @Failure 200 {string} json "{"retCode":"5101","retMsg":"delete task failed","entity":nil}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Router /api/v1/task/{taskId} [delete]
 func (t *TaskController) DeleteTask(c *gin.Context) {
@@ -139,6 +141,8 @@ func (t *TaskController) DeleteTask(c *gin.Context) {
 // @Description stop task by taskid
 // @version 1.0
 // @Security ApiKeyAuth
+// @Param taskId query string true "taskId" default(608e9e83-715e-7448-a149-9bef33f38cfe)
+// @Failure 200 {string} json "{"retCode":"5102","retMsg":"stop task failed","entity":nil}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Router /api/v1/task/{taskId} [put]
 func (t *TaskController) StopTask(c *gin.Context) {

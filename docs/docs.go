@@ -116,7 +116,7 @@ var doc = `{
                 "summary": "Get config of all ClickHouse cluster",
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\", \"entity\":{\"test\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}}",
+                        "description": "{\"retCode\":\"5065\",\"retMsg\":\"get ClickHouse cluster information failed\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }
@@ -200,7 +200,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":null}",
+                        "description": "{\"retCode\":\"5045\",\"retMsg\":\"delete cluster failed\",\"entity\":\"\"}",
                         "schema": {
                             "type": "string"
                         }
@@ -1063,6 +1063,35 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/table/readoly/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "restore replica to  recover readonly",
+                "summary": "RestoreReplica",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"5003\",\"retMsg\":\"alter ClickHouse table failed\",\"entity\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/table/ttl/{clusterName}": {
             "put": {
                 "security": [
@@ -1521,9 +1550,19 @@ var doc = `{
                 ],
                 "description": "Get package list",
                 "summary": "Get package list",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "all",
+                        "description": "pkgType",
+                        "name": "pkgType",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[\"20.8.5.45\"]}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[{\"version\":\"22.3.9.19\",\"pkgType\":\"x86_64.rpm\",\"pkgName\":\"clickhouse-common-static-22.3.9.19.x86_64.rpm\"}]}",
                         "schema": {
                             "type": "string"
                         }
@@ -1570,9 +1609,17 @@ var doc = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "default": "20.8.5.45",
+                        "default": "22.3.9.19",
                         "description": "package version",
                         "name": "packageVersion",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "x86_64.rpm",
+                        "description": "package type",
+                        "name": "pkgType",
                         "in": "query",
                         "required": true
                     }
@@ -1598,7 +1645,7 @@ var doc = `{
                 "summary": "TasksList",
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":nil}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":[{\\\"TaskId\\\":\\\"608e9e83-715e-7448-a149-9bef33f38cfe\\\",\\\"ClusterName\\\":\\\"usertest\\\",\\\"Type\\\":\\\"clickhouse\\\",\\\"Option\\\":{\\\"ZH\\\":\\\"升级集群\\\",\\\"EN\\\":\\\"Upgrade\\\"},\\\"Status\\\":\\\"Success\\\",\\\"Message\\\":\\\"Success\\\",\\\"CreateTime\\\":\\\"2022-08-15T10:38:52.319504494+08:00\\\",\\\"UpdateTime\\\":\\\"2022-08-15T10:39:22.177215927+08:00\\\",\\\"Duration\\\":\\\"29s\\\"},{\\\"TaskId\\\":\\\"c6ee8843-36ba-4c88-94dd-0f226cdf8377\\\",\\\"ClusterName\\\":\\\"abc\\\",\\\"Type\\\":\\\"clickhouse\\\",\\\"Option\\\":{\\\"ZH\\\":\\\"设置集群\\\",\\\"EN\\\":\\\"Setting\\\"},\\\"Status\\\":\\\"Success\\\",\\\"Message\\\":\\\"Success\\\",\\\"CreateTime\\\":\\\"2022-08-09T14:28:00.697211511+08:00\\\",\\\"UpdateTime\\\":\\\"2022-08-09T14:28:59.887673161+08:00\\\",\\\"Duration\\\":\\\"59s\\\"}]}",
                         "schema": {
                             "type": "string"
                         }
@@ -1637,6 +1684,7 @@ var doc = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "default": "608e9e83-715e-7448-a149-9bef33f38cfe",
                         "description": "task id",
                         "name": "taskId",
                         "in": "query",
@@ -1645,7 +1693,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":nil}",
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":{\\\"TaskId\\\":\\\"608e9e83-715e-7448-a149-9bef33f38cfe\\\",\\\"ClusterName\\\":\\\"usertest\\\",\\\"Type\\\":\\\"clickhouse\\\",\\\"Option\\\":{\\\"ZH\\\":\\\"升级集群\\\",\\\"EN\\\":\\\"Upgrade\\\"},\\\"NodeStatus\\\":[{\\\"Host\\\":\\\"192.168.110.10\\\",\\\"Status\\\":{\\\"ZH\\\":\\\"上传安装包\\\",\\\"EN\\\":\\\"Prepare\\\"}},{\\\"Host\\\":\\\"192.168.110.12\\\",\\\"Status\\\":{\\\"ZH\\\":\\\"上传安装包\\\",\\\"EN\\\":\\\"Prepare\\\"}},{\\\"Host\\\":\\\"192.168.110.14\\\",\\\"Status\\\":{\\\"ZH\\\":\\\"上传安装包\\\",\\\"EN\\\":\\\"Prepare\\\"}}]}}",
                         "schema": {
                             "type": "string"
                         }
@@ -1660,6 +1708,16 @@ var doc = `{
                 ],
                 "description": "stop task by taskid",
                 "summary": "StopTask",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "608e9e83-715e-7448-a149-9bef33f38cfe",
+                        "description": "taskId",
+                        "name": "taskId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":nil}",
@@ -1677,6 +1735,16 @@ var doc = `{
                 ],
                 "description": "delete task by taskid",
                 "summary": "DeleteTask",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "608e9e83-715e-7448-a149-9bef33f38cfe",
+                        "description": "taskId",
+                        "name": "taskId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "{\"retCode\":\"0000\",\"retMsg\":\"success\",\"entity\":nil}",
@@ -1696,9 +1764,19 @@ var doc = `{
                 ],
                 "description": "Get ui schema",
                 "summary": "Get ui schema",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "deploy",
+                        "description": "type",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "{\"retCode\":\"5206\",\"retMsg\":\"get schema ui failed\",\"entity\":nil}",
                         "schema": {
                             "type": "string"
                         }
@@ -1775,7 +1853,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":[{\"host\":\"192.168.102.116\",\"version\":\"3.6.2\",\"server_state\":\"follower\",\"peer_state\":\"following - broadcast\",\"avg_latency\":0.4929,\"approximate_data_size\":141979,\"znode_count\":926}]}",
+                        "description": "{\"retCode\":\"5080\",\"retMsg\":\"get zk status fail\",\"entity\":null}",
                         "schema": {
                             "type": "string"
                         }

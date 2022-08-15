@@ -2,10 +2,11 @@ package controller
 
 import (
 	"fmt"
-	"github.com/housepower/ckman/repository"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/housepower/ckman/repository"
 
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/model"
@@ -29,7 +30,9 @@ func NewZookeeperController() *ZookeeperController {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"host":"192.168.102.116","version":"3.6.2","server_state":"follower","peer_state":"following - broadcast","avg_latency":0.4929,"approximate_data_size":141979,"znode_count":926}]}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{\"host\":\"192.168.110.8\",\"version\":\"3.8.0\",\"server_state\":\"follower\",\"peer_state\":\"following - broadcast\",\"avg_latency\":0.1456,\"approximate_data_size\":1451273,\"znode_count\":6485,\"outstanding_requests\":0,\"watch_count\":146},{\"host\":\"192.168.110.12\",\"version\":\"3.8.0\",\"server_state\":\"leader\",\"peer_state\":\"leading - broadcast\",\"avg_latency\":0.1118,\"approximate_data_size\":1451273,\"znode_count\":6485,\"outstanding_requests\":0,\"watch_count\":1},{\"host\":\"192.168.110.16\",\"version\":\"3.8.0\",\"server_state\":\"follower\",\"peer_state\":\"following - broadcast\",\"avg_latency\":0.2062,\"approximate_data_size\":1451273,\"znode_count\":6485,\"outstanding_requests\":0,\"watch_count\":58}]}"
+// @Failure 200 {string} json "{"retCode":"5202","retMsg":"cluster not exist","entity":null}"
+// @Failure 200 {string} json "{"retCode":"5080","retMsg":"get zk status fail","entity":null}"
 // @Router /api/v1/zk/status/{clusterName} [get]
 func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -88,6 +91,8 @@ func getZkStatus(host string, port int) ([]byte, error) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"retCode":"5202","retMsg":"cluster not exist","entity":null}"
+// @Failure 200 {string} json "{"retCode":"5080","retMsg":"get zk status fail","entity":null}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{"header":[["vm101106","vm101108"],["vm102114","vm101110"],["vm102116","vm102115"]],"tables":[{"name":"sensor_dt_result_online","values":[["l1846","f1846"],["l1845","f1845"],["l1846","f1846"]]}]}}"
 // @Router /api/v1/zk/replicated_table/{clusterName} [get]
 func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {

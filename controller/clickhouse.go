@@ -124,6 +124,7 @@ func (ck *ClickHouseController) ImportCluster(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":null}"
+// @Failure 200 {string} json "{"retCode":"5045","retMsg":"delete cluster failed","entity":""}"
 // @Router /api/v1/ck/cluster/{clusterName} [delete]
 func (ck *ClickHouseController) DeleteCluster(c *gin.Context) {
 	var err error
@@ -149,7 +150,7 @@ func (ck *ClickHouseController) DeleteCluster(c *gin.Context) {
 
 	if conf.LogicCluster != nil {
 		if err = deploy.ClearLogicCluster(conf.Cluster, *conf.LogicCluster, false); err != nil {
-			model.WrapMsg(c, model.DESTROY_CK_CLUSTER_FAIL, err)
+			model.WrapMsg(c, model.DELETE_CK_CLUSTER_FAIL, err)
 			_ = repository.Ps.Rollback()
 			return
 		}
@@ -189,6 +190,7 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok", "entity":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}"
+// @Failure 200 {string} json "{"retCode":"5065","retMsg":"get ClickHouse cluster information failed","entity":null}"
 // @Router /api/v1/ck/cluster [get]
 func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 	var err error
@@ -221,6 +223,7 @@ func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 // @Param req body model.CreateCkTableReq true "request body"
 // @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
 // @Failure 200 {string} json "{"retCode":"5001","retMsg":"create ClickHouse table failed","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5202","retMsg":"cluster not exist","entity":null}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/table/{clusterName} [post]
 func (ck *ClickHouseController) CreateTable(c *gin.Context) {
@@ -329,6 +332,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 // @Param req body model.DistLogicTableReq true "request body"
 // @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
 // @Failure 200 {string} json "{"retCode":"5001","retMsg":"create ClickHouse table failed","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5202","retMsg":"cluster not exist","entity":null}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":null}"
 // @Router /api/v1/ck/dist_logic_table/{clusterName} [post]
 func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
@@ -542,7 +546,6 @@ func (ck *ClickHouseController) AlterTableTTL(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Param req body model.AlterCkTableReq true "request body"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
 // @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"
@@ -567,7 +570,7 @@ func (ck *ClickHouseController) RestoreReplica(c *gin.Context) {
 
 	for _, host := range conf.Hosts {
 		if err := clickhouse.RestoreReplicaTable(&conf, host, database, tblName); err != nil {
-			model.WrapMsg(c, model.INVALID_PARAMS, err)
+			model.WrapMsg(c, model.RESTORE_REPLICA_FAIL, err)
 			return
 		}
 	}

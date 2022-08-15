@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/gin-gonic/gin"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 var MsgFlags_zh = map[string]string{
@@ -67,6 +68,7 @@ var MsgFlags_zh = map[string]string{
 	ARCHIVE_TO_HDFS_FAIL:        "归档到HDFS失败",
 	SHOW_SCHEMA_ERROR:           "查看建表语句失败",
 	GET_SCHEMA_UI_FAILED:        "获取前端schema失败",
+	RESTORE_REPLICA_FAIL:        "恢复只读状态失败",
 
 	UNKNOWN: "unknown",
 }
@@ -133,6 +135,7 @@ var MsgFlags_en = map[string]string{
 	ARCHIVE_TO_HDFS_FAIL:        "archive to hdfs failed",
 	SHOW_SCHEMA_ERROR:           "show create table schemer failed",
 	GET_SCHEMA_UI_FAILED:        "ger ui schema fialed",
+	RESTORE_REPLICA_FAIL:        "restore replica failed",
 	UNKNOWN:                     "unknown",
 }
 

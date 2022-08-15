@@ -1161,7 +1161,9 @@ func (ui *SchemaUIController) RegistSchemaInstance() {
 // @Description Get ui schema
 // @version 1.0
 // @Security ApiKeyAuth
+// @Param type query string true "type" default(deploy)
 // @Success 200 {string} json ""
+// @Failure 200 {string} json "{"retCode":"5206","retMsg":"get schema ui failed","entity":nil}"
 // @Router /api/v1/ui/schema [get]
 func (ui *SchemaUIController) GetUISchema(c *gin.Context) {
 	Type := c.Query("type")

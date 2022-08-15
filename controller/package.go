@@ -3,6 +3,13 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"os"
+	"path"
+	"path/filepath"
+
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
@@ -10,17 +17,11 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
-	"io"
-	"mime/multipart"
-	"net/http"
-	"os"
-	"path"
-	"path/filepath"
 )
 
 const (
-	FormPackageFieldName    string = "package"
-	InitialByClusterPeer    string = "is_initial_by_cluster_peer"
+	FormPackageFieldName string = "package"
+	InitialByClusterPeer string = "is_initial_by_cluster_peer"
 )
 
 type PackageController struct {
@@ -166,8 +167,9 @@ func UploadFileByURL(url string, localFile string) error {
 // @Description Get package list
 // @version 1.0
 // @Security ApiKeyAuth
+// @Param pkgType query string true "pkgType" default(all)
 // @Failure 200 {string} json "{"retCode":"5005","retMsg":"get package list failed","entity":""}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":["20.8.5.45"]}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"version":"22.3.9.19","pkgType":"x86_64.rpm","pkgName":"clickhouse-common-static-22.3.9.19.x86_64.rpm"}]}"
 // @Router /api/v1/package [get]
 func (p *PackageController) List(c *gin.Context) {
 	pkgType := c.Query("pkgType")
@@ -188,7 +190,7 @@ func (p *PackageController) List(c *gin.Context) {
 			}
 		}
 	} else {
-		v, _ := pkgs[pkgType]
+		v := pkgs[pkgType]
 		for _, p := range v {
 			pi := model.PkgInfo{
 				Version: p.Version,
@@ -205,8 +207,10 @@ func (p *PackageController) List(c *gin.Context) {
 // @Description Delete package
 // @version 1.0
 // @Security ApiKeyAuth
-// @Param packageVersion query string true "package version" default(20.8.5.45)
-// @Failure 200 {string} json "{"retCode":"5002","retMsg":"delete local package failed","entity":""}"
+// @Param packageVersion query string true "package version" default(22.3.9.19)
+// @Param pkgType query string true "package type" default(x86_64.rpm)
+// @Failure 200 {string} json "{"retCode":"5006","retMsg":"delete local package failed","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5007","retMsg":"delete peer package failed","entity":""}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":null}"
 // @Router /api/v1/package [delete]
 func (p *PackageController) Delete(c *gin.Context) {
