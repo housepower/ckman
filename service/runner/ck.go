@@ -106,34 +106,36 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 		index++
 	}
 
-	service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
-	if err != nil {
-		return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
-	}
-	_ = clickhouse.GetReplicaZkPath(conf)
-	var zooPaths []string
-	for _, path := range conf.ZooPath {
-		zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
-		zooPath = strings.Replace(zooPath, "{shard}", fmt.Sprintf("%d", shardNum+1), -1)
-		zooPaths = append(zooPaths, zooPath)
-	}
+	if conf.IsReplica {
+		service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
+		if err != nil {
+			return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
+		}
+		_ = clickhouse.GetReplicaZkPath(conf)
+		var zooPaths []string
+		for _, path := range conf.ZooPath {
+			zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
+			zooPath = strings.Replace(zooPath, "{shard}", fmt.Sprintf("%d", shardNum+1), -1)
+			zooPaths = append(zooPaths, zooPath)
+		}
 
-	for _, path := range zooPaths {
-		if ifDeleteShard {
-			//delete the shard
-			shardNode := fmt.Sprintf("%d", shardNum+1)
-			err = service.DeletePathUntilNode(path, shardNode)
-			if err != nil {
-				return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
-			}
-		} else {
-			// delete replica path
-			replicaName := conf.Shards[shardNum].Replicas[replicaNum].Ip
-			replicaPath := fmt.Sprintf("%s/replicas/%s", path, replicaName)
-			log.Logger.Debugf("replicaPath: %s", replicaPath)
-			err = service.DeleteAll(replicaPath)
-			if err != nil {
-				return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
+		for _, path := range zooPaths {
+			if ifDeleteShard {
+				//delete the shard
+				shardNode := fmt.Sprintf("%d", shardNum+1)
+				err = service.DeletePathUntilNode(path, shardNode)
+				if err != nil {
+					return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
+				}
+			} else {
+				// delete replica path
+				replicaName := conf.Shards[shardNum].Replicas[replicaNum].Ip
+				replicaPath := fmt.Sprintf("%s/replicas/%s", path, replicaName)
+				log.Logger.Debugf("replicaPath: %s", replicaPath)
+				err = service.DeleteAll(replicaPath)
+				if err != nil {
+					return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
+				}
 			}
 		}
 	}
@@ -143,12 +145,12 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 	d := deploy.NewCkDeploy(*conf)
 	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	d.Conf.Hosts = []string{ip}
-	if err = d.Stop(); err != nil {
+	if err := d.Stop(); err != nil {
 		log.Logger.Warnf("can't stop node %s, ignore it", ip)
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusUninstall, model.ALL_NODES_DEFAULT)
-	if err = d.Uninstall(); err != nil {
+	if err := d.Uninstall(); err != nil {
 		log.Logger.Warnf("can't uninsatll node %s, ignore it", ip)
 	}
 
@@ -179,10 +181,10 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 	d = deploy.NewCkDeploy(*conf)
 	d.Conf.Hosts = hosts
 	d.Conf.Shards = shards
-	if err = d.Init(); err != nil {
+	if err := d.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
-	if err = d.Config(); err != nil {
+	if err := d.Config(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
 
