@@ -306,15 +306,19 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	}
 
 	// sync zookeeper path
-	err = clickhouse.GetReplicaZkPath(&conf)
-	if err != nil {
-		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
-		return
-	}
+	if conf.IsReplica {
+		path, err := clickhouse.GetZkPath(ckService.DB, params.DB, params.Name)
+		if err != nil {
+			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
+			return
+		}
+		tableName := fmt.Sprintf("%s.%s", params.DB, params.Name)
+		conf.ZooPath[tableName] = path
 
-	if err = repository.Ps.UpdateCluster(conf); err != nil {
-		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
-		return
+		if err = repository.Ps.UpdateCluster(conf); err != nil {
+			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
+			return
+		}
 	}
 
 	if req.DryRun {
@@ -844,10 +848,12 @@ func (ck *ClickHouseController) StopCluster(c *gin.Context) {
 		we cant't get zookeeper path by querying ck,
 		so need to save the ZooKeeper path before stopping the cluster.
 	*/
-	err = clickhouse.GetReplicaZkPath(&conf)
-	if err != nil {
-		model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, err)
-		return
+	if conf.IsReplica {
+		err = clickhouse.GetReplicaZkPath(&conf)
+		if err != nil {
+			model.WrapMsg(c, model.STOP_CK_CLUSTER_FAIL, err)
+			return
+		}
 	}
 
 	common.CloseConns(conf.Hosts)

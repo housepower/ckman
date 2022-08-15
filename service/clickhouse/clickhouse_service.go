@@ -898,7 +898,7 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 	for _, database := range databases {
 		if tables, ok := dbtables[database]; ok {
 			for _, table := range tables {
-				path, err := getReplicaZkPath(service.DB, database, table)
+				path, err := GetZkPath(service.DB, database, table)
 				if err != nil {
 					return err
 				}
@@ -910,7 +910,7 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-func getReplicaZkPath(db *sql.DB, database, table string) (string, error) {
+func GetZkPath(db *sql.DB, database, table string) (string, error) {
 	var err error
 	var path string
 	var rows *sql.Rows
