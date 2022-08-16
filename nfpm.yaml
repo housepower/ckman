@@ -11,10 +11,6 @@ priority: "extra"
 provides:
 - ckman
 - ckmanpasswd
-- schemer
-- rebalancer
-- purger
-- exporter
 - migrate
 maintainer: "Zhichang Yu <yuzhichang@gmail.com>"
 description: |
@@ -24,16 +20,8 @@ license: "MIT"
 contents:
   - src: ./ckman
     dst: /usr/local/bin/ckman
-  - src: ./rebalancer
-    dst: /usr/local/bin/rebalancer
   - src: ./ckmanpasswd
     dst: /usr/local/bin/ckmanpasswd
-  - src: ./schemer
-    dst: /usr/local/bin/schemer
-  - src: ./purger
-    dst: /usr/local/bin/purger
-  - src: ./exporter
-    dst: /usr/local/bin/exporter
   - src: ./migrate
     dst: /usr/local/bin/migrate
   - src: ./README.md

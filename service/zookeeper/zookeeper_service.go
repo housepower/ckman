@@ -69,6 +69,9 @@ func GetZkService(clusterName string) (*ZkService, error) {
 }
 
 func (z *ZkService) GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.ZkReplicatedTableStatus, error) {
+	if !conf.IsReplica {
+		return nil, nil
+	}
 	err := clickhouse.GetReplicaZkPath(conf)
 	if err != nil {
 		return nil, err

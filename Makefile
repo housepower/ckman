@@ -29,10 +29,6 @@ backend:
 	@rm -rf ${PKGFULLDIR}
 	go build ${LDFLAGS}
 	go build ${LDFLAGS} -o ckmanpasswd password/password.go
-	go build ${LDFLAGS} -o schemer cmd/schemer/schemer.go
-	go build ${LDFLAGS} -o rebalancer cmd/rebalancer/rebalancer.go
-	go build ${LDFLAGS} -o exporter cmd/exporter/exporter.go
-	go build ${LDFLAGS} -o purger cmd/purger/purger.go
 	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
 
 .PHONY: pre
@@ -47,10 +43,6 @@ build:pre frontend
 	swag init
 	go build ${LDFLAGS}
 	go build ${LDFLAGS} -o ckmanpasswd password/password.go
-	go build ${LDFLAGS} -o schemer cmd/schemer/schemer.go
-	go build ${LDFLAGS} -o rebalancer cmd/rebalancer/rebalancer.go
-	go build ${LDFLAGS} -o exporter cmd/exporter/exporter.go
-	go build ${LDFLAGS} -o purger cmd/purger/purger.go
 	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
 
 .PHONY: package
@@ -59,10 +51,6 @@ package:build
 	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package ${PKGFULLDIR_TMP}/dbscript
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
-	@mv ${SHDIR}/rebalancer ${PKGFULLDIR_TMP}/bin
-	@mv ${SHDIR}/schemer ${PKGFULLDIR_TMP}/bin
-	@mv ${SHDIR}/exporter ${PKGFULLDIR_TMP}/bin
-	@mv ${SHDIR}/purger ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/migrate ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
