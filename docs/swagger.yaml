@@ -861,10 +861,13 @@ paths:
         name: clusterName
         required: true
         type: string
-      - default: "10"
-        description: sessions limit
+      - description: host
         in: query
-        name: limit
+        name: host
+        type: string
+      - description: query_id
+        in: query
+        name: query_id
         type: string
       responses:
         "200":
@@ -1286,6 +1289,16 @@ paths:
         in: path
         name: clusterName
         required: true
+        type: string
+      - default: default
+        description: filtered by database, if database is empty, select all databases
+        in: query
+        name: database
+        type: string
+      - default: columns,partitions,parts,compressed,uncompressed,is_readonly,queries,cost
+        description: return columns, if columns is empty, return all columns
+        in: query
+        name: columns
         type: string
       responses:
         "200":

@@ -1353,6 +1353,8 @@ func (ck *ClickHouseController) GetLog(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
+// @Param database query string false "filtered by database, if database is empty, select all databases" default(default)
+// @Param columns query string false "return columns, if columns is empty, return all columns" default(columns,partitions,parts,compressed,uncompressed,is_readonly,queries,cost)
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{"sensor_dt_result_online":{"columns":22,"rows":1381742496,"parts":192,"space":54967700946,"completedQueries":5,"failedQueries":0,"queryCost":{"middle":130,"secondaryMax":160.76,"max":162}}}}"
 // @Router /api/v1/ck/table_metric/{clusterName} [get]
 func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
@@ -1364,8 +1366,15 @@ func (ck *ClickHouseController) GetTableMetric(c *gin.Context) {
 		return
 	}
 
+	database := c.Query("database")
+	columns := c.Query("columns")
+	var cols []string
+	if columns != "" {
+		cols = strings.Split(columns, ",")
+	}
+
 	var gotError bool
-	metrics, err := clickhouse.GetCkTableMetrics(&conf)
+	metrics, err := clickhouse.GetCkTableMetrics(&conf, database, cols)
 	if err != nil {
 		gotError = true
 		var exception *client.Exception
@@ -1432,7 +1441,8 @@ func (ck *ClickHouseController) GetOpenSessions(c *gin.Context) {
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
-// @Param limit query string false "sessions limit" default(10)
+// @Param host query string false "host"
+// @Param query_id query string false "query_id"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"startTime":1609997894,"queryDuration":1,"query":"SELECT DISTINCT name FROM system.tables","user":"eoi","queryId":"62dce71d-9294-4e47-9d9b-cf298f73233d","address":"192.168.21.73","threads":2}]}"
 // @Router /api/v1/ck/open_sessions/{clusterName} [put]
 func (ck *ClickHouseController) KillOpenSessions(c *gin.Context) {

@@ -673,9 +673,14 @@ var doc = `{
                     },
                     {
                         "type": "string",
-                        "default": "10",
-                        "description": "sessions limit",
-                        "name": "limit",
+                        "description": "host",
+                        "name": "host",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "query_id",
+                        "name": "query_id",
                         "in": "query"
                     }
                 ],
@@ -1336,6 +1341,20 @@ var doc = `{
                         "name": "clusterName",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "default",
+                        "description": "filtered by database, if database is empty, select all databases",
+                        "name": "database",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "columns,partitions,parts,compressed,uncompressed,is_readonly,queries,cost",
+                        "description": "return columns, if columns is empty, return all columns",
+                        "name": "columns",
+                        "in": "query"
                     }
                 ],
                 "responses": {

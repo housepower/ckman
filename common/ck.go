@@ -88,12 +88,16 @@ func GetConnection(host string) *sql.DB {
 	return nil
 }
 
-func GetMergeTreeTables(engine string, db *sql.DB) ([]string, map[string][]string, error) {
+func GetMergeTreeTables(engine string, database string, db *sql.DB) ([]string, map[string][]string, error) {
 	var rows *sql.Rows
 	var databases []string
 	var err error
 	dbtables := make(map[string][]string)
-	query := fmt.Sprintf("SELECT DISTINCT  database, name FROM system.tables WHERE (match(engine, '%s')) AND (database != 'system') ORDER BY database", engine)
+	query := fmt.Sprintf("SELECT DISTINCT  database, name FROM system.tables WHERE (match(engine, '%s')) AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))", engine)
+	if database != "" {
+		query += fmt.Sprintf(" AND database = '%s'", database)
+	}
+	query += " ORDER BY database"
 	log.Logger.Debugf("query: %s", query)
 	if rows, err = db.Query(query); err != nil {
 		err = errors.Wrapf(err, "")
