@@ -182,9 +182,12 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 	diskMap := make(map[string]string, len(conf.Hosts))
 	uptimeMap := make(map[string]string, len(conf.Hosts))
 	var lock sync.RWMutex
+	var wg sync.WaitGroup
 	for _, host := range conf.Hosts {
 		innerHost := host
+		wg.Add(1)
 		_ = common.Pool.Submit(func() {
+			defer wg.Done()
 			tmp := &model.CKManClickHouseConfig{
 				Hosts:    []string{innerHost},
 				Port:     conf.Port,
@@ -207,7 +210,7 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 			}
 		})
 	}
-	common.Pool.Wait()
+	wg.Wait()
 	for i, shard := range conf.Shards {
 		for j, replica := range shard.Replicas {
 			status := model.CkClusterNode{
@@ -853,9 +856,12 @@ func getCkSessions(conf *model.CKManClickHouseConfig, limit int, query string) (
 	list := make([]*model.CkSessionInfo, 0)
 
 	var lastError error
+	var wg sync.WaitGroup
 	for _, host := range conf.Hosts {
 		innerHost := host
+		wg.Add(1)
 		_ = common.Pool.Submit(func() {
+			defer wg.Done()
 			service, err := GetCkNodeService(conf.Cluster, innerHost)
 			if err != nil {
 				log.Logger.Warnf("get ck node %s service error: %v", innerHost, err)
@@ -869,7 +875,7 @@ func getCkSessions(conf *model.CKManClickHouseConfig, limit int, query string) (
 			list = append(list, sessions...)
 		})
 	}
-	common.Pool.Wait()
+	wg.Wait()
 	if lastError != nil {
 		return nil, lastError
 	}
