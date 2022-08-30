@@ -339,9 +339,12 @@ func (this *CKRebalance) DoRebalance() (err error) {
 			this.GeneratePlan(fmt.Sprintf("%s.%s", database, table), tbls)
 
 			var gotError bool
+			var wg sync.WaitGroup
 			for i := 0; i < len(tbls); i++ {
 				tbl := tbls[i]
+				wg.Add(1)
 				_ = common.Pool.Submit(func() {
+					defer wg.Done()
 					if err := this.ExecutePlan(database, tbl); err != nil {
 						log.Logger.Errorf("host: %s, got error %+v", tbl.Host, err)
 						gotError = true
@@ -350,7 +353,7 @@ func (this *CKRebalance) DoRebalance() (err error) {
 					}
 				})
 			}
-			common.Pool.Wait()
+			wg.Wait()
 			if gotError {
 				return err
 			}

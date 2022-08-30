@@ -214,7 +214,10 @@ func (this *ArchiveHDFS) Export(host, table string, slots []time.Time) {
 func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {
 	colName := pattInfo[table][0]
 	colType := pattInfo[table][1]
+	var wg sync.WaitGroup
+	wg.Add(1)
 	_ = common.Pool.Submit(func() {
+		defer wg.Done()
 		hdfsTbl := "hdfs_" + table + "_" + slotBeg.Format(SlotTimeFormat)
 		for _, dir := range hdfsDir {
 			fp := filepath.Join(dir, host+"_"+slotBeg.Format(SlotTimeFormat)+".parquet")
@@ -243,7 +246,7 @@ func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEn
 			log.Logger.Infof("host %s, table %s, slot %d, export done", host, table, seq)
 		}
 	})
-	common.Pool.Wait()
+	wg.Wait()
 }
 
 func (this *ArchiveHDFS) ClearHDFS() error {
