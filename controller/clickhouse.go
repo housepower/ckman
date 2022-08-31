@@ -1115,6 +1115,11 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 	d := deploy.NewCkDeploy(conf)
 	d.Conf.Hosts = req.Ips
 	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
+	if reflect.DeepEqual(d.Packages, deploy.Packages{}) {
+		err := errors.Errorf("package %s %s not found in localpath", conf.Version, conf.PkgType)
+		model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
+		return
+	}
 	d.Conf.Shards = shards
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKAddNode, d)
