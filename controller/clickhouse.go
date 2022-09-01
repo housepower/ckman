@@ -2081,6 +2081,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 		cluster.SshPort == conf.SshPort &&
 		cluster.Password == conf.Password && !storageChanged && !expertChanged &&
 		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
+		cluster.ZkPort == conf.ZkPort && cluster.ZkStatusPort == conf.ZkStatusPort &&
 		!userconfChanged && !logicChaned {
 		return false, errors.Errorf("all config are the same, it's no need to update")
 	}
@@ -2138,6 +2139,8 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	cluster.Expert = conf.Expert
 	cluster.UsersConf = conf.UsersConf
 	cluster.LogicCluster = conf.LogicCluster
+	cluster.ZkPort = conf.ZkPort
+	cluster.ZkStatusPort = conf.ZkStatusPort
 	if err = common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err
 	}
