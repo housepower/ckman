@@ -3,10 +3,6 @@ FROM debian:stable-slim
 RUN mkdir -p /etc/ckman && cd /etc/ckman && \
     mkdir bin run logs conf package
 ADD ./ckman /etc/ckman/bin/ckman
-ADD ./purger /etc/ckman/bin/purger
-ADD ./exporter /etc/ckman/bin/exporter
-ADD ./rebalancer /etc/ckman/bin/rebalancer
-ADD ./schemer /etc/ckman/bin/schemer
 ADD ./migrate /etc/ckman/bin/migrate
 ADD ./ckmanpasswd /etc/ckman/bin/ckmanpasswd
 ADD ./README.md /etc/ckman/package/README.md
