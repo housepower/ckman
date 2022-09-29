@@ -50,6 +50,6 @@ func (p *TgzPkg) UpgradeCmd(pkgs Packages) string {
 	return p.InstallCmd(pkgs)
 }
 
-func (p *TgzPkg) Uninstall(pkgs Packages) string {
+func (p *TgzPkg) Uninstall(pkgs Packages, version string) string {
 	return fmt.Sprintf("rm -rf %s/*", pkgs.Cwd)
 }

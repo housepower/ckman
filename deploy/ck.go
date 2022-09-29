@@ -254,7 +254,7 @@ func (d *CKDeploy) Uninstall() error {
 	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmds := make([]string, 0)
-	cmds = append(cmds, cmdIns.Uninstall(d.Packages))
+	cmds = append(cmds, cmdIns.Uninstall(d.Packages, d.Conf.Version))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
 	if d.Conf.NeedSudo {
 		cmds = append(cmds, "rm -rf /etc/clickhouse-server")

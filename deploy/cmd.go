@@ -1,8 +1,9 @@
 package deploy
 
 import (
-	"github.com/housepower/ckman/common"
 	"strings"
+
+	"github.com/housepower/ckman/common"
 )
 
 type CmdAdpt interface {
@@ -11,7 +12,7 @@ type CmdAdpt interface {
 	RestartCmd(svr, cwd string) string
 	InstallCmd(pkgs Packages) string
 	UpgradeCmd(pkgs Packages) string
-	Uninstall(pkgs Packages) string
+	Uninstall(pkgs Packages, version string) string
 }
 
 type CmdFactory interface {

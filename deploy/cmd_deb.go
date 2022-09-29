@@ -1,9 +1,10 @@
 package deploy
 
 import (
-	"github.com/housepower/ckman/common"
 	"path"
 	"strings"
+
+	"github.com/housepower/ckman/common"
 )
 
 type DebFacotry struct{}
@@ -12,20 +13,20 @@ func (DebFacotry) Create() CmdAdpt {
 	return &DebPkg{}
 }
 
-type DebPkg struct {}
+type DebPkg struct{}
 
-func (p *DebPkg)StartCmd(svr, cwd string) string{
+func (p *DebPkg) StartCmd(svr, cwd string) string {
 	return "service " + svr + " start"
 }
-func (p *DebPkg)StopCmd(svr, cwd string) string{
+func (p *DebPkg) StopCmd(svr, cwd string) string {
 	return "service " + svr + " stop"
 }
 
-func (p *DebPkg)RestartCmd(svr, cwd string) string {
+func (p *DebPkg) RestartCmd(svr, cwd string) string {
 	return "service " + svr + " restart"
 }
 
-func (p *DebPkg)InstallCmd(pkgs Packages) string{
+func (p *DebPkg) InstallCmd(pkgs Packages) string {
 	for idx, pkg := range pkgs.PkgLists {
 		pkgs.PkgLists[idx] = path.Join(common.TmpWorkDirectory, pkg)
 	}
@@ -39,7 +40,6 @@ func (p *DebPkg) UpgradeCmd(pkgs Packages) string {
 	return "DEBIAN_FRONTEND=noninteractive dpkg -i " + strings.Join(pkgs.PkgLists, " ")
 }
 
-func (p *DebPkg) Uninstall(pkgs Packages) string {
+func (p *DebPkg) Uninstall(pkgs Packages, version string) string {
 	return "dpkg -P clickhouse-client clickhouse-common-static  clickhouse-server"
 }
-
