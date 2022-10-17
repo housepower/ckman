@@ -47,7 +47,9 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 		return
 	}
 
-	if err := checkDeployParams(&conf); err != nil {
+	force := common.TernaryExpression(c.Query("force") == "true", true, false).(bool)
+
+	if err := checkDeployParams(&conf, force); err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
@@ -63,7 +65,7 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, taskId)
 }
 
-func checkDeployParams(conf *model.CKManClickHouseConfig) error {
+func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 	var err error
 	if repository.Ps.ClusterExists(conf.Cluster) {
 		return errors.Errorf("cluster %s is exist", conf.Cluster)
@@ -103,6 +105,12 @@ func checkDeployParams(conf *model.CKManClickHouseConfig) error {
 	}
 	if conf.Hosts, err = common.ParseHosts(conf.Hosts); err != nil {
 		return err
+	}
+
+	if !force {
+		if err := common.CheckCkInstance(conf); err != nil {
+			return err
+		}
 	}
 
 	if err = MatchingPlatfrom(conf); err != nil {
