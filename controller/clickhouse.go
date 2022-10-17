@@ -1049,6 +1049,7 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 		return
 	}
 
+	force := common.TernaryExpression(c.Query("force") == "true", true, false).(bool)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
@@ -1121,6 +1122,13 @@ func (ck *ClickHouseController) AddNode(c *gin.Context) {
 		return
 	}
 	d.Conf.Shards = shards
+
+	if !force {
+		if err := common.CheckCkInstance(d.Conf); err != nil {
+			model.WrapMsg(c, model.ADD_CK_CLUSTER_NODE_FAIL, err)
+			return
+		}
+	}
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKAddNode, d)
 	if err != nil {
@@ -1803,12 +1811,13 @@ func (ck *ClickHouseController) ClusterSetting(c *gin.Context) {
 		return
 	}
 
+	force := common.TernaryExpression(c.Query("force") == "true", true, false).(bool)
 	if err := checkConfigParams(&conf); err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
 		return
 	}
 
-	restart, err := mergeClickhouseConfig(&conf)
+	restart, err := mergeClickhouseConfig(&conf, force)
 	if err != nil {
 		model.WrapMsg(c, model.CONFIG_CLUSTER_FAIL, err)
 		return
@@ -2064,7 +2073,7 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
+func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool, error) {
 	restart := false
 	cluster, err := repository.Ps.GetClusterbyName(conf.Cluster)
 	if err != nil {
@@ -2074,16 +2083,18 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig) (bool, error) {
 	expertChanged := !reflect.DeepEqual(cluster.Expert, conf.Expert)
 	userconfChanged := !reflect.DeepEqual(cluster.UsersConf, conf.UsersConf)
 	logicChaned := !reflect.DeepEqual(cluster.LogicCluster, conf.LogicCluster)
-	if cluster.Port == conf.Port &&
-		cluster.AuthenticateType == conf.AuthenticateType &&
-		cluster.SshUser == conf.SshUser &&
-		cluster.SshPassword == conf.SshPassword &&
-		cluster.SshPort == conf.SshPort &&
-		cluster.Password == conf.Password && !storageChanged && !expertChanged &&
-		cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
-		cluster.ZkPort == conf.ZkPort && cluster.ZkStatusPort == conf.ZkStatusPort &&
-		!userconfChanged && !logicChaned {
-		return false, errors.Errorf("all config are the same, it's no need to update")
+	if !force {
+		if cluster.Port == conf.Port &&
+			cluster.AuthenticateType == conf.AuthenticateType &&
+			cluster.SshUser == conf.SshUser &&
+			cluster.SshPassword == conf.SshPassword &&
+			cluster.SshPort == conf.SshPort &&
+			cluster.Password == conf.Password && !storageChanged && !expertChanged &&
+			cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
+			cluster.ZkPort == conf.ZkPort && cluster.ZkStatusPort == conf.ZkStatusPort &&
+			!userconfChanged && !logicChaned {
+			return false, errors.Errorf("all config are the same, it's no need to update")
+		}
 	}
 	if storageChanged {
 		diskMapping := make(map[string]int64)
