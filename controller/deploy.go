@@ -307,8 +307,8 @@ func checkAccess(localPath string, conf *model.CKManClickHouseConfig) error {
 		if conf.NeedSudo {
 			// create clickhouse group and user
 			var cmds []string
-			cmds = append(cmds, "groupadd -r clickhouse")
-			cmds = append(cmds, "useradd -r --shell /bin/false --home-dir /nonexistent")
+			//cmds = append(cmds, "groupadd -r clickhouse")
+			cmds = append(cmds, "useradd -r --shell /bin/false --home-dir /nonexistent clickhouse")
 			_, _ = common.RemoteExecute(sshOpts, strings.Join(cmds, ";"))
 		}
 		output, err := common.RemoteExecute(sshOpts, cmd)

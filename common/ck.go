@@ -236,11 +236,10 @@ func CheckCkInstance(conf *model.CKManClickHouseConfig) error {
 			AuthenticateType: conf.AuthenticateType,
 		}
 		result, err := RemoteExecute(sshOpts, cmd)
-		if err != nil {
-			return errors.Wrap(err, host)
-		}
-		if result != "" {
-			return errors.Errorf("host %s already have another clickhouse-server running(pid = %s)", host, result)
+		if err == nil {
+			if result != "" {
+				return errors.Errorf("host %s already have another clickhouse-server running(pid = %s)", host, result)
+			}
 		}
 	}
 	return nil
