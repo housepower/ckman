@@ -582,6 +582,38 @@ func (ck *ClickHouseController) RestoreReplica(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
+// @Summary RestoreReplica
+// @Description restore replica to  recover readonly
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"
+// @Router /api/v1/ck/table/orderby/{clusterName} [put]
+func (ck *ClickHouseController) SetOrderby(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	var req model.OrderbyReq
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+
+	err = clickhouse.SetTableOrderBy(&conf, req)
+	if err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+	model.WrapMsg(c, model.SUCCESS, nil)
+}
+
 // @Summary Delete Table
 // @Description Delete Table
 // @version 1.0

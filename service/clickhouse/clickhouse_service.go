@@ -6,6 +6,7 @@ import (
 	"math"
 	"net"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -759,6 +760,108 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 	}
 
 	return metrics, nil
+}
+
+func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) error {
+	hosts, err := common.GetShardAvaliableHosts(conf)
+	if err != nil {
+		return err
+	}
+	var wg sync.WaitGroup
+	var lastError error
+	for _, host := range hosts {
+		host := host
+		wg.Add(1)
+		common.Pool.Submit(func() {
+			defer wg.Done()
+			var createSql string
+			query := fmt.Sprintf(`SELECT replaceRegexpOne(create_table_query, 'ORDER BY \\(.*\\)', 'ORDER BY \\(%s\\)')
+FROM system.tables
+WHERE database = '%s' AND name = '%s'`, strings.Join(req.Orderby, ","), req.Database, req.Table)
+			log.Logger.Debugf("[%s]%s", host, query)
+			db, err := common.ConnectClickHouse(host, conf.Port, req.Database, conf.User, conf.Password)
+			if err != nil {
+				lastError = err
+				return
+			}
+			rows, err := db.Query(query)
+			if err != nil {
+				lastError = err
+				return
+			}
+			for rows.Next() {
+				err = rows.Scan(&createSql)
+				if err != nil {
+					lastError = err
+					return
+				}
+			}
+			if createSql == "" {
+				lastError = errors.New("creatSql is empty")
+				return
+			}
+			tmpSql := strings.ReplaceAll(createSql, fmt.Sprintf("CREATE TABLE %s.%s", req.Database, req.Table), fmt.Sprintf("CREATE TABLE %s.tmp_%s", req.Database, req.Table))
+			max_insert_threads := runtime.NumCPU()*3/4 + 1
+			queries := []string{
+				tmpSql,
+				fmt.Sprintf("INSERT INTO `%s`.`tmp_%s` SELECT * FROM `%s`.`%s` SETTINGS max_insert_threads=%d", req.Database, req.Table, req.Database, req.Table, max_insert_threads),
+				fmt.Sprintf("DROP TABLE `%s`.`%s`", req.Database, req.Table),
+				createSql,
+				fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`tmp_%s` SETTINGS max_insert_threads=%d", req.Database, req.Table, req.Database, req.Table, max_insert_threads),
+				fmt.Sprintf("DROP TABLE `%s`.`tmp_%s`", req.Database, req.Table),
+			}
+
+			for _, query := range queries {
+				log.Logger.Debugf("[%s]%s", host, query)
+				_, err = db.Exec(query)
+				if err != nil {
+					lastError = err
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
+	if lastError != nil {
+		return lastError
+	}
+
+	//alter distributed table
+	ck := NewCkService(conf)
+	if err = ck.InitCkService(); err != nil {
+		return err
+	}
+	deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC",
+		req.Database, ClickHouseDistributedTablePrefix, req.Table, conf.Cluster)
+	log.Logger.Debugf(deleteSql)
+	if _, err := ck.DB.Exec(deleteSql); err != nil {
+		return errors.Wrap(err, "")
+	}
+
+	create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
+		req.Database, ClickHouseDistributedTablePrefix, req.Table, conf.Cluster, req.Database, req.Table,
+		conf.Cluster, req.Database, req.Table)
+	log.Logger.Debugf(create)
+	if _, err := ck.DB.Exec(create); err != nil {
+		return errors.Wrap(err, "")
+	}
+
+	if conf.LogicCluster != nil {
+		distParams := model.DistLogicTblParams{
+			Database:     req.Database,
+			TableName:    req.Table,
+			ClusterName:  conf.Cluster,
+			LogicCluster: *conf.LogicCluster,
+		}
+		if err := ck.DeleteDistTblOnLogic(&distParams); err != nil {
+			return err
+		}
+		if err := ck.CreateDistTblOnLogic(&distParams); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func GetPartitions(conf *model.CKManClickHouseConfig, table string) (map[string]model.PartitionInfo, error) {

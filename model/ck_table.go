@@ -198,3 +198,9 @@ type QueryHistory struct {
 	QuerySql   string
 	CheckSum   string
 }
+
+type OrderbyReq struct {
+	Database string
+	Table    string
+	Orderby  []string
+}
