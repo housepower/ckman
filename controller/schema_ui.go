@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	GET_SCHEMA_UI_DEPLOY = "deploy"
-	GET_SCHEMA_UI_CONFIG = "config"
+	GET_SCHEMA_UI_DEPLOY    = "deploy"
+	GET_SCHEMA_UI_CONFIG    = "config"
+	GET_SCHEMA_UI_REBALANCE = "rebalance"
 )
 
 var SchemaUIMapping map[string]common.ConfigParams
@@ -22,8 +23,9 @@ var SchemaUIMapping map[string]common.ConfigParams
 type SchemaUIController struct{}
 
 var schemaHandleFunc = map[string]func() common.ConfigParams{
-	GET_SCHEMA_UI_DEPLOY: RegistCreateClusterSchema,
-	GET_SCHEMA_UI_CONFIG: RegistUpdateConfigSchema,
+	GET_SCHEMA_UI_DEPLOY:    RegistCreateClusterSchema,
+	GET_SCHEMA_UI_CONFIG:    RegistUpdateConfigSchema,
+	GET_SCHEMA_UI_REBALANCE: RegistRebalanceClusterSchema,
 }
 
 func getPkgType() []common.Candidate {
@@ -1150,6 +1152,46 @@ Non-professionals please do not fill in this`,
 	return params
 }
 
+func RegistRebalanceClusterSchema() common.ConfigParams {
+	var params common.ConfigParams = make(map[string]*common.Parameter)
+	var req model.RebalanceTableReq
+	params.MustRegister(req, "Keys", &common.Parameter{
+		LabelZH: "Keys",
+		LabelEN: "Keys",
+	})
+
+	var key model.RebalanceShardingkey
+	params.MustRegister(key, "Database", &common.Parameter{
+		LabelZH: "数据库名",
+		LabelEN: "Database",
+	})
+
+	params.MustRegister(key, "Table", &common.Parameter{
+		LabelZH:       "表名",
+		LabelEN:       "Table",
+		DescriptionZH: "支持正则表达式",
+		DescriptionEN: "support regexp pattern",
+	})
+
+	params.MustRegister(key, "Table", &common.Parameter{
+		LabelZH:       "表名",
+		LabelEN:       "Table",
+		DescriptionZH: "支持正则表达式",
+		DescriptionEN: "support regexp pattern",
+		Regexp:        "^\\^.*\\$$",
+	})
+
+	params.MustRegister(key, "ShardingKey", &common.Parameter{
+		LabelZH:       "ShardingKey",
+		LabelEN:       "ShardingKey",
+		DescriptionZH: "如果ShardingKey为空，则默认按照partition做数据均衡",
+		DescriptionEN: "if shardingkey is empty, then rebalance by partition default",
+		Required:      "false",
+	})
+
+	return params
+}
+
 func (ui *SchemaUIController) RegistSchemaInstance() {
 	SchemaUIMapping = make(map[string]common.ConfigParams)
 	for k, v := range schemaHandleFunc {
@@ -1171,19 +1213,37 @@ func (ui *SchemaUIController) GetUISchema(c *gin.Context) {
 		model.WrapMsg(c, model.INVALID_PARAMS, nil)
 		return
 	}
-	var conf model.CKManClickHouseConfig
-	typo := strings.ToLower(Type)
-	params := GetSchemaParams(typo, conf)
-	if params == nil {
-		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not regist", typo))
-		return
-	}
-	schema, err := params.MarshalSchema(conf)
-	if err != nil {
-		model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, err)
-		return
-	}
 
+	var schema string
+	var err error
+	switch Type {
+	case GET_SCHEMA_UI_CONFIG, GET_SCHEMA_UI_DEPLOY:
+		var conf model.CKManClickHouseConfig
+		typo := strings.ToLower(Type)
+		params := GetSchemaParams(typo, conf)
+		if params == nil {
+			model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not regist", typo))
+			return
+		}
+		schema, err = params.MarshalSchema(conf)
+		if err != nil {
+			model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, err)
+			return
+		}
+	case GET_SCHEMA_UI_REBALANCE:
+		var req model.RebalanceTableReq
+		typo := strings.ToLower(Type)
+		params, ok := SchemaUIMapping[typo]
+		if !ok {
+			model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, err)
+			return
+		}
+		schema, err = params.MarshalSchema(req)
+		if err != nil {
+			model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, err)
+			return
+		}
+	}
 	model.WrapMsg(c, model.SUCCESS, schema)
 }
 

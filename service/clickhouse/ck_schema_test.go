@@ -1,11 +1,12 @@
-package business
+package clickhouse
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestGetLogicSchema(t *testing.T) {

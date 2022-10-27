@@ -1,10 +1,11 @@
 package model
 
 import (
-	"github.com/housepower/ckman/log"
-	"github.com/pkg/errors"
 	"io"
 	"net/http"
+
+	"github.com/housepower/ckman/log"
+	"github.com/pkg/errors"
 
 	jsoniter "github.com/json-iterator/go"
 )

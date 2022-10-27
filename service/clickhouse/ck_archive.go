@@ -1,4 +1,4 @@
-package business
+package clickhouse
 
 import (
 	"database/sql"
@@ -54,27 +54,27 @@ var (
 	hdfsDir              []string
 )
 
-func (this *ArchiveHDFS) FillArchiveDefault() {
-	if this.HdfsUser == "" {
-		this.HdfsUser = HdfsUserDefault
+func (a *ArchiveHDFS) FillArchiveDefault() {
+	if a.HdfsUser == "" {
+		a.HdfsUser = HdfsUserDefault
 	}
-	if this.MaxFileSize == 0 {
-		this.MaxFileSize = MaxFileSizeDefault
+	if a.MaxFileSize == 0 {
+		a.MaxFileSize = MaxFileSizeDefault
 	}
-	if this.Database == "" {
-		this.Database = CKDatabaseDefault
+	if a.Database == "" {
+		a.Database = CKDatabaseDefault
 	}
-	if this.Parallelism == 0 {
-		this.Parallelism = ParallelismDefault
+	if a.Parallelism == 0 {
+		a.Parallelism = ParallelismDefault
 	}
 }
 
-func (this *ArchiveHDFS) InitConns() (err error) {
-	for _, host := range this.Hosts {
+func (a *ArchiveHDFS) InitConns() (err error) {
+	for _, host := range a.Hosts {
 		if len(host) == 0 {
 			continue
 		}
-		_, err = common.ConnectClickHouse(host, this.Port, this.Database, this.User, this.Password)
+		_, err = common.ConnectClickHouse(host, a.Port, a.Database, a.User, a.Password)
 		if err != nil {
 			return
 		}
@@ -83,17 +83,17 @@ func (this *ArchiveHDFS) InitConns() (err error) {
 	return
 }
 
-func (this *ArchiveHDFS) GetSortingInfo() (err error) {
+func (a *ArchiveHDFS) GetSortingInfo() (err error) {
 	pattInfo = make(map[string][]string)
-	for _, table := range this.Tables {
+	for _, table := range a.Tables {
 		var name, typ string
-		for _, host := range this.Hosts {
+		for _, host := range a.Hosts {
 			db := common.GetConnection(host)
 			if db == nil {
 				return fmt.Errorf("can't get connection: %s", host)
 			}
 			var rows *sql.Rows
-			query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type IN ('Date', 'DateTime')", this.Database, table)
+			query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type IN ('Date', 'DateTime')", a.Database, table)
 			log.Logger.Infof("host %s: query: %s", host, query)
 			if rows, err = db.Query(query); err != nil {
 				err = errors.Wrapf(err, "")
@@ -123,23 +123,23 @@ func (this *ArchiveHDFS) GetSortingInfo() (err error) {
 // P22 sorted data helps to predicate pushdown
 // P25 avoid many small files
 // P27 avoid few huge files - 1GB?
-func (this *ArchiveHDFS) GetSlots(host, table string) (slots []time.Time, err error) {
+func (a *ArchiveHDFS) GetSlots(host, table string) (slots []time.Time, err error) {
 	var sizePerRow float64
 	var rowsCnt uint64
 	var compressed uint64
 	// get size-per-row
-	if rowsCnt, err = this.SelectUint64(host, fmt.Sprintf("SELECT count() FROM %s", table)); err != nil {
+	if rowsCnt, err = a.SelectUint64(host, fmt.Sprintf("SELECT count() FROM %s", table)); err != nil {
 		return
 	}
 	if rowsCnt == 0 {
 		return
 	}
-	if compressed, err = this.SelectUint64(host, fmt.Sprintf("SELECT sum(data_compressed_bytes) AS compressed FROM system.parts WHERE database='%s' AND table='%s' AND active=1", this.Database, table)); err != nil {
+	if compressed, err = a.SelectUint64(host, fmt.Sprintf("SELECT sum(data_compressed_bytes) AS compressed FROM system.parts WHERE database='%s' AND table='%s' AND active=1", a.Database, table)); err != nil {
 		return
 	}
 	sizePerRow = float64(compressed) / float64(rowsCnt)
 
-	maxRowsCnt := uint64(float64(this.MaxFileSize) / sizePerRow)
+	maxRowsCnt := uint64(float64(a.MaxFileSize) / sizePerRow)
 	slots = make([]time.Time, 0)
 	var slot time.Time
 	db := common.GetConnection(host)
@@ -151,7 +151,7 @@ func (this *ArchiveHDFS) GetSlots(host, table string) (slots []time.Time, err er
 	colName := pattInfo[table][0]
 	colType := pattInfo[table][1]
 	var totalRowsCnt uint64
-	if totalRowsCnt, err = this.SelectUint64(host, fmt.Sprintf("SELECT count() FROM %s WHERE `%s`>=%s AND `%s`<%s", table, colName, formatDate(this.Begin, colType), colName, formatDate(this.End, colType))); err != nil {
+	if totalRowsCnt, err = a.SelectUint64(host, fmt.Sprintf("SELECT count() FROM %s WHERE `%s`>=%s AND `%s`<%s", table, colName, formatDate(a.Begin, colType), colName, formatDate(a.End, colType))); err != nil {
 		return
 	}
 	tblEstSize := totalRowsCnt * uint64(sizePerRow)
@@ -168,7 +168,7 @@ func (this *ArchiveHDFS) GetSlots(host, table string) (slots []time.Time, err er
 	for i, interval := range tryIntervals {
 		slots = slots[:0]
 		var rows1 *sql.Rows
-		query1 := fmt.Sprintf(sqlTmpl3, colName, interval, table, colName, formatDate(this.Begin, colType), colName, formatDate(this.End, colType))
+		query1 := fmt.Sprintf(sqlTmpl3, colName, interval, table, colName, formatDate(a.Begin, colType), colName, formatDate(a.End, colType))
 		log.Logger.Infof("host %s: query: %s", host, query1)
 		if rows1, err = db.Query(query1); err != nil {
 			err = errors.Wrapf(err, "")
@@ -195,7 +195,7 @@ func (this *ArchiveHDFS) GetSlots(host, table string) (slots []time.Time, err er
 	return
 }
 
-func (this *ArchiveHDFS) Export(host, table string, slots []time.Time) {
+func (a *ArchiveHDFS) Export(host, table string, slots []time.Time) {
 	var err error
 	for i := 0; i < len(slots); i++ {
 		var slotBeg, slotEnd time.Time
@@ -203,15 +203,15 @@ func (this *ArchiveHDFS) Export(host, table string, slots []time.Time) {
 		if i != len(slots)-1 {
 			slotEnd = slots[i+1]
 		} else {
-			if slotEnd, err = time.Parse(DateLayout, this.End); err != nil {
-				panic(fmt.Sprintf("BUG: failed to parse %s, layout %s", this.End, DateLayout))
+			if slotEnd, err = time.Parse(DateLayout, a.End); err != nil {
+				panic(fmt.Sprintf("BUG: failed to parse %s, layout %s", a.End, DateLayout))
 			}
 		}
-		this.ExportSlot(host, table, i, slotBeg, slotEnd)
+		a.ExportSlot(host, table, i, slotBeg, slotEnd)
 	}
 }
 
-func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {
+func (a *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEnd time.Time) {
 	colName := pattInfo[table][0]
 	colType := pattInfo[table][1]
 	var wg sync.WaitGroup
@@ -223,7 +223,7 @@ func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEn
 			fp := filepath.Join(dir, host+"_"+slotBeg.Format(SlotTimeFormat)+".parquet")
 			queries := []string{
 				fmt.Sprintf("DROP TABLE IF EXISTS %s", hdfsTbl),
-				fmt.Sprintf("CREATE TABLE %s AS %s ENGINE=HDFS('hdfs://%s%s', 'Parquet')", hdfsTbl, table, this.HdfsAddr, fp),
+				fmt.Sprintf("CREATE TABLE %s AS %s ENGINE=HDFS('hdfs://%s%s', 'Parquet')", hdfsTbl, table, a.HdfsAddr, fp),
 				fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>=%s AND `%s`<%s", hdfsTbl, table, colName, formatTimestamp(slotBeg, colType), colName, formatTimestamp(slotEnd, colType)),
 				fmt.Sprintf("DROP TABLE %s", hdfsTbl),
 			}
@@ -249,11 +249,11 @@ func (this *ArchiveHDFS) ExportSlot(host, table string, seq int, slotBeg, slotEn
 	wg.Wait()
 }
 
-func (this *ArchiveHDFS) ClearHDFS() error {
+func (a *ArchiveHDFS) ClearHDFS() error {
 	var err error
 	ops := hdfs.ClientOptions{
-		Addresses: []string{this.HdfsAddr},
-		User:      this.HdfsUser,
+		Addresses: []string{a.HdfsAddr},
+		User:      a.HdfsUser,
 	}
 	var hc *hdfs.Client
 	if hc, err = hdfs.NewClient(ops); err != nil {
@@ -262,10 +262,10 @@ func (this *ArchiveHDFS) ClearHDFS() error {
 		return err
 	}
 
-	slotBeg, _ := time.Parse(DateLayout, this.Begin)
-	slotEnd, _ := time.Parse(DateLayout, this.End)
-	for _, table := range this.Tables {
-		dir := path.Join(this.HdfsDir, table)
+	slotBeg, _ := time.Parse(DateLayout, a.Begin)
+	slotEnd, _ := time.Parse(DateLayout, a.End)
+	for _, table := range a.Tables {
+		dir := path.Join(a.HdfsDir, table)
 		hdfsDir = append(hdfsDir, dir)
 		_ = hc.Mkdir(dir, 0777)
 		var fileList []os.FileInfo
@@ -300,20 +300,20 @@ func (this *ArchiveHDFS) ClearHDFS() error {
 	return nil
 }
 
-func (this *ArchiveHDFS) ExportToHDFS() (err error) {
+func (a *ArchiveHDFS) ExportToHDFS() (err error) {
 	t0 := time.Now()
-	for i := 0; i < len(this.Hosts); i++ {
-		host := this.Hosts[i]
+	for i := 0; i < len(a.Hosts); i++ {
+		host := a.Hosts[i]
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			var slots []time.Time
-			for _, table := range this.Tables {
-				if slots, err = this.GetSlots(host, table); err != nil {
+			for _, table := range a.Tables {
+				if slots, err = a.GetSlots(host, table); err != nil {
 					log.Logger.Errorf("host %s: got error %+v", host, err)
 					return
 				}
-				this.Export(host, table, slots)
+				a.Export(host, table, slots)
 			}
 		}()
 	}
@@ -348,7 +348,7 @@ func formatTimestamp(ts time.Time, typ string) string {
 	return fmt.Sprintf("'%s'", ts.Format(DateLayout))
 }
 
-func (this *ArchiveHDFS) SelectUint64(host, query string) (res uint64, err error) {
+func (a *ArchiveHDFS) SelectUint64(host, query string) (res uint64, err error) {
 	db := common.GetConnection(host)
 	if db == nil {
 		log.Logger.Errorf("can't get connection:%s", host)

@@ -416,6 +416,25 @@ definitions:
           type: string
         type: array
     type: object
+  model.RebalanceShardingkey:
+    properties:
+      database:
+        example: default
+        type: string
+      shardingKey:
+        example: _timestamp
+        type: string
+      table:
+        example: t123
+        type: string
+    type: object
+  model.RebalanceTableReq:
+    properties:
+      keys:
+        items:
+          $ref: '#/definitions/model.RebalanceShardingkey'
+        type: array
+    type: object
   model.Storage:
     properties:
       disks:
@@ -1023,13 +1042,26 @@ paths:
       summary: QueryHistory
   /api/v1/ck/rebalance/{clusterName}:
     put:
-      description: Rebanlance a ClickHouse cluster
+      description: Rebanlance a ClickHouse cluster, if not point shardingkey, will
+        rebalance by partition
       parameters:
       - default: test
         description: cluster name
         in: path
         name: clusterName
         required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.RebalanceTableReq'
+      - default: "true"
+        description: if all = true, rebalance all tables, else only rebalance tables
+          witch in requests
+        in: query
+        name: all
         type: string
       responses:
         "200":

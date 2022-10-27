@@ -1000,6 +1000,20 @@ nacos:
 
 数据再均衡。
 
+数据再均衡提供了两种模式：按partition做rebalance，和按shardingkey做rebalance。
+
+在请求参数中，用户可以填写需要均衡的表名和shardingkey，表名支持正则表达式写法，如果shardingkey不填，则默认按照partition做rebalance。
+
+另外有一个可选的all选项，当all为true时，则会自动均衡所有的分布式表，如果all为false，则仅均衡请求中传过来的表。默认为true。
+
+#### 按partition做rebalance
+需要注意，如果集群为非副本模式，是通过rsync直接进行分区数据的迁移的，因此，需要机器提前安装好rsync工具，且需要保证clickhouse各节点之间配置ssh互信。如果部署时使用的是普通用户，则需要配置/etc/sudoers文件里该用户为NOPASSWD。
+
+为了保证数据均衡时不影响数据写入，最新的partition不参与数据的均衡。因此，分区粒度越细，均衡效果越好。
+#### 按shardingkey做rebalance
+shardingkey支持字符串、日期、数值等类型，如果是字符串，则使用xxHash该key，计算出一个数值，除以shard数目，余数为几，就落到哪个分区，如果是数值类型，也是一样，直接拿这个数值除以shard数目取余数。
+
+ckman会将计算出来的数据插入到对应分片的一个本地临时表内，然后清空正式表，再将临时表数据物理搬运过去。因此，在搬运期间如果失败，可能造成正式表数据丢失，但是临时表数据是全的，所以需要手动将临时表数据迁移回正式表。
 ### [GET]/api/v1/ck/slow_sessions/{clusterName}
 
 获取慢`SQL`查询。

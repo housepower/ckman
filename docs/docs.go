@@ -928,7 +928,7 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Rebanlance a ClickHouse cluster",
+                "description": "Rebanlance a ClickHouse cluster, if not point shardingkey, will rebalance by partition",
                 "summary": "Rebanlance a ClickHouse cluster",
                 "parameters": [
                     {
@@ -938,6 +938,22 @@ var doc = `{
                         "name": "clusterName",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.RebalanceTableReq"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "default": "true",
+                        "description": "if all = true, rebalance all tables, else only rebalance tables witch in requests",
+                        "name": "all",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2460,6 +2476,34 @@ var doc = `{
                         "t2",
                         "t3"
                     ]
+                }
+            }
+        },
+        "model.RebalanceShardingkey": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string",
+                    "example": "default"
+                },
+                "shardingKey": {
+                    "type": "string",
+                    "example": "_timestamp"
+                },
+                "table": {
+                    "type": "string",
+                    "example": "t123"
+                }
+            }
+        },
+        "model.RebalanceTableReq": {
+            "type": "object",
+            "properties": {
+                "keys": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.RebalanceShardingkey"
+                    }
                 }
             }
         },

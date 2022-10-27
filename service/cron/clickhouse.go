@@ -108,6 +108,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 		if err != nil {
 			return errors.Wrap(err, "")
 		}
+		defer rows.Close()
 		tblMap := make(common.Map)
 		for rows.Next() {
 			var name, typ string
@@ -157,6 +158,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 				if err != nil {
 					return errors.Wrap(err, "")
 				}
+				defer rows.Close()
 				needAlterDist := false
 				for rows.Next() {
 					var table string
@@ -270,6 +272,7 @@ WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_
 		if err != nil {
 			continue
 		}
+		defer rows.Close()
 		for rows.Next() {
 			var database, table, cluster, local string
 			_ = rows.Scan(&database, &table, &cluster, &local)
@@ -301,6 +304,7 @@ func syncDistTable(localTable, database string, conf model.CKManClickHouseConfig
 		if err != nil {
 			return errors.Wrap(err, host)
 		}
+		defer rows.Close()
 		tblMap := make(common.Map)
 		for rows.Next() {
 			var name, typ string
@@ -349,6 +353,7 @@ func syncDistTable(localTable, database string, conf model.CKManClickHouseConfig
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var table string
 		var count int

@@ -1,4 +1,4 @@
-package business
+package clickhouse
 
 import (
 	"database/sql"

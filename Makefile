@@ -28,7 +28,7 @@ frontend:
 backend:
 	@rm -rf ${PKGFULLDIR}
 	go build ${LDFLAGS}
-	go build ${LDFLAGS} -o ckmanpasswd password/password.go
+	go build ${LDFLAGS} -o ckmanpasswd cmd/password/password.go
 	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
 
 .PHONY: pre
@@ -42,7 +42,7 @@ build:pre frontend
 	pkger
 	swag init
 	go build ${LDFLAGS}
-	go build ${LDFLAGS} -o ckmanpasswd password/password.go
+	go build ${LDFLAGS} -o ckmanpasswd cmd/password/password.go
 	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
 
 .PHONY: package

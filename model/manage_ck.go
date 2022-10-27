@@ -59,3 +59,21 @@ type ArchiveTableReq struct {
 	HdfsDir     string   `json:"hdfsdir" example:"/data01"`
 	Parallelism int      `json:"parallelism" example:"4"`
 }
+
+type RebalanceShardingkey struct {
+	Database     string   `json:"database" example:"default"`
+	Table        string   `json:"table" example:"t123"`
+	ShardingKey  string   `json:"shardingKey" example:"_timestamp"`
+	ShardingType TypeInfo `json:"-"`
+	DistTable    string
+}
+
+type RebalanceTableReq struct {
+	Keys []RebalanceShardingkey `json:"keys"`
+}
+
+type TypeInfo struct {
+	Type     int
+	Nullable bool
+	Array    bool
+}

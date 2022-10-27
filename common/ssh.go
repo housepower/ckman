@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -200,6 +201,7 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 				break
 			}
 			*output = append(*output, b)
+			//log.Logger.Debugf("out: %v", string(*output))
 			if b == byte('\n') {
 				line = ""
 				continue
@@ -207,6 +209,13 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 			line += string(b)
 			// TODO I have no idea to slove this problem: "xxx is not in the sudoers file.  This incident will be reported."
 			if strings.HasPrefix(line, "[sudo] password for ") && strings.HasSuffix(line, ": ") {
+				_, err = in.Write([]byte(password + "\n"))
+				if err != nil {
+					break
+				}
+			}
+			reg, _ := regexp.Compile(".*@.*'s password:")
+			if reg.MatchString(line) {
 				_, err = in.Write([]byte(password + "\n"))
 				if err != nil {
 					break

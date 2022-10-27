@@ -1,4 +1,4 @@
-package business
+package clickhouse
 
 import (
 	"database/sql"
@@ -32,12 +32,12 @@ func NewPurgerRange(hosts []string, port int, user string, password string, data
 	}
 }
 
-func (this *PurgerRange) InitConns() (err error) {
-	for _, host := range this.Hosts {
+func (p *PurgerRange) InitConns() (err error) {
+	for _, host := range p.Hosts {
 		if len(host) == 0 {
 			continue
 		}
-		_, err = common.ConnectClickHouse(host, this.Port, this.Database, this.User, this.Password)
+		_, err = common.ConnectClickHouse(host, p.Port, p.Database, p.User, p.Password)
 		if err != nil {
 			return
 		}
@@ -47,16 +47,16 @@ func (this *PurgerRange) InitConns() (err error) {
 }
 
 // purgeTable purges specified time range
-func (this *PurgerRange) PurgeTable(table string) (err error) {
+func (p *PurgerRange) PurgeTable(table string) (err error) {
 	var dateExpr []string
 	// ensure the table is partitioned by a Date/DateTime column
-	for _, host := range this.Hosts {
+	for _, host := range p.Hosts {
 		db := common.GetConnection(host)
 		if db == nil {
 			return fmt.Errorf("can't get connection:%s", host)
 		}
 		var rows *sql.Rows
-		query := fmt.Sprintf("SELECT count(), max(max_date)!='1970-01-01', max(toDate(max_time))!='1970-01-01' FROM system.parts WHERE database='%s' AND table='%s'", this.Database, table)
+		query := fmt.Sprintf("SELECT count(), max(max_date)!='1970-01-01', max(toDate(max_time))!='1970-01-01' FROM system.parts WHERE database='%s' AND table='%s'", p.Database, table)
 		log.Logger.Infof("host %s: query: %s", host, query)
 		if rows, err = db.Query(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -87,14 +87,14 @@ func (this *PurgerRange) PurgeTable(table string) (err error) {
 	}
 
 	// ensure no partition runs across the time range boundary
-	for _, host := range this.Hosts {
+	for _, host := range p.Hosts {
 		db := common.GetConnection(host)
 		if db == nil {
 			log.Logger.Errorf("can't get connection: %s", host)
 			return
 		}
 		var rows *sql.Rows
-		query := fmt.Sprintf("SELECT partition FROM (SELECT partition, countIf(%s>='%s' AND %s<'%s') AS c1, countIf(%s<'%s' OR %s>='%s') AS c2 FROM system.parts WHERE database='%s' AND table='%s' GROUP BY partition HAVING c1!=0 AND c2!=0)", dateExpr[0], this.Begin, dateExpr[1], this.End, dateExpr[0], this.Begin, dateExpr[1], this.End, this.Database, table)
+		query := fmt.Sprintf("SELECT partition FROM (SELECT partition, countIf(%s>='%s' AND %s<'%s') AS c1, countIf(%s<'%s' OR %s>='%s') AS c2 FROM system.parts WHERE database='%s' AND table='%s' GROUP BY partition HAVING c1!=0 AND c2!=0)", dateExpr[0], p.Begin, dateExpr[1], p.End, dateExpr[0], p.Begin, dateExpr[1], p.End, p.Database, table)
 		log.Logger.Infof("host %s: query: %s", host, query)
 		if rows, err = db.Query(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -113,14 +113,14 @@ func (this *PurgerRange) PurgeTable(table string) (err error) {
 	}
 
 	// purge partitions
-	for _, host := range this.Hosts {
+	for _, host := range p.Hosts {
 		db := common.GetConnection(host)
 		if db == nil {
 			log.Logger.Errorf("can't get connection: %s", host)
 			return
 		}
 		var rows *sql.Rows
-		query := fmt.Sprintf("SELECT DISTINCT partition FROM system.parts WHERE database='%s' AND table='%s' AND %s>='%s' AND %s<'%s' ORDER BY partition;", this.Database, table, dateExpr[0], this.Begin, dateExpr[1], this.End)
+		query := fmt.Sprintf("SELECT DISTINCT partition FROM system.parts WHERE database='%s' AND table='%s' AND %s>='%s' AND %s<'%s' ORDER BY partition;", p.Database, table, dateExpr[0], p.Begin, dateExpr[1], p.End)
 		log.Logger.Infof("host %s: query: %s", host, query)
 		if rows, err = db.Query(query); err != nil {
 			err = errors.Wrapf(err, "")
