@@ -713,13 +713,24 @@ func (ck *ClickHouseController) DescTable(c *gin.Context) {
 // @Router /api/v1/ck/query/{clusterName} [get]
 func (ck *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
+	host := c.Query("host")
 	query := c.Query("query")
 	query = strings.TrimRight(strings.TrimSpace(query), ";")
 
-	ckService, err := clickhouse.GetCkService(clusterName)
-	if err != nil {
-		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
-		return
+	var ckService *clickhouse.CkService
+	var err error
+	if host == "" {
+		ckService, err = clickhouse.GetCkService(clusterName)
+		if err != nil {
+			model.WrapMsg(c, model.QUERY_CK_FAIL, err)
+			return
+		}
+	} else {
+		ckService, err = clickhouse.GetCkNodeService(clusterName, host)
+		if err != nil {
+			model.WrapMsg(c, model.QUERY_CK_FAIL, err)
+			return
+		}
 	}
 
 	data, err := ckService.QueryInfo(query)
