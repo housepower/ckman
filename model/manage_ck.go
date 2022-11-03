@@ -65,7 +65,7 @@ type RebalanceShardingkey struct {
 	Table        string   `json:"table" example:"t123"`
 	ShardingKey  string   `json:"shardingKey" example:"_timestamp"`
 	ShardingType TypeInfo `json:"-"`
-	DistTable    string
+	DistTable    string   `json:"-"`
 }
 
 type RebalanceTableReq struct {
