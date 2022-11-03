@@ -182,6 +182,8 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 		_ = clickhouse.GetCkClusterConfig(&cluster)
 	}
 	cluster.Normalize()
+	// if lots of tables, body will very large, but we don't need it
+	cluster.ZooPath = make(map[string]string)
 	model.WrapMsg(c, model.SUCCESS, cluster)
 }
 
@@ -209,6 +211,8 @@ func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 			}
 		}
 		cluster.Normalize()
+		// if lots of tables, body will very large, but we don't need it
+		cluster.ZooPath = make(map[string]string)
 		clusters[key] = cluster
 	}
 

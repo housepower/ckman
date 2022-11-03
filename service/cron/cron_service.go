@@ -39,12 +39,18 @@ func (job *CronService) Start() error {
 		log.Logger.Debugf("node %s:%d is not master, skip all cron jobs", config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
 		return nil
 	}
+	if !job.config.Enabled {
+		return nil
+	}
 	job.schedulePadding()
 	job.cron.Start()
 	for k, v := range JobList {
 		k := k
 		v := v
 		if spec, ok := job.jobSchedules[k]; ok {
+			if spec == SCHEDULE_DISABLED {
+				continue
+			}
 			_, _ = job.cron.AddFunc(spec, func() {
 				_ = v()
 			})

@@ -23,6 +23,7 @@ type ClusterNode struct {
 }
 
 type CronJob struct {
+	Enabled            bool
 	SyncLogicSchema    string `yaml:"sync_logic_schema"`
 	WatchClusterStatus string `yaml:"watch_cluster_status"`
 	SyncDistSchema     string `yaml:"sync_dist_schema"`
@@ -92,6 +93,7 @@ func fillDefault(c *CKManConfig) {
 	c.Server.CertFile = path.Join(GetWorkDirectory(), "conf", "server.crt")
 	c.Server.KeyFile = path.Join(GetWorkDirectory(), "conf", "server.key")
 	c.Server.TaskInterval = 5
+	c.Cron.Enabled = true
 }
 
 func ParseConfigFile(path, version string) error {
