@@ -232,6 +232,14 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 				fmt.Sprintf("ALTER TABLE %s FETCH PARTITION '%s' FROM '%s'", tbl.Table, patt, tbl.ZooPath),
 				fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt),
 			}
+			if strings.Contains(patt, "(") && strings.Contains(patt, ")") {
+				// This implies that the partition name contains tuple. Removing quotes
+				dstQuires = []string{
+					fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION %s ", tbl.Table, patt),
+					fmt.Sprintf("ALTER TABLE %s FETCH PARTITION %s FROM '%s'", tbl.Table, patt, tbl.ZooPath),
+					fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION %s", tbl.Table, patt),
+				}
+			}
 			for _, query := range dstQuires {
 				log.Logger.Infof("host %s: query: %s", dstHost, query)
 				if _, err = dstChConn.Exec(query); err != nil {
@@ -246,6 +254,10 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 				return fmt.Errorf("can't get connection: %s", tbl.Host)
 			}
 			query := fmt.Sprintf("ALTER TABLE %s DROP PARTITION '%s'", tbl.Table, patt)
+			if strings.Contains(patt, "(") && strings.Contains(patt, ")") {
+				// This implies that the partition name contains tuple. Removing quotes
+				query = fmt.Sprintf("ALTER TABLE %s DROP PARTITION %s", tbl.Table, patt)
+			}
 			if _, err = srcChConn.Exec(query); err != nil {
 				log.Logger.Infof("host %s: query: %s", tbl.Host, query)
 				err = errors.Wrapf(err, "")
@@ -271,6 +283,10 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 		srcDir := dstDir + "/"
 
 		query := fmt.Sprintf("ALTER TABLE %s DETACH PARTITION '%s'", tbl.Table, patt)
+		if strings.Contains(patt, "(") && strings.Contains(patt, ")") {
+			// This implies that the partition name contains tuple. Removing quotes
+			query = fmt.Sprintf("ALTER TABLE %s DETACH PARTITION %s", tbl.Table, patt)
+		}
 		log.Logger.Infof("host: %s, query: %s", tbl.Host, query)
 		if _, err = srcCkConn.Exec(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -297,8 +313,10 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 			return
 		}
 		log.Logger.Debugf("host: %s, output: %s", tbl.Host, out)
-
 		query = fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt)
+		if strings.Contains(patt, "(") && strings.Contains(patt, ")") {
+			query = fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION %s", tbl.Table, patt)
+		}
 		log.Logger.Infof("host: %s, query: %s", dstHost, query)
 		if _, err = dstCkConn.Exec(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -308,6 +326,9 @@ func (this *CKRebalance) ExecutePlan(database string, tbl *TblPartitions) (err e
 		lock.Unlock()
 
 		query = fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION '%s'", tbl.Table, patt)
+		if strings.Contains(patt, "(") && strings.Contains(patt, ")") {
+			query = fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION %s", tbl.Table, patt)
+		}
 		log.Logger.Infof("host: %s, query: %s", tbl.Host, query)
 		if _, err = srcCkConn.Exec(query); err != nil {
 			err = errors.Wrapf(err, "")
