@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/go-errors/errors"
-	jsoniter "github.com/json-iterator/go"
 	"io"
 	"net/http"
 	"os"
 	"runtime/debug"
 	"time"
+
+	"github.com/go-errors/errors"
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/patrickmn/go-cache"
 
@@ -33,9 +34,9 @@ var json = jsoniter.ConfigCompatibleWithStandardLibrary
 const ENV_CKMAN_SWAGGER string = "ENV_CKMAN_SWAGGER"
 
 type ApiServer struct {
-	config      *config.CKManConfig
-	svr         *http.Server
-	signal      chan os.Signal
+	config *config.CKManConfig
+	svr    *http.Server
+	signal chan os.Signal
 }
 
 func NewApiServer(config *config.CKManConfig, signal chan os.Signal) *ApiServer {
@@ -229,7 +230,7 @@ func ginJWTAuth() gin.HandlerFunc {
 		// Verify client ip
 		if claims.ClientIP != c.ClientIP() {
 			err := errors.Errorf("cliams.ClientIP: %s, c.ClientIP:%s", claims.ClientIP, c.ClientIP())
-			model.WrapMsg(c, model.JWT_TOKEN_IP_MISMATCH, err)
+			model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, err)
 			c.Abort()
 			return
 		}
