@@ -65,7 +65,7 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 func SetConnOptions(conn *sql.DB) {
 	// for some reason, if lots of tables, query from system tables will be slowly, and can't finish immediately, and when we flush the web page, then blocked.
 	conn.SetMaxOpenConns(10)
-	conn.SetMaxIdleConns(0)
+	conn.SetMaxIdleConns(2) //do not close all idle connect
 	conn.SetConnMaxIdleTime(10 * time.Second)
 }
 

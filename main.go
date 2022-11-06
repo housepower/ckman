@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -55,6 +56,8 @@ func main() {
 		fmt.Printf("Parse config file %s fail: %v\n", ConfigFilePath, err)
 		os.Exit(1)
 	}
+	var conf config.CKManConfig
+	_ = common.DeepCopyByGob(&conf, &config.GlobalConfig)
 	err := common.Gsypt.Unmarshal(&config.GlobalConfig)
 	if err != nil {
 		fmt.Printf("gsypt config file %s fail: %v\n", ConfigFilePath, err)
@@ -85,7 +88,8 @@ func main() {
 	log.Logger.Infof("version: %v", Version)
 	log.Logger.Infof("build time: %v", BuildTimeStamp)
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
-
+	//dump config to log must ensure the password not be decode
+	DumpConfig(conf)
 	selfIP := common.GetOutboundIP().String()
 	if config.GlobalConfig.Server.Ip == "" {
 		config.GlobalConfig.Server.Ip = selfIP
@@ -215,4 +219,13 @@ func InitCmd() {
 	fmt.Println("ckman is used to manager and monitor clickhouse")
 	fmt.Printf("ckman-%v is running...\n", Version)
 	fmt.Printf("See more information in %s\n", LogFilePath)
+}
+
+func DumpConfig(conf config.CKManConfig) {
+	data, err := json.MarshalIndent(conf, "", "  ")
+	if err != nil {
+		log.Logger.Errorf("marshal error: %v", err)
+		return
+	}
+	log.Logger.Infof("%v", string(data))
 }

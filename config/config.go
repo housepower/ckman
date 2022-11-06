@@ -122,20 +122,12 @@ func ParseConfigFile(p, version string) error {
 	configFmt := path.Ext(p)
 	switch configFmt {
 	case FORMAT_JSON, FORMAT_HJSON:
-		return parseConfigwithHjson(data)
+		return hjson.Unmarshal(data, &GlobalConfig)
 	case FORMAT_YAML:
-		return parseConfigwithYaml(data)
+		return yaml.Unmarshal(data, &GlobalConfig)
 	default:
 		return fmt.Errorf("config format %s unsupported yet", configFmt)
 	}
-}
-
-func parseConfigwithYaml(data []byte) error {
-	return yaml.Unmarshal(data, &GlobalConfig)
-}
-
-func parseConfigwithHjson(data []byte) error {
-	return hjson.Unmarshal(data, &GlobalConfig)
 }
 
 func MarshConfigFile() error {
