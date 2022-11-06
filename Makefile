@@ -36,6 +36,7 @@ pre:
 	go mod tidy
 	go install github.com/markbates/pkger/cmd/pkger@v0.17.1
 	go install github.com/swaggo/swag/cmd/swag@v1.7.1
+	go install github.com/hjson/hjson-go/hjson-cli@latest
 
 .PHONY: build
 build:pre frontend
@@ -44,6 +45,11 @@ build:pre frontend
 	go build ${LDFLAGS}
 	go build ${LDFLAGS} -o ckmanpasswd cmd/password/password.go
 	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
+
+.PHONY:check
+check:pre
+	hjson-cli -j resources/ckman.hjson |jq
+	hjson-cli -j resources/migrate.hjson |jq
 
 .PHONY: package
 package:build
@@ -54,14 +60,13 @@ package:build
 	@mv ${SHDIR}/migrate ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
-	@cp ${SHDIR}/resources/ckman.yaml ${PKGFULLDIR_TMP}/conf/ckman.yaml
-	@cp ${SHDIR}/resources/migrate.yaml ${PKGFULLDIR_TMP}/conf/migrate.yaml
+	@cp ${SHDIR}/resources/ckman.hjson ${PKGFULLDIR_TMP}/conf/ckman.hjson
+	@cp ${SHDIR}/resources/migrate.hjson ${PKGFULLDIR_TMP}/conf/migrate.hjson
 	@cp ${SHDIR}/resources/password ${PKGFULLDIR_TMP}/conf/password
 	@cp ${SHDIR}/resources/server.key ${PKGFULLDIR_TMP}/conf/server.key
 	@cp ${SHDIR}/resources/server.crt ${PKGFULLDIR_TMP}/conf/server.crt
 	@cp ${SHDIR}/resources/postgres.sql ${PKGFULLDIR_TMP}/dbscript/postgres.sql
 	@cp ${SHDIR}/README.md ${PKGFULLDIR_TMP}
-	@test ! -f resources/eoi_public_key.pub || (sed -i "s|#public_key:|${PUB_KEY}|" ${PKGFULLDIR_TMP}/conf/ckman.yaml)
 	@mv ${PKGFULLDIR_TMP} ${PKGFULLDIR}
 	@echo "create ${TARNAME} from ${PKGDIR}"
 	@tar -czf ${TARNAME} ${PKGDIR}

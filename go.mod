@@ -39,6 +39,7 @@ require (
 require (
 	github.com/bramvdbogaerde/go-scp v1.2.0
 	github.com/go-basic/uuid v1.0.0
+	github.com/hjson/hjson-go/v4 v4.2.0
 	github.com/imdario/mergo v0.3.12
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/wanlay/gorm-dm8 v1.0.5

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
@@ -395,9 +396,9 @@ func (lp *LocalPersistent) GetTaskbyTaskId(id string) (model.Task, error) {
 func (lp *LocalPersistent) marshal() ([]byte, error) {
 	var data []byte
 	var err error
-	if lp.Config.Format == FORMAT_JSON {
+	if lp.Config.Format == config.FORMAT_JSON {
 		data, err = json.MarshalIndent(lp.Data, "", "  ")
-	} else if lp.Config.Format == FORMAT_YAML {
+	} else if lp.Config.Format == config.FORMAT_YAML {
 		data, err = yaml.Marshal(lp.Data)
 	}
 	if err != nil {
@@ -413,9 +414,9 @@ func (lp *LocalPersistent) unmarshal(data []byte) error {
 		return nil
 	}
 
-	if lp.Config.Format == FORMAT_JSON {
+	if lp.Config.Format == config.FORMAT_JSON {
 		err = json.Unmarshal(data, &lp.Data)
-	} else if lp.Config.Format == FORMAT_YAML {
+	} else if lp.Config.Format == config.FORMAT_YAML {
 		err = yaml.Unmarshal(data, &lp.Data)
 	}
 

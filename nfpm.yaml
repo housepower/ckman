@@ -26,11 +26,11 @@ contents:
     dst: /usr/local/bin/migrate
   - src: ./README.md
     dst: /etc/ckman/package/README.md
-  - src: ./resources/ckman.yaml
-    dst: /etc/ckman/conf/ckman.yaml
+  - src: ./resources/ckman.hjson
+    dst: /etc/ckman/conf/ckman.hjson
     type: config|noreplace
-  - src: ./resources/migrate.yaml
-    dst: /etc/ckman/conf/migrate.yaml
+  - src: ./resources/migrate.hjson
+    dst: /etc/ckman/conf/migrate.hjson
     type: config|noreplace
   - src: ./resources/password
     dst: /etc/ckman/conf/password

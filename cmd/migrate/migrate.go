@@ -3,50 +3,27 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"os"
+
+	"github.com/hjson/hjson-go/v4"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/repository"
 	_ "github.com/housepower/ckman/repository/local"
 	_ "github.com/housepower/ckman/repository/mysql"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v3"
-	"io"
-	"os"
 )
 
-/**
+/*
+*
 auto migrate cluster config between diffrent persistent policy
 eg.
-   migrate --config=/etc/ckman/conf/migrate.yaml
-migrate.yaml if config file, like this:
-source: local1
-target: mysql
-persistent_config:
-  local1:
-    policy: local
-    config:
-      format: json
-      config_dir: /etc/ckman/conf
-      config_file: clusters
 
-  local2:
-    policy: local
-    config:
-      format: yaml
-      config_dir: /etc/ckman/conf
-      config_file: clusters
-
-  mysql:
-    policy: mysql
-    config:
-      host: 127.0.0.1
-      port: 3306
-      user: root
-      password: 123456
-      database: ckman_db
+	migrate --config=/etc/ckman/conf/migrate.hjson
 */
 type CmdOptions struct {
-	ShowVer     bool
+	ShowVer    bool
 	ConfigFile string
 }
 
@@ -58,7 +35,7 @@ type PersistentConfig struct {
 type MigrateConfig struct {
 	Source string
 	Target string
-	PsConf map[string]PersistentConfig	`yaml:"persistent_config"`
+	PsConf map[string]PersistentConfig `json:"persistent_config"`
 }
 
 var (
@@ -71,8 +48,8 @@ var (
 
 func initCmdOptions() {
 	cmdOps = CmdOptions{
-		ShowVer:false,
-		ConfigFile: "/etc/ckman/conf/migrate.yaml",
+		ShowVer:    false,
+		ConfigFile: "/etc/ckman/conf/migrate.hjson",
 	}
 	common.EnvBoolVar(&cmdOps.ShowVer, "v")
 	common.EnvStringVar(&cmdOps.ConfigFile, "config")
@@ -82,7 +59,7 @@ func initCmdOptions() {
 	flag.Parse()
 }
 
-func ParseConfig()(MigrateConfig, error) {
+func ParseConfig() (MigrateConfig, error) {
 	var config MigrateConfig
 	f, err := os.Open(cmdOps.ConfigFile)
 	if err != nil {
@@ -97,14 +74,14 @@ func ParseConfig()(MigrateConfig, error) {
 	if len(data) == 0 {
 		return MigrateConfig{}, errors.New("empty config file")
 	}
-	err = yaml.Unmarshal(data, &config)
+	err = hjson.Unmarshal(data, &config)
 	if err != nil {
 		return MigrateConfig{}, errors.Wrap(err, "")
 	}
 	return config, nil
 }
 
-func PersistentCheck(config MigrateConfig, typo string)(repository.PersistentMgr, error){
+func PersistentCheck(config MigrateConfig, typo string) (repository.PersistentMgr, error) {
 	var ps repository.PersistentMgr
 	conf, ok := config.PsConf[typo]
 	if !ok {
@@ -121,13 +98,13 @@ func PersistentCheck(config MigrateConfig, typo string)(repository.PersistentMgr
 	return ps, nil
 }
 
-func Migrate()error{
+func Migrate() error {
 	clusters, err := psrc.GetAllClusters()
 	if err != nil {
 		return err
 	}
 
-	if len(clusters) == 0  {
+	if len(clusters) == 0 {
 		log.Logger.Warnf("clusters have 0 records, will migrate nothing")
 	}
 
@@ -186,7 +163,7 @@ func Migrate()error{
 	return nil
 }
 
-func main(){
+func main() {
 	log.InitLoggerConsole()
 	initCmdOptions()
 	if cmdOps.ShowVer {

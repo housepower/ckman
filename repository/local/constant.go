@@ -1,11 +1,7 @@
 package local
 
 const (
-	LocalPersistentName string = "local"
-	FORMAT_JSON         string = "json"
-	FORMAT_YAML         string = "yaml" //todo not support yet
-
+	LocalPersistentName    string = "local"
 	ClickHouseClustersFile string = "clusters"
-
 	ClickHouseClusterDir   string = "conf"
 )

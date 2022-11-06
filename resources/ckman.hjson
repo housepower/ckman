@@ -1,0 +1,66 @@
+// ckman config file
+// All password can be encrypt by ENC(xxxxxxxxx),
+// you can get encrypt password by using: ./ckman --encrypt 123456 to get password like: E310E892E56801CED9ED98AA177F18E6
+// If password not including by ENC(), that means it's a plaintext.
+// hjson(https://hjson.github.io/)  is easy for humans to read and write.
+ 
+{
+  "server":{
+    "port": 8808,
+    "https": false,
+    //certfile:
+    //keyfile:
+    "pprof": true,
+    "session_timeout": 3600,
+    //support local, mysql, postgres
+    "persistent_policy": "local",
+    "task_interval": 5
+    //public_key:
+  },
+
+  "log":{
+    "level": "INFO",
+    "max_count": 5,
+    // megabyte
+    "max_size": 10,
+    // day
+    "max_age": 10
+  },
+
+  // cron job task
+  "cron":{
+    "sync_logic_schema": "0 * * * * ?",
+    "watch_cluster_status": "0 */3 * * * ?",
+    "sync_dist_schema": "30 */10 * * * ?"
+  },
+
+  //"persistent_config":{ 
+  //  // if peristent_policy is mysql, must config this
+  //  "mysql":{
+  //    "host": "127.0.0.1",
+  //    "port": 3306,
+  //    "user": "root",
+  //    // you can use ./ckman --encrypt 123456 to get password like: E310E892E56801CED9ED98AA177F18E6
+  //    "password": "ENC(E310E892E56801CED9ED98AA177F18E6)",
+  //    // database must be created before start ckman
+  //    "database": "ckman_db"
+  //  },
+  //  "local":{
+  //    "format": "json"
+  //    "config_dir": "/etc/ckman/conf"
+  //    "config_file": "clusters"
+  //  }
+  //},
+
+  "nacos":{
+    "enabled": false,
+    "hosts":[
+      "127.0.0.1"
+    ],
+    "port": 8848,
+    "user_name": "nacos",
+    // you can use './ckman --encrypt nacos' to get password like: A7561228101CB07938FAFF00C4444546
+    "password": "ENC(A7561228101CB07938FAFF00C4444546)"
+    //namespace:
+  }
+}

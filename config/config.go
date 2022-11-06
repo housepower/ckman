@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -8,14 +9,20 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hjson/hjson-go/v4"
 	"github.com/pkg/errors"
-
 	"gopkg.in/yaml.v3"
 )
 
 var GlobalConfig CKManConfig
 var ClusterNodes []ClusterNode = nil
 var ClusterMutex sync.RWMutex
+
+const (
+	FORMAT_JSON  string = ".json"
+	FORMAT_HJSON string = ".hjson"
+	FORMAT_YAML  string = ".yaml"
+)
 
 type ClusterNode struct {
 	Ip   string `json:"ip"`
@@ -24,19 +31,19 @@ type ClusterNode struct {
 
 type CronJob struct {
 	Enabled            bool
-	SyncLogicSchema    string `yaml:"sync_logic_schema"`
-	WatchClusterStatus string `yaml:"watch_cluster_status"`
-	SyncDistSchema     string `yaml:"sync_dist_schema"`
+	SyncLogicSchema    string `yaml:"sync_logic_schema" json:"sync_logic_schema"`
+	WatchClusterStatus string `yaml:"watch_cluster_status" json:"watch_cluster_status"`
+	SyncDistSchema     string `yaml:"sync_dist_schema" json:"sync_dist_schema"`
 }
 
 type CKManConfig struct {
-	ConfigFile       string `yaml:"-"`
+	ConfigFile       string `yaml:"-" json:"-"`
 	Server           CKManServerConfig
 	Log              CKManLogConfig
-	PersistentConfig map[string]map[string]interface{} `yaml:"persistent_config"`
+	PersistentConfig map[string]map[string]interface{} `yaml:"persistent_config" json:"persistent_config"`
 	Nacos            CKManNacosConfig
 	Cron             CronJob
-	Version          string `yaml:"-"`
+	Version          string `yaml:"-" json:"-"`
 }
 
 type CKManServerConfig struct {
@@ -47,18 +54,18 @@ type CKManServerConfig struct {
 	CertFile         string `yaml:"certfile"`
 	KeyFile          string `yaml:"keyfile"`
 	Pprof            bool
-	SessionTimeout   int    `yaml:"session_timeout"`
-	SwaggerEnable    bool   `yaml:"swagger_enable"`
-	PublicKey        string `yaml:"public_key"`
-	PersistentPolicy string `yaml:"persistent_policy"`
-	TaskInterval     int    `yaml:"task_interval"`
+	SessionTimeout   int    `yaml:"session_timeout" json:"session_timeout"`
+	SwaggerEnable    bool   `yaml:"swagger_enable" json:"swagger_enable"`
+	PublicKey        string `yaml:"public_key" json:"public_key"`
+	PersistentPolicy string `yaml:"persistent_policy" json:"persistent_policy"`
+	TaskInterval     int    `yaml:"task_interval" json:"task_interval"`
 }
 
 type CKManLogConfig struct {
 	Level    string
-	MaxCount int `yaml:"max_count"`
-	MaxSize  int `yaml:"max_size"`
-	MaxAge   int `yaml:"max_age"`
+	MaxCount int `yaml:"max_count" json:"max_count"`
+	MaxSize  int `yaml:"max_size" json:"max_size"`
+	MaxAge   int `yaml:"max_age" json:"max_age"`
 }
 
 type CKManPprofConfig struct {
@@ -71,11 +78,11 @@ type CKManNacosConfig struct {
 	Enabled   bool
 	Hosts     []string
 	Port      uint64
-	UserName  string `yaml:"user_name"`
+	UserName  string `yaml:"user_name" json:"user_name"`
 	Password  string
 	Namespace string
 	Group     string
-	DataID    string `yaml:"data_id"`
+	DataID    string `yaml:"data_id" json:"data_id"`
 }
 
 func fillDefault(c *CKManConfig) {
@@ -96,8 +103,8 @@ func fillDefault(c *CKManConfig) {
 	c.Cron.Enabled = true
 }
 
-func ParseConfigFile(path, version string) error {
-	f, err := os.Open(path)
+func ParseConfigFile(p, version string) error {
+	f, err := os.Open(p)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -108,15 +115,27 @@ func ParseConfigFile(path, version string) error {
 		return errors.Wrap(err, "")
 	}
 
-	GlobalConfig.ConfigFile = path
+	GlobalConfig.ConfigFile = p
 	GlobalConfig.Version = version
 
 	fillDefault(&GlobalConfig)
-	err = yaml.Unmarshal(data, &GlobalConfig)
-	if err != nil {
-		return errors.Wrap(err, "")
+	configFmt := path.Ext(p)
+	switch configFmt {
+	case FORMAT_JSON, FORMAT_HJSON:
+		return parseConfigwithHjson(data)
+	case FORMAT_YAML:
+		return parseConfigwithYaml(data)
+	default:
+		return fmt.Errorf("config format %s unsupported yet", configFmt)
 	}
-	return nil
+}
+
+func parseConfigwithYaml(data []byte) error {
+	return yaml.Unmarshal(data, &GlobalConfig)
+}
+
+func parseConfigwithHjson(data []byte) error {
+	return hjson.Unmarshal(data, &GlobalConfig)
 }
 
 func MarshConfigFile() error {
