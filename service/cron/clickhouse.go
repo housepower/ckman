@@ -166,7 +166,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 					if err = rows.Scan(&table, &count); err != nil {
 						return errors.Wrap(err, "")
 					}
-					needAlterDist = (count == len(allCols))
+					needAlterDist = (count != len(allCols))
 					if needAlterDist {
 						break
 					}
@@ -360,7 +360,7 @@ func syncDistTable(localTable, database string, conf model.CKManClickHouseConfig
 		if err = rows.Scan(&table, &count); err != nil {
 			return errors.Wrap(err, "")
 		}
-		needAlterDist = (count == len(allCols))
+		needAlterDist = (count != len(allCols))
 	}
 	for host, db := range dbLists {
 		if needAlterDist {
