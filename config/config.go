@@ -39,11 +39,18 @@ type CronJob struct {
 type CKManConfig struct {
 	ConfigFile       string `yaml:"-" json:"-"`
 	Server           CKManServerConfig
+	ClickHouse       ClickHouseOpts
 	Log              CKManLogConfig
 	PersistentConfig map[string]map[string]interface{} `yaml:"persistent_config" json:"persistent_config"`
 	Nacos            CKManNacosConfig
 	Cron             CronJob
 	Version          string `yaml:"-" json:"-"`
+}
+
+type ClickHouseOpts struct {
+	MaxOpenConns    int `yaml:"max_open_conns" json:"max_open_conns"`
+	MaxIdleConns    int `yaml:"max_idle_conns" json:"max_idle_conns"`
+	ConnMaxIdleTime int `yaml:"conn_max_idle_time" json:"conn_max_idle_time"`
 }
 
 type CKManServerConfig struct {
@@ -101,6 +108,9 @@ func fillDefault(c *CKManConfig) {
 	c.Server.KeyFile = path.Join(GetWorkDirectory(), "conf", "server.key")
 	c.Server.TaskInterval = 5
 	c.Cron.Enabled = true
+	c.ClickHouse.MaxOpenConns = 10
+	c.ClickHouse.MaxIdleConns = 2
+	c.ClickHouse.ConnMaxIdleTime = 10
 }
 
 func ParseConfigFile(p, version string) error {

@@ -27,6 +27,16 @@
     "max_age": 10
   },
 
+  // clickhouse connect pool options
+  "clickhouse":{
+    //sets the maximum number of open connections to the database
+    "max_open_conns": 10,
+    //sets the maximum number of connections in the idle
+    "max_idle_conns": 2,
+    //sets the maximum amount of time a connection may be idle.
+    "conn_max_idle_time": 10
+  },
+
   // cron job task
   "cron":{
     "sync_logic_schema": "0 * * * * ?",
