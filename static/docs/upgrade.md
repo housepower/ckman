@@ -10,7 +10,7 @@ systemctl stop ckman
 ```bash
 rpm  -Uvh ckman-x.x.x-x86_64.rpm
 ```
-注意`rpm`升级配置文件仍然会使用旧版本的，默认的配置文件会重命名为`ckman.yaml.rpmnew`（`password`文件同理）。
+注意`rpm`升级配置文件仍然会使用旧版本的，默认的配置文件会重命名为`ckman.hjson.rpmnew`（`password`文件同理）。
 
 重新启动`ckman`：
 ```bash
@@ -25,7 +25,7 @@ bin/stop
 ```
 备份配置文件：
 ```bash
-cp conf/ckman.yaml conf/ckman.yaml.last
+cp conf/ckman.hjson conf/ckman.hjson.last
 cp conf/password conf/password.last
 ```
 解压最新下载的安装包覆盖掉旧版本的安装目录：
@@ -34,7 +34,7 @@ tar -xzvf ckman-x.x.x-YYDDMM.Linux.x86_64.tar.gz -C ${WORKDIR}
 ```
 替换配置文件：
 ```bash
-cp conf/ckman.yaml.last conf/ckman.yaml
+cp conf/ckman.hjson.last conf/ckman.hjson
 cp conf/password.last conf/password
 ```
 重新启动`ckman`服务：

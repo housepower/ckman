@@ -37,6 +37,8 @@ pre:
 	go install github.com/markbates/pkger/cmd/pkger@v0.17.1
 	go install github.com/swaggo/swag/cmd/swag@v1.7.1
 	go install github.com/hjson/hjson-go/hjson-cli@latest
+	go install github.com/mbrukman/yaml2json/cmd/{yaml2json,json2yaml}@latest
+	
 
 .PHONY: build
 build:pre frontend
@@ -60,6 +62,7 @@ package:build
 	@mv ${SHDIR}/migrate ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
+	@cp ${SHDIR}/resources/yaml2json ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/ckman.hjson ${PKGFULLDIR_TMP}/conf/ckman.hjson
 	@cp ${SHDIR}/resources/migrate.hjson ${PKGFULLDIR_TMP}/conf/migrate.hjson
 	@cp ${SHDIR}/resources/password ${PKGFULLDIR_TMP}/conf/password

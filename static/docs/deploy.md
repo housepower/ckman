@@ -95,7 +95,7 @@ rpm -ivh ckman-1.3.1.x86_64.rpm
 #### 方式一：
 
 ```bash
-/usr/local/bin/ckman -c=/etc/ckman/conf/ckman.yaml -p=/run/ckman/ckman.pid -l=/var/log/ckman/ckman.log -d
+/usr/local/bin/ckman -c=/etc/ckman/conf/ckman.hjson -p=/run/ckman/ckman.pid -l=/var/log/ckman/ckman.log -d
 ```
 
 #### 方式二：

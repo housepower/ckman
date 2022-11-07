@@ -3,4 +3,4 @@
 DIR=$(cd "$(dirname "$0")" && pwd)
 HDIR=$(dirname $DIR)
 
-env GODEBUG=madvdontneed=1 GOTRACEBACK=crash $HDIR/bin/ckman -c=$HDIR/conf/ckman.yaml -p=$HDIR/run/ckman.pid -l=$HDIR/logs/ckman.log -d
+env GODEBUG=madvdontneed=1 GOTRACEBACK=crash $HDIR/bin/ckman -c=$HDIR/conf/ckman.hjson -p=$HDIR/run/ckman.pid -l=$HDIR/logs/ckman.log -d

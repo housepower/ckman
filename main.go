@@ -191,7 +191,7 @@ func InitCmd() {
 		Use: "ckman",
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&ConfigFilePath, "conf", "c", "conf/ckman.yaml", "Task file path")
+	rootCmd.PersistentFlags().StringVarP(&ConfigFilePath, "conf", "c", "conf/ckman.hjson", "Task file path")
 	rootCmd.PersistentFlags().StringVarP(&LogFilePath, "log", "l", "logs/ckman.log", "Log file path")
 	rootCmd.PersistentFlags().StringVarP(&PidFilePath, "pid", "p", "run/ckman.pid", "Pid file path")
 	rootCmd.PersistentFlags().StringVarP(&EncryptPassword, "encrypt", "e", "", "encrypt password")
