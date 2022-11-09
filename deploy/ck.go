@@ -46,8 +46,6 @@ func NewCkDeploy(conf model.CKManClickHouseConfig) *CKDeploy {
 func (d *CKDeploy) Init() error {
 	d.Conf.Normalize()
 	d.HostInfos = make([]ckconfig.HostInfo, len(d.Conf.Hosts))
-	HostNameMap := make(map[string]bool)
-	var lock sync.RWMutex
 	var lastError error
 	var wg sync.WaitGroup
 	d.Ext.Ipv6Enable = true
@@ -102,8 +100,6 @@ func (d *CKDeploy) Init() error {
 	if lastError != nil {
 		return lastError
 	}
-
-	clusterNodeNum := 0
 	lastError = nil
 	for shardIndex, shard := range d.Conf.Shards {
 		for replicaIndex, replica := range shard.Replicas {
@@ -129,10 +125,6 @@ func (d *CKDeploy) Init() error {
 					hostname = innerReplica.Ip
 				}
 				d.Conf.Shards[innerShardIndex].Replicas[innerReplicaIndex].HostName = hostname
-				lock.Lock()
-				HostNameMap[hostname] = true
-				lock.Unlock()
-				clusterNodeNum++
 			})
 		}
 	}
@@ -141,9 +133,6 @@ func (d *CKDeploy) Init() error {
 		return lastError
 	}
 
-	if len(HostNameMap) != clusterNodeNum {
-		return errors.Errorf("host name are the same")
-	}
 	log.Logger.Infof("init done")
 	return nil
 }
