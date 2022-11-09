@@ -101,6 +101,7 @@ func profiles(userProfiles []model.Profile, info HostInfo) map[string]interface{
 				prof.MaxMemoryUsageForAllQueries = int64(((info.MemoryTotal * 3) / 4) * 1e3)
 			}
 			normalProfile["max_memory_usage_for_all_queries"] = prof.MaxMemoryUsageForAllQueries
+			normalProfile["max_execution_time"] = prof.MaxExecutionTime
 			mergo.Merge(&normalProfile, expert(prof.Expert))
 			profileMap[prof.Name] = normalProfile
 		}

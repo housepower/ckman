@@ -10,7 +10,7 @@
             <quota>default</quota>
         </default>
         <eoitek>
-            <database>
+            <databases>
                 <itoa>
                     <tbl_t3>
                         <filter>id &lt;= 30000</filter>
@@ -24,7 +24,7 @@
                         <filter>id &gt; 5000</filter>
                     </tbl_t2>
                 </test>
-            </database>
+            </databases>
             <networks>
                 <host>ck08</host>
                 <host>ck10</host>

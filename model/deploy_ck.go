@@ -184,6 +184,7 @@ type Profile struct {
 	// https://clickhouse.tech/docs/en/operations/settings/query-complexity/
 	MaxMemoryUsage              int64
 	MaxMemoryUsageForAllQueries int64
+	MaxExecutionTime            int64
 	Expert                      map[string]string
 }
 

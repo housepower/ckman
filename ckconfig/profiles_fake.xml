@@ -13,6 +13,7 @@
         </default>
         <readonly>
             <allow_ddl>1</allow_ddl>
+            <max_execution_time>0</max_execution_time>
             <max_memory_usage>0</max_memory_usage>
             <max_memory_usage_for_all_queries>0</max_memory_usage_for_all_queries>
             <max_threads>16</max_threads>
@@ -20,6 +21,7 @@
         </readonly>
         <readwrite>
             <allow_ddl>0</allow_ddl>
+            <max_execution_time>30</max_execution_time>
             <max_memory_usage>2147483648</max_memory_usage>
             <max_memory_usage_for_all_queries>2576980377</max_memory_usage_for_all_queries>
             <max_threads>32</max_threads>

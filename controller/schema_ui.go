@@ -520,6 +520,13 @@ Non-professionals please do not fill in this`,
 		DescriptionEN: "In a single ClickHouse service process, all running queries are accumulated together to limit the maximum memory usage. The default value is 0 and no limit is imposed.",
 		Required:      "false",
 	})
+	params.MustRegister(profile, "MaxExecutionTime", &common.Parameter{
+		LabelZH:       "SQL超时时间",
+		LabelEN:       "MaxExecutionTime",
+		DescriptionZH: "如果查询运行时间超过指定的秒数，则行为将由“timeout_overflow_mode”确定，默认情况下为 - 引发异常。请注意，在数据处理过程中，将检查超时，查询只能在指定位置停止。它目前无法在聚合状态合并或查询分析期间停止，实际运行时间将高于此设置的值。",
+		DescriptionEN: "If query run time exceeded the specified number of seconds, the behavior will be determined by the 'timeout_overflow_mode' which by default is - throw an exception. Note that the timeout is checked and query can stop only in designated places during data processing. It currently cannot stop during merging of aggregation states or during query analysis, and the actual run time will be higher than the value of this setting.",
+		Required:      "false",
+	})
 	params.MustRegister(profile, "Expert", &common.Parameter{
 		LabelZH:       "专家配置",
 		LabelEN:       "Expert",
@@ -1074,6 +1081,13 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "MaxMemoryUsageForAllQueries",
 		DescriptionZH: "在单个ClickHouse服务进程中，所有运行的查询累加在一起，限制使用的最大内存用量，默认为0不做限制",
 		DescriptionEN: "In a single ClickHouse service process, all running queries are accumulated together to limit the maximum memory usage. The default value is 0 and no limit is imposed.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxExecutionTime", &common.Parameter{
+		LabelZH:       "SQL超时时间",
+		LabelEN:       "MaxExecutionTime",
+		DescriptionZH: "如果查询运行时间超过指定的秒数，则行为将由“timeout_overflow_mode”确定，默认情况下为 - 引发异常。请注意，在数据处理过程中，将检查超时，查询只能在指定位置停止。它目前无法在聚合状态合并或查询分析期间停止，实际运行时间将高于此设置的值。",
+		DescriptionEN: "If query run time exceeded the specified number of seconds, the behavior will be determined by the 'timeout_overflow_mode' which by default is - throw an exception. Note that the timeout is checked and query can stop only in designated places during data processing. It currently cannot stop during merging of aggregation states or during query analysis, and the actual run time will be higher than the value of this setting.",
 		Required:      "false",
 	})
 	params.MustRegister(profile, "Expert", &common.Parameter{

@@ -66,6 +66,7 @@ func TestProfiles(t *testing.T) {
 			MaxThreads:                  32,
 			MaxMemoryUsage:              2147483648,
 			MaxMemoryUsageForAllQueries: 2576980377,
+			MaxExecutionTime:            30,
 		},
 		{
 			Name: "readonly",
