@@ -1,6 +1,7 @@
 package model
 
 import (
+	"regexp"
 	"strings"
 )
 
@@ -262,6 +263,38 @@ func (config *CKManClickHouseConfig) UnWatch(host string) {
 		for j, replica := range shard.Replicas {
 			if host == ALL_NODES_DEFAULT || host == replica.Ip {
 				config.Shards[i].Replicas[j].Watch = false
+			}
+		}
+	}
+}
+
+func (config *CKManClickHouseConfig) Pack() {
+	config.ZooPath = make(map[string]string)
+	config.Password = strings.Repeat("*", len(config.Password))
+	if config.SshPassword != "" {
+		config.SshPassword = strings.Repeat("*", len(config.SshPassword))
+	}
+	if len(config.UsersConf.Users) > 0 {
+		for idx, user := range config.UsersConf.Users {
+			config.UsersConf.Users[idx].Password = strings.Repeat("*", len(user.Password))
+		}
+	}
+}
+
+func (config *CKManClickHouseConfig) UnPack(conf CKManClickHouseConfig) {
+	reg := regexp.MustCompile(`^\*{1,}$`)
+	if reg.MatchString(config.Password) {
+		config.Password = conf.Password
+	}
+	if reg.MatchString(config.SshPassword) {
+		config.SshPassword = conf.SshPassword
+	}
+	for idx, user := range config.UsersConf.Users {
+		if reg.MatchString(user.Password) {
+			for _, u := range conf.UsersConf.Users {
+				if u.Name == user.Name {
+					config.UsersConf.Users[idx].Password = u.Password
+				}
 			}
 		}
 	}

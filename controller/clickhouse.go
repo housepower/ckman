@@ -182,8 +182,7 @@ func (ck *ClickHouseController) GetCluster(c *gin.Context) {
 		_ = clickhouse.GetCkClusterConfig(&cluster)
 	}
 	cluster.Normalize()
-	// if lots of tables, body will very large, but we don't need it
-	cluster.ZooPath = make(map[string]string)
+	cluster.Pack()
 	model.WrapMsg(c, model.SUCCESS, cluster)
 }
 
@@ -211,8 +210,7 @@ func (ck *ClickHouseController) GetClusters(c *gin.Context) {
 			}
 		}
 		cluster.Normalize()
-		// if lots of tables, body will very large, but we don't need it
-		cluster.ZooPath = make(map[string]string)
+		cluster.Pack()
 		clusters[key] = cluster
 	}
 
@@ -1918,6 +1916,7 @@ func (ck *ClickHouseController) GetConfig(c *gin.Context) {
 		return
 	}
 	cluster.Normalize()
+	cluster.Pack()
 	data, err := params.MarshalConfig(cluster)
 	if err != nil {
 		model.WrapMsg(c, model.GET_CK_CLUSTER_INFO_FAIL, nil)
@@ -2140,6 +2139,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	if err != nil {
 		return false, errors.Errorf("cluster %s is not exist", conf.Cluster)
 	}
+	conf.UnPack(cluster)
 	storageChanged := !reflect.DeepEqual(cluster.Storage, conf.Storage)
 	expertChanged := !reflect.DeepEqual(cluster.Expert, conf.Expert)
 	userconfChanged := !reflect.DeepEqual(cluster.UsersConf, conf.UsersConf)
