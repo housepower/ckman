@@ -374,6 +374,17 @@ definitions:
         example: ckman
         type: string
     type: object
+  model.OrderbyReq:
+    properties:
+      database:
+        type: string
+      orderby:
+        items:
+          type: string
+        type: array
+      table:
+        type: string
+    type: object
   model.PingClusterReq:
     properties:
       password:
@@ -1254,7 +1265,7 @@ paths:
       summary: Alter Table
   /api/v1/ck/table/orderby/{clusterName}:
     put:
-      description: restore replica to  recover readonly
+      description: set order by
       parameters:
       - default: test
         description: cluster name
@@ -1262,6 +1273,12 @@ paths:
         name: clusterName
         required: true
         type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.OrderbyReq'
       responses:
         "200":
           description: '{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}'
@@ -1269,7 +1286,7 @@ paths:
             type: string
       security:
       - ApiKeyAuth: []
-      summary: RestoreReplica
+      summary: SetOrderby
   /api/v1/ck/table/readoly/{clusterName}:
     put:
       description: restore replica to  recover readonly

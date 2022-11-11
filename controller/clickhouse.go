@@ -584,11 +584,12 @@ func (ck *ClickHouseController) RestoreReplica(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
-// @Summary RestoreReplica
-// @Description restore replica to  recover readonly
+// @Summary SetOrderby
+// @Description set order by
 // @version 1.0
 // @Security ApiKeyAuth
 // @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.OrderbyReq true "request body"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
 // @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"

@@ -1091,8 +1091,8 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "restore replica to  recover readonly",
-                "summary": "RestoreReplica",
+                "description": "set order by",
+                "summary": "SetOrderby",
                 "parameters": [
                     {
                         "type": "string",
@@ -1101,6 +1101,15 @@ var doc = `{
                         "name": "clusterName",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.OrderbyReq"
+                        }
                     }
                 ],
                 "responses": {
@@ -2474,6 +2483,23 @@ var doc = `{
                 "username": {
                     "type": "string",
                     "example": "ckman"
+                }
+            }
+        },
+        "model.OrderbyReq": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string"
+                },
+                "orderby": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "table": {
+                    "type": "string"
                 }
             }
         },
