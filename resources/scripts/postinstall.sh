@@ -8,5 +8,6 @@ chmod 750 /var/log/ckman /etc/ckman
 /bin/systemctl enable ckman
 
 if [ -f /etc/ckman/conf/ckman.yaml ]; then
-	yaml2json /etc/ckman/conf/ckman.yaml > /etc/ckman/conf/ckman.hjson 2>/dev/null
+	/usr/local/bin/yaml2json /etc/ckman/conf/ckman.yaml > /etc/ckman/conf/ckman.hjson
+	mv /etc/ckman/conf/ckman.yaml /etc/ckman/conf/ckman.yaml.rpmsave
 fi
