@@ -62,7 +62,7 @@ package:build
 	@mv ${SHDIR}/migrate ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
-	@cp ${SHDIR}/resources/yaml2json ${PKGFULLDIR_TMP}/bin
+	@cp ${SHDIR}/resources/yaml2json.${GOARCH} ${PKGFULLDIR_TMP}/bin/yaml2json
 	@cp ${SHDIR}/resources/ckman.hjson ${PKGFULLDIR_TMP}/conf/ckman.hjson
 	@cp ${SHDIR}/resources/migrate.hjson ${PKGFULLDIR_TMP}/conf/migrate.hjson
 	@cp ${SHDIR}/resources/password ${PKGFULLDIR_TMP}/conf/password
@@ -86,11 +86,15 @@ docker-sh:
 
 .PHONY: rpm
 rpm:build
-	 VERSION=${VERSION} nfpm -f nfpm.yaml pkg --packager rpm --target .
+	@cp ${SHDIR}/resources/yaml2json.${GOARCH}  ${SHDIR}/resources/yaml2json
+	VERSION=${VERSION} nfpm -f nfpm.yaml pkg --packager rpm --target .
+	@rm ${SHDIR}/resources/yaml2json
 
 .PHONY: deb
 deb:build
-	 VERSION=${VERSION} nfpm -f nfpm.yaml pkg --packager deb --target .
+	@cp ${SHDIR}/resources/yaml2json.${GOARCH}  ${SHDIR}/resources/yaml2json
+	VERSION=${VERSION} nfpm -f nfpm.yaml pkg --packager deb --target .
+	@rm ${SHDIR}/resources/yaml2json
 
 .PHONY: test-ci
 test-ci:package
