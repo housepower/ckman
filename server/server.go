@@ -14,6 +14,7 @@ import (
 
 	"github.com/patrickmn/go-cache"
 
+	"github.com/arl/statsviz"
 	static "github.com/choidamdam/gin-static-pkger"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -75,6 +76,15 @@ func (server *ApiServer) Start() error {
 	if server.config.Server.Pprof {
 		pprof.Register(r)
 	}
+
+	// http://127.0.0.1:8808/debug/statsviz
+	r.GET("/debug/statsviz/*filepath", func(context *gin.Context) {
+		if context.Param("filepath") == "/ws" {
+			statsviz.Ws(context.Writer, context.Request)
+			return
+		}
+		statsviz.IndexAtRoot("/debug/statsviz").ServeHTTP(context.Writer, context.Request)
+	})
 
 	groupApi := r.Group("/api")
 	groupApi.POST("/login", userController.Login)

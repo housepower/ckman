@@ -37,6 +37,7 @@ require (
 )
 
 require (
+	github.com/arl/statsviz v0.5.1
 	github.com/bramvdbogaerde/go-scp v1.2.0
 	github.com/go-basic/uuid v1.0.0
 	github.com/hjson/hjson-go/v4 v4.2.0
@@ -70,6 +71,7 @@ require (
 	github.com/gobuffalo/here v0.6.0 // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
