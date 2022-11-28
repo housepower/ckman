@@ -39,6 +39,7 @@ type CKRebalance struct {
 	OsPassword  string
 	OsPort      int
 	Shardingkey model.RebalanceShardingkey
+	ExceptHost  string
 }
 
 // TblPartitions is partitions status of a host. A host never move out and move in at the same iteration.

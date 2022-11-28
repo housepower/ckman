@@ -1311,8 +1311,9 @@ func RestoreReplicaTable(conf *model.CKManClickHouseConfig, host, database, tabl
 	return nil
 }
 
-func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceShardingkey, allTable bool) error {
+func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceShardingkey, allTable, exceptMaxShard bool) error {
 	var err error
+	var exceptHost, target string
 	service := NewCkService(conf)
 	if err = service.InitCkService(); err != nil {
 		return err
@@ -1331,8 +1332,23 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 	if err = checkBasicTools(conf, hosts, keys); err != nil {
 		return err
 	}
+
+	if exceptMaxShard {
+		exceptHost = hosts[len(hosts)-1]
+		hosts = hosts[:len(hosts)-1]
+		target, err = checkDiskSpace(hosts, exceptHost)
+		if err != nil {
+			return err
+		}
+	}
+
 	log.Logger.Debugf("keys: %d, %#v", len(keys), keys)
 	for _, key := range keys {
+		if exceptMaxShard {
+			if err = MoveMaxShard(conf, exceptHost, target, key.Database, key.Table); err != nil {
+				return err
+			}
+		}
 		rebalancer := &CKRebalance{
 			Cluster:    conf.Cluster,
 			Hosts:      hosts,
@@ -1417,6 +1433,45 @@ func checkBasicTools(conf *model.CKManClickHouseConfig, hosts []string, keys []m
 		}
 	}
 	return nil
+}
+
+func checkDiskSpace(hosts []string, exceptHost string) (string, error) {
+	var needSpace, maxLeftSpace int
+	var target string
+	query := `SELECT sum(total_bytes)
+FROM system.tables
+WHERE match(engine, 'MergeTree') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))
+SETTINGS skip_unavailable_shards = 1`
+	log.Logger.Debugf("[%s]%s", exceptHost, query)
+	db := common.GetConnection(exceptHost)
+	rows, err := db.Query(query)
+	if err != nil {
+		return "", errors.Wrap(err, exceptHost)
+	}
+	for rows.Next() {
+		rows.Scan(&needSpace)
+	}
+	query = "SELECT free_space FROM system.disks"
+	for _, host := range hosts {
+		db = common.GetConnection(host)
+		log.Logger.Debugf("[%s]%s", host, query)
+		rows, err := db.Query(query)
+		if err != nil {
+			return "", errors.Wrap(err, exceptHost)
+		}
+		var freeSpace int
+		for rows.Next() {
+			rows.Scan(&freeSpace)
+		}
+		if maxLeftSpace*2 < freeSpace {
+			target = host
+			maxLeftSpace = freeSpace
+		}
+	}
+	if maxLeftSpace <= needSpace {
+		return "", fmt.Errorf("need %s space on the disk, but not enough", common.ConvertDisk(uint64(needSpace)))
+	}
+	return target, nil
 }
 
 func paddingKeys(keys []model.RebalanceShardingkey, service *CkService, allTable bool) ([]model.RebalanceShardingkey, error) {
@@ -1524,5 +1579,25 @@ func RebalanceByShardingkey(conf *model.CKManClickHouseConfig, rebalancer *CKReb
 	}
 
 	rebalancer.Cleanup()
+	return nil
+}
+
+func MoveMaxShard(conf *model.CKManClickHouseConfig, except, target, database, table string) error {
+	max_insert_threads := runtime.NumCPU()*3/4 + 1
+	query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM remote('%s', '%s', '%s', '%s', '%s') SETTINGS max_insert_threads=%d",
+		database, table, except, database, table, conf.User, conf.Password, max_insert_threads)
+	log.Logger.Debugf("[%s] %s", target, query)
+	db := common.GetConnection(target)
+	_, err := db.Exec(query)
+	if err != nil {
+		return err
+	}
+	query = fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`", database, table)
+	log.Logger.Debugf("[%s] %s", except, query)
+	db = common.GetConnection(except)
+	_, err = db.Exec(query)
+	if err != nil {
+		return err
+	}
 	return nil
 }

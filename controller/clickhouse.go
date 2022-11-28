@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"reflect"
@@ -979,15 +980,25 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 	// if shard == 1, there is no need to rebalance
 	if len(conf.Shards) > 1 {
 		var req model.RebalanceTableReq
-		allTable := common.TernaryExpression(c.Query("all") == "false", false, true).(bool)
 		if c.Request.Body != http.NoBody {
-			if err = model.DecodeRequestBody(c.Request, &req); err != nil {
+			params, ok := SchemaUIMapping[GET_SCHEMA_UI_REBALANCE]
+			if !ok {
+				model.WrapMsg(c, model.INVALID_PARAMS, "")
+				return
+			}
+			body, err := io.ReadAll(c.Request.Body)
+			if err != nil {
+				model.WrapMsg(c, model.INVALID_PARAMS, err)
+				return
+			}
+			err = params.UnmarshalConfig(string(body), &req)
+			if err != nil {
 				model.WrapMsg(c, model.INVALID_PARAMS, err)
 				return
 			}
 		}
-
-		err = clickhouse.RebalanceCluster(&conf, req.Keys, allTable)
+		allTable := common.TernaryExpression(c.Query("all") == "false" || req.ExceptMaxShard, false, true).(bool)
+		err = clickhouse.RebalanceCluster(&conf, req.Keys, allTable, req.ExceptMaxShard)
 		if err != nil {
 			model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, err)
 			return

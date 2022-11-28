@@ -69,7 +69,8 @@ type RebalanceShardingkey struct {
 }
 
 type RebalanceTableReq struct {
-	Keys []RebalanceShardingkey `json:"keys"`
+	Keys           []RebalanceShardingkey `json:"keys"`
+	ExceptMaxShard bool                   `json:"except_max_shard"` // remove the max shard's data to other shards
 }
 
 type TypeInfo struct {

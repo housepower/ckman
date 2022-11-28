@@ -1174,6 +1174,11 @@ func RegistRebalanceClusterSchema() common.ConfigParams {
 		LabelEN: "Keys",
 	})
 
+	params.MustRegister(req, "ExceptMaxShard", &common.Parameter{
+		LabelZH: "移除最大分片数据",
+		LabelEN: "ExceptMaxShard",
+	})
+
 	var key model.RebalanceShardingkey
 	params.MustRegister(key, "Database", &common.Parameter{
 		LabelZH: "数据库名",
