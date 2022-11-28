@@ -1170,8 +1170,9 @@ func RegistRebalanceClusterSchema() common.ConfigParams {
 	var params common.ConfigParams = make(map[string]*common.Parameter)
 	var req model.RebalanceTableReq
 	params.MustRegister(req, "Keys", &common.Parameter{
-		LabelZH: "Keys",
-		LabelEN: "Keys",
+		LabelZH:  "Keys",
+		LabelEN:  "Keys",
+		Required: "false",
 	})
 
 	params.MustRegister(req, "ExceptMaxShard", &common.Parameter{
