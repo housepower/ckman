@@ -1223,6 +1223,7 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	ip := c.Query("ip")
 
+	force := common.TernaryExpression(c.Query("force") == "true", true, false).(bool)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
 		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
@@ -1235,14 +1236,42 @@ func (ck *ClickHouseController) DeleteNode(c *gin.Context) {
 	}
 
 	available := false
+	deleteShard := false
 	for i, shard := range conf.Shards {
+		if available {
+			break
+		}
 		for _, replica := range shard.Replicas {
 			if replica.Ip == ip {
 				available = true
-				if i+1 != len(conf.Shards) && len(shard.Replicas) == 1 {
-					err = fmt.Errorf("can't delete node which only 1 replica in shard")
+				if len(shard.Replicas) == 1 {
+					if i+1 != len(conf.Shards) {
+						err = fmt.Errorf("can't delete node which only 1 replica in shard")
+					} else {
+						deleteShard = true
+					}
 				}
 				break
+			}
+		}
+	}
+
+	if deleteShard && !force {
+		query := `SELECT sum(total_bytes)
+FROM system.tables
+WHERE match(engine, 'MergeTree') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))
+SETTINGS skip_unavailable_shards = 1`
+		log.Logger.Debugf("[%s]%s", ip, query)
+		db, _ := common.ConnectClickHouse(ip, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
+		if db != nil {
+			rows, _ := db.Query(query)
+			for rows.Next() {
+				var data int
+				rows.Scan(&data)
+				if data > 0 {
+					model.WrapMsg(c, model.DELETE_CK_CLUSTER_NODE_FAIL, "The current node still has data, please use rebalance to move the data to another shard at first")
+					return
+				}
 			}
 		}
 	}

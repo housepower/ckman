@@ -1345,7 +1345,7 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 	log.Logger.Debugf("keys: %d, %#v", len(keys), keys)
 	for _, key := range keys {
 		if exceptMaxShard {
-			if err = MoveMaxShard(conf, exceptHost, target, key.Database, key.Table); err != nil {
+			if err = MoveExceptToOthers(conf, exceptHost, target, key.Database, key.Table); err != nil {
 				return err
 			}
 		}
@@ -1582,7 +1582,7 @@ func RebalanceByShardingkey(conf *model.CKManClickHouseConfig, rebalancer *CKReb
 	return nil
 }
 
-func MoveMaxShard(conf *model.CKManClickHouseConfig, except, target, database, table string) error {
+func MoveExceptToOthers(conf *model.CKManClickHouseConfig, except, target, database, table string) error {
 	max_insert_threads := runtime.NumCPU()*3/4 + 1
 	query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM remote('%s', '%s', '%s', '%s', '%s') SETTINGS max_insert_threads=%d",
 		database, table, except, database, table, conf.User, conf.Password, max_insert_threads)
