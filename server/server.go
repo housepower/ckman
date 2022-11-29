@@ -24,7 +24,9 @@ import (
 	_ "github.com/housepower/ckman/docs"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/router"
+	"github.com/housepower/ckman/service/prometheus"
 	"github.com/markbates/pkger"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
@@ -85,6 +87,9 @@ func (server *ApiServer) Start() error {
 		}
 		statsviz.IndexAtRoot("/debug/statsviz").ServeHTTP(context.Writer, context.Request)
 	})
+
+	// prometheus http_sd_config
+	r.GET("discovery/:schema", PromHttpSD)
 
 	groupApi := r.Group("/api")
 	groupApi.POST("/login", userController.Login)
@@ -260,4 +265,33 @@ func ginRefreshTokenExpires() gin.HandlerFunc {
 			}
 		}
 	}
+}
+
+func PromHttpSD(c *gin.Context) {
+	var clusters []model.CKManClickHouseConfig
+	schema := c.Param("schema")
+	if schema != "clickhouse" && schema != "zookeeper" && schema != "node" {
+		model.WrapMsg(c, model.INVALID_PARAMS, fmt.Errorf("%s is not a valid schema", schema))
+		return
+	}
+	clusterName := c.Query("cluster")
+	if clusterName == "" {
+		all, err := repository.Ps.GetAllClusters()
+		if err != nil {
+			log.Logger.Error(err)
+			return
+		}
+		for _, v := range all {
+			clusters = append(clusters, v)
+		}
+	} else {
+		cluster, err := repository.Ps.GetClusterbyName(clusterName)
+		if err != nil {
+			log.Logger.Error(err)
+			return
+		}
+		clusters = append(clusters, cluster)
+	}
+	objs := prometheus.GetObjects(clusters)
+	c.JSON(http.StatusOK, objs[schema])
 }
