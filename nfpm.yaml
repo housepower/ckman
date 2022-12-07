@@ -24,6 +24,8 @@ contents:
     dst: /usr/local/bin/ckmanpasswd
   - src: ./migrate
     dst: /usr/local/bin/migrate
+  - src: ./znodefix
+    dst: /usr/local/bin/znodefix
   - src: ./resources/yaml2json
     dst: /usr/local/bin/yaml2json
   - src: ./README.md

@@ -47,6 +47,7 @@ build:pre frontend
 	go build ${LDFLAGS}
 	go build ${LDFLAGS} -o ckmanpasswd cmd/password/password.go
 	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
+	go build ${LDFLAGS} -o znodefix cmd/znodefix/znodefix.go
 
 .PHONY:check
 check:pre
@@ -60,6 +61,7 @@ package:build
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/migrate ${PKGFULLDIR_TMP}/bin
+	@mv ${SHDIR}/znodefix ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/yaml2json.${GOARCH} ${PKGFULLDIR_TMP}/bin/yaml2json

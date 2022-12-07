@@ -11,11 +11,7 @@ coverage.out
 coverage-all.out
 cscope.*
 ckmanpasswd
-exporter
-purger
-rebalancer
-schemer
 migrate
+znodefix
 pkged.go
 static/dist/
-resources/eoi_public_key.pub
