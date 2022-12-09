@@ -218,14 +218,18 @@ func (xml *XMLFile) mapping(output map[string]interface{}) {
 			xml.End(tag)
 		case reflect.Array, reflect.Slice:
 			rv := reflect.ValueOf(v)
+			if rt.Elem().Kind() == reflect.Map {
+				xml.BeginwithAttr(tag, attrs)
+			}
 			for i := 0; i < rv.Len(); i++ {
 				if rt.Elem().Kind() == reflect.Map {
-					xml.BeginwithAttr(tag, attrs)
 					xml.mapping(rv.Index(i).Interface().(map[string]interface{}))
-					xml.End(tag)
 				} else {
 					xml.WritewithAttr(tag, rv.Index(i), attrs)
 				}
+			}
+			if rt.Elem().Kind() == reflect.Map {
+				xml.End(tag)
 			}
 		default:
 			xml.WritewithAttr(tag, v, attrs)

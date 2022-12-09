@@ -1,9 +1,10 @@
 package ckconfig
 
 import (
+	"testing"
+
 	"github.com/housepower/ckman/model"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestGenerateCustomXML(t *testing.T) {
@@ -46,8 +47,11 @@ func TestGenerateCustomXML(t *testing.T) {
 			{
 				Name: "default",
 				Volumns: []model.Volumn{{
-					Name:  "local",
+					Name:  "hot",
 					Disks: []string{"ssd"},
+				}, {
+					Name:  "cold",
+					Disks: []string{"ssd2"},
 				}},
 			},
 			{

@@ -97,7 +97,7 @@ func storage(storage *model.Storage) map[string]interface{} {
 	output := make(map[string]interface{})
 	storage_configuration := make(map[string]interface{})
 	if len(storage.Disks) > 0 {
-		disks := make(map[string]interface{})
+		var disks []map[string]interface{}
 		for _, disk := range storage.Disks {
 			diskMapping := make(map[string]interface{})
 			diskMapping["type"] = disk.Type
@@ -114,25 +114,32 @@ func storage(storage *model.Storage) map[string]interface{} {
 				diskMapping["region"] = disk.DiskS3.Region
 				mergo.Merge(&diskMapping, expert(disk.DiskS3.Expert))
 			}
-			disks[disk.Name] = diskMapping
+			disks = append(disks, map[string]interface{}{
+				disk.Name: diskMapping,
+			})
 		}
 		storage_configuration["disks"] = disks
 	}
 	if len(storage.Policies) > 0 {
-		policies := make(map[string]interface{})
+		var policies []map[string]interface{}
 		for _, policy := range storage.Policies {
 			policyMapping := make(map[string]interface{})
-			volumes := make(map[string]interface{})
+			var volumes []map[string]interface{}
 			for _, vol := range policy.Volumns {
-				volumes[vol.Name] = map[string]interface{}{
+				volume := map[string]interface{}{
 					"disk":                     vol.Disks,
 					"max_data_part_size_bytes": vol.MaxDataPartSizeBytes,
 					"prefer_not_to_merge":      vol.PreferNotToMerge,
 				}
+				volumes = append(volumes, map[string]interface{}{
+					vol.Name: volume,
+				})
 			}
 			policyMapping["volumes"] = volumes
 			policyMapping["move_factor"] = policy.MoveFactor
-			policies[policy.Name] = policyMapping
+			policies = append(policies, map[string]interface{}{
+				policy.Name: policyMapping,
+			})
 		}
 		storage_configuration["policies"] = policies
 	}

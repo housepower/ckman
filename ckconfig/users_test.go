@@ -36,7 +36,11 @@ func TestUsers(t *testing.T) {
 		},
 		{
 			Name:     "test",
-			Password: "123123"},
+			Password: "123123",
+		}, {
+			Name:     "abc",
+			Password: "1234",
+		},
 	}
 	conf := model.CKManClickHouseConfig{
 		Password: "qaz-wsx",

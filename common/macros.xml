@@ -1,0 +1,7 @@
+<yandex>
+    <!-- macros configuration, you can select from system.macros -->
+    <macros>
+        <replica>/clickhouse/tables/1/default/t123/replica</replica>
+        <shard>3</shard>
+    </macros>
+</yandex>

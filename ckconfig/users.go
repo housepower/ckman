@@ -12,7 +12,7 @@ type HostInfo struct {
 
 func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
 	output := make(map[string]interface{})
-	userConf := make(map[string]interface{})
+	var userConf []map[string]interface{}
 
 	//default
 	defaultUser := make(map[string]interface{})
@@ -23,7 +23,9 @@ func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
 	defaultNetworks := make(map[string]interface{})
 	defaultNetworks["ip"] = model.ClickHouseUserNetIpDefault
 	defaultUser["networks"] = defaultNetworks
-	userConf["default"] = defaultUser
+	userConf = append(userConf, map[string]interface{}{
+		"default": defaultUser,
+	})
 
 	//normal users
 	if len(conf.UsersConf.Users) > 0 {
@@ -50,7 +52,7 @@ func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
 			}
 			normal["networks"] = networks
 
-			database := make(map[string]interface{})
+			var database []map[string]interface{}
 			if len(normalUser.DbRowPolices) > 0 {
 				for _, rowsdb := range normalUser.DbRowPolices {
 					rowpolicies := make(map[string]interface{})
@@ -59,11 +61,15 @@ func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
 							"filter": policy.Filter,
 						}
 					}
-					database[rowsdb.Database] = rowpolicies
+					database = append(database, map[string]interface{}{
+						rowsdb.Database: rowpolicies,
+					})
 				}
 				normal["databases"] = database
 			}
-			userConf[normalUser.Name] = normal
+			userConf = append(userConf, map[string]interface{}{
+				normalUser.Name: normal,
+			})
 		}
 	}
 	output["users"] = userConf
@@ -72,7 +78,7 @@ func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
 
 func profiles(userProfiles []model.Profile, info HostInfo) map[string]interface{} {
 	output := make(map[string]interface{})
-	profileMap := make(map[string]interface{})
+	var profiles []map[string]interface{}
 	//default
 	defaultProfile := make(map[string]interface{})
 	defaultProfile["max_memory_usage"] = int64((info.MemoryTotal / 2) * 1e3)
@@ -84,7 +90,9 @@ func profiles(userProfiles []model.Profile, info HostInfo) map[string]interface{
 	defaultProfile["distributed_ddl_task_timeout"] = 15
 	defaultProfile["allow_drop_detached"] = 1
 	defaultProfile["use_uncompressed_cache"] = 0
-	profileMap["default"] = defaultProfile
+	profiles = append(profiles, map[string]interface{}{
+		"default": defaultProfile,
+	})
 
 	//normal
 	if len(userProfiles) > 0 {
@@ -103,17 +111,19 @@ func profiles(userProfiles []model.Profile, info HostInfo) map[string]interface{
 			normalProfile["max_memory_usage_for_all_queries"] = prof.MaxMemoryUsageForAllQueries
 			normalProfile["max_execution_time"] = prof.MaxExecutionTime
 			mergo.Merge(&normalProfile, expert(prof.Expert))
-			profileMap[prof.Name] = normalProfile
+			profiles = append(profiles, map[string]interface{}{
+				prof.Name: normalProfile,
+			})
 		}
 	}
-	output["profiles"] = profileMap
+	output["profiles"] = profiles
 	return output
 }
 
 func quotas(userQuotas []model.Quota) map[string]interface{} {
 	output := make(map[string]interface{})
 	if len(userQuotas) > 0 {
-		quotasMap := make(map[string]interface{})
+		var quotas []map[string]interface{}
 		for _, quota := range userQuotas {
 			quotaInterval := make(map[string]interface{})
 			var intervals []map[string]interface{}
@@ -130,9 +140,11 @@ func quotas(userQuotas []model.Quota) map[string]interface{} {
 				intervals = append(intervals, intervalMap)
 			}
 			quotaInterval["interval"] = intervals
-			quotasMap[quota.Name] = quotaInterval
+			quotas = append(quotas, map[string]interface{}{
+				quota.Name: quotaInterval,
+			})
 		}
-		output["quotas"] = quotasMap
+		output["quotas"] = quotas
 	}
 	return output
 }

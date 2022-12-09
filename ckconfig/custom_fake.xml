@@ -80,30 +80,11 @@
     </query_views_log>
     <storage_configuration>
         <disks>
-            <hdfs1>
-                <endpoint>localhost:8020/admin/abc</endpoint>
-                <type>hdfs</type>
-            </hdfs1>
-            <s3>
-                <access_key_id>123456</access_key_id>
-                <endpoint>localhost:1200/var/s3</endpoint>
-                <secret_access_key>654321</secret_access_key>
-                <type>s3</type>
-            </s3>
             <ssd>
                 <keep_free_space_bytes>1024</keep_free_space_bytes>
-                <path>/data01/clickhouse</path>
-                <type>local</type>
             </ssd>
         </disks>
         <policies>
-            <default>
-                <volumes>
-                    <local>
-                        <disk>ssd</disk>
-                    </local>
-                </volumes>
-            </default>
             <hdfs_only>
                 <move_factor>0.3</move_factor>
                 <volumes>
@@ -113,6 +94,16 @@
                     </main>
                 </volumes>
             </hdfs_only>
+            <default>
+                <volumes>
+                    <hot>
+                        <disk>ssd</disk>
+                    </hot>
+                    <cold>
+                        <disk>ssd2</disk>
+                    </cold>
+                </volumes>
+            </default>
             <s3_only>
                 <volumes>
                     <replica>

@@ -11,14 +11,6 @@
             <max_query_size>1073741824</max_query_size>
             <use_uncompressed_cache>0</use_uncompressed_cache>
         </default>
-        <readonly>
-            <allow_ddl>1</allow_ddl>
-            <max_execution_time>0</max_execution_time>
-            <max_memory_usage>0</max_memory_usage>
-            <max_memory_usage_for_all_queries>0</max_memory_usage_for_all_queries>
-            <max_threads>16</max_threads>
-            <readonly>0</readonly>
-        </readonly>
         <readwrite>
             <allow_ddl>0</allow_ddl>
             <max_execution_time>30</max_execution_time>
@@ -27,5 +19,13 @@
             <max_threads>32</max_threads>
             <readonly>1</readonly>
         </readwrite>
+        <readonly>
+            <allow_ddl>1</allow_ddl>
+            <max_execution_time>0</max_execution_time>
+            <max_memory_usage>0</max_memory_usage>
+            <max_memory_usage_for_all_queries>0</max_memory_usage_for_all_queries>
+            <max_threads>16</max_threads>
+            <readonly>0</readonly>
+        </readonly>
     </profiles>
 </clickhouse>
