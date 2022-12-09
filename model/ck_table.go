@@ -16,6 +16,7 @@ const (
 
 type CreateCkTableReq struct {
 	Name          string            `json:"name" example:"test_table"`
+	DistName      string            `json:"dist_table"`
 	DB            string            `json:"database" example:"default"`
 	Fields        []CkTableNameType `json:"fields"`
 	Order         []string          `json:"order" example:"_timestamp"`
@@ -26,7 +27,7 @@ type CreateCkTableReq struct {
 	DryRun        bool              `json:"dryrun" example:"false"`
 }
 
-//https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#mergetree-table-ttl
+// https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#mergetree-table-ttl
 type CkTableTTL struct {
 	TimeCloumn string `json:"time_column" example:"_timestamp"`
 	Interval   int    `json:"interval" example:"3"`
@@ -38,6 +39,7 @@ type CkTableTTL struct {
 type DistLogicTableReq struct {
 	Database   string `json:"database" example:"default"`
 	LocalTable string `json:"table_name" example:"test_table"`
+	DistTable  string `json:"dist_name" example:"dist_table"`
 }
 
 type CkTableNameType struct {
@@ -69,6 +71,7 @@ const (
 
 type CreateCkTableParams struct {
 	Name          string
+	DistName      string
 	Cluster       string
 	Engine        string
 	Fields        []CkTableNameType
@@ -80,14 +83,16 @@ type CreateCkTableParams struct {
 }
 
 type DeleteCkTableParams struct {
-	Name    string
-	Cluster string
-	DB      string
+	Name     string
+	DistName string
+	Cluster  string
+	DB       string
 }
 
 type DistLogicTblParams struct {
 	Database     string
 	TableName    string
+	DistName     string
 	ClusterName  string
 	LogicCluster string
 }
@@ -104,28 +109,31 @@ type CkTableRename struct {
 	To   string `json:"to" example:"col_new"`
 }
 type AlterCkTableReq struct {
-	Name   string                 `json:"name" example:"test_table"`
-	DB     string                 `json:"database" example:"default"`
-	Add    []CkTableNameTypeAfter `json:"add"`
-	Modify []CkTableNameType      `json:"modify"`
-	Drop   []string               `json:"drop" example:"age"`
-	Rename []CkTableRename        `json:"rename"`
+	Name     string                 `json:"name" example:"test_table"`
+	DistName string                 `json:"dist_name"`
+	DB       string                 `json:"database" example:"default"`
+	Add      []CkTableNameTypeAfter `json:"add"`
+	Modify   []CkTableNameType      `json:"modify"`
+	Drop     []string               `json:"drop" example:"age"`
+	Rename   []CkTableRename        `json:"rename"`
 }
 
 type AlterCkTableParams struct {
-	Name    string
-	Cluster string
-	DB      string
-	Add     []CkTableNameTypeAfter
-	Drop    []string
-	Modify  []CkTableNameType
-	Rename  []CkTableRename
+	Name     string
+	DistName string
+	Cluster  string
+	DB       string
+	Add      []CkTableNameTypeAfter
+	Drop     []string
+	Modify   []CkTableNameType
+	Rename   []CkTableRename
 }
 
 type AlterTblsTTLReq struct {
 	Tables []struct {
 		Database  string `json:"database" example:"default"`
 		TableName string `json:"tableName" example:"t1"`
+		DistName  string `json:"distName" example:"distt1"`
 	} `json:"tables"`
 	TTLType string       `json:"ttl_type" example:"MODIFY"`
 	TTL     []CkTableTTL `json:"ttl"`
@@ -202,5 +210,6 @@ type QueryHistory struct {
 type OrderbyReq struct {
 	Database string
 	Table    string
+	DistName string `json:"dist_name"`
 	Orderby  []string
 }

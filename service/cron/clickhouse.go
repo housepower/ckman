@@ -44,33 +44,41 @@ func SyncLogicSchema() error {
 			if err != nil {
 				continue
 			}
-			results, _ := ckService.GetTblLists()
-			for database, tables := range results {
-				var localTables []string
-				for table := range tables {
-					if strings.HasPrefix(table, clickhouse.ClickHouseDistTableOnLogicPrefix) {
-						localTables = append(localTables, strings.TrimPrefix(table, clickhouse.ClickHouseDistTableOnLogicPrefix))
-					}
-				}
-				if len(localTables) == 0 {
-					continue
-				}
-				for _, localTable := range localTables {
-					err = syncLogicbyTable(clusters, database, localTable)
+
+			query := fmt.Sprintf(`SELECT
+    database,
+    name,
+    (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[2] AS cluster,
+    (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[4] AS local
+FROM system.tables
+WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')) 
+AND (cluster != '%s')`, cluster)
+			rows, err := ckService.DB.Query(query)
+			if err != nil {
+				continue
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var database, table, cluster, local string
+				_ = rows.Scan(&database, &table, &cluster, &local)
+				if cluster != conf.Cluster {
+					//dist is logic table
+					err = syncLogicbyTable(clusters, database, local)
 					if err != nil {
 						var exception *client.Exception
 						if errors.As(err, &exception) {
 							if exception.Code == 60 {
 								//means local table is not exist, will auto sync schema
 								needCreateTable[cluster] = clusters
-								log.Logger.Infof("table %s.%s may not exists on one of cluster %v, need to auto create", database, localTable, clusters)
+								log.Logger.Infof("table %s.%s may not exists on one of cluster %v, need to auto create", database, local, clusters)
 							}
 						} else {
-							log.Logger.Errorf("logic %s table %s.%s sync logic table failed: %v", cluster, database, localTable, err)
+							log.Logger.Errorf("logic %s table %s.%s sync logic table failed: %v", cluster, database, local, err)
 							continue
 						}
 					}
 				}
+
 			}
 		}
 
@@ -153,7 +161,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 			}
 
 			if len(needAdds) == 0 {
-				query := fmt.Sprintf("SELECT table, count() from system.columns WHERE database = '%s' AND table in ('%s%s', '%s%s') group by table", database, clickhouse.ClickHouseDistributedTablePrefix, localTable, clickhouse.ClickHouseDistTableOnLogicPrefix, localTable)
+				query := fmt.Sprintf("SELECT table, count() from system.columns WHERE database = '%s' AND table in ('%s%s', '%s%s') group by table", database, common.ClickHouseDistributedTablePrefix, localTable, common.ClickHouseDistTableOnLogicPrefix, localTable)
 				rows, err := ckService.DB.Query(query)
 				if err != nil {
 					return errors.Wrap(err, "")
@@ -176,14 +184,14 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 				}
 			}
 			deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC",
-				database, clickhouse.ClickHouseDistributedTablePrefix, localTable, cluster)
+				database, common.ClickHouseDistributedTablePrefix, localTable, cluster)
 			log.Logger.Debugf(deleteSql)
 			if _, err = ckService.DB.Exec(deleteSql); err != nil {
 				return errors.Wrap(err, "")
 			}
 
 			create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
-				database, clickhouse.ClickHouseDistributedTablePrefix, localTable, cluster, database, localTable,
+				database, common.ClickHouseDistributedTablePrefix, localTable, cluster, database, localTable,
 				cluster, database, localTable)
 			log.Logger.Debugf(create)
 			if _, err = ckService.DB.Exec(create); err != nil {
@@ -256,18 +264,19 @@ func SyncDistSchema() error {
 			log.Logger.Debugf("cluster %s has effective tasks running, ignore sync distributed schema job")
 			continue
 		}
+		initCKConns(conf)
 		ckService := clickhouse.NewCkService(&conf)
 		err := ckService.InitCkService()
 		if err != nil {
 			continue
 		}
-		query := fmt.Sprintf(`SELECT
+		query := `SELECT
     database,
     name,
     (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[2] AS cluster,
     (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[4] AS local
 FROM system.tables
-WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))`)
+WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))`
 		rows, err := ckService.DB.Query(query)
 		if err != nil {
 			continue
@@ -280,7 +289,7 @@ WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_
 				//ignore logic table
 				continue
 			}
-			err := syncDistTable(local, database, conf, ckService)
+			err := syncDistTable(table, local, database, conf, ckService)
 			if err != nil {
 				log.Logger.Warnf("[%s]sync distributed table schema failed: %v", conf.Cluster, err)
 				continue
@@ -290,14 +299,13 @@ WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_
 	return nil
 }
 
-func syncDistTable(localTable, database string, conf model.CKManClickHouseConfig, ckServide *clickhouse.CkService) error {
+func syncDistTable(distTable, localTable, database string, conf model.CKManClickHouseConfig, ckServide *clickhouse.CkService) error {
 	tableLists := make(map[string]common.Map)
 	dbLists := make(map[string]*sql.DB)
 	for _, host := range conf.Hosts {
-		db, err := common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
-		if err != nil {
-			err = errors.Wrap(err, host)
-			return err
+		db := common.GetConnection(host)
+		if db == nil {
+			continue
 		}
 		query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database = '%s' AND table = '%s'", database, localTable)
 		rows, err := db.Query(query)
@@ -348,7 +356,7 @@ func syncDistTable(localTable, database string, conf model.CKManClickHouseConfig
 
 	//sync dist table
 	var needAlterDist bool
-	query := fmt.Sprintf("SELECT table, count() from system.columns WHERE database = '%s' AND table = '%s%s' group by table", database, clickhouse.ClickHouseDistributedTablePrefix, localTable)
+	query := fmt.Sprintf("SELECT table, count() from system.columns WHERE database = '%s' AND table = '%s' group by table", database, distTable)
 	rows, err := ckServide.DB.Query(query)
 	if err != nil {
 		return errors.Wrap(err, "")
@@ -364,15 +372,15 @@ func syncDistTable(localTable, database string, conf model.CKManClickHouseConfig
 	}
 	for host, db := range dbLists {
 		if needAlterDist {
-			deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` SYNC",
-				database, clickhouse.ClickHouseDistributedTablePrefix, localTable)
+			deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` SYNC",
+				database, distTable)
 			log.Logger.Debugf(deleteSql)
 			if _, err := db.Exec(deleteSql); err != nil {
 				return errors.Wrap(err, host)
 			}
 
-			create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
-				database, clickhouse.ClickHouseDistributedTablePrefix, localTable, database, localTable,
+			create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
+				database, distTable, database, localTable,
 				conf.Cluster, database, localTable)
 			log.Logger.Debugf(create)
 			if _, err := db.Exec(create); err != nil {
@@ -382,4 +390,15 @@ func syncDistTable(localTable, database string, conf model.CKManClickHouseConfig
 	}
 
 	return nil
+}
+
+func initCKConns(conf model.CKManClickHouseConfig) (err error) {
+	for _, host := range conf.Hosts {
+		_, err = common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
+		if err != nil {
+			return
+		}
+		log.Logger.Infof("initialized clickhouse connection to %s", host)
+	}
+	return
 }
