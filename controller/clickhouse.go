@@ -246,6 +246,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	}
 
 	params.Name = req.Name
+	params.DistName = req.DistName
 	params.DB = req.DB
 	params.Cluster = ckService.Config.Cluster
 	params.Fields = req.Fields
@@ -377,6 +378,7 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 		params := model.DistLogicTblParams{
 			Database:     req.Database,
 			TableName:    req.LocalTable,
+			DistName:     req.DistTable,
 			ClusterName:  cluster,
 			LogicCluster: *conf.LogicCluster,
 		}
@@ -443,6 +445,7 @@ func (ck *ClickHouseController) DeleteDistTableOnLogic(c *gin.Context) {
 		params := model.DistLogicTblParams{
 			Database:     req.Database,
 			TableName:    req.LocalTable,
+			DistName:     req.DistTable,
 			ClusterName:  cluster,
 			LogicCluster: *conf.LogicCluster,
 		}
@@ -483,6 +486,7 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 
 	params.Cluster = ckService.Config.Cluster
 	params.Name = req.Name
+	params.DistName = req.DistName
 	params.DB = req.DB
 	params.Add = req.Add
 	params.Drop = req.Drop

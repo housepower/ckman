@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/ClickHouse/clickhouse-go"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -19,6 +20,12 @@ import (
 )
 
 var ConnectPool sync.Map
+
+const (
+	ClickHouseLocalTablePrefix       string = "local_"
+	ClickHouseDistributedTablePrefix string = "dist_"
+	ClickHouseDistTableOnLogicPrefix string = "dist_logic_"
+)
 
 type Connection struct {
 	dsn string
@@ -248,4 +255,37 @@ func CheckCkInstance(conf *model.CKManClickHouseConfig) error {
 		}
 	}
 	return nil
+}
+
+func GetTableNames(db *sql.DB, database, local, dist, cluster string, exists bool) (string, string, error) {
+	if local == "" && dist == "" {
+		return local, dist, fmt.Errorf("local table and dist table both empty")
+	}
+	if local != "" && dist != "" {
+		return local, dist, nil
+	}
+
+	if exists {
+		// will select distname or localname from database
+		query := fmt.Sprintf(`SELECT
+    name as dist,
+    (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[2] AS cluster,
+    (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[4] AS local
+FROM system.tables
+WHERE match(engine, 'Distributed') AND (database = '%s') AND ((dist = '%s') OR (local = '%s')) AND (cluster = '%s')`,
+			database, dist, local, cluster)
+		log.Logger.Debug(query)
+		rows, err := db.Query(query)
+		if err != nil {
+			return local, dist, err
+		}
+		for rows.Next() {
+			rows.Scan(&dist, &cluster, &local)
+		}
+	} else {
+		dist = TernaryExpression(local == "", dist, ClickHouseDistributedTablePrefix+local).(string)
+		local = TernaryExpression(local == "", ClickHouseLocalTablePrefix+dist, local).(string)
+	}
+
+	return local, dist, nil
 }
