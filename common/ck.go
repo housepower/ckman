@@ -52,6 +52,7 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 
 	if err = db.Ping(); err != nil {
 		err = errors.Wrapf(err, "")
+		db.Close()
 		return nil, err
 	}
 	SetConnOptions(db)
@@ -85,6 +86,8 @@ func GetConnection(host string) *sql.DB {
 		err := db.Ping()
 		if err == nil {
 			return db
+		} else {
+			db.Close()
 		}
 	}
 	return nil

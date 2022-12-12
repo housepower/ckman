@@ -23,7 +23,7 @@ func NewRunnerService(serverIp string, config config.CKManServerConfig) *RunnerS
 	return &RunnerService{
 		ServerIp: serverIp,
 		Interval: config.TaskInterval,
-		Pool:     common.NewWorkerPool(common.MaxWorkersDefault, 2*common.MaxWorkersDefault),
+		Pool:     common.NewWorkerPool(8, 16), // for tasks, 8 goroutines is enough
 		Done:     make(chan struct{}),
 	}
 }
