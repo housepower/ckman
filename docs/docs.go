@@ -2583,6 +2583,10 @@ var doc = `{
         "model.RebalanceTableReq": {
             "type": "object",
             "properties": {
+                "except_max_shard": {
+                    "description": "remove the max shard's data to other shards",
+                    "type": "boolean"
+                },
                 "keys": {
                     "type": "array",
                     "items": {

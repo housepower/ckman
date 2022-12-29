@@ -441,6 +441,9 @@ definitions:
     type: object
   model.RebalanceTableReq:
     properties:
+      except_max_shard:
+        description: remove the max shard's data to other shards
+        type: boolean
       keys:
         items:
           $ref: '#/definitions/model.RebalanceShardingkey'
