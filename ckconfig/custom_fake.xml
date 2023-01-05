@@ -80,8 +80,23 @@
     </query_views_log>
     <storage_configuration>
         <disks>
+            <hdfs1>
+                <endpoint>localhost:8020/admin/abc</endpoint>
+                <type>hdfs</type>
+            </hdfs1>
+            <s3>
+                <access_key_id>123456</access_key_id>
+                <cache_path>/var/lib/clickhouse/disks/s3/cache/</cache_path>
+                <endpoint>localhost:1200/var/s3</endpoint>
+                <retry_attempts>10</retry_attempts>
+                <secret_access_key>654321</secret_access_key>
+                <skip_access_check>false</skip_access_check>
+                <type>s3</type>
+            </s3>
             <ssd>
                 <keep_free_space_bytes>1024</keep_free_space_bytes>
+                <path>/data01/clickhouse</path>
+                <type>local</type>
             </ssd>
         </disks>
         <policies>

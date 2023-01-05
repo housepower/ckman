@@ -97,7 +97,7 @@ func storage(storage *model.Storage) map[string]interface{} {
 	output := make(map[string]interface{})
 	storage_configuration := make(map[string]interface{})
 	if len(storage.Disks) > 0 {
-		var disks []map[string]interface{}
+		disks := make(map[string]interface{})
 		for _, disk := range storage.Disks {
 			diskMapping := make(map[string]interface{})
 			diskMapping["type"] = disk.Type
@@ -114,9 +114,7 @@ func storage(storage *model.Storage) map[string]interface{} {
 				diskMapping["region"] = disk.DiskS3.Region
 				mergo.Merge(&diskMapping, expert(disk.DiskS3.Expert))
 			}
-			disks = append(disks, map[string]interface{}{
-				disk.Name: diskMapping,
-			})
+			disks[disk.Name] = diskMapping
 		}
 		storage_configuration["disks"] = disks
 	}

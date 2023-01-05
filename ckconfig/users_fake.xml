@@ -1,5 +1,13 @@
 <clickhouse>
     <users>
+        <abc>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <password>1234</password>
+            <profile>default</profile>
+            <quota>default</quota>
+        </abc>
         <default>
             <access_management>1</access_management>
             <networks>
@@ -11,6 +19,11 @@
         </default>
         <eoitek>
             <databases>
+                <itoa>
+                    <tbl_t3>
+                        <filter>id &lt;= 30000</filter>
+                    </tbl_t3>
+                </itoa>
                 <test>
                     <tbl_t1>
                         <filter>id &gt; 100</filter>
@@ -19,11 +32,6 @@
                         <filter>id &gt; 5000</filter>
                     </tbl_t2>
                 </test>
-                <itoa>
-                    <tbl_t3>
-                        <filter>id &lt;= 30000</filter>
-                    </tbl_t3>
-                </itoa>
             </databases>
             <networks>
                 <host>ck08</host>
@@ -46,13 +54,5 @@
             <profile>default</profile>
             <quota>default</quota>
         </test>
-        <abc>
-            <networks>
-                <ip>::/0</ip>
-            </networks>
-            <password>1234</password>
-            <profile>default</profile>
-            <quota>default</quota>
-        </abc>
     </users>
 </clickhouse>
