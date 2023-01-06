@@ -59,6 +59,11 @@ func init() {
 }
 
 func main() {
+	if cmdOps.ShowVer {
+		fmt.Println("Build Timestamp:", BuildTimeStamp)
+		fmt.Println("Git Commit Hash:", GitCommitHash)
+		os.Exit(0)
+	}
 	if err := config.ParseConfigFile(cmdOps.ConfigFile, ""); err != nil {
 		fmt.Printf("Parse config file %s fail: %v\n", cmdOps.ConfigFile, err)
 		os.Exit(1)

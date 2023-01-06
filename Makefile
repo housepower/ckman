@@ -30,6 +30,7 @@ backend:
 	go build ${LDFLAGS}
 	go build ${LDFLAGS} -o ckmanpasswd cmd/password/password.go
 	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
+	go build ${LDFLAGS} -o znodefix cmd/znodefix/znodefix.go
 
 .PHONY: pre
 pre:
