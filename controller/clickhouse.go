@@ -316,6 +316,9 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 			return
 		}
 		tableName := fmt.Sprintf("%s.%s", params.DB, params.Name)
+		if conf.ZooPath == nil {
+			conf.ZooPath = make(map[string]string)
+		}
 		conf.ZooPath[tableName] = path
 
 		if err = repository.Ps.UpdateCluster(conf); err != nil {
