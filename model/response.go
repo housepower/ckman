@@ -2,11 +2,12 @@ package model
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/log"
 	"github.com/pkg/errors"
-	"net/http"
 )
 
 type ResponseBody struct {
@@ -27,6 +28,7 @@ func WrapMsg(c *gin.Context, retCode string, entity interface{}) {
 			if errors.As(err, &exception) {
 				retCode = fmt.Sprintf("%04d", exception.Code)
 				retMsg += ": " + exception.Message
+				log.Logger.Errorf("ClickHouse server StackTrace:\n" + exception.StackTrace)
 			} else {
 				retMsg += ": " + err.Error()
 			}
