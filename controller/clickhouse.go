@@ -2060,6 +2060,7 @@ func (ck *ClickHouseController) DeleteQuery(c *gin.Context) {
 
 func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	con, err := repository.Ps.GetClusterbyName(conf.Cluster)
+	conf.UnPack(con)
 	if err != nil {
 		return errors.Errorf("cluster %s is not exist", conf.Cluster)
 	}
