@@ -838,16 +838,16 @@ WHERE database = '%s' AND name = '%s'`, strings.Join(req.Orderby, ","), req.Data
 				lastError = errors.New("creatSql is empty")
 				return
 			}
-			tmpSql := strings.ReplaceAll(createSql, fmt.Sprintf("CREATE TABLE %s.%s", req.Database, local), fmt.Sprintf("CREATE TABLE %s.tmp_%s", req.Database, local))
+			tmpSql := strings.ReplaceAll(createSql, fmt.Sprintf("CREATE TABLE %s.%s", req.Database, local), fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.tmp_%s", req.Database, local))
 			tmpSql = strings.ReplaceAll(tmpSql, fmt.Sprintf("/%s/", local), fmt.Sprintf("/tmp_%s/", local)) // replace engine zoopath
 			max_insert_threads := runtime.NumCPU()*3/4 + 1
 			queries := []string{
 				tmpSql,
 				fmt.Sprintf("INSERT INTO `%s`.`tmp_%s` SELECT * FROM `%s`.`%s` SETTINGS max_insert_threads=%d", req.Database, local, req.Database, local, max_insert_threads),
-				fmt.Sprintf("DROP TABLE `%s`.`%s` SYNC", req.Database, local),
+				fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC", req.Database, local, conf.Cluster),
 				createSql,
 				fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`tmp_%s` SETTINGS max_insert_threads=%d", req.Database, local, req.Database, local, max_insert_threads),
-				fmt.Sprintf("DROP TABLE `%s`.`tmp_%s` SYNC", req.Database, local),
+				fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`tmp_%s` SYNC", req.Database, local),
 			}
 
 			for _, query := range queries {

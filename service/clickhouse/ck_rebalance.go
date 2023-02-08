@@ -376,6 +376,7 @@ func (r *CKRebalance) CreateTemporaryTable() error {
 			_ = rows.Scan(&create)
 		}
 		create = strings.Replace(create, fmt.Sprintf("CREATE TABLE %s.%s", r.Database, r.Table), fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s`", r.Database, tableName), -1)
+		create = strings.ReplaceAll(create, fmt.Sprintf("/%s/", r.Table), fmt.Sprintf("/%s/", tableName)) // replace engine zoopath
 		log.Logger.Debug(create)
 		if create != "" {
 			_, err = db.Exec(create)
