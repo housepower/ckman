@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -191,7 +192,7 @@ func GetIntegerwithDefault(value, defaul int) int {
 }
 
 // GetOutboundIP get preferred outbound ip of this machine
-//https://stackoverflow.com/questions/23558425/how-do-i-get-the-local-ip-address-in-go
+// https://stackoverflow.com/questions/23558425/how-do-i-get-the-local-ip-address-in-go
 func GetOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
@@ -277,4 +278,18 @@ func TernaryExpression(condition bool, texpr, fexpr interface{}) interface{} {
 	} else {
 		return fexpr
 	}
+}
+
+func Execute(command string) bool {
+	cmd := exec.Command("/bin/bash", "-c", command)
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		log.Logger.Errorf(fmt.Sprint(err) + ": " + stderr.String())
+		return false
+	}
+	return true
 }

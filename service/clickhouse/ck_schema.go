@@ -40,12 +40,13 @@ func GetObjectListFromClickHouse(db *sql.DB, query string) (names, statements []
 func GetCreateReplicaObjects(db *sql.DB, host, user, password string) (names, statements []string, err error) {
 	system_tables := fmt.Sprintf("remote('%s', system, tables, '%s', '%s')", host, user, password)
 
+	//default database is always exists
 	sqlDBs := heredoc.Doc(strings.ReplaceAll(`
 		SELECT DISTINCT 
 			database AS name, 
 			concat('CREATE DATABASE IF NOT EXISTS "', name, '"') AS create_db_query
 		FROM system.tables
-		WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')
+		WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA', 'default')
 		SETTINGS skip_unavailable_shards = 1`,
 		"system.tables", system_tables,
 	))

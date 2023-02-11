@@ -605,8 +605,10 @@ func (ck *CkService) FetchSchemerFromOtherNode(host, password string) error {
 
 	num := len(names)
 	for i := 0; i < num; i++ {
-		if _, err = ck.DB.Exec(statements[i]); err != nil {
-			return errors.Wrap(err, "")
+		log.Logger.Debugf("statement: %s", statements[i])
+		var e error
+		if _, e = ck.DB.Exec(statements[i]); e != nil {
+			return errors.Wrap(e, "")
 		}
 	}
 

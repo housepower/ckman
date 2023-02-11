@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/repository"
+	"github.com/pkg/errors"
 
 	client "github.com/ClickHouse/clickhouse-go"
 	"github.com/gin-gonic/gin"
@@ -20,7 +24,6 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/clickhouse"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -1334,6 +1337,14 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 		return
 	}
 	con := conf
+	//copy the original hosts
+	var host string
+	for _, h := range conf.Hosts {
+		if h != ip {
+			host = h
+			break
+		}
+	}
 	con.Hosts = []string{ip}
 
 	err = deploy.StartCkCluster(&con)
@@ -1342,6 +1353,35 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 		return
 	}
 	conf.Watch(ip)
+	if conf.IsReplica && host != "" {
+		ckService := clickhouse.NewCkService(&conf)
+		ckService.InitCkService()
+		err := ckService.FetchSchemerFromOtherNode(host, conf.Password)
+		if err != nil {
+			var exception *client.Exception
+			if errors.As(err, &exception) {
+				if exception.Code == 253 {
+					//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
+					args := make([]string, 0)
+					args = append(args, path.Join(filepath.Dir(os.Args[0]), "znodefix"))
+					args = append(args, "-config="+config.GlobalConfig.ConfigFile)
+					args = append(args, "-cluster="+conf.Cluster)
+					args = append(args, "-node="+ip)
+					cmd := strings.Join(args, " ")
+					log.Logger.Infof("run %s", cmd)
+					if common.Execute(cmd) {
+						if err = ckService.FetchSchemerFromOtherNode(host, conf.Password); err != nil {
+							log.Logger.Errorf("fetch schema from other node failed again")
+						}
+					}
+				}
+			}
+		}
+		// https://clickhouse.com/docs/en/sql-reference/statements/system/#sync-replica
+		// Provides possibility to start background fetches for inserted parts for tables in the ReplicatedMergeTree family: Always returns Ok. regardless of the table engine and even if table or database does not exist.
+		query := "SYSTEM START FETCHES"
+		ckService.DB.Exec(query)
+	}
 	err = repository.Ps.UpdateCluster(conf)
 	if err != nil {
 		model.WrapMsg(c, model.START_CK_NODE_FAIL, err)
