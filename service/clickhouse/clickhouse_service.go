@@ -541,6 +541,20 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 	}
 	colData = append(colData, colNames)
 
+	ctps, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, errors.Wrap(err, "")
+	}
+	colTpyes := make([]int64, len(cols))
+	for i, ctp := range ctps {
+		_, s, ok := ctp.DecimalSize()
+		if ok {
+			colTpyes[i] = s
+		} else {
+			colTpyes[i] = 0
+		}
+	}
+
 	for rows.Next() {
 		// Scan the result into the column pointers...
 		if err = rows.Scan(columnPointers...); err != nil {
@@ -556,12 +570,24 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 			if m[i] == nil {
 				m[i] = "NULL"
 			} else {
-				if reflect.TypeOf(m[i]).Kind() == reflect.Float64 {
-					v := m[i].(float64)
-					if math.IsNaN(v) {
-						m[i] = "NaN"
-					} else if math.IsInf(v, 0) {
-						m[i] = "Inf"
+				if colTpyes[i] > 0 {
+					var decimal float64
+					if reflect.TypeOf(m[i]).Kind() == reflect.Int32 {
+						v := m[i].(int32)
+						decimal = float64(v) / math.Pow10(int(colTpyes[i]))
+					} else if reflect.TypeOf(m[i]).Kind() == reflect.Int64 {
+						v := m[i].(int64)
+						decimal = float64(v) / math.Pow10(int(colTpyes[i]))
+					}
+					m[i] = decimal
+				} else {
+					if reflect.TypeOf(m[i]).Kind() == reflect.Float64 {
+						v := m[i].(float64)
+						if math.IsNaN(v) {
+							m[i] = "NaN"
+						} else if math.IsInf(v, 0) {
+							m[i] = "Inf"
+						}
 					}
 				}
 			}
