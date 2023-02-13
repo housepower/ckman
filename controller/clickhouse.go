@@ -305,6 +305,10 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 		params.StoragePolicy = req.StoragePolicy
 	}
 
+	if common.CompareClickHouseVersion(conf.Version, "21.8") > 0 {
+		params.Projections = req.Projections
+	}
+
 	statements, err := ckService.CreateTable(&params, req.DryRun)
 	if err != nil {
 		clickhouse.DropTableIfExists(params, ckService)
@@ -497,6 +501,15 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 	params.Rename = req.Rename
 	if params.DB == "" {
 		params.DB = model.ClickHouseDefaultDB
+	}
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, err)
+		return
+	}
+	if common.CompareClickHouseVersion(conf.Version, "21.8") > 0 {
+		params.Projections = req.Projections
 	}
 
 	if err := ckService.AlterTable(&params); err != nil {

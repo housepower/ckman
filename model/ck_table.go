@@ -25,6 +25,7 @@ type CreateCkTableReq struct {
 	TTL           []CkTableTTL      `json:"ttl"`
 	StoragePolicy string            `json:"storage_policy" example:"external"`
 	DryRun        bool              `json:"dryrun" example:"false"`
+	Projections   []Projection      `json:"projections"`
 }
 
 // https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#mergetree-table-ttl
@@ -80,6 +81,7 @@ type CreateCkTableParams struct {
 	DB            string
 	TTLExpr       string
 	StoragePolicy string
+	Projections   []Projection
 }
 
 type DeleteCkTableParams struct {
@@ -108,25 +110,40 @@ type CkTableRename struct {
 	From string `json:"from" example:"col_old"`
 	To   string `json:"to" example:"col_new"`
 }
+
+const (
+	ProjectionAdd   = 1
+	ProjectionClear = 2
+	ProjectionDrop  = 3
+)
+
+type Projection struct {
+	Action int
+	Name   string
+	Sql    string
+}
+
 type AlterCkTableReq struct {
-	Name     string                 `json:"name" example:"test_table"`
-	DistName string                 `json:"dist_name"`
-	DB       string                 `json:"database" example:"default"`
-	Add      []CkTableNameTypeAfter `json:"add"`
-	Modify   []CkTableNameType      `json:"modify"`
-	Drop     []string               `json:"drop" example:"age"`
-	Rename   []CkTableRename        `json:"rename"`
+	Name        string                 `json:"name" example:"test_table"`
+	DistName    string                 `json:"dist_name"`
+	DB          string                 `json:"database" example:"default"`
+	Add         []CkTableNameTypeAfter `json:"add"`
+	Modify      []CkTableNameType      `json:"modify"`
+	Drop        []string               `json:"drop" example:"age"`
+	Rename      []CkTableRename        `json:"rename"`
+	Projections []Projection           `json:"projections"`
 }
 
 type AlterCkTableParams struct {
-	Name     string
-	DistName string
-	Cluster  string
-	DB       string
-	Add      []CkTableNameTypeAfter
-	Drop     []string
-	Modify   []CkTableNameType
-	Rename   []CkTableRename
+	Name        string
+	DistName    string
+	Cluster     string
+	DB          string
+	Add         []CkTableNameTypeAfter
+	Drop        []string
+	Modify      []CkTableNameType
+	Rename      []CkTableRename
+	Projections []Projection
 }
 
 type AlterTblsTTLReq struct {

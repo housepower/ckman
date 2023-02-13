@@ -2057,6 +2057,12 @@ var doc = `{
                     "type": "string",
                     "example": "test_table"
                 },
+                "projections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Projection"
+                    }
+                },
                 "rename": {
                     "type": "array",
                     "items": {
@@ -2450,6 +2456,12 @@ var doc = `{
                 "partition": {
                     "$ref": "#/definitions/model.CkTablePartition"
                 },
+                "projections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Projection"
+                    }
+                },
                 "storage_policy": {
                     "type": "string",
                     "example": "external"
@@ -2566,9 +2578,6 @@ var doc = `{
                 },
                 "statement": {
                     "type": "string"
-                },
-                "table": {
-                    "type": "string"
                 }
             }
         },
@@ -2621,6 +2630,20 @@ var doc = `{
                     "items": {
                         "$ref": "#/definitions/model.Volumn"
                     }
+                }
+            }
+        },
+        "model.Projection": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sql": {
+                    "type": "string"
                 }
             }
         },
