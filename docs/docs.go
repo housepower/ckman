@@ -1189,6 +1189,44 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/table/view/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "create or delete a Materialized View",
+                "summary": "MaterializedView",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MaterializedViewReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"5003\",\"retMsg\":\"alter ClickHouse table failed\",\"entity\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/table/{clusterName}": {
             "get": {
                 "security": [
@@ -1997,6 +2035,9 @@ var doc = `{
                     "type": "string",
                     "example": "default"
                 },
+                "dist_name": {
+                    "type": "string"
+                },
                 "drop": {
                     "type": "array",
                     "items": {
@@ -2376,6 +2417,9 @@ var doc = `{
                     "type": "string",
                     "example": "default"
                 },
+                "dist_table": {
+                    "type": "string"
+                },
                 "distinct": {
                     "type": "boolean",
                     "example": true
@@ -2450,6 +2494,10 @@ var doc = `{
                     "type": "string",
                     "example": "default"
                 },
+                "dist_name": {
+                    "type": "string",
+                    "example": "dist_table"
+                },
                 "table_name": {
                     "type": "string",
                     "example": "test_table"
@@ -2486,10 +2534,51 @@ var doc = `{
                 }
             }
         },
+        "model.MaterializedViewReq": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string"
+                },
+                "dryrun": {
+                    "type": "boolean"
+                },
+                "engine": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "operate": {
+                    "type": "integer"
+                },
+                "order": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "partition": {
+                    "$ref": "#/definitions/model.CkTablePartition"
+                },
+                "populate": {
+                    "type": "boolean"
+                },
+                "statement": {
+                    "type": "string"
+                },
+                "table": {
+                    "type": "string"
+                }
+            }
+        },
         "model.OrderbyReq": {
             "type": "object",
             "properties": {
                 "database": {
+                    "type": "string"
+                },
+                "dist_name": {
                     "type": "string"
                 },
                 "orderby": {

@@ -22,6 +22,8 @@ definitions:
       database:
         example: default
         type: string
+      dist_name:
+        type: string
       drop:
         example:
         - age
@@ -298,6 +300,8 @@ definitions:
       database:
         example: default
         type: string
+      dist_table:
+        type: string
       distinct:
         example: true
         type: boolean
@@ -349,6 +353,9 @@ definitions:
       database:
         example: default
         type: string
+      dist_name:
+        example: dist_table
+        type: string
       table_name:
         example: test_table
         type: string
@@ -374,9 +381,36 @@ definitions:
         example: ckman
         type: string
     type: object
+  model.MaterializedViewReq:
+    properties:
+      database:
+        type: string
+      dryrun:
+        type: boolean
+      engine:
+        type: string
+      name:
+        type: string
+      operate:
+        type: integer
+      order:
+        items:
+          type: string
+        type: array
+      partition:
+        $ref: '#/definitions/model.CkTablePartition'
+      populate:
+        type: boolean
+      statement:
+        type: string
+      table:
+        type: string
+    type: object
   model.OrderbyReq:
     properties:
       database:
+        type: string
+      dist_name:
         type: string
       orderby:
         items:
@@ -1332,6 +1366,30 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: AlterTableTTL
+  /api/v1/ck/table/view/{clusterName}:
+    put:
+      description: create or delete a Materialized View
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.MaterializedViewReq'
+      responses:
+        "200":
+          description: '{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: MaterializedView
   /api/v1/ck/table_lists/{clusterName}:
     get:
       description: get table lists config
