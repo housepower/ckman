@@ -172,3 +172,44 @@ func (z *ZkService) DeletePathUntilNode(path, endNode string) error {
 		path = parent
 	}
 }
+
+func (z *ZkService) CleanZoopath(conf model.CKManClickHouseConfig, clusterName, target string, dryrun bool) error {
+	root := fmt.Sprintf("/clickhouse/tables/%s", clusterName)
+	return clean(z, root, target, dryrun)
+}
+
+func clean(svr *ZkService, znode, target string, dryrun bool) error {
+	_, stat, err := svr.Conn.Get(znode)
+	if errors.Is(err, zk.ErrNoNode) {
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, znode)
+	}
+	base := path.Base(znode)
+	if base == target {
+		if dryrun {
+			fmt.Println(znode)
+		} else {
+			err = svr.DeleteAll(znode)
+			if err != nil {
+				fmt.Printf("znode %s delete failed: %v\n", znode, err)
+			} else {
+				fmt.Printf("znode %s delete success\n", znode)
+			}
+		}
+	} else if stat.NumChildren > 0 {
+		children, _, err := svr.Conn.Children(znode)
+		if err != nil {
+			return errors.Wrap(err, znode)
+		}
+
+		for _, child := range children {
+			subnode := path.Join(znode, child)
+			err := clean(svr, subnode, target, dryrun)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}

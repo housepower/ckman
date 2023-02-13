@@ -4,15 +4,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
 
@@ -24,6 +21,7 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/clickhouse"
+	"github.com/housepower/ckman/service/zookeeper"
 )
 
 const (
@@ -1413,18 +1411,30 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 			if errors.As(err, &exception) {
 				if exception.Code == 253 {
 					//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
-					args := make([]string, 0)
-					args = append(args, path.Join(filepath.Dir(os.Args[0]), "znodefix"))
-					args = append(args, "-config="+config.GlobalConfig.ConfigFile)
-					args = append(args, "-cluster="+conf.Cluster)
-					args = append(args, "-node="+ip)
-					cmd := strings.Join(args, " ")
-					log.Logger.Infof("run %s", cmd)
-					if common.Execute(cmd) {
-						if err = ckService.FetchSchemerFromOtherNode(host, conf.Password); err != nil {
-							log.Logger.Errorf("fetch schema from other node failed again")
+					// args := make([]string, 0)
+					// args = append(args, path.Join(filepath.Dir(os.Args[0]), "znodefix"))
+					// args = append(args, "-config="+config.GlobalConfig.ConfigFile)
+					// args = append(args, "-cluster="+conf.Cluster)
+					// args = append(args, "-node="+ip)
+					// cmd := strings.Join(args, " ")
+					// log.Logger.Infof("run %s", cmd)
+					// if common.Execute(cmd) {
+					// 	if err = ckService.FetchSchemerFromOtherNode(host, conf.Password); err != nil {
+					// 		log.Logger.Errorf("fetch schema from other node failed again")
+					// 	}
+					// }
+					service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
+					if err == nil {
+						err = service.CleanZoopath(conf, conf.Cluster, ip, false)
+						if err == nil {
+							if err = ckService.FetchSchemerFromOtherNode(host, conf.Password); err != nil {
+								log.Logger.Errorf("fetch schema from other node failed again")
+							}
 						}
+					} else {
+						log.Logger.Errorf("can't create zookeeper instance:%v", err)
 					}
+
 				}
 			}
 		}
