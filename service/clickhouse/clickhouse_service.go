@@ -932,6 +932,51 @@ WHERE database = '%s' AND name = '%s'`, strings.Join(req.Orderby, ","), req.Data
 	return nil
 }
 
+func MaterializedView(conf *model.CKManClickHouseConfig, req model.MaterializedViewReq) (string, error) {
+	var statement string
+	ckService := NewCkService(conf)
+	err := ckService.InitCkService()
+	if err != nil {
+		return "", err
+	}
+	var query string
+	if req.Operate == model.OperateCreate {
+		partition := ""
+		switch req.Partition.Policy {
+		case model.CkTablePartitionPolicyDay:
+			partition = fmt.Sprintf("toYYYYMMDD(`%s`)", req.Partition.Name)
+		case model.CkTablePartitionPolicyMonth:
+			partition = fmt.Sprintf("toYYYYMM(`%s`)", req.Partition.Name)
+		case model.CkTablePartitionPolicyWeek:
+			partition = fmt.Sprintf("toYearWeek(`%s`)", req.Partition.Name)
+		default:
+			partition = fmt.Sprintf("toYYYYMMDD(`%s`)", req.Partition.Name)
+		}
+
+		var populate string
+		if req.Populate {
+			populate = "POPULATE"
+		}
+
+		query = fmt.Sprintf("CREATE MATERIALIZED VIEW IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` ENGINE=%s PARTITION BY %s ORDER BY (`%s`) %s AS %s",
+			req.Database, req.Name, conf.Cluster, req.Engine, partition, strings.Join(req.Order, "`,`"), populate, req.Statement)
+	} else if req.Operate == model.OperateDelete {
+		query = fmt.Sprintf("DROP VIEW IF EXISTS `%s`.`%s` ON CLUSTER `%s`) SYNC",
+			req.Database, req.Name, conf.Cluster)
+	}
+	if req.Dryrun {
+		return query, nil
+	} else {
+		log.Logger.Debug(query)
+		_, err = ckService.DB.Exec(query)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return statement, nil
+}
+
 func GetPartitions(conf *model.CKManClickHouseConfig, table string) (map[string]model.PartitionInfo, error) {
 	partInfo := make(map[string]model.PartitionInfo)
 

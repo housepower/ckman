@@ -213,3 +213,21 @@ type OrderbyReq struct {
 	DistName string `json:"dist_name"`
 	Orderby  []string
 }
+
+const (
+	OperateCreate int = 1
+	OperateUpdate int = 2
+	OperateDelete int = 3
+)
+
+type MaterializedViewReq struct {
+	Name      string `json:"name"`
+	Engine    string `json:"engine"`
+	Populate  bool   `json:"populate"`
+	Database  string `json:"database"`
+	Order     []string
+	Partition CkTablePartition
+	Statement string `json:"statement"`
+	Dryrun    bool   `json:"dryrun"`
+	Operate   int    `json:"operate"`
+}

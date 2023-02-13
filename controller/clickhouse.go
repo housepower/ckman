@@ -628,6 +628,44 @@ func (ck *ClickHouseController) SetOrderby(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
+// @Summary MaterializedView
+// @Description create or delete a Materialized View
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.MaterializedViewReq true "request body"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"
+// @Router /api/v1/ck/table/view/{clusterName} [put]
+func (ck *ClickHouseController) MaterializedView(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	var req model.MaterializedViewReq
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+
+	if req.Operate != model.OperateCreate && req.Operate != model.OperateDelete {
+		err := fmt.Errorf("operate only supports create and delete")
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+	statement, err := clickhouse.MaterializedView(&conf, req)
+	if err != nil {
+		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
+		return
+	}
+	model.WrapMsg(c, model.SUCCESS, statement)
+}
+
 // @Summary Delete Table
 // @Description Delete Table
 // @version 1.0
