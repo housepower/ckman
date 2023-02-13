@@ -37,6 +37,10 @@ definitions:
       name:
         example: test_table
         type: string
+      projections:
+        items:
+          $ref: '#/definitions/model.Projection'
+        type: array
       rename:
         items:
           $ref: '#/definitions/model.CkTableRename'
@@ -323,6 +327,10 @@ definitions:
         type: array
       partition:
         $ref: '#/definitions/model.CkTablePartition'
+      projections:
+        items:
+          $ref: '#/definitions/model.Projection'
+        type: array
       storage_policy:
         example: external
         type: string
@@ -403,8 +411,6 @@ definitions:
         type: boolean
       statement:
         type: string
-      table:
-        type: string
     type: object
   model.OrderbyReq:
     properties:
@@ -440,6 +446,15 @@ definitions:
         items:
           $ref: '#/definitions/model.Volumn'
         type: array
+    type: object
+  model.Projection:
+    properties:
+      action:
+        type: integer
+      name:
+        type: string
+      sql:
+        type: string
     type: object
   model.PurgerTableReq:
     properties:
