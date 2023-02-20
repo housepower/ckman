@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -292,4 +293,22 @@ func Execute(command string) bool {
 		return false
 	}
 	return true
+}
+
+func EnsurePathNonPrefix(paths []string) error {
+	if len(paths) < 2 {
+		return nil
+	}
+	sort.Strings(paths)
+	for i := 1; i < len(paths); i++ {
+		curr := paths[i]
+		prev := paths[i-1]
+		if prev == curr {
+			return errors.Errorf("path %s is duplicate", curr)
+		}
+		if strings.HasPrefix(curr, prev) {
+			return errors.Errorf("path %s is subdir of path %s", curr, prev)
+		}
+	}
+	return nil
 }

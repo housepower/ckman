@@ -23,9 +23,14 @@ const (
 	TaskTypeCKDeleteNode string = "clickhouse.deletenode"
 	TaskTypeCKDestory    string = "clickhouse.destory"
 	TaskTypeCKSetting    string = "clickhouse.setting"
+	TaskTypeCKRebalance  string = "clickhouse.rebalance"
+	TaskTypeCKArchive    string = "clickhouse.archive"
 
 	TaskTypeZKDeploy  string = "zookeeper.deploy"
 	TaskTypeZKUpgrade string = "zookeeper.upgrade"
+
+	TaskTypeKeeperDeploy  string = "keeper.deploy"
+	TaskTypeKeeperUpgrade string = "keeper.upgrade"
 
 	ALL_NODES_DEFAULT string = "all_hosts"
 )
@@ -78,6 +83,7 @@ var (
 	NodeStatusStore     = Internationalization{"保存配置", "Store"}
 	NodeStatusDone      = Internationalization{"完成", "Done"}
 	NodeStatusFailed    = Internationalization{"失败", "Failed"}
+	NodeStatusExport    = Internationalization{"导出数据", "Export"}
 )
 
 var (
@@ -87,17 +93,23 @@ var (
 	TaskOptionDeleteNode = Internationalization{"删除节点", "DeleteNode"}
 	TaskOptionDestory    = Internationalization{"销毁集群", "Destory"}
 	TaskOptionSetting    = Internationalization{"设置集群", "Setting"}
+	TaskOptionRebalance  = Internationalization{"均衡集群", "Rebalance"}
+	TaskOptionArchive    = Internationalization{"归档数据", "Archive"}
 )
 
 var TaskOptionMap = map[string]Internationalization{
-	TaskTypeCKDeploy:     TaskOptionDeploy,
-	TaskTypeCKUpgrade:    TaskOptionUpgrade,
-	TaskTypeCKAddNode:    TaskOptionAddNode,
-	TaskTypeCKDeleteNode: TaskOptionDeleteNode,
-	TaskTypeCKDestory:    TaskOptionDestory,
-	TaskTypeCKSetting:    TaskOptionSetting,
-	TaskTypeZKDeploy:     TaskOptionDeploy,
-	TaskTypeZKUpgrade:    TaskOptionUpgrade,
+	TaskTypeCKDeploy:      TaskOptionDeploy,
+	TaskTypeCKUpgrade:     TaskOptionUpgrade,
+	TaskTypeCKAddNode:     TaskOptionAddNode,
+	TaskTypeCKDeleteNode:  TaskOptionDeleteNode,
+	TaskTypeCKDestory:     TaskOptionDestory,
+	TaskTypeCKSetting:     TaskOptionSetting,
+	TaskTypeZKDeploy:      TaskOptionDeploy,
+	TaskTypeZKUpgrade:     TaskOptionUpgrade,
+	TaskTypeCKRebalance:   TaskOptionRebalance,
+	TaskTypeCKArchive:     TaskOptionArchive,
+	TaskTypeKeeperDeploy:  TaskOptionDeploy,
+	TaskTypeKeeperUpgrade: TaskOptionUpgrade,
 }
 
 type TaskStatusResp struct {

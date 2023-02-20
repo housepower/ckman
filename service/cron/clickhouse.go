@@ -32,7 +32,7 @@ func SyncLogicSchema() error {
 		for _, cluster := range clusters {
 			if deploy.HasEffectiveTasks(cluster) {
 				//do not deal all logic cluster
-				log.Logger.Debugf("cluster %s has effective tasks running, ignore sync logic schema job")
+				log.Logger.Debugf("cluster %s has effective tasks running, ignore sync logic schema job", cluster)
 				break
 			}
 			conf, err := repository.Ps.GetClusterbyName(cluster)
@@ -232,7 +232,7 @@ func WatchClusterStatus() error {
 			continue
 		}
 		if deploy.HasEffectiveTasks(cluster.Cluster) {
-			log.Logger.Debugf("cluster %s has effective tasks running, ignore watch status job")
+			log.Logger.Debugf("cluster %s has effective tasks running, ignore watch status job", cluster.Cluster)
 			continue
 		}
 		for _, shard := range cluster.Shards {
@@ -261,7 +261,7 @@ func SyncDistSchema() error {
 	}
 	for _, conf := range clusters {
 		if deploy.HasEffectiveTasks(conf.Cluster) {
-			log.Logger.Debugf("cluster %s has effective tasks running, ignore sync distributed schema job")
+			log.Logger.Debugf("cluster %s has effective tasks running, ignore sync distributed schema job", conf.Cluster)
 			continue
 		}
 		initCKConns(conf)
