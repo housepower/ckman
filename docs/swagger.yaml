@@ -46,32 +46,72 @@ definitions:
           $ref: '#/definitions/model.CkTableRename'
         type: array
     type: object
+  model.ArchiveHdfs:
+    properties:
+      addr:
+        example: localhost:8020
+        type: string
+      dir:
+        example: /data01
+        type: string
+      user:
+        example: hdfs
+        type: string
+    type: object
+  model.ArchiveLocal:
+    properties:
+      Path:
+        example: /data01/clickhouse/backup/
+        type: string
+    type: object
+  model.ArchiveS3:
+    properties:
+      AccessKeyID:
+        example: KZOqVTra982w51MK
+        type: string
+      Bucket:
+        example: ckman.backup
+        type: string
+      Compression:
+        description: none, gzip/gz, brotli/br, xz/LZMA, zstd/zst
+        example: gzip
+        type: string
+      Endpoint:
+        example: http://192.168.110.8:49000
+        type: string
+      Region:
+        example: zh-west-1
+        type: string
+      SecretAccessKey:
+        example: 7Zsdaywu7i5C2AyvLkbupSyVlIzP8qJ0
+        type: string
+    type: object
   model.ArchiveTableReq:
     properties:
       begin:
+        description: include
         example: "2021-01-01"
         type: string
       database:
         example: default
         type: string
       end:
+        description: exclude
         example: "2021-04-01"
         type: string
-      hdfsaddr:
-        example: localhost:8020
+      format:
+        description: pq, csv, orc
         type: string
-      hdfsdir:
-        example: /data01
-        type: string
-      hdfsuser:
-        example: hdfs
-        type: string
+      hdfs:
+        $ref: '#/definitions/model.ArchiveHdfs'
+      local:
+        $ref: '#/definitions/model.ArchiveLocal'
       maxfilesize:
         example: 10000000000
         type: integer
-      parallelism:
-        example: 4
-        type: integer
+      s3:
+        $ref: '#/definitions/model.ArchiveS3'
+        description: todo
       tables:
         example:
         - t1
@@ -80,6 +120,10 @@ definitions:
         items:
           type: string
         type: array
+      target:
+        description: hdfs, local, remote
+        example: hdfs
+        type: string
     type: object
   model.CKManClickHouseConfig:
     properties:

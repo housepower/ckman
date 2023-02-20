@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/housepower/ckman/repository"
@@ -186,13 +185,13 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 				return errors.Errorf("unsupport disk type %s", disk.Type)
 			}
 		}
-		if err = EnsurePathNonPrefix(localPath); err != nil {
+		if err = common.EnsurePathNonPrefix(localPath); err != nil {
 			return err
 		}
-		if err = EnsurePathNonPrefix(hdfsEndpoints); err != nil {
+		if err = common.EnsurePathNonPrefix(hdfsEndpoints); err != nil {
 			return err
 		}
-		if err = EnsurePathNonPrefix(s3Endpoints); err != nil {
+		if err = common.EnsurePathNonPrefix(s3Endpoints); err != nil {
 			return err
 		}
 		for _, policy := range conf.Storage.Policies {
@@ -347,24 +346,6 @@ func MatchingPlatfrom(conf *model.CKManClickHouseConfig) error {
 		}
 		if result != arch {
 			return errors.Errorf("arch %s mismatched, pkgType: %s", arch, conf.PkgType)
-		}
-	}
-	return nil
-}
-
-func EnsurePathNonPrefix(paths []string) error {
-	if len(paths) < 2 {
-		return nil
-	}
-	sort.Strings(paths)
-	for i := 1; i < len(paths); i++ {
-		curr := paths[i]
-		prev := paths[i-1]
-		if prev == curr {
-			return errors.Errorf("path %s is duplicate", curr)
-		}
-		if strings.HasPrefix(curr, prev) {
-			return errors.Errorf("path %s is subdir of path %s", curr, prev)
 		}
 	}
 	return nil

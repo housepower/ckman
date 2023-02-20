@@ -38,6 +38,7 @@ require (
 
 require (
 	github.com/arl/statsviz v0.5.1
+	github.com/aws/aws-sdk-go v1.27.0
 	github.com/bramvdbogaerde/go-scp v1.2.0
 	github.com/go-basic/uuid v1.0.0
 	github.com/hjson/hjson-go/v4 v4.2.0

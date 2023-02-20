@@ -1886,7 +1886,7 @@ func (ck *ClickHouseController) GetPartitions(c *gin.Context) {
 // @Failure 200 {string} json "{"retCode":"5204", "retMsg":"archive to hdfs failed", "entity":"error"}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":""}"
 // @Router /api/v1/ck/archive/{clusterName} [post]
-func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
+func (ck *ClickHouseController) ArchiveTable(c *gin.Context) {
 	var req model.ArchiveTableReq
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -1902,52 +1902,30 @@ func (ck *ClickHouseController) ArchiveToHDFS(c *gin.Context) {
 	}
 
 	if len(conf.Hosts) == 0 {
-		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, errors.Errorf("can't find any host"))
+		model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, errors.Errorf("can't find any host"))
 		return
 	}
+	if req.Target == model.ArchiveTargetLocal {
+		if err := common.EnsurePathNonPrefix([]string{
+			path.Join(conf.Path, "clickhouse"),
+			req.Local.Path,
+		}); err != nil {
+			model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, err)
+			return
+		}
 
-	chHosts, err := common.GetShardAvaliableHosts(&conf)
+		if err := checkAccess(req.Local.Path, &conf); err != nil {
+			model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, err)
+			return
+		}
+	}
+
+	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKArchive, &req)
 	if err != nil {
-		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, err)
+		model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, err)
 		return
 	}
-	archive := &clickhouse.ArchiveHDFS{
-		Hosts:       chHosts,
-		Port:        conf.Port,
-		User:        conf.User,
-		Password:    conf.Password,
-		Database:    req.Database,
-		Tables:      req.Tables,
-		Begin:       req.Begin,
-		End:         req.End,
-		MaxFileSize: req.MaxFileSize,
-		HdfsAddr:    req.HdfsAddr,
-		HdfsUser:    req.HdfsUser,
-		HdfsDir:     req.HdfsDir,
-		Parallelism: req.Parallelism,
-	}
-
-	archive.FillArchiveDefault()
-	if err := archive.InitConns(); err != nil {
-		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, err)
-		return
-	}
-
-	if err := archive.GetSortingInfo(); err != nil {
-		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, err)
-		return
-	}
-
-	if err := archive.ClearHDFS(); err != nil {
-		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, err)
-		return
-	}
-
-	if err := archive.ExportToHDFS(); err != nil {
-		model.WrapMsg(c, model.ARCHIVE_TO_HDFS_FAIL, err)
-		return
-	}
-	model.WrapMsg(c, model.SUCCESS, nil)
+	model.WrapMsg(c, model.SUCCESS, taskId)
 }
 
 // @Summary show create table

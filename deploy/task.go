@@ -24,6 +24,10 @@ func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, er
 		repository.EncodePasswd(deploy.(*CKDeploy).Conf)
 		hosts = d.Conf.Hosts
 	case *ZKDeploy:
+	case *model.ArchiveTableReq:
+		conf, _ := repository.Ps.GetClusterbyName(clusterName)
+		hosts = conf.Hosts
+	case *model.RebalanceTableReq:
 	default:
 		return "", fmt.Errorf("unknown module")
 	}

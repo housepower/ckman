@@ -18,6 +18,7 @@ var TaskHandleFunc = map[string]func(task *model.Task) error{
 	model.TaskTypeCKDeleteNode: CKDeleteNodeHandle,
 	model.TaskTypeCKDestory:    CKDestoryHandle,
 	model.TaskTypeCKSetting:    CKSettingHandle,
+	model.TaskTypeCKArchive:    CKArchiveHandle,
 }
 
 func UnmarshalConfig(config interface{}, v interface{}) error {
@@ -29,10 +30,10 @@ func UnmarshalConfig(config interface{}, v interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
-	switch v.(type) {
+	switch v := v.(type) {
 	case *deploy.CKDeploy:
-		d := v.(*deploy.CKDeploy)
-		repository.DecodePasswd(d.Conf)
+		repository.DecodePasswd(v.Conf)
+	case *model.ArchiveTableReq:
 	case *deploy.ZKDeploy:
 	}
 	return nil
@@ -303,6 +304,49 @@ func CKSettingHandle(task *model.Task) error {
 		}
 	}
 	_ = repository.Ps.Commit()
+	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
+	return nil
+}
+
+func CKArchiveHandle(task *model.Task) error {
+	var req model.ArchiveTableReq
+	if err := UnmarshalConfig(task.DeployConfig, &req); err != nil {
+		return err
+	}
+
+	conf, err := repository.Ps.GetClusterbyName(task.ClusterName)
+	if err != nil {
+		return err
+	}
+
+	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
+	t := clickhouse.GetSuitableArchiveAdpt(req.Target)
+
+	hosts, err := common.GetShardAvaliableHosts(&conf)
+	if err != nil {
+		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
+	}
+
+	params := clickhouse.NewArchiveParams(hosts, conf, req)
+	if err := t.Normalize(params, req); err != nil {
+		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
+	}
+
+	if err := t.Init(); err != nil {
+		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
+	}
+
+	deploy.SetNodeStatus(task, model.NodeStatusClearData, model.ALL_NODES_DEFAULT)
+	if err := t.Clear(); err != nil {
+		return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
+	}
+
+	deploy.SetNodeStatus(task, model.NodeStatusExport, model.ALL_NODES_DEFAULT)
+	if err := t.Export(); err != nil {
+		return errors.Wrapf(err, "[%s]", model.NodeStatusExport.EN)
+	}
+
+	t.Done(conf.Path)
 	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
 	return nil
 }

@@ -2055,10 +2055,67 @@
                 }
             }
         },
+        "model.ArchiveHdfs": {
+            "type": "object",
+            "properties": {
+                "addr": {
+                    "type": "string",
+                    "example": "localhost:8020"
+                },
+                "dir": {
+                    "type": "string",
+                    "example": "/data01"
+                },
+                "user": {
+                    "type": "string",
+                    "example": "hdfs"
+                }
+            }
+        },
+        "model.ArchiveLocal": {
+            "type": "object",
+            "properties": {
+                "Path": {
+                    "type": "string",
+                    "example": "/data01/clickhouse/backup/"
+                }
+            }
+        },
+        "model.ArchiveS3": {
+            "type": "object",
+            "properties": {
+                "AccessKeyID": {
+                    "type": "string",
+                    "example": "KZOqVTra982w51MK"
+                },
+                "Bucket": {
+                    "type": "string",
+                    "example": "ckman.backup"
+                },
+                "Compression": {
+                    "description": "none, gzip/gz, brotli/br, xz/LZMA, zstd/zst",
+                    "type": "string",
+                    "example": "gzip"
+                },
+                "Endpoint": {
+                    "type": "string",
+                    "example": "http://192.168.110.8:49000"
+                },
+                "Region": {
+                    "type": "string",
+                    "example": "zh-west-1"
+                },
+                "SecretAccessKey": {
+                    "type": "string",
+                    "example": "7Zsdaywu7i5C2AyvLkbupSyVlIzP8qJ0"
+                }
+            }
+        },
         "model.ArchiveTableReq": {
             "type": "object",
             "properties": {
                 "begin": {
+                    "description": "include",
                     "type": "string",
                     "example": "2021-01-01"
                 },
@@ -2067,28 +2124,27 @@
                     "example": "default"
                 },
                 "end": {
+                    "description": "exclude",
                     "type": "string",
                     "example": "2021-04-01"
                 },
-                "hdfsaddr": {
-                    "type": "string",
-                    "example": "localhost:8020"
+                "format": {
+                    "description": "pq, csv, orc",
+                    "type": "string"
                 },
-                "hdfsdir": {
-                    "type": "string",
-                    "example": "/data01"
+                "hdfs": {
+                    "$ref": "#/definitions/model.ArchiveHdfs"
                 },
-                "hdfsuser": {
-                    "type": "string",
-                    "example": "hdfs"
+                "local": {
+                    "$ref": "#/definitions/model.ArchiveLocal"
                 },
                 "maxfilesize": {
                     "type": "integer",
                     "example": 10000000000
                 },
-                "parallelism": {
-                    "type": "integer",
-                    "example": 4
+                "s3": {
+                    "description": "todo",
+                    "$ref": "#/definitions/model.ArchiveS3"
                 },
                 "tables": {
                     "type": "array",
@@ -2100,6 +2156,11 @@
                         "t2",
                         "t3"
                     ]
+                },
+                "target": {
+                    "description": "hdfs, local, remote",
+                    "type": "string",
+                    "example": "hdfs"
                 }
             }
         },
