@@ -135,12 +135,16 @@ make frontend
 
 ## server
 
+-   `ip`
+    -   服务端的ip地址，如果不指定，取默认路由的ip
+    
 -   `port`
     -   `ckman`的监听端口
     -   默认为`8808`
 -   `https`
     -   是否监听`https`
-    -   默认为`false`
+    -   默
+    -   认为`false`
 -   `certfile`
     -   `https`的证书文件路径，如果开启了`https`，必须要有证书文件
     -    默认使用`conf`下的`server.crt`
@@ -170,25 +174,19 @@ make frontend
         -   `local`：存储到本地，在`conf`目录下生成一个`clusters.json`文件，不支持集群，为默认配置
         -   `mysql`：持久化到`mysql`，支持`ckman`集群，支持`HA`，需要提前创建数据库，数据库编码为`UTF-8`，不需要创建表，`ckman`会自动创建数据库表 
         -   `postgres`：持久化到`postgres`，支持`ckman`集群，支持`HA`，需要提前创建数据库，并且需要提前创建数据库表。建表语句内置在`dbscript/postgres.sql`中。
+        -   `dm8`: 持久化到达梦数据库，支持`ckman`集群，支持`HA`，需要提前创建用户，不需要自动创建表
         -   除`local`策略外，其他持久化策略都依赖`persistent_config`中的配置项，当然`local`也可以配置该项。
 
-示例如下：
+### clickhouse
 
-```yaml
-server:
-  id: 1
-  port: 8808
-  https: false
-  #certfile:
-  #keyfile:
-  pprof: true
-  swagger_enable: true
-  session_timeout: 3600
-  # support local, mysql, postgres
-  persistent_policy: local
-  task_interval: 5
-  #public_key:
-```
+clickhouse连接池相关设置。
+
+-   `max_open_conns`:
+    -   每个ck节点最大可以打开的连接数
+-   `max_idle_conns`:
+    -   每隔ck节点最大的空闲连接数
+-   `conn_max_idle_time`:
+    -   每个ck连接最大空闲时间
 
 ## log
 
@@ -203,28 +201,25 @@ server:
     -   日志生命有效期
     -   默认为`10`天
 
-示例如下：
-
-```yaml
-log:
-  level: INFO
-  max_count: 5
-  # megabyte
-  max_size: 10
-  # day
-  max_age: 10
-```
-
 ## cron
 
 定时任务相关的配置。支持`cron`表达式，格式为：`Second | Minute | Hour | Dom | Month | Dow | Descriptor`
 
+-   `enabled`：
+    -    是否开启定时任务
+
 -   `sync_logic_schema`
     -   同步逻辑表的`schema `定时任务，  默认为`1`分钟一次。
+-   `watch_cluster_status`
+    -   针对tgz集群，监控节点状态，如果有节点非正常挂掉，自动拉起，默认3分钟一次
+
+-   `sync_dist_schema`
+    -   同步集群内物理表的`schema`，默认10分钟一次
+
 
 ## persistent_config
 
-### mysql & postgres
+### mysql & postgres & dm8
 
 `mysql`和`postgres`配置项基本一致，主要涉及以下配置项：
 
@@ -291,19 +286,85 @@ log:
     -   向`nacos`注册服务名称、数据项名称
     -   默认为`ckman`
 
-示例如下：
+## 示例如下：
 
-```yaml
-nacos:
-  enabled: false
-  hosts:
-    - 127.0.0.1
-  port: 8848
-  user_name: nacos
-  password: 0192023A7BBD73250516F069DF18B500
-  #namespace:
-  #group:
-  #data_id:
+```json
+// ckman config file
+// All password can be encrypt by ENC(xxxxxxxxx),
+// you can get encrypt password by using: ./ckman --encrypt 123456 to get password like: E310E892E56801CED9ED98AA177F18E6
+// If password not including by ENC(), that means it's a plaintext.
+// hjson(https://hjson.github.io/)  is easy for humans to read and write.
+ 
+{
+  "server":{
+    "port": 8808,
+    "https": false,
+    //certfile:
+    //keyfile:
+    "pprof": true,
+    "session_timeout": 3600,
+    //support local, mysql, postgres
+    "persistent_policy": "local",
+    "task_interval": 5
+    //public_key:
+  },
+
+  "log":{
+    "level": "INFO",
+    "max_count": 5,
+    // megabyte
+    "max_size": 10,
+    // day
+    "max_age": 10
+  },
+
+  // clickhouse connect pool options
+  "clickhouse":{
+    //sets the maximum number of open connections to the database
+    "max_open_conns": 10,
+    //sets the maximum number of connections in the idle
+    "max_idle_conns": 2,
+    //sets the maximum amount of time a connection may be idle.
+    "conn_max_idle_time": 10
+  },
+
+  // cron job task
+  "cron":{
+    "sync_logic_schema": "0 * * * * ?",
+    "watch_cluster_status": "0 */3 * * * ?",
+    "sync_dist_schema": "30 */10 * * * ?"
+  },
+
+  //"persistent_config":{ 
+  //  // if peristent_policy is mysql, must config this
+  //  "mysql":{
+  //    "host": "127.0.0.1",
+  //    "port": 3306,
+  //    "user": "root",
+  //    // you can use ./ckman --encrypt 123456 to get password like: E310E892E56801CED9ED98AA177F18E6
+  //    "password": "ENC(E310E892E56801CED9ED98AA177F18E6)",
+  //    // database must be created before start ckman
+  //    "database": "ckman_db"
+  //  },
+  //  "local":{
+  //    "format": "json"
+  //    "config_dir": "/etc/ckman/conf"
+  //    "config_file": "clusters"
+  //  }
+  //},
+
+  "nacos":{
+    "enabled": false,
+    "hosts":[
+      "127.0.0.1"
+    ],
+    "port": 8848,
+    "user_name": "nacos",
+    // you can use './ckman --encrypt nacos' to get password like: A7561228101CB07938FAFF00C4444546
+    "password": "ENC(A7561228101CB07938FAFF00C4444546)"
+    //namespace:
+  }
+}
 ```
 
 
@@ -413,9 +474,9 @@ nacos:
 >
 >           
 
-通过此种方式安装部署成功的集群的`mode`就是`deploy`，可以对其进行删、改、`rebalance`、启停、升级以及节点的增删等操作。
+除此之外，还有一个强制覆盖的选项。如果待部署的主机上已经有`clickhouse`服务正在运行了（可能是其他的集群的其中一个节点，但不受当前的`ckman`纳管），正常情况下是不允许部署的。如果勾选了强制覆盖，则会强制销毁该节点上已有的`clickhouse`服务，重新覆盖部署。
 
-***需要注意的是：当前版本的ckman仅支持在centos7以上的系统部署ck。***
+通过此种方式安装部署成功的集群的`mode`就是`deploy`，可以对其进行删、改、`rebalance`、启停、升级以及节点的增删等操作。
 
 ### 导入集群
 
@@ -472,15 +533,39 @@ nacos:
 >    -   如果填写的`shard`是已经存在的，那么增加的节点会作为已存在`shard`的一个副本；如果`shard`不存在（一般是最大的`shard`编号`+1`，如果不是就不正确了），就会新增加一个`shard`。
 >-   如果集群不支持副本模式，则每个`shard`只能有一个节点，不可以给已有`shard`添加副本节点，如果集群支持副本模式，则可以在任意`shard`增加节点。
 
+同部署集群，增加节点时也有一个强制覆盖的选项，即：如果待添加的节点上已经有clickhouse服务正在运行了，则不允许部署，当勾选了覆盖安装选项后，会强制销毁已有服务，重新部署。
+
 ### 删除节点
 
 删除节点时需要注意的是：删除节点并不会销毁该节点，只会停止该节点的`clickhouse`服务，并从`clusters.json`中删除掉。
 
 删除节点时，如果某个`shard`有且只有一个节点，那么这个节点一般是不可以被删除的，除非该节点处于`shard`编号的最大位置。
 
+如果被删除的节点上仍然存在数据，且该节点被删除后会造成整个shard的缩容，则存在数据丢失的风险，这种情况下默认不允许删除，可通过数据均衡功能先将该shard的数据迁移到其他shard上，然后再进行删除。
+
+如果该shard的数据本身就不打算要了，也可以通过勾选强制删除选项，主动丢弃这部分数据，完成节点的删除。
+
 ## 监控管理
 
 `ckman`提供了`ClickHouse`相关的一些指标监控项。这些监控项依赖于从`prometheus`中获取数据，因此，需要提前配置好`prometheus`。相关配置教程见[ckman部署文档](./deploy.md)。
+
+从`v2.3.5`版本以后，`ckman`支持`http service discovery`功能，只需要在promethues中配置好对应的url，即可自动发现需要监控的节点。配置方法如下：
+
+```yaml
+- job_name: "ckman" 
+	http_sd_configs: 
+		- url: http://192.168.0.1:8808/discovery/node?cluster=abc 
+		- url: http://192.168.0.1:8808/discovery/zookeeper?cluster=test2 
+		- url: http://192.168.0.1:8808/discovery/clickhouse
+```
+
+-   `node`会⾃动发现`node_exporter`相关的指标配置，默认端⼝为`9100` 
+-   `zookeeper`会⾃动发现`zookeeper`相关的指标配置，默认端⼝为`7000` 
+-   `clickhouse`会⾃动发现`clickhouse` 相关的指标配置，默认端⼝为`9363` 
+
+如果`url`不带参数，则默认发现该`ckman`管理的所有集群，如果通过`cluster`指定集群名，则只⾃动 
+
+发现该集群相关的指标服务。 
 
 ![image-20210302181407722](img/image-20210302181407722.png)
 
@@ -590,6 +675,8 @@ nacos:
 >   该工具只能查询，不能进行`mutation`的相关操作。
 >
 >   该工具主要针对分布式表，本地表也能查，但是如果本地表在集群的其他节点不存在，就会报错。即使表在所有节点都存在，查询出来的数据也是某个节点的数据，因此每次查询出来的数据可能不一致。
+>
+>   默认情况下，`sql`随机挑选一个节点执行，因此返回的结果依赖于该节点的本地查询情况，如果查询的是本地表，则结果可能是不一致的。可以通过右上角的下拉框指定执行`sql`的节点。
 
 ## 配置管理
 
@@ -662,7 +749,7 @@ nacos:
 
 ### [POST]/api/v1/ck/archive/{clusterName}
 
-归档一定时间段的数据到`HDFS`。
+归档指定表的一定时间段的数据。
 
 >   -   `begin`
 >       -   指定时间段的开始时间，该时间要小于结束时间
@@ -671,20 +758,52 @@ nacos:
 >   -   `end`
 >       -   指定时间段的结束时间，该时间要大于开始时间
 >       -   注意时间段是包含开始时间，不包含结束时间
->   -   `hdfsaddr`
->       -   `HDFS`的地址
->   -   `hdfsdir`
->       -   `HDFS`的目录，如果该目录不存在会报错
->       -   导入到`HDFS`的最终路径为: `hdfs://hdfsaddr/hdfsdir/table/host_begin_time.parquet`
->   -   `hdfsuser`
->       -   登录`HDFS`的用户名
 >   -   `maxfilesize`
->       -   每个`parquet`文件的最大大小，如果超过该大小，会被切割成另外的文件
->       -   默认每个`parquet`文件大小为`1G`
->   -   `parallelism`
->       -   并发个数，该参数用来控制并发的数量，默认为`4`
+>       -   每个文件的最大大小，如果超过该大小，会被切割成另外的文件
+>       -   默认每个文件大小为`1G`
+>       -   如果文件过大，则在备份时需要耗费更大的内存，如果系统内存不大，或者配置的`clickhouse`可使用的内存比较小，则容易造成备份失败
 >   -   `tables`
 >       -   需要导入的表名，该参数是一个数组，可以配置多个
+>   -   `format`
+>       -   备份格式。支持`ORC`、`CSV`、`Parquet`三种格式的备份
+>   -   `target`
+>       -   备份的目标
+>       -   支持以下三种备份：
+>           -   `hdfs`： 备份到`hdfs`
+>           -   `local`：备份到本地
+>           -   `s3`： 备份到`s3`
+>   -   `hdfs`:
+>       -   当`target`为`hdfs`时有效
+>       -   `addr`
+>           -   `HDFS`的地址
+>       -   `dir`
+>           -   `HDFS`的目录，如果该目录不存在会报错
+>           -   导入到`HDFS`的最终路径为: `hdfs://hdfsaddr/hdfsdir/{cluster}/{database}.{table}/shard_%d_host_slotbegin.suffix`
+>       -   `user`
+>           -   登录`HDFS`的用户名
+>   -   `local`
+>       -   当`target`为`local`时有效
+>       -   `path`
+>           -   每个节点的本地路径，该路径不能与`ck`的原始数据路径重合
+>           -   最终存储的路径为： `path/cluster/database.table/archive_tblname_slotbegin.suffix`
+>   -   `s3`
+>       -   当`target`为`s3`时生效
+>       -   `Endpoint`
+>           -   连接`s3`使用的端点地址
+>       -   `AccessKeyID`
+>           -   连接`s3`使用的访问`key`，需要提前创建好
+>       -   `SecretAccessKey`
+>           -   连接`s3`使用的访问秘钥，需要提前创建好
+>       -   `Region`
+>           -   `s3`的`region`，需要提前制定好
+>       -   `Bucket`
+>           -   数据存放的`bucket`，如果不存在则自动创建
+>       -   `Compression`
+>           -   压缩格式， 支持`none, gzip/gz, brotli/br, xz/LZMA, zstd/zst`
+>           -   `gzip`压缩格式对比`none`，压缩率高达`80`倍左右
+>           -   `gzip`压缩存入`s3`，磁盘占用比之存储`ck`，压缩率达到`2`倍左右
+>           -   如果不配置压缩格式，默认使用`gzip`
+>       -   最终存储的路径为：` bucket/{cluster}/{database}.{table}/shard_%d_host_slotbegin.suffix.compression`
 
 
 
@@ -692,25 +811,39 @@ nacos:
 
 ```json
 {
-  "begin": "2021-01-01",
-  "database": "default",
-  "end": "2021-04-01",
-  "hdfsaddr": "localhost:8020",
-  "hdfsdir": "/data01",
-  "hdfsuser": "hdfs",
-  "maxfilesize": 10000000000,
-  "parallelism": 4,
-  "tables": [
-    "t1",
-    "t2",
-    "t3"
-  ]
+	"begin": "2023-01-01",
+	"database": "default",
+	"end": "2023-01-11",
+	"format": "ORC",
+	"hdfs": {
+		"addr": "sea.hub:8020",
+		"dir": "/ckman",
+		"user": "hdfs"
+	},
+	"local": {
+		"Path": "/data/backup/"
+	},
+	"maxfilesize": 10485760,
+	"s3": {
+		"AccessKeyID": "KZOqVTra982w51MK",
+		"Bucket": "ckman.backup",
+		"Compression": "gzip",
+		"Endpoint": "http://192.168.0.1:9000",
+		"Region": "zh-west-1",
+		"SecretAccessKey": "7Zsdaywu7i5C2AyvLkbupSyVlIzP8qJ0"
+	},
+	"tables": [
+		"tb_result_offline"
+	],
+	"target": "hdfs"
 }
 ```
 
 ### [GET]/api/v1/ck/cluster
 
 获取集群列表。
+
+返回给前端的集群信息中，凡是涉及到密码的都进行了脱敏，显示的全是星号。
 
 ### [POST] /api/v1/ck/cluster
 
@@ -776,7 +909,7 @@ nacos:
 		"port": 9000,
 		"httpPort": 8123,
 		"user": "ck",
-		"password": "210a3aea9e738af9",
+		"password": "********",
 		"cluster": "test",
 		"zkNodes": ["192.168.0.1", "192.168.0.2", "192.168.0.3"],
 		"zkPort": 2181,
@@ -784,7 +917,7 @@ nacos:
 		"isReplica": false,
 		"version": "21.3.9.83",
 		"sshUser": "root",
-		"sshPassword": "815823a203f10827167ca76c558b94d2",
+		"sshPassword": "********",
 		"sshPasswdFlag": 0,
 		"sshPort": 22,
 		"shards": [{
@@ -817,9 +950,9 @@ nacos:
 
 销毁一个集群。
 
-该操作只有使用`ckman`部署的集群才能操作。与删除集群不同，该操作会将集群彻底销毁，卸载掉集群所有节点的`rpm`包。
+该操作只有使用`ckman`部署的集群才能操作。与删除集群不同，该操作会将集群彻底销毁，卸载掉集群所有节点的`rpm`或`deb`包。
 
-### [POST]/api/v1/ck/dist_table
+### [POST]/api/v1//ck/dist_logic_table/{clusterName}
 
 为逻辑集群创建分布式表。
 
@@ -827,21 +960,25 @@ nacos:
 
 >   -   `database`
 >       -   数据库名
->   -   `logic_name`
->       -   逻辑集群的名称
 >   -   `table_name`
 >       -   需要创建的表名称
 >       -   需要注意的是该表指的是本地表，需要在逻辑集群纳管的所有物理集群中都存在。
+>   -   `dist_name`
+>       -   分布式表名
+>       -   本地表名和分布式表名只需指定一个即可
 
 请求参数示例：
 
 ```json
 {
   "database": "default",
-  "logic_name": "logic_test",
   "table_name": "test_table"
 }
 ```
+
+### [DELETE]/api/v1/ck/dist_logic_table/{clusterName}
+
+删除逻辑集群的逻辑表。接口参数同创建逻辑表。
 
 ### [GET]/api/v1/ck/get/{clusterName}
 
@@ -900,13 +1037,9 @@ nacos:
 
 ### [PUT]/api/v1/ck/node/start/{clusterName}
 
-单节点上线， 为`v2.0.0`新增接口。
-
 只有当节点状态是`red`的时候才可以调用。
 
 ### [PUT]/api/v1/ck/node/stop/{clusterName}
-
-单节点下线，为`v2.0.0`新增接口。
 
 只有当节点状态是`green`时才可以调用。
 
@@ -1014,6 +1147,11 @@ nacos:
 shardingkey支持字符串、日期、数值等类型，如果是字符串，则使用xxHash该key，计算出一个数值，除以shard数目，余数为几，就落到哪个分区，如果是数值类型，也是一样，直接拿这个数值除以shard数目取余数。
 
 ckman会将计算出来的数据插入到对应分片的一个本地临时表内，然后清空正式表，再将临时表数据物理搬运过去。因此，在搬运期间如果失败，可能造成正式表数据丢失，但是临时表数据是全的，所以需要手动将临时表数据迁移回正式表。
+
+另外，数据均衡时提供了一个选项，是否清空最后一个`shard`的数据，如果打开此开关，则会将最后一个分片的所有数据均衡地迁移到剩余的`shard`种，使最后一个分片处于没有数据的状态，方便无丢失数据地进行缩容。
+
+![image-20230227142220126](img/image-20230227142220126.png)
+
 ### [GET]/api/v1/ck/slow_sessions/{clusterName}
 
 获取慢`SQL`查询。
@@ -1427,19 +1565,19 @@ ckman会将计算出来的数据插入到对应分片的一个本地临时表内
 
 ### [POST]/api/v1/package
 
-上传ClickHouse的安装包。
+上传`ClickHouse`的安装包。
 
 注意安装包上传时需要三个安装包都上传（`server`、`client`、`common`）。上传成功后，会显示在安装包列表中。
 
->   注意：如果上传的安装包有缺失（比如少了`common`），安装包仍然能上传成功，但不会显示在列表上。所有上传成功的安装包都会保存在`ckman`工作目录的`package`目录下。
+>   注意：如果上传的安装包有缺失（比如少了`common`），安装包仍然能上传成功，但不会显示在列表上。所有上传成功的安装包都会保存在`ckman`工作目录的`package/clickhouse`目录下。
 
 ### [DELETE]/api/v1/package
 
-删除ClickHouse安装包。
+删除`ClickHouse`安装包。
 
 ### [GET]/api/v1/version
 
-获取ckman的版本信息。
+获取`ckman`的版本信息。
 
 ### [GET]/api/v1/zk/replicated_table/{clusterName}
 
@@ -1451,18 +1589,7 @@ ckman会将计算出来的数据插入到对应分片的一个本地临时表内
 
 # RoadMap
 
--   [x] 存储策略（支持`Local`、`HDFS`、`S3`等）
--   [x] 支持修改集群配置
--   [ ] 部署`zookeeper`
--   [ ] `prometheus`自动探测`node`节点并更新配置
--   [x] 引入任务列表，对部署、升级等耗时比较长的操作改为异步操作，前端显示任务进度
--   [x] 数据安全管理
-    -   [x] 用户/角色/权限模型
-    -   [x] 对数据表以及行的权限控制
--   [ ] 集群迁移
-    -   [ ] 换机器，`shard`数量不变
-    -   [ ] 从一个集群换到另一个集群，可能`shard`数量不一样
--   [ ] 前端页面优化
+-   [ ] 监控集成`grafna`
 -   [ ] 支持只读用户
 -   [ ] 云原生适配 
 -   [ ] `clickhouse-keeper`支持
