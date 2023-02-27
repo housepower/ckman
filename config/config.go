@@ -54,7 +54,6 @@ type ClickHouseOpts struct {
 }
 
 type CKManServerConfig struct {
-	Bind             string
 	Ip               string
 	Port             int
 	Https            bool
@@ -73,12 +72,6 @@ type CKManLogConfig struct {
 	MaxCount int `yaml:"max_count" json:"max_count"`
 	MaxSize  int `yaml:"max_size" json:"max_size"`
 	MaxAge   int `yaml:"max_age" json:"max_age"`
-}
-
-type CKManPprofConfig struct {
-	Enabled bool
-	Ip      string
-	Port    int
 }
 
 type CKManNacosConfig struct {
