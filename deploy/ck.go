@@ -486,6 +486,22 @@ func (d *CKDeploy) Start() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
+			if strings.HasSuffix(d.Conf.PkgType, common.PkgSuffixTgz) {
+				// try to modify ulimit nofiles
+				sshOpts.NeedSudo = true
+				cmds := []string{
+					fmt.Sprintf("sed -i '/%s soft nofile/d' /etc/security/limits.conf", d.Conf.SshUser),
+					fmt.Sprintf("sed -i '/%s hard nofile/d' /etc/security/limits.conf", d.Conf.SshUser),
+					fmt.Sprintf("echo \"%s soft nofile 500000\" >> /etc/security/limits.conf", d.Conf.SshUser),
+					fmt.Sprintf("echo \"%s hard nofile 500000\" >> /etc/security/limits.conf", d.Conf.SshUser),
+				}
+				_, err := common.RemoteExecute(sshOpts, strings.Join(cmds, ";"))
+				if err != nil {
+					log.Logger.Warnf("[%s] set ulimit -n failed: %v", host, err)
+				}
+				sshOpts.NeedSudo = d.Conf.NeedSudo
+			}
+
 			cmd := cmdIns.StartCmd(CkSvrName, d.Conf.Cwd)
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
