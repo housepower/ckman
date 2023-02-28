@@ -1402,7 +1402,7 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 		return
 	}
 	conf.Watch(ip)
-	if conf.IsReplica && host != "" {
+	if host != "" {
 		ckService := clickhouse.NewCkService(&conf)
 		ckService.InitCkService()
 		err := ckService.FetchSchemerFromOtherNode(host, conf.Password)
@@ -1411,18 +1411,6 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 			if errors.As(err, &exception) {
 				if exception.Code == 253 {
 					//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
-					// args := make([]string, 0)
-					// args = append(args, path.Join(filepath.Dir(os.Args[0]), "znodefix"))
-					// args = append(args, "-config="+config.GlobalConfig.ConfigFile)
-					// args = append(args, "-cluster="+conf.Cluster)
-					// args = append(args, "-node="+ip)
-					// cmd := strings.Join(args, " ")
-					// log.Logger.Infof("run %s", cmd)
-					// if common.Execute(cmd) {
-					// 	if err = ckService.FetchSchemerFromOtherNode(host, conf.Password); err != nil {
-					// 		log.Logger.Errorf("fetch schema from other node failed again")
-					// 	}
-					// }
 					service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
 					if err == nil {
 						err = service.CleanZoopath(conf, conf.Cluster, ip, false)
@@ -1438,10 +1426,12 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 				}
 			}
 		}
-		// https://clickhouse.com/docs/en/sql-reference/statements/system/#sync-replica
-		// Provides possibility to start background fetches for inserted parts for tables in the ReplicatedMergeTree family: Always returns Ok. regardless of the table engine and even if table or database does not exist.
-		query := "SYSTEM START FETCHES"
-		ckService.DB.Exec(query)
+		if conf.IsReplica {
+			// https://clickhouse.com/docs/en/sql-reference/statements/system/#sync-replica
+			// Provides possibility to start background fetches for inserted parts for tables in the ReplicatedMergeTree family: Always returns Ok. regardless of the table engine and even if table or database does not exist.
+			query := "SYSTEM START FETCHES"
+			ckService.DB.Exec(query)
+		}
 	}
 	err = repository.Ps.UpdateCluster(conf)
 	if err != nil {
