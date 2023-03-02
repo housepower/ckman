@@ -135,7 +135,7 @@ func (t *TargetLocal) Done(fp string) {
 	// copy to path
 	slotBeg, _ := time.Parse(DateLayout, t.Begin)
 	slotEnd, _ := time.Parse(DateLayout, t.End)
-	for _, host := range t.Hosts {
+	for i, host := range t.Hosts {
 		opts := common.SshOptions{
 			User:             t.SshUser,
 			Password:         t.SshPassword,
@@ -163,7 +163,7 @@ func (t *TargetLocal) Done(fp string) {
 						continue
 					}
 					if (slotTime.After(slotBeg) || slotTime.Equal(slotBeg)) && slotTime.Before(slotEnd) {
-						dir := path.Join(t.local.Path, t.Cluster, t.Database+"."+table, name)
+						dir := path.Join(t.local.Path, t.Cluster, fmt.Sprintf("shard%d_%s", i, host), t.Database+"."+table, name)
 						cmds := []string{
 							fmt.Sprintf("mkdir -p %s", dir),
 							fmt.Sprintf("cp -prfL %s/data.%s %s/", path.Join(p, name), t.Format, dir),
@@ -184,4 +184,35 @@ func (t *TargetLocal) Done(fp string) {
 			db.Exec(query)
 		}
 	}
+
+	target := t.Hosts[0]
+	var wg sync.WaitGroup
+	for i := 1; i < len(t.Hosts); i++ {
+		i := i
+		wg.Add(1)
+		common.Pool.Submit(func() {
+			defer wg.Done()
+			dir := path.Join(t.local.Path, t.Cluster, fmt.Sprintf("shard_%d_%s", i, t.Hosts[i]))
+			cmds := []string{
+				fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, dir, target, path.Dir(dir)+"/"),
+				fmt.Sprintf(`rm -fr %s`, dir),
+			}
+			opts := common.SshOptions{
+				User:             t.SshUser,
+				Password:         t.SshPassword,
+				Port:             t.SshPort,
+				Host:             t.Hosts[i],
+				NeedSudo:         true,
+				AuthenticateType: t.AuthenticateType,
+			}
+			for _, cmd := range cmds {
+				if _, err := common.RemoteExecute(opts, cmd); err != nil {
+					log.Logger.Errorf("execute %s failed: %v", cmd, err)
+					return
+				}
+			}
+		})
+
+	}
+	wg.Wait()
 }

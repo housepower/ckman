@@ -1908,6 +1908,27 @@ func (ck *ClickHouseController) ArchiveTable(c *gin.Context) {
 			model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, err)
 			return
 		}
+
+		cmd := `which rsync >/dev/null 2>&1 ;echo $?`
+		for _, host := range conf.Hosts {
+			output, err := common.RemoteExecute(common.SshOptions{
+				User:             conf.SshUser,
+				Password:         conf.SshPassword,
+				Port:             conf.SshPort,
+				Host:             host,
+				NeedSudo:         conf.NeedSudo,
+				AuthenticateType: conf.AuthenticateType,
+			}, cmd)
+			if err != nil {
+				model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, err)
+				return
+			}
+			if strings.TrimSuffix(output, "\n") != "0" {
+				err := errors.Errorf("excute cmd:[%s] on %s failed", cmd, host)
+				model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, err)
+				return
+			}
+		}
 	}
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKArchive, &req)
