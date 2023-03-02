@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	_ "github.com/ClickHouse/clickhouse-go"
 	"github.com/colinmarc/hdfs/v2"
 	"github.com/stretchr/testify/assert"
 )
