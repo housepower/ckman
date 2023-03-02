@@ -126,9 +126,16 @@ func (t *TargetHdfs) Export() error {
 		go func() {
 			defer wg.Done()
 			for _, slot := range t.Slots {
+				if slot.Host != host {
+					continue
+				}
 				engines := make([]string, 0)
 				for _, dir := range t.Dirs {
-					fp := filepath.Join(dir, fmt.Sprintf("shard_%d_%s_%v%s", i, host, slot.SlotBeg.Format(SlotTimeFormat), t.Suffix))
+					fp := filepath.Join(dir, fmt.Sprintf("shard_%d_%s", i, host), fmt.Sprintf("archive_%s_%v", slot.Table, slot.SlotBeg.Format(SlotTimeFormat)), "data"+t.Suffix)
+					err = t.hc.MkdirAll(path.Dir(fp), 0777)
+					if err != nil {
+						lastErr = err
+					}
 					engines = append(engines, t.Engine(fp))
 				}
 				if err := t.ExportSlot(host, slot.Table, i, slot.SlotBeg, slot.SlotEnd, engines); err != nil {

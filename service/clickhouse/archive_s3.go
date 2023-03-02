@@ -81,7 +81,7 @@ func (t *TargetS3) Engine(fp string) string {
 	if t.s3.SecretAccessKey != "" {
 		access += ", '" + t.s3.SecretAccessKey + "'"
 	}
-	uri, _ := url.JoinPath(t.s3.Endpoint, t.s3.Bucket, fp)
+	uri, _ := url.JoinPath(t.s3.Endpoint, fp)
 	return fmt.Sprintf("S3('%s'%s, '%s', '%s')", uri, access, t.Format, t.s3.Compression)
 }
 
@@ -161,9 +161,12 @@ func (t *TargetS3) Export() error {
 		go func() {
 			defer wg.Done()
 			for _, slot := range t.Slots {
+				if slot.Host != host {
+					continue
+				}
 				engines := make([]string, 0)
 				for _, dir := range t.Dirs {
-					fp := filepath.Join(dir, fmt.Sprintf("shard_%d_%s_%v%s", i, host, slot.SlotBeg.Format(SlotTimeFormat), t.Suffix))
+					fp := filepath.Join(dir, fmt.Sprintf("shard_%d_%s", i, host), fmt.Sprintf("archive_%s_%v", slot.Table, slot.SlotBeg.Format(SlotTimeFormat)), "data"+t.Suffix)
 					engines = append(engines, t.Engine(fp))
 				}
 				if err = t.ExportSlot(host, slot.Table, i, slot.SlotBeg, slot.SlotEnd, engines); err != nil {

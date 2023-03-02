@@ -24,6 +24,7 @@ const (
 )
 
 type Slot struct {
+	Host    string
 	Table   string
 	SlotBeg time.Time
 	SlotEnd time.Time
@@ -167,6 +168,7 @@ func (p *ArchiveParams) GetAllSlots() error {
 						}
 					}
 					slot := Slot{
+						Host:    host,
 						Table:   table,
 						SlotBeg: slotBeg,
 						SlotEnd: slotEnd,
@@ -254,22 +256,6 @@ func (p *ArchiveParams) GetSlots(host, table string) (slots []time.Time, err err
 		}
 	}
 	return
-}
-
-func (a *ArchiveParams) ExportSlots(host, table string, slots []time.Time, engines []string) {
-	var err error
-	for i := 0; i < len(slots); i++ {
-		var slotBeg, slotEnd time.Time
-		slotBeg = slots[i]
-		if i != len(slots)-1 {
-			slotEnd = slots[i+1]
-		} else {
-			if slotEnd, err = time.Parse(DateLayout, a.End); err != nil {
-				panic(fmt.Sprintf("BUG: failed to parse %s, layout %s", a.End, DateLayout))
-			}
-		}
-		a.ExportSlot(host, table, i, slotBeg, slotEnd, engines)
-	}
 }
 
 func (p *ArchiveParams) ExportSlot(host, table string, seq int, slotBeg, slotEnd time.Time, engines []string) error {

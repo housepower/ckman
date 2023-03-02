@@ -109,6 +109,9 @@ func (t *TargetLocal) Export() error {
 		go func() {
 			defer wg.Done()
 			for _, slot := range t.Slots {
+				if slot.Host != host {
+					continue
+				}
 				if err = t.ExportSlot(host, slot.Table, i, slot.SlotBeg, slot.SlotEnd, engines); err != nil {
 					lastErr = err
 				}
@@ -163,7 +166,7 @@ func (t *TargetLocal) Done(fp string) {
 						continue
 					}
 					if (slotTime.After(slotBeg) || slotTime.Equal(slotBeg)) && slotTime.Before(slotEnd) {
-						dir := path.Join(t.local.Path, t.Cluster, fmt.Sprintf("shard%d_%s", i, host), t.Database+"."+table, name)
+						dir := path.Join(t.local.Path, t.Cluster, t.Database+"."+table, fmt.Sprintf("shard_%d_%s", i, host), name)
 						cmds := []string{
 							fmt.Sprintf("mkdir -p %s", dir),
 							fmt.Sprintf("cp -prfL %s/data.%s %s/", path.Join(p, name), t.Format, dir),

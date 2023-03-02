@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -214,8 +213,9 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 					break
 				}
 			}
-			reg, _ := regexp.Compile(".*@.*'s password:")
-			if reg.MatchString(line) {
+			//reg, _ := regexp.Compile(".*@.*'s password:")
+			//if reg.MatchString(line) {
+			if strings.HasSuffix(strings.ToLower(line), "password: ") {
 				_, err = in.Write([]byte(password + "\n"))
 				if err != nil {
 					break
