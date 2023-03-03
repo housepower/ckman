@@ -588,7 +588,7 @@ func (ck *ClickHouseController) RestoreReplica(c *gin.Context) {
 	}
 
 	table := c.Query("table")
-	tbls := strings.SplitN(table, ",", 2)
+	tbls := strings.SplitN(table, ".", 2)
 	if len(tbls) != 2 {
 		model.WrapMsg(c, model.INVALID_PARAMS, fmt.Sprintf("table %s is invalid", table))
 		return
