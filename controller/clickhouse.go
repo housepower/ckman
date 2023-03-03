@@ -1895,6 +1895,30 @@ func (ck *ClickHouseController) ArchiveTable(c *gin.Context) {
 		model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, errors.Errorf("can't find any host"))
 		return
 	}
+
+	ckService := clickhouse.NewCkService(&conf)
+	if err := ckService.InitCkService(); err != nil {
+		model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, err)
+		return
+	}
+	for _, table := range req.Tables {
+		query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type IN ('Date', 'DateTime')", req.Database, table)
+		log.Logger.Debugf("query: %s", query)
+		data, err := ckService.QueryInfo(query)
+		if err != nil {
+			model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, err)
+			return
+		}
+		if len(data) == 1 {
+			err := fmt.Errorf("table %s doesn't has any Date/DateTime columns in partition by options", table)
+			model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, err)
+			return
+		} else if len(data) > 2 {
+			err := fmt.Errorf("table %s has multiple Date/DateTime columns in partition by options", table)
+			model.WrapMsg(c, model.ARCHIVE_TABLE_FAIL, err)
+			return
+		}
+	}
 	if req.Target == model.ArchiveTargetLocal {
 		if err := common.EnsurePathNonPrefix([]string{
 			path.Join(conf.Path, "clickhouse"),
