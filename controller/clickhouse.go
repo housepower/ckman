@@ -2206,6 +2206,21 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 				return errors.Errorf("not support change logic cluster from one to another")
 			}
 		}
+
+		logics, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
+		if err == nil {
+			for _, logic := range logics {
+				clus, err1 := repository.Ps.GetClusterbyName(logic)
+				if err1 == nil {
+					if clus.Password != conf.Password {
+						return errors.Errorf("default password %s is diffrent from other logic cluster: cluster %s password %s", conf.Password, logic, clus.Password)
+					}
+					if clus.Mode == model.CkClusterImport {
+						return errors.Errorf("logic cluster %s contains cluster which import, import cluster: %s ", *conf.LogicCluster, clus.Cluster)
+					}
+				}
+			}
+		}
 	} else {
 		if con.LogicCluster != nil {
 			return errors.Errorf("can't remove cluster from a logic cluster")
