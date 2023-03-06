@@ -778,14 +778,14 @@ clickhouse连接池相关设置。
 >           -   `HDFS`的地址
 >       -   `dir`
 >           -   `HDFS`的目录，如果该目录不存在会报错
->           -   导入到`HDFS`的最终路径为: `hdfs://hdfsaddr/hdfsdir/{cluster}/{database}.{table}/shard_%d_host_slotbegin.suffix`
+>           -   导入到`HDFS`的最终路径为: `hdfs://addr/dir/shard_%d_host/cluster/database.table/archive_table_slotbegin/data.suffix`
 >       -   `user`
 >           -   登录`HDFS`的用户名
 >   -   `local`
 >       -   当`target`为`local`时有效
 >       -   `path`
 >           -   每个节点的本地路径，该路径不能与`ck`的原始数据路径重合
->           -   最终存储的路径为： `path/cluster/database.table/archive_tblname_slotbegin.suffix`
+>           -   最终存储的路径为： `path/shard_%d_host/cluster/database.table/archive_table_slotbegin/data.suffix`
 >   -   `s3`
 >       -   当`target`为`s3`时生效
 >       -   `Endpoint`
@@ -803,7 +803,7 @@ clickhouse连接池相关设置。
 >           -   `gzip`压缩格式对比`none`，压缩率高达`80`倍左右
 >           -   `gzip`压缩存入`s3`，磁盘占用比之存储`ck`，压缩率达到`2`倍左右
 >           -   如果不配置压缩格式，默认使用`gzip`
->       -   最终存储的路径为：` bucket/{cluster}/{database}.{table}/shard_%d_host_slotbegin.suffix.compression`
+>       -   最终存储的路径为：` bucket/shard_%d_host/cluster/database.table/archive_table_slotbegin/data.suffix.compression`
 
 
 
@@ -823,7 +823,7 @@ clickhouse连接池相关设置。
 	"local": {
 		"Path": "/data/backup/"
 	},
-	"maxfilesize": 10485760,
+	"maxfilesize": 1000000000,
 	"s3": {
 		"AccessKeyID": "KZOqVTra982w51MK",
 		"Bucket": "ckman.backup",
