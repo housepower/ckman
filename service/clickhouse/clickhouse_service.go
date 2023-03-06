@@ -863,40 +863,61 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 	}
 	var wg sync.WaitGroup
 	var lastError error
+	query := fmt.Sprintf(`SELECT create_table_query, engine, partition_key, sorting_key FROM system.tables WHERE (database = '%s') AND (name = '%s')`, req.Database, local)
+	log.Logger.Debugf(query)
+	rows, err := ck.DB.Query(query)
+	if err != nil {
+		return err
+	}
+	var createSql, engine, partition, order string
+	for rows.Next() {
+		err = rows.Scan(&createSql, &engine, &partition, &order)
+		if err != nil {
+			return err
+		}
+	}
+	log.Logger.Debugf("createsql: %s, engine:%s, partition: %s, order: %s", createSql, engine, partition, order)
+	new_partition := ""
+	if req.Partitionby.Name != "" {
+		switch req.Partitionby.Policy {
+		case model.CkTablePartitionPolicyDay:
+			new_partition = fmt.Sprintf("toYYYYMMDD(`%s`)", req.Partitionby.Name)
+		case model.CkTablePartitionPolicyMonth:
+			new_partition = fmt.Sprintf("toYYYYMM(`%s`)", req.Partitionby.Name)
+		case model.CkTablePartitionPolicyWeek:
+			new_partition = fmt.Sprintf("toYearWeek(`%s`)", req.Partitionby.Name)
+		default:
+			new_partition = fmt.Sprintf("toYYYYMMDD(`%s`)", req.Partitionby.Name)
+		}
+	}
+
+	new_order := ""
+	if len(req.Orderby) > 0 {
+		new_order = strings.Join(req.Orderby, ",")
+	}
+	if new_partition == partition && new_order == order {
+		return fmt.Errorf("partition and orderby is the same as the old")
+	}
+	tmpSql := fmt.Sprintf("CREATE TABLE `%s`.`tmp_%s` AS `%s`.`%s` ENGINE=%s() PARTITION BY %s ORDER BY (%s)", req.Database, local, req.Database, local, engine, new_partition, new_order)
+	createSql = strings.ReplaceAll(strings.ReplaceAll(createSql, "PARTITION BY "+partition, "PARTITION BY "+new_partition), "ORDER BY ("+order, "ORDER BY ("+new_order)
+	createSql = strings.ReplaceAll(createSql, fmt.Sprintf("CREATE TABLE %s.%s", req.Database, local), fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s ON CLUSTER `%s`", req.Database, local, conf.Cluster))
+
 	for _, host := range hosts {
 		host := host
 		wg.Add(1)
 		common.Pool.Submit(func() {
 			defer wg.Done()
-			var createSql string
-			query := fmt.Sprintf(`SELECT replaceRegexpOne(create_table_query, 'ORDER BY \\({0,1}.*\\){0,1}', 'ORDER BY \\(%s\\)')
-FROM system.tables
-WHERE database = '%s' AND name = '%s'`, strings.Join(req.Orderby, ","), req.Database, local)
-			log.Logger.Debugf("[%s]%s", host, query)
 			db, err := common.ConnectClickHouse(host, conf.Port, req.Database, conf.User, conf.Password)
 			if err != nil {
 				lastError = err
 				return
 			}
-			rows, err := db.Query(query)
-			if err != nil {
-				lastError = err
-				return
-			}
-			defer rows.Close()
-			for rows.Next() {
-				err = rows.Scan(&createSql)
-				if err != nil {
-					lastError = err
-					return
-				}
-			}
-			if createSql == "" {
-				lastError = errors.New("creatSql is empty")
-				return
-			}
-			tmpSql := strings.ReplaceAll(createSql, fmt.Sprintf("CREATE TABLE %s.%s", req.Database, local), fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.tmp_%s", req.Database, local))
-			tmpSql = strings.ReplaceAll(tmpSql, fmt.Sprintf("/%s/", local), fmt.Sprintf("/tmp_%s/", local)) // replace engine zoopath
+			defer func() {
+				// drop tmp table when exit
+				cleanSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`tmp_%s` SYNC", req.Database, local)
+				log.Logger.Debugf("%s: %s", host, cleanSql)
+				_, _ = db.Exec(cleanSql)
+			}()
 			max_insert_threads := runtime.NumCPU()*3/4 + 1
 			queries := []string{
 				tmpSql,
@@ -904,7 +925,6 @@ WHERE database = '%s' AND name = '%s'`, strings.Join(req.Orderby, ","), req.Data
 				fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC", req.Database, local, conf.Cluster),
 				createSql,
 				fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`tmp_%s` SETTINGS max_insert_threads=%d", req.Database, local, req.Database, local, max_insert_threads),
-				fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`tmp_%s` SYNC", req.Database, local),
 			}
 
 			for _, query := range queries {
@@ -922,39 +942,41 @@ WHERE database = '%s' AND name = '%s'`, strings.Join(req.Orderby, ","), req.Data
 		return lastError
 	}
 
-	//alter distributed table
-	ck = NewCkService(conf)
-	if err = ck.InitCkService(); err != nil {
-		return err
-	}
-	deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC",
-		req.Database, dist, conf.Cluster)
-	log.Logger.Debugf(deleteSql)
-	if _, err := ck.DB.Exec(deleteSql); err != nil {
-		return errors.Wrap(err, "")
-	}
-
-	create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
-		req.Database, dist, conf.Cluster, req.Database, local,
-		conf.Cluster, req.Database, local)
-	log.Logger.Debugf(create)
-	if _, err := ck.DB.Exec(create); err != nil {
-		return errors.Wrap(err, "")
-	}
-
-	if conf.LogicCluster != nil {
-		distParams := model.DistLogicTblParams{
-			Database:     req.Database,
-			TableName:    local,
-			DistName:     dist,
-			ClusterName:  conf.Cluster,
-			LogicCluster: *conf.LogicCluster,
-		}
-		if err := ck.DeleteDistTblOnLogic(&distParams); err != nil {
+	if dist != "" {
+		//alter distributed table
+		ck = NewCkService(conf)
+		if err = ck.InitCkService(); err != nil {
 			return err
 		}
-		if err := ck.CreateDistTblOnLogic(&distParams); err != nil {
-			return err
+		deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC",
+			req.Database, dist, conf.Cluster)
+		log.Logger.Debugf(deleteSql)
+		if _, err := ck.DB.Exec(deleteSql); err != nil {
+			return errors.Wrap(err, "")
+		}
+
+		create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
+			req.Database, dist, conf.Cluster, req.Database, local,
+			conf.Cluster, req.Database, local)
+		log.Logger.Debugf(create)
+		if _, err := ck.DB.Exec(create); err != nil {
+			return errors.Wrap(err, "")
+		}
+
+		if conf.LogicCluster != nil {
+			distParams := model.DistLogicTblParams{
+				Database:     req.Database,
+				TableName:    local,
+				DistName:     dist,
+				ClusterName:  conf.Cluster,
+				LogicCluster: *conf.LogicCluster,
+			}
+			if err := ck.DeleteDistTblOnLogic(&distParams); err != nil {
+				return err
+			}
+			if err := ck.CreateDistTblOnLogic(&distParams); err != nil {
+				return err
+			}
 		}
 	}
 

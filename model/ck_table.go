@@ -225,10 +225,11 @@ type QueryHistory struct {
 }
 
 type OrderbyReq struct {
-	Database string
-	Table    string
-	DistName string `json:"dist_name"`
-	Orderby  []string
+	Database    string
+	Table       string
+	DistName    string `json:"dist_name"`
+	Orderby     []string
+	Partitionby CkTablePartition
 }
 
 const (

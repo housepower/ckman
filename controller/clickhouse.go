@@ -631,6 +631,11 @@ func (ck *ClickHouseController) SetOrderby(c *gin.Context) {
 		return
 	}
 
+	if len(req.Orderby) == 0 && reflect.DeepEqual(req.Partitionby, model.PartitionInfo{}) {
+		model.WrapMsg(c, model.INVALID_PARAMS, fmt.Errorf("both order by and partition by are empty"))
+		return
+	}
+
 	err = clickhouse.SetTableOrderBy(&conf, req)
 	if err != nil {
 		model.WrapMsg(c, model.INVALID_PARAMS, err)
