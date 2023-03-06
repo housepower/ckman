@@ -596,7 +596,12 @@ func (ck *ClickHouseController) RestoreReplica(c *gin.Context) {
 	database := tbls[0]
 	tblName := tbls[1]
 
-	for _, host := range conf.Hosts {
+	hosts, err := common.GetShardAvaliableHosts(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.RESTORE_REPLICA_FAIL, err)
+		return
+	}
+	for _, host := range hosts {
 		if err := clickhouse.RestoreReplicaTable(&conf, host, database, tblName); err != nil {
 			model.WrapMsg(c, model.RESTORE_REPLICA_FAIL, err)
 			return
