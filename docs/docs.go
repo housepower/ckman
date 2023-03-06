@@ -2159,7 +2159,6 @@ var doc = `{
                     "example": 10000000000
                 },
                 "s3": {
-                    "description": "todo",
                     "$ref": "#/definitions/model.ArchiveS3"
                 },
                 "tables": {
@@ -2656,6 +2655,9 @@ var doc = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "partitionby": {
+                    "$ref": "#/definitions/model.CkTablePartition"
                 },
                 "table": {
                     "type": "string"

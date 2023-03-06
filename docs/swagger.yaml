@@ -111,7 +111,6 @@ definitions:
         type: integer
       s3:
         $ref: '#/definitions/model.ArchiveS3'
-        description: todo
       tables:
         example:
         - t1
@@ -466,6 +465,8 @@ definitions:
         items:
           type: string
         type: array
+      partitionby:
+        $ref: '#/definitions/model.CkTablePartition'
       table:
         type: string
     type: object
