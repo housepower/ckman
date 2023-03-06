@@ -134,6 +134,9 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 					if clus.Password != conf.Password {
 						return errors.Errorf("default password %s is diffrent from other logic cluster: cluster %s password %s", conf.Password, logic, clus.Password)
 					}
+					if clus.Mode == model.CkClusterImport {
+						return errors.Errorf("logic cluster %s contains cluster which import, import cluster: %s ", *conf.LogicCluster, clus.Cluster)
+					}
 				}
 			}
 		}
