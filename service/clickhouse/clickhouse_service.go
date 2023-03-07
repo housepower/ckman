@@ -902,6 +902,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 	createSql = strings.ReplaceAll(strings.ReplaceAll(createSql, "PARTITION BY "+partition, "PARTITION BY "+new_partition), "ORDER BY ("+order, "ORDER BY ("+new_order)
 	createSql = strings.ReplaceAll(createSql, fmt.Sprintf("CREATE TABLE %s.%s", req.Database, local), fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s ON CLUSTER `%s`", req.Database, local, conf.Cluster))
 
+	max_insert_threads := runtime.NumCPU()*3/4 + 1
 	for _, host := range hosts {
 		host := host
 		wg.Add(1)
@@ -912,19 +913,10 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 				lastError = err
 				return
 			}
-			defer func() {
-				// drop tmp table when exit
-				cleanSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`tmp_%s` SYNC", req.Database, local)
-				log.Logger.Debugf("%s: %s", host, cleanSql)
-				_, _ = db.Exec(cleanSql)
-			}()
-			max_insert_threads := runtime.NumCPU()*3/4 + 1
+
 			queries := []string{
 				tmpSql,
 				fmt.Sprintf("INSERT INTO `%s`.`tmp_%s` SELECT * FROM `%s`.`%s` SETTINGS max_insert_threads=%d", req.Database, local, req.Database, local, max_insert_threads),
-				fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC", req.Database, local, conf.Cluster),
-				createSql,
-				fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`tmp_%s` SETTINGS max_insert_threads=%d", req.Database, local, req.Database, local, max_insert_threads),
 			}
 
 			for _, query := range queries {
@@ -935,6 +927,49 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 					return
 				}
 			}
+		})
+	}
+	wg.Wait()
+
+	// if lastError not nil, need to drop tmp table
+	if lastError == nil {
+		// we must ensure data move to tmptable succeed, then drop and recreate origin table
+		queries := []string{
+			fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC", req.Database, local, conf.Cluster),
+			createSql,
+		}
+
+		for _, query := range queries {
+			log.Logger.Debugf("%s", query)
+			_, err = ck.DB.Exec(query)
+			if err != nil {
+				lastError = err
+				break
+			}
+		}
+	}
+
+	for _, host := range hosts {
+		host := host
+		wg.Add(1)
+		common.Pool.Submit(func() {
+			defer wg.Done()
+			db := common.GetConnection(host)
+			if db == nil {
+				return
+			}
+			if lastError == nil {
+				query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`tmp_%s` SETTINGS max_insert_threads=%d", req.Database, local, req.Database, local, max_insert_threads)
+				log.Logger.Debugf("%s: %s", host, query)
+				_, err := db.Exec(query)
+				if err != nil {
+					lastError = err
+				}
+			}
+
+			cleanSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`tmp_%s` SYNC", req.Database, local)
+			log.Logger.Debugf("%s: %s", host, cleanSql)
+			_, _ = db.Exec(cleanSql)
 		})
 	}
 	wg.Wait()
