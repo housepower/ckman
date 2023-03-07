@@ -1077,38 +1077,6 @@ func (ck *ClickHouseController) RebalanceCluster(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
-// @Summary  RebalanceTables
-// @Description get rebalance tables
-// @version 1.0
-// @Security ApiKeyAuth
-// @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"retCode":"5064", "retMsg":"get table lists failed", "entity":"error"}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{\"default\":{\"centers\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_centers111\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_ckcenters\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_ckcenters2\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_centers\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_centers111\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_ckcenters\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_ckcenters2\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"]}}}"
-// @Router /ck/rebalance/table/{clusterName} [get]
-func (ck *ClickHouseController) RebalanceTables(c *gin.Context) {
-	clusterName := c.Param(ClickHouseClusterPath)
-	conf, err := repository.Ps.GetClusterbyName(clusterName)
-	if err != nil {
-		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, clusterName)
-		return
-	}
-	service := clickhouse.NewCkService(&conf)
-	if err := service.InitCkService(); err != nil {
-		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, err)
-		return
-	}
-	tblLists, err := service.GetRebalanceTables()
-	if err != nil {
-		model.WrapMsg(c, model.REBALANCE_CK_CLUSTER_FAIL, err)
-		return
-	}
-	result := make(map[string]map[string][]string)
-	for k, v := range tblLists {
-		result[k] = v.TableWithCols
-	}
-	model.WrapMsg(c, model.SUCCESS, result)
-}
-
 // @Summary Get ClickHouse cluster status
 // @Description Get ClickHouse cluster status
 // @version 1.0

@@ -1341,11 +1341,13 @@ func (ck *CkService) ShowCreateTable(tbname, database string) (string, error) {
 }
 
 type RebalanceTables struct {
-	DistTable     string
-	TableWithCols map[string][]string
+	Database  string
+	DistTable string
+	Table     string
+	Columns   []string
 }
 
-func (ck *CkService) GetRebalanceTables() (map[string]RebalanceTables, error) {
+func (ck *CkService) GetRebalanceTables() ([]RebalanceTables, error) {
 	query := fmt.Sprintf(`SELECT
     t2.database AS database,
 	t2.name AS dist,
@@ -1378,25 +1380,20 @@ ORDER BY
 		return nil, err
 	}
 	defer rows.Close()
-	tblLists := make(map[string]RebalanceTables)
+	tblLists := make([]RebalanceTables, 0)
 	for rows.Next() {
-		tables := make(map[string][]string)
 		var database, dist, table string
 		var cols []string
 		err = rows.Scan(&database, &dist, &table, &cols)
 		if err != nil {
 			return nil, err
 		}
-		tableMap, isExist := tblLists[database]
-		if isExist {
-			tables = tableMap.TableWithCols
-		}
-		tables[table] = cols
-
-		tblLists[database] = RebalanceTables{
-			DistTable:     dist,
-			TableWithCols: tables,
-		}
+		tblLists = append(tblLists, RebalanceTables{
+			Database:  database,
+			DistTable: dist,
+			Table:     table,
+			Columns:   cols,
+		})
 	}
 	return tblLists, nil
 }
@@ -1673,33 +1670,31 @@ func paddingKeys(keys []model.RebalanceShardingkey, service *CkService, allTable
 		return keys, err
 	}
 	//k: database, v:tables
-	for k, v := range resps {
-		for table, cols := range v.TableWithCols {
-			key := model.RebalanceShardingkey{
-				Database:  k,
-				Table:     table,
-				DistTable: v.DistTable,
+	for _, rt := range resps {
+		key := model.RebalanceShardingkey{
+			Database:  rt.Database,
+			Table:     rt.Table,
+			DistTable: rt.DistTable,
+		}
+		found := false
+		for _, elem := range keys {
+			elem.Table = common.TernaryExpression(strings.HasPrefix(elem.Table, "^"), elem.Table, "^"+elem.Table).(string)
+			elem.Table = common.TernaryExpression(strings.HasSuffix(elem.Table, "$"), elem.Table, elem.Table+"$").(string)
+			reg, err := regexp.Compile(elem.Table)
+			if err != nil {
+				return keys, err
 			}
-			found := false
-			for _, elem := range keys {
-				elem.Table = common.TernaryExpression(strings.HasPrefix(elem.Table, "^"), elem.Table, "^"+elem.Table).(string)
-				elem.Table = common.TernaryExpression(strings.HasSuffix(elem.Table, "$"), elem.Table, elem.Table+"$").(string)
-				reg, err := regexp.Compile(elem.Table)
-				if err != nil {
-					return keys, err
+			if key.Database == elem.Database && (reg.MatchString(key.Table)) {
+				if found {
+					return keys, fmt.Errorf("table %s matches more than one regexp expression", key.Table)
 				}
-				if key.Database == elem.Database && (reg.MatchString(key.Table)) {
-					if found {
-						return keys, fmt.Errorf("table %s matches more than one regexp expression", key.Table)
-					}
-					if common.ArraySearch(elem.ShardingKey, cols) {
-						found = true
-						key.ShardingKey = elem.ShardingKey
-						results = append(results, key)
-						//break
-					} else {
-						return keys, fmt.Errorf("shardingkey %s not found in %s.%s", elem.ShardingKey, elem.Database, key.Table)
-					}
+				if common.ArraySearch(elem.ShardingKey, rt.Columns) {
+					found = true
+					key.ShardingKey = elem.ShardingKey
+					results = append(results, key)
+					//break
+				} else {
+					return keys, fmt.Errorf("shardingkey %s not found in %s.%s", elem.ShardingKey, elem.Database, key.Table)
 				}
 			}
 			if allTable && !found {

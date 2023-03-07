@@ -1971,35 +1971,6 @@ var doc = `{
                     }
                 }
             }
-        },
-        "/ck/rebalance/table/{clusterName}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "get rebalance tables",
-                "summary": "RebalanceTables",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "test",
-                        "description": "cluster name",
-                        "name": "clusterName",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":{\\\"default\\\":{\\\"centers\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_centers111\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_ckcenters\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_ckcenters2\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_centers\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_centers111\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_ckcenters\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_ckcenters2\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"]}}}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
