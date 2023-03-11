@@ -191,31 +191,32 @@ func (t *TargetLocal) Done(fp string) {
 	target := t.Hosts[0]
 	var wg sync.WaitGroup
 	for i := 1; i < len(t.Hosts); i++ {
-		i := i
-		wg.Add(1)
-		common.Pool.Submit(func() {
-			defer wg.Done()
-			dir := path.Join(t.local.Path, t.Cluster, fmt.Sprintf("shard_%d_%s", i, t.Hosts[i]))
-			cmds := []string{
-				fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, dir, target, path.Dir(dir)+"/"),
-				fmt.Sprintf(`rm -fr %s`, dir),
-			}
-			opts := common.SshOptions{
-				User:             t.SshUser,
-				Password:         t.SshPassword,
-				Port:             t.SshPort,
-				Host:             t.Hosts[i],
-				NeedSudo:         true,
-				AuthenticateType: t.AuthenticateType,
-			}
-			for _, cmd := range cmds {
-				if _, err := common.RemoteExecute(opts, cmd); err != nil {
-					log.Logger.Errorf("execute %s failed: %v", cmd, err)
-					return
+		for _, table := range t.Tables {
+			i := i
+			wg.Add(1)
+			common.Pool.Submit(func() {
+				defer wg.Done()
+				dir := path.Join(t.local.Path, t.Cluster, t.Database+"."+table, fmt.Sprintf("shard_%d_%s", i, t.Hosts[i]))
+				cmds := []string{
+					fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, dir, target, path.Dir(dir)+"/"),
+					fmt.Sprintf(`rm -fr %s`, dir),
 				}
-			}
-		})
-
+				opts := common.SshOptions{
+					User:             t.SshUser,
+					Password:         t.SshPassword,
+					Port:             t.SshPort,
+					Host:             t.Hosts[i],
+					NeedSudo:         true,
+					AuthenticateType: t.AuthenticateType,
+				}
+				for _, cmd := range cmds {
+					if _, err := common.RemoteExecute(opts, cmd); err != nil {
+						log.Logger.Errorf("execute %s failed: %v", cmd, err)
+						return
+					}
+				}
+			})
+		}
 	}
 	wg.Wait()
 }
