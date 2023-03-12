@@ -117,15 +117,18 @@ docker-image:build
 	docker tag ckman:${VERSION} quay.io/housepower/ckman:latest
 	docker rmi ckman:${VERSION}
 
-.PHONY: release
-release:
-	make docker-image VERSION=${VERSION}
+
+.PHONY: internel-release
+internel-release:
+	git tag ${VERSION}
 	make rpm
-	make deb
 	make package VERSION=${VERSION}
 	make rpm GOARCH=arm64
-	make deb GOARCH=arm64
 	make package VERSION=${VERSION} GOARCH=arm64
+
+.PHONY: release
+release: internel-release
+	make docker-image VERSION=${VERSION}
 	docker push quay.io/housepower/ckman:${VERSION}
 	docker push quay.io/housepower/ckman:latest
 
