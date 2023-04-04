@@ -1880,7 +1880,7 @@ func (ck *ClickHouseController) ArchiveTable(c *gin.Context) {
 		return
 	}
 	for _, table := range req.Tables {
-		query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type IN ('Date', 'DateTime')", req.Database, table)
+		query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type like 'Date%%'", req.Database, table)
 		log.Logger.Debugf("query: %s", query)
 		data, err := ckService.QueryInfo(query)
 		if err != nil {

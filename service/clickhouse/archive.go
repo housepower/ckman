@@ -113,7 +113,8 @@ func (p *ArchiveParams) GetSortingInfo() (err error) {
 				return fmt.Errorf("can't get connection: %s", host)
 			}
 			var rows *sql.Rows
-			query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type IN ('Date', 'DateTime')", p.Database, table)
+			// column type includes Date, Date32, DateTime, DateTime64, DateTime64(3), DateTime64(3, 'Asia/Istanbul'), ...
+			query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type like 'Date%%'", p.Database, table)
 			log.Logger.Infof("host %s: query: %s", host, query)
 			if rows, err = db.Query(query); err != nil {
 				err = errors.Wrapf(err, "")
