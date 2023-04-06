@@ -306,10 +306,23 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	if common.CompareClickHouseVersion(conf.Version, "21.8") > 0 {
 		params.Projections = req.Projections
 	}
+	local, dist, err := common.GetTableNames(ckService.DB, params.DB, params.Name, params.DistName, params.Cluster, false)
+	if err != nil {
+		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
+		return
+	}
+	params.Name = local
+	params.DistName = dist
 
+	if req.ForceCreate {
+		err := clickhouse.DropTableIfExists(params, ckService)
+		if err != nil {
+			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
+			return
+		}
+	}
 	statements, err := ckService.CreateTable(&params, req.DryRun)
 	if err != nil {
-		clickhouse.DropTableIfExists(params, ckService)
 		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
 		return
 	}
