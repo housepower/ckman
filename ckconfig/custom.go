@@ -3,6 +3,7 @@ package ckconfig
 import (
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/housepower/ckman/common"
@@ -37,6 +38,14 @@ func root(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interfa
 		"path": fmt.Sprintf("%sclickhouse/access/", conf.Path),
 	}
 	output["user_directories"] = userDirectories
+
+	max_concurrent_queries := 100 // 100 is default
+	if v, ok := conf.Expert["max_concurrent_queries"]; ok {
+		max_concurrent_queries, _ = strconv.Atoi(v)
+	}
+	output["max_concurrent_queries"] = max_concurrent_queries
+	// at least leave 10% to insert
+	output["max_concurrent_select_queries"] = int(max_concurrent_queries * 9 / 10)
 	return output
 }
 
