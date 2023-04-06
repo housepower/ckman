@@ -233,10 +233,6 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 		return statements, errors.Errorf("clickhouse service unavailable")
 	}
 
-	local, dist, err := common.GetTableNames(ck.DB, params.DB, params.Name, params.DistName, params.Cluster, false)
-	if err != nil {
-		return statements, err
-	}
 	ensureDatabaseSql := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` ON CLUSTER `%s`", params.DB, params.Cluster)
 	statements = append(statements, ensureDatabaseSql)
 	if !dryrun {
@@ -268,8 +264,8 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 		projections += fmt.Sprintf(", PROJECTION %s (%s)", p.Name, p.Sql)
 	}
 
-	create := fmt.Sprintf("CREATE TABLE `%s`.`%s` ON CLUSTER `%s` (%s%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)",
-		params.DB, local, params.Cluster, strings.Join(columns, ", "), projections, params.Engine,
+	create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` (%s%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)",
+		params.DB, params.Name, params.Cluster, strings.Join(columns, ", "), projections, params.Engine,
 		partition, strings.Join(params.Order, ", "))
 	if params.TTLExpr != "" {
 		create += fmt.Sprintf(" TTL %s", params.TTLExpr)
@@ -281,19 +277,19 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 	statements = append(statements, create)
 	if !dryrun {
 		if _, err := ck.DB.Exec(create); err != nil {
-			if ok := checkTableIfExists(params.DB, local, params.Cluster); !ok {
+			if ok := checkTableIfExists(params.DB, params.Name, params.Cluster); !ok {
 				return statements, err
 			}
 		}
 	}
-	create = fmt.Sprintf("CREATE TABLE `%s`.`%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
-		params.DB, dist, params.Cluster, params.DB, local,
-		params.Cluster, params.DB, local)
+	create = fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
+		params.DB, params.DistName, params.Cluster, params.DB, params.Name,
+		params.Cluster, params.DB, params.Name)
 	log.Logger.Debugf(create)
 	statements = append(statements, create)
 	if !dryrun {
 		if _, err := ck.DB.Exec(create); err != nil {
-			if ok := checkTableIfExists(params.DB, dist, params.Cluster); !ok {
+			if ok := checkTableIfExists(params.DB, params.DistName, params.Cluster); !ok {
 				return statements, err
 			}
 		}
@@ -1293,7 +1289,6 @@ func checkTableIfExists(database, name, cluster string) bool {
 	}
 	hosts, err := common.GetShardAvaliableHosts(&conf)
 	if err != nil {
-
 		return false
 	}
 	for _, host := range hosts {
@@ -1319,15 +1314,18 @@ func checkTableIfExists(database, name, cluster string) bool {
 	return true
 }
 
-func DropTableIfExists(params model.CreateCkTableParams, ck *CkService) {
-	local, dist, _ := common.GetTableNames(ck.DB, params.DB, params.Name, params.DistName, params.Cluster, true)
-	dropSql := fmt.Sprintf("DROP TABLE IF EXISTS %s.%s ON CLUSTER %s", params.DB, local, params.Cluster)
+func DropTableIfExists(params model.CreateCkTableParams, ck *CkService) error {
+	dropSql := fmt.Sprintf("DROP TABLE IF EXISTS %s.%s ON CLUSTER %s SYNC", params.DB, params.Name, params.Cluster)
 	log.Logger.Debugf(dropSql)
-	_, _ = ck.DB.Exec(dropSql)
+	_, err := ck.DB.Exec(dropSql)
+	if err != nil {
+		return err
+	}
 
-	dropSql = fmt.Sprintf("DROP TABLE IF EXISTS %s.%s ON CLUSTER %s", params.DB, dist, params.Cluster)
+	dropSql = fmt.Sprintf("DROP TABLE IF EXISTS %s.%s ON CLUSTER %s SYNC", params.DB, params.DistName, params.Cluster)
 	log.Logger.Debugf(dropSql)
-	_, _ = ck.DB.Exec(dropSql)
+	_, err = ck.DB.Exec(dropSql)
+	return err
 }
 
 func (ck *CkService) ShowCreateTable(tbname, database string) (string, error) {

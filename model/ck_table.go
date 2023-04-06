@@ -26,6 +26,7 @@ type CreateCkTableReq struct {
 	StoragePolicy string            `json:"storage_policy" example:"external"`
 	DryRun        bool              `json:"dryrun" example:"false"`
 	Projections   []Projection      `json:"projections"`
+	ForceCreate   bool              `json:"force_create"`
 }
 
 // https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#mergetree-table-ttl
