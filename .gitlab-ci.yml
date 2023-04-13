@@ -1,0 +1,30 @@
+
+stages:
+  - build
+  - test
+  - coverage
+  - lint
+
+
+check_build:
+  stage: build
+  script:
+    - make backend
+
+test_build:
+  stage: test
+  script:
+    - go mod vendor
+    - make test
+
+test_coverage:
+  stage: coverage
+  script:
+    - go mod vendor
+    - make coverage     
+
+golangci-lint:
+  stage: lint
+  script:
+    - make lint 
+

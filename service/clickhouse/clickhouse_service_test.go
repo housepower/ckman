@@ -41,30 +41,30 @@ func TestGetReplicaZkPath(t *testing.T) {
 	log.Logger.Infof("paths: %v", conf.ZooPath)
 }
 
-func TestPaddingkeys(t *testing.T) {
-	log.InitLoggerConsole()
-	keys := []model.RebalanceShardingkey{
-		{
-			Database:    "default",
-			Table:       "prom_metric",
-			ShardingKey: "__series_id",
-		},
-	}
+// func TestPaddingkeys(t *testing.T) {
+// 	log.InitLoggerConsole()
+// 	keys := []model.RebalanceShardingkey{
+// 		{
+// 			Database:    "default",
+// 			Table:       "prom_metric",
+// 			ShardingKey: "__series_id",
+// 		},
+// 	}
 
-	conf := model.CKManClickHouseConfig{
-		Cluster:   "abc",
-		Port:      19000,
-		IsReplica: true,
-		Hosts:     []string{"192.168.110.6", "192.168.110.8"},
-		User:      "default",
-		Password:  "123456",
-	}
+// 	conf := model.CKManClickHouseConfig{
+// 		Cluster:   "abc",
+// 		Port:      19000,
+// 		IsReplica: true,
+// 		Hosts:     []string{"192.168.110.6", "192.168.110.8"},
+// 		User:      "default",
+// 		Password:  "123456",
+// 	}
 
-	svc := NewCkService(&conf)
-	err := svc.InitCkService()
-	assert.Nil(t, err)
+// 	svc := NewCkService(&conf)
+// 	err := svc.InitCkService()
+// 	assert.Nil(t, err)
 
-	keys, err = paddingKeys(keys, svc, false)
-	assert.Nil(t, err)
-	assert.Equal(t, "dist_prom_metric", keys[0].DistTable)
-}
+// 	keys, err = paddingKeys(keys, svc, false)
+// 	assert.Nil(t, err)
+// 	assert.Equal(t, "dist_prom_metric", keys[0].DistTable)
+// }
