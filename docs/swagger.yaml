@@ -359,6 +359,8 @@ definitions:
         items:
           $ref: '#/definitions/model.CkTableNameType'
         type: array
+      force_create:
+        type: boolean
       name:
         example: test_table
         type: string

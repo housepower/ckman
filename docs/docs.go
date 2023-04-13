@@ -2471,6 +2471,9 @@ var doc = `{
                         "$ref": "#/definitions/model.CkTableNameType"
                     }
                 },
+                "force_create": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string",
                     "example": "test_table"

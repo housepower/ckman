@@ -18,6 +18,8 @@
         <level>information</level>
         <log>/home/eoi/clickhouse/log/clickhouse-server/clickhouse-server.log</log>
     </logger>
+    <max_concurrent_queries>100</max_concurrent_queries>
+    <max_concurrent_select_queries>90</max_concurrent_select_queries>
     <max_partition_size_to_drop>0</max_partition_size_to_drop>
     <max_table_size_to_drop>0</max_table_size_to_drop>
     <merge_tree>

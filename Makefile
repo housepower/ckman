@@ -39,7 +39,19 @@ pre:
 	go install github.com/swaggo/swag/cmd/swag@v1.7.1
 	go install github.com/hjson/hjson-go/hjson-cli@latest
 	go install github.com/mbrukman/yaml2json/cmd/{yaml2json,json2yaml}@latest
-	
+
+.PHONY: test
+test:
+	$(foreach var,$(GOPACKAGES),$(CGO_ARGS) go test -v -mod vendor $(var) || exit 1;)
+	$(CGO_ARGS) go test -v -mod vendor .
+
+.PHONY: coverage
+coverage:
+	echo "mode: count" > coverage-all.out
+	$(foreach pkg,$(GOPACKAGES),\
+		$(CGO_ARGS) go test -coverprofile=coverage.out -covermode=count $(pkg);\
+		tail -n +2 coverage.out >> coverage-all.out;)
+	$(CGO_ARGS) go tool cover -func coverage-all.out	
 
 .PHONY: build
 build:pre frontend
