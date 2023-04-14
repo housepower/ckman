@@ -42,16 +42,13 @@ pre:
 
 .PHONY: test
 test:
-	$(foreach var,$(GOPACKAGES),$(CGO_ARGS) go test -v -mod vendor $(var) || exit 1;)
-	$(CGO_ARGS) go test -v -mod vendor .
+	go test ./... -v
 
 .PHONY: coverage
 coverage:
-	echo "mode: count" > coverage-all.out
-	$(foreach pkg,$(GOPACKAGES),\
-		$(CGO_ARGS) go test -coverprofile=coverage.out -covermode=count $(pkg);\
-		tail -n +2 coverage.out >> coverage-all.out;)
-	$(CGO_ARGS) go tool cover -func coverage-all.out	
+	go test ./... -coverprofile=coverage.txt -covermode count
+	go tool cover -func coverage.txt
+	gocover-cobertura < coverage.txt > coverage.xml	
 
 .PHONY: build
 build:pre frontend

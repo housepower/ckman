@@ -15,3 +15,5 @@ migrate
 znodefix
 pkged.go
 static/dist/
+coverage.xml
+coverage.txt
