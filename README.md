@@ -1,6 +1,9 @@
 
 ENGLISH|[简体中文](./README_ZH.md)
 
+[![pipeline status](https://code.eoitek.net/monitor/DataStorage/ckman/badges/eoi/pipeline.svg)](https://code.eoitek.net/monitor/DataStorage/ckman/-/commits/eoi)
+[![coverage report](https://code.eoitek.net/monitor/DataStorage/ckman/badges/eoi/coverage.svg)](https://code.eoitek.net/monitor/DataStorage/ckman/-/commits/eoi)
+[![Latest Release](https://code.eoitek.net/monitor/DataStorage/ckman/-/badges/release.svg)](https://code.eoitek.net/monitor/DataStorage/ckman/-/releases)
 # About ckman
 This is a tool which used to manage and monitor ClickHouse database. It visits the cluster's related information through the front-end interface, which can be easily deployed, upgraded, and the node increases to the cluster. For more information, please read [document](./docs/ckman_v2.0.0.md).
 

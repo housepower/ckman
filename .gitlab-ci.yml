@@ -21,7 +21,12 @@ test_coverage:
   stage: coverage
   script:
     - go mod vendor
-    - make coverage     
+    - make coverage
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
 
 golangci-lint:
   stage: lint
