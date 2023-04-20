@@ -669,175 +669,146 @@ func (ck *CkService) FetchSchemerFromOtherNode(host, password string) error {
 func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols []string) (map[string]*model.CkTableMetrics, error) {
 	metrics := make(map[string]*model.CkTableMetrics)
 
-	chHosts, err := common.GetShardAvaliableHosts(conf)
+	service := NewCkService(conf)
+	if err := service.InitCkService(); err != nil {
+		return nil, err
+	}
+	// get table names
+	databases, dbtables, err := common.GetMergeTreeTables("MergeTree", database, service.DB)
 	if err != nil {
 		return nil, err
 	}
+	for db, tables := range dbtables {
+		for _, table := range tables {
+			// init
+			tableName := fmt.Sprintf("%s.%s", db, table)
+			metric := &model.CkTableMetrics{
+				RWStatus: true,
+			}
+			metrics[tableName] = metric
+			dbs := strings.Join(databases, "','")
+			var query string
+			var value [][]interface{}
 
-	for _, host := range chHosts {
-		service, err := GetCkNodeService(conf.Cluster, host)
-		if err != nil {
-			return nil, err
-		}
-
-		// get table names
-		var databases []string
-		var dbtables map[string][]string
-		if databases, dbtables, err = common.GetMergeTreeTables("MergeTree", database, service.DB); err != nil {
-			return nil, err
-		}
-
-		for db, tables := range dbtables {
-			for _, table := range tables {
-				tableName := fmt.Sprintf("%s.%s", db, table)
-				if _, ok := metrics[tableName]; !ok {
-					metric := &model.CkTableMetrics{
-						RWStatus: true,
-					}
-					metrics[tableName] = metric
+			// get columns
+			if common.ArraySearch("columns", cols) || len(cols) == 0 {
+				query = fmt.Sprintf("SELECT table, count(), database AS columns FROM system.columns WHERE database in ('%s') GROUP BY table, database",
+					dbs)
+				value, err = service.QueryInfo(query)
+				if err != nil {
+					return nil, err
 				}
-			}
-		}
-
-		// get columns
-		var query string
-		var value [][]interface{}
-
-		dbs := strings.Join(databases, "','")
-		if common.ArraySearch("columns", cols) || len(cols) == 0 {
-			query = fmt.Sprintf("SELECT table, count(), database AS columns FROM system.columns WHERE database in ('%s') GROUP BY table, database",
-				dbs)
-			log.Logger.Infof("host: %s, query: %s", host, query)
-			value, err = service.QueryInfo(query)
-			if err != nil {
-				return nil, err
-			}
-			for i := 1; i < len(value); i++ {
-				table := value[i][0].(string)
-				database := value[i][2].(string)
-				tableName := fmt.Sprintf("%s.%s", database, table)
-				if metric, ok := metrics[tableName]; ok {
-					metric.Columns = value[i][1].(uint64)
-				}
-			}
-		}
-
-		// get bytes, parts, rows
-		found := false
-		if common.ArraySearch("partitions", cols) || common.ArraySearch("parts", cols) ||
-			common.ArraySearch("compressed", cols) || common.ArraySearch("uncompressed", cols) ||
-			common.ArraySearch("rows", cols) || len(cols) == 0 {
-			found = true
-		}
-		if found {
-			query = fmt.Sprintf("SELECT table, uniqExact(partition) AS partitions, count(*) AS parts, sum(data_compressed_bytes) AS compressed, sum(data_uncompressed_bytes) AS uncompressed, sum(rows) AS rows, database FROM system.parts WHERE (database in ('%s')) AND (active = '1') GROUP BY table, database;",
-				dbs)
-			log.Logger.Infof("host: %s, query: %s", host, query)
-			value, err = service.QueryInfo(query)
-			if err != nil {
-				return nil, err
-			}
-			for i := 1; i < len(value); i++ {
-				table := value[i][0].(string)
-				database := value[i][6].(string)
-				tableName := fmt.Sprintf("%s.%s", database, table)
-				if metric, ok := metrics[tableName]; ok {
-					if common.ArraySearch("partitions", cols) || len(cols) == 0 {
-						metric.Partitions += value[i][1].(uint64)
-					}
-					if common.ArraySearch("parts", cols) || len(cols) == 0 {
-						metric.Parts += value[i][2].(uint64)
-					}
-					if common.ArraySearch("compressed", cols) || len(cols) == 0 {
-						metric.Compressed += value[i][3].(uint64)
-					}
-					if common.ArraySearch("uncompressed", cols) || len(cols) == 0 {
-						metric.UnCompressed += value[i][4].(uint64)
-					}
-					if common.ArraySearch("rows", cols) || len(cols) == 0 {
-						metric.Rows += value[i][5].(uint64)
+				for i := 1; i < len(value); i++ {
+					table := value[i][0].(string)
+					database := value[i][2].(string)
+					tableName := fmt.Sprintf("%s.%s", database, table)
+					if metric, ok := metrics[tableName]; ok {
+						metric.Columns = value[i][1].(uint64)
 					}
 				}
 			}
-		}
 
-		// get readwrite_status
-		if common.ArraySearch("is_readonly", cols) || len(cols) == 0 {
-			query = fmt.Sprintf("select table, is_readonly, database from system.replicas where database in ('%s')", dbs)
-			value, err = service.QueryInfo(query)
-			if err != nil {
-				return nil, err
+			// get bytes, parts, rows
+			found := false
+			if common.ArraySearch("partitions", cols) || common.ArraySearch("parts", cols) ||
+				common.ArraySearch("compressed", cols) || common.ArraySearch("uncompressed", cols) ||
+				common.ArraySearch("rows", cols) || len(cols) == 0 {
+				found = true
 			}
-			for i := 1; i < len(value); i++ {
-				table := value[i][0].(string)
-				database := value[i][2].(string)
-				tableName := fmt.Sprintf("%s.%s", database, table)
-				if metric, ok := metrics[tableName]; ok {
-					isReadonly := value[i][1].(uint8)
-					if isReadonly != 0 {
-						metric.RWStatus = false
+			if found {
+				query = fmt.Sprintf("SELECT table, uniqExact(partition) AS partitions, count(*) AS parts, sum(data_compressed_bytes) AS compressed, sum(data_uncompressed_bytes) AS uncompressed, sum(rows) AS rows, database FROM cluster('{cluster}', system.parts) WHERE (database in ('%s')) AND (active = '1') GROUP BY table, database;", dbs)
+				value, err = service.QueryInfo(query)
+				if err != nil {
+					return nil, err
+				}
+				for i := 1; i < len(value); i++ {
+					table := value[i][0].(string)
+					database := value[i][6].(string)
+					tableName := fmt.Sprintf("%s.%s", database, table)
+					if metric, ok := metrics[tableName]; ok {
+						if common.ArraySearch("partitions", cols) || len(cols) == 0 {
+							metric.Partitions = value[i][1].(uint64)
+						}
+						if common.ArraySearch("parts", cols) || len(cols) == 0 {
+							metric.Parts = value[i][2].(uint64)
+						}
+						if common.ArraySearch("compressed", cols) || len(cols) == 0 {
+							metric.Compressed = value[i][3].(uint64)
+						}
+						if common.ArraySearch("uncompressed", cols) || len(cols) == 0 {
+							metric.UnCompressed = value[i][4].(uint64)
+						}
+						if common.ArraySearch("rows", cols) || len(cols) == 0 {
+							metric.Rows = value[i][5].(uint64)
+						}
 					}
 				}
 			}
-		}
 
-		// get success, failed counts
-		tables := "["
-		for k := range dbtables {
-			tables += fmt.Sprintf("'%s',", k)
-		}
-		tables = strings.TrimRight(tables, ",")
-		tables += "]"
-		if common.ArraySearch("queries", cols) || len(cols) == 0 {
-			query = fmt.Sprintf("SELECT tables[1], type, count() AS counts from system.query_log where hasAny(databases, %s) = 1 AND is_initial_query=1 AND event_date >= subtractDays(now(), 1) group by tables, type", tables)
-			log.Logger.Infof("host: %s, query: %s", host, query)
-			value, err = service.QueryInfo(query)
-			if err != nil {
-				return nil, err
-			}
-			for i := 1; i < len(value); i++ {
-				tableName := value[i][0].(string)
-				if metric, ok := metrics[tableName]; ok {
-					types := value[i][1].(string)
-					if types == ClickHouseQueryFinish {
-						metric.CompletedQueries += value[i][2].(uint64)
-					} else if types == ClickHouseQueryExStart || types == ClickHouseQueryExProcessing {
-						metric.FailedQueries += value[i][2].(uint64)
+			// get readwrite_status
+			if common.ArraySearch("is_readonly", cols) || len(cols) == 0 {
+				query = fmt.Sprintf("select table, is_readonly, database from cluster('{cluster}', system.replicas) where database in ('%s')", dbs)
+				value, err = service.QueryInfo(query)
+				if err != nil {
+					return nil, err
+				}
+				for i := 1; i < len(value); i++ {
+					table := value[i][0].(string)
+					database := value[i][2].(string)
+					tableName := fmt.Sprintf("%s.%s", database, table)
+					if metric, ok := metrics[tableName]; ok {
+						isReadonly := value[i][1].(uint8)
+						if isReadonly != 0 {
+							metric.RWStatus = false
+						}
 					}
 				}
 			}
-		}
 
-		// get query duration
-		if common.ArraySearch("cost", cols) || len(cols) == 0 {
-			query = fmt.Sprintf("SELECT tables[1] AS tbl_name, quantiles(0.5, 0.99, 1.0)(query_duration_ms) AS duration from system.query_log where hasAny(databases, %s) = 1  AND type = 2 AND is_initial_query=1 AND event_date >= subtractDays(now(), 7) group by tables", tables)
-			log.Logger.Infof("host: %s, query: %s", host, query)
-			value, err = service.QueryInfo(query)
-			if err != nil {
-				return nil, err
+			// get success, failed counts
+			tables := "["
+			for k := range dbtables {
+				tables += fmt.Sprintf("'%s',", k)
 			}
-			for i := 1; i < len(value); i++ {
-				tableName := value[i][0].(string)
-				if metric, ok := metrics[tableName]; ok {
-					durations := value[i][1].([]float64)
-					if durations[0] > metric.QueryCost.Middle {
-						metric.QueryCost.Middle = durations[0]
+			tables = strings.TrimRight(tables, ",")
+			tables += "]"
+			if common.ArraySearch("queries", cols) || len(cols) == 0 {
+				query = fmt.Sprintf("SELECT tables[1], type, count() AS counts from cluster('{cluster}', system.query_log) where hasAny(databases, %s) = 1 AND is_initial_query=1 AND event_date >= subtractDays(now(), 1) group by tables, type", tables)
+				value, err = service.QueryInfo(query)
+				if err != nil {
+					return nil, err
+				}
+				for i := 1; i < len(value); i++ {
+					tableName := value[i][0].(string)
+					if metric, ok := metrics[tableName]; ok {
+						types := value[i][1].(string)
+						if types == ClickHouseQueryFinish {
+							metric.CompletedQueries = value[i][2].(uint64)
+						} else if types == ClickHouseQueryExStart || types == ClickHouseQueryExProcessing {
+							metric.FailedQueries = value[i][2].(uint64)
+						}
 					}
-					if durations[1] > metric.QueryCost.SecondaryMax {
-						metric.QueryCost.SecondaryMax = durations[1]
-					}
-					if durations[2] > metric.QueryCost.Max {
-						metric.QueryCost.Max = durations[2]
+				}
+			}
+
+			// get query duration
+			if common.ArraySearch("cost", cols) || len(cols) == 0 {
+				query = fmt.Sprintf("SELECT tables[1] AS tbl_name, quantiles(0.5, 0.99, 1.0)(query_duration_ms) AS duration from cluster('{cluster}', system.query_log) where hasAny(databases, %s) = 1  AND type = 2 AND is_initial_query=1 AND event_date >= subtractDays(now(), 7) group by tables", tables)
+				value, err = service.QueryInfo(query)
+				if err != nil {
+					return nil, err
+				}
+				for i := 1; i < len(value); i++ {
+					tableName := value[i][0].(string)
+					if _, ok := metrics[tableName]; ok {
+						durations := value[i][1].([]float64)
+						metrics[tableName].QueryCost.Middle = common.Decimal(durations[0])
+						metrics[tableName].QueryCost.SecondaryMax = common.Decimal(durations[1])
+						metrics[tableName].QueryCost.Max = common.Decimal(durations[2])
 					}
 				}
 			}
 		}
-	}
-
-	for key, metric := range metrics {
-		metrics[key].QueryCost.Max = common.Decimal(metric.QueryCost.Max)
-		metrics[key].QueryCost.Middle = common.Decimal(metric.QueryCost.Middle)
-		metrics[key].QueryCost.SecondaryMax = common.Decimal(metric.QueryCost.SecondaryMax)
 	}
 
 	return metrics, nil
