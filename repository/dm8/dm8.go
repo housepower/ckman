@@ -70,7 +70,6 @@ func (mp *DM8Persistent) Init(config interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
-	mp.Client.Set("table_options", "ENGINE=InnoDB CHARSET=utf8mb4")
 	return nil
 }
 

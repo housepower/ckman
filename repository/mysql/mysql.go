@@ -60,7 +60,7 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 	mp.ParentDB = mp.Client
 
 	//auto create table
-	err = mp.Client.AutoMigrate(
+	err = mp.Client.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4").AutoMigrate(
 		&TblCluster{},
 		&TblLogic{},
 		&TblQueryHistory{},
@@ -69,7 +69,6 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
-	mp.Client.Set("table_options", "ENGINE=InnoDB CHARSET=utf8mb4")
 	return nil
 }
 
