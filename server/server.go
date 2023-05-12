@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -243,6 +244,34 @@ func ginJWTAuth() gin.HandlerFunc {
 		}
 
 		// Verify client ip
+		// proxy with ngnix, will get client ip from x-forwarded-for
+		// refs: https://nginx.org/en/docs/http/ngx_http_realip_module.html
+		// refs: https://www.cnblogs.com/mypath/articles/5239687.html
+		/*
+			nginx config example:
+						server {
+				        	listen       80;
+				        	server_name  net.eoitek.ckman.com;
+
+				        	location / {
+				                        index  index.html index.htm;
+				                        proxy_pass http://192.168.110.8:8808;
+				                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+				        	}
+				    }
+
+		*/
+		clientIps := c.Request.Header.Get("X-Forwarded-For")
+		if clientIps != "" {
+			clientIp := strings.Split(clientIps, ",")[0]
+			log.Logger.Debugf("maybe set proxy, the real ip is %s", clientIp)
+			if clientIp == claims.ClientIP {
+				c.Set("claims", claims)
+				c.Set("token", token)
+				return
+
+			}
+		}
 		if claims.ClientIP != c.ClientIP() {
 			err := errors.Errorf("cliams.ClientIP: %s, c.ClientIP:%s", claims.ClientIP, c.ClientIP())
 			model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, err)
