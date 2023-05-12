@@ -177,7 +177,7 @@ func TestGetIntegerwithDefault(t *testing.T) {
 }
 
 func TestTernaryExpression(t *testing.T) {
-	assert.Equal(t, "yes", TernaryExpression(1 == 1, "yes", "no").(string))
+	assert.Equal(t, "yes", TernaryExpression(true, "yes", "no").(string))
 	assert.Equal(t, false, TernaryExpression(1 > 2, true, false).(bool))
 }
 

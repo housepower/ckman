@@ -246,9 +246,7 @@ func Shuffle(value []string) []string {
 	rand.Seed(time.Now().UnixNano())
 
 	arr := make([]string, len(value))
-	for index, a := range value {
-		arr[index] = a
-	}
+	copy(arr, value)
 
 	rand.Shuffle(len(arr), func(i, j int) {
 		arr[i], arr[j] = arr[j], arr[i]
