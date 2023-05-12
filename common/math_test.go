@@ -2,8 +2,9 @@ package common
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMd5CheckSum(t *testing.T) {
@@ -77,7 +78,6 @@ func TestMap_Intersect(t *testing.T) {
 	assert.Equal(t, expect, result)
 }
 
-
 func TestMap_Difference(t *testing.T) {
 	m1 := Map{
 		"kk1": "vv1",
@@ -116,4 +116,18 @@ func TestMap_Difference2(t *testing.T) {
 		"kk5": "vv5",
 	}
 	assert.Equal(t, expect, result)
+}
+
+func TestDecimal(t *testing.T) {
+	assert.Equal(t, 0.46, Decimal(0.460003))
+	assert.Equal(t, 0.47, Decimal(0.468999))
+}
+
+func TestArraySearch(t *testing.T) {
+	assert.Equal(t, true, ArraySearch("bbb", []string{
+		"aaa", "bbb", "ccc", "kkk",
+	}))
+	assert.Equal(t, false, ArraySearch("mmm", []string{
+		"aaa", "bbb", "ccc", "kkk",
+	}))
 }

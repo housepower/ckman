@@ -136,24 +136,6 @@ func ScpUpload(client *scp.Client, localFilePath, remoteFilePath string) error {
 	return nil
 }
 
-func ScpDownload(client *scp.Client, remoteFilePath, localFilePath string) error {
-	_ = os.Remove(localFilePath) //truncate local file first
-	f, err := os.Create(localFilePath)
-	if err != nil {
-		err = errors.Wrapf(err, "")
-		return err
-	}
-	defer f.Close()
-
-	err = client.CopyFromRemote(context.Background(), f, remoteFilePath)
-	if err != nil {
-		err = errors.Wrapf(err, "")
-		return err
-	}
-
-	return nil
-}
-
 func SSHRun(client *ssh.Client, password, shell string) (result string, err error) {
 	var session *ssh.Session
 	var buf []byte
@@ -283,38 +265,56 @@ func ScpUploadFile(localFile, remoteFile string, opts SshOptions) error {
 	return nil
 }
 
-func ScpDownloadFiles(files []string, localPath string, opts SshOptions) error {
-	client, sshClient, err := ScpConnect(opts)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	defer sshClient.Close()
+// func ScpDownloadFiles(files []string, localPath string, opts SshOptions) error {
+// 	client, sshClient, err := ScpConnect(opts)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer client.Close()
+// 	defer sshClient.Close()
 
-	for _, file := range files {
-		baseName := path.Base(file)
-		err = ScpDownload(client, file, path.Join(localPath, baseName))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// 	for _, file := range files {
+// 		baseName := path.Base(file)
+// 		err = ScpDownload(client, file, path.Join(localPath, baseName))
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
-func ScpDownloadFile(remoteFile, localFile string, opts SshOptions) error {
-	client, sshClient, err := ScpConnect(opts)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	defer sshClient.Close()
+// func ScpDownloadFile(remoteFile, localFile string, opts SshOptions) error {
+// 	client, sshClient, err := ScpConnect(opts)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer client.Close()
+// 	defer sshClient.Close()
 
-	err = ScpDownload(client, remoteFile, localFile)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+// 	err = ScpDownload(client, remoteFile, localFile)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
+
+// func ScpDownload(client *scp.Client, remoteFilePath, localFilePath string) error {
+// 	_ = os.Remove(localFilePath) //truncate local file first
+// 	f, err := os.Create(localFilePath)
+// 	if err != nil {
+// 		err = errors.Wrapf(err, "")
+// 		return err
+// 	}
+// 	defer f.Close()
+
+// 	err = client.CopyFromRemote(context.Background(), f, remoteFilePath)
+// 	if err != nil {
+// 		err = errors.Wrapf(err, "")
+// 		return err
+// 	}
+
+// 	return nil
+// }
 
 func RemoteExecute(opts SshOptions, cmd string) (string, error) {
 	client, err := SSHConnect(opts)

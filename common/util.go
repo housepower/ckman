@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
@@ -279,20 +278,6 @@ func TernaryExpression(condition bool, texpr, fexpr interface{}) interface{} {
 	} else {
 		return fexpr
 	}
-}
-
-func Execute(command string) bool {
-	cmd := exec.Command("/bin/bash", "-c", command)
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		log.Logger.Errorf(fmt.Sprint(err) + ": " + stderr.String())
-		return false
-	}
-	return true
 }
 
 func EnsurePathNonPrefix(paths []string) error {
