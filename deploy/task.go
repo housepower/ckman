@@ -23,7 +23,6 @@ func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, er
 	case *CKDeploy:
 		repository.EncodePasswd(deploy.(*CKDeploy).Conf)
 		hosts = d.Conf.Hosts
-	case *ZKDeploy:
 	case *model.ArchiveTableReq:
 		conf, _ := repository.Ps.GetClusterbyName(clusterName)
 		hosts = conf.Hosts

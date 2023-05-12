@@ -34,7 +34,6 @@ func UnmarshalConfig(config interface{}, v interface{}) error {
 	case *deploy.CKDeploy:
 		repository.DecodePasswd(v.Conf)
 	case *model.ArchiveTableReq:
-	case *deploy.ZKDeploy:
 	}
 	return nil
 }

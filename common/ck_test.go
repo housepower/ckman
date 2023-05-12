@@ -30,3 +30,10 @@ func TestCkPasswd(t *testing.T) {
 	assert.Equal(t, "15fae939139a48b92e715609560e487298568076", CkPassword("FKP8OfUF", DOUBLE_SHA1_HEX))
 
 }
+
+func TestCkPasswdLabel(t *testing.T) {
+	assert.Equal(t, "password_sha256_hex", CkPasswdLabel(SHA256_HEX))
+	assert.Equal(t, "password_double_sha1_hex", CkPasswdLabel(DOUBLE_SHA1_HEX))
+	assert.Equal(t, "password", CkPasswdLabel(PLAINTEXT))
+	assert.Equal(t, "password", CkPasswdLabel(-1))
+}
