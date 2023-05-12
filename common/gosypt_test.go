@@ -46,7 +46,7 @@ func TestGosypt_Unmarshal(t *testing.T) {
 			"password": "ENC(E310E892E56801CED9ED98AA177F18E6)",
 		},
 		MapStr: map[string]Extras{
-			"foo": Extras{
+			"foo": {
 				"zhangsan",
 				"ENC(E310E892E56801CED9ED98AA177F18E6)",
 			},
