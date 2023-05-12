@@ -98,3 +98,31 @@ func GenLocalMetrika(indent int, conf *model.CKManClickHouseConfig) string {
 	xml.End(conf.Cluster)
 	return xml.GetContext()
 }
+
+func GenLogicMetrika(logicName string, clusters []model.CKManClickHouseConfig, secret bool) string {
+	xml := common.NewXmlFile("")
+	xml.SetIndent(2)
+	xml.Begin(logicName)
+	if secret {
+		xml.Write("secret", "foo")
+	}
+	for _, conf := range clusters {
+		for _, shard := range conf.Shards {
+			xml.Begin("shard")
+			xml.Write("internal_replication", conf.IsReplica)
+			for _, replica := range shard.Replicas {
+				xml.Begin("replica")
+				xml.Write("host", replica.Ip)
+				xml.Write("port", conf.Port)
+				if !secret {
+					xml.Write("user", conf.User)
+					xml.Write("password", conf.Password)
+				}
+				xml.End("replica")
+			}
+			xml.End("shard")
+		}
+	}
+	xml.End(logicName)
+	return xml.GetContext()
+}
