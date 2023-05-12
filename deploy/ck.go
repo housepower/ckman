@@ -740,9 +740,7 @@ func ConfigLogicOtherCluster(clusterName string) error {
 
 func GenLogicMetrika(d *CKDeploy) (string, []*CKDeploy) {
 	var deploys []*CKDeploy
-	xml := common.NewXmlFile("")
-	xml.SetIndent(2)
-	xml.Begin(*d.Conf.LogicCluster)
+	var clusters []model.CKManClickHouseConfig
 	secret := true
 	if common.CompareClickHouseVersion(d.Conf.Version, "20.10.3.30") < 0 {
 		secret = false
@@ -760,31 +758,12 @@ func GenLogicMetrika(d *CKDeploy) (string, []*CKDeploy) {
 				secret = false
 			}
 			deploys = append(deploys, deploy)
+			clusters = append(clusters, c)
 		}
 	}
 	deploys = append(deploys, d)
-	if secret {
-		xml.Write("secret", "foo")
-	}
-	for _, deploy := range deploys {
-		for _, shard := range deploy.Conf.Shards {
-			xml.Begin("shard")
-			xml.Write("internal_replication", deploy.Conf.IsReplica)
-			for _, replica := range shard.Replicas {
-				xml.Begin("replica")
-				xml.Write("host", replica.Ip)
-				xml.Write("port", deploy.Conf.Port)
-				if !secret {
-					xml.Write("user", deploy.Conf.User)
-					xml.Write("password", deploy.Conf.Password)
-				}
-				xml.End("replica")
-			}
-			xml.End("shard")
-		}
-	}
-	xml.End(*d.Conf.LogicCluster)
-	return xml.GetContext(), deploys
+	clusters = append(clusters, *d.Conf)
+	return ckconfig.GenLogicMetrika(*d.Conf.LogicCluster, clusters, secret), deploys
 }
 
 func ClearLogicCluster(cluster, logic string, reconf bool) error {
