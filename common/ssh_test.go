@@ -50,7 +50,7 @@ func TestSftp(t *testing.T) {
 	assert.Nil(t, err)
 	defer sc.Close()
 	defer c.Close()
-	err = ScpUpload(c, "ssh.go", "/home/eoi/")
+	err = ScpUploadFiles([]string{"ssh.go"}, "/home/eoi", sshOpts)
 	assert.Nil(t, err)
 	_, err = RemoteExecute(sshOpts, "rm -rf ~/ssh.go")
 	assert.Nil(t, err)

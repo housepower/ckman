@@ -37,3 +37,25 @@ func TestXMLFile_Merge(t *testing.T) {
 	xml.End("yandex")
 	assert.Nil(t, xml.Dump())
 }
+
+func TestXml(t *testing.T) {
+	f := NewXmlFile("example.xml")
+	f.BeginwithAttr("person", []XMLAttr{{Key: "id", Value: 13}})
+	f.Begin("name")
+	indent := f.GetIndent()
+	f.SetIndent(indent)
+	f.Write("first", "John")
+	f.Write("last", "Doe")
+	f.End("name")
+	f.Write("age", 42)
+	f.Write("Married", false)
+	f.Write("City", "Hanga Roa")
+	f.Write("State", "Easter Island")
+	f.Comment("Need more details.")
+	context := f.GetContext()
+	f.SetContext("")
+	f.Append(context)
+	f.End("person")
+	err := f.Dump()
+	assert.Nil(t, err)
+}
