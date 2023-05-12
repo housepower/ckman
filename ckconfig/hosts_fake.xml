@@ -1,0 +1,9 @@
+<yandex>
+    <!-- This xml file contains every node's special configuration self. -->
+    <interserver_http_host>192.168.0.3</interserver_http_host>
+    <macros>
+        <cluster>test</cluster>
+        <shard>2</shard>
+        <replica>192.168.0.3</replica>
+    </macros>
+</yandex>
