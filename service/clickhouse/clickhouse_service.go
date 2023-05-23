@@ -1419,7 +1419,7 @@ func GetCKVersion(conf *model.CKManClickHouseConfig, host string) (string, error
 	return version, nil
 }
 
-func SyncLogicTable(src, dst model.CKManClickHouseConfig) bool {
+func SyncLogicTable(src, dst model.CKManClickHouseConfig, name ...string) bool {
 	hosts, err := common.GetShardAvaliableHosts(&src)
 	if err != nil || len(hosts) == 0 {
 		log.Logger.Warnf("cluster %s all node is unvaliable", src.Cluster)
@@ -1430,7 +1430,11 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig) bool {
 		log.Logger.Warnf("connect %s failed", hosts[0])
 		return false
 	}
-	statementsqls, err := GetLogicSchema(srcDB, *dst.LogicCluster, dst.Cluster, dst.IsReplica)
+	tableName := ""
+	if len(name) > 0 {
+		tableName = name[0]
+	}
+	statementsqls, err := GetLogicSchema(srcDB, *dst.LogicCluster, dst.Cluster, dst.IsReplica, tableName)
 	if err != nil {
 		log.Logger.Warnf("get logic schema failed: %v", err)
 		return false
