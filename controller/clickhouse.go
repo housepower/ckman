@@ -408,7 +408,7 @@ func (ck *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 					con, err := repository.Ps.GetClusterbyName(cluster)
 					if err == nil {
 						// conf is current cluster, we believe that local table must be exist
-						clickhouse.SyncLogicTable(conf, con)
+						clickhouse.SyncLogicTable(conf, con, req.LocalTable)
 						continue
 					}
 				}

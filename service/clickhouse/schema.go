@@ -81,7 +81,7 @@ type LogicSchema struct {
 	Statements []string
 }
 
-func GetLogicSchema(db *sql.DB, logicName, clusterName string, replica bool) ([]LogicSchema, error) {
+func GetLogicSchema(db *sql.DB, logicName, clusterName string, replica bool, tableName string) ([]LogicSchema, error) {
 	var engine, replacingengine string
 	var expr *regexp.Regexp
 	if replica {
@@ -93,7 +93,10 @@ func GetLogicSchema(db *sql.DB, logicName, clusterName string, replica bool) ([]
 		replacingengine = "ReplacingMergeTree()"
 		expr = regexp.MustCompile("(Replicated(Replacing)?MergeTree\\(.*'{replica}'\\))")
 	}
-
+	tbNameFilter := ""
+	if tableName != "" {
+		tbNameFilter = fmt.Sprintf(" AND (t2.localtbl = '%s')", tableName)
+	}
 	query := fmt.Sprintf(`SELECT
     t1.database AS db,
     t2.logictbl AS logictbl,
@@ -110,7 +113,7 @@ INNER JOIN
         create_table_query AS logicsql
     FROM system.tables
     WHERE (engine = 'Distributed') AND match(create_table_query, 'Distributed.*\'%s\'')
-) AS t2 ON (t1.database = t2.database) AND (t1.name = t2.localtbl)`, logicName, logicName)
+) AS t2 ON (t1.database = t2.database) AND (t1.name = t2.localtbl)%s`, logicName, logicName, tbNameFilter)
 	log.Logger.Debugf("query:%s", query)
 	rows, err := db.Query(query)
 	if err != nil {
