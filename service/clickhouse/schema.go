@@ -81,7 +81,7 @@ type LogicSchema struct {
 	Statements []string
 }
 
-func GetLogicSchema(db *sql.DB, logicName, clusterName string, replica bool, tableName string) ([]LogicSchema, error) {
+func GetLogicSchema(db *sql.DB, logicName, clusterName string, replica bool, database, tableName string) ([]LogicSchema, error) {
 	var engine, replacingengine string
 	var expr *regexp.Regexp
 	if replica {
@@ -94,22 +94,25 @@ func GetLogicSchema(db *sql.DB, logicName, clusterName string, replica bool, tab
 		expr = regexp.MustCompile("(Replicated(Replacing)?MergeTree\\(.*'{replica}'\\))")
 	}
 	tbNameFilter := ""
+	if database != "" {
+		tbNameFilter += fmt.Sprintf(" AND (t2.database = '%s')", database)
+	}
 	if tableName != "" {
-		tbNameFilter = fmt.Sprintf(" AND (t2.localtbl = '%s')", tableName)
+		tbNameFilter += fmt.Sprintf(" AND (t2.localtbl = '%s')", tableName)
 	}
 	query := fmt.Sprintf(`SELECT
     t1.database AS db,
     t2.logictbl AS logictbl,
     t2.localtbl AS localtbl,
-    replaceRegexpOne(t1.create_table_query, 'CREATE (TABLE|VIEW|MATERIALIZED VIEW)\\s+\\w+.\\w+', 'CREATE \\1 IF NOT EXISTS {{.localtbl}} ON CLUSTER {{.clusterName}}') AS localsql,
-    replaceRegexpOne(t2.logicsql, 'CREATE (TABLE|VIEW|MATERIALIZED VIEW)\\s+\\w+.\\w+', 'CREATE \\1 IF NOT EXISTS {{.logictbl}} ON CLUSTER {{.clusterName}}') AS logicsql
+    replaceRegexpOne(t1.create_table_query, 'CREATE (TABLE|VIEW|MATERIALIZED VIEW)\\s+\\w+.\\w+', 'CREATE \\1 IF NOT EXISTS {{.database}}.{{.localtbl}} ON CLUSTER {{.clusterName}}') AS localsql,
+    replaceRegexpOne(t2.logicsql, 'CREATE (TABLE|VIEW|MATERIALIZED VIEW)\\s+\\w+.\\w+', 'CREATE \\1 IF NOT EXISTS {{.database}}.{{.logictbl}} ON CLUSTER {{.clusterName}}') AS logicsql
 FROM system.tables AS t1
 INNER JOIN 
 (
     SELECT DISTINCT
         database,
         name AS logictbl,
-        (extractAllGroups(create_table_query, '(Distributed).*\'(%s)\',\\s+\'(\\w+)\',\\s+\'(\\w+)\',\\s+(.*)\\)')[1])[4] AS localtbl,
+        (extractAllGroups(create_table_query, '(Distributed).*\'(%s)\',\\s+\'(\\w+)\',\\s+\'(\\w+)\'(.*)\\)')[1])[4] AS localtbl,
         create_table_query AS logicsql
     FROM system.tables
     WHERE (engine = 'Distributed') AND match(create_table_query, 'Distributed.*\'%s\'')
@@ -129,7 +132,7 @@ INNER JOIN
 		}
 		if database != "default" {
 			if !common.ArraySearch(database, databases) {
-				dbsql := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS '%s' ON CLUSTER %s", database, clusterName)
+				dbsql := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` ON CLUSTER `%s`", database, clusterName)
 				dbsqls = append(dbsqls, dbsql)
 			}
 		}

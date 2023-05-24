@@ -53,32 +53,29 @@ func SyncLogicSchema() error {
 FROM system.tables
 WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')) 
 AND (cluster != '%s')`, cluster)
+			log.Logger.Debugf("[%s] %s", cluster, query)
 			rows, err := ckService.DB.Query(query)
 			if err != nil {
 				continue
 			}
 			defer rows.Close()
 			for rows.Next() {
-				var database, table, cluster, local string
-				_ = rows.Scan(&database, &table, &cluster, &local)
-				if cluster != conf.Cluster {
-					//dist is logic table
-					err = syncLogicbyTable(clusters, database, local)
-					if err != nil {
-						var exception *client.Exception
-						if errors.As(err, &exception) {
-							if exception.Code == 60 {
-								//means local table is not exist, will auto sync schema
-								needCreateTable[cluster] = clusters
-								log.Logger.Infof("table %s.%s may not exists on one of cluster %v, need to auto create", database, local, clusters)
-							}
-						} else {
-							log.Logger.Errorf("logic %s table %s.%s sync logic table failed: %v", cluster, database, local, err)
-							continue
+				var database, table, logic, local string
+				_ = rows.Scan(&database, &table, &logic, &local)
+				err = syncLogicbyTable(clusters, database, local)
+				if err != nil {
+					var exception *client.Exception
+					if errors.As(err, &exception) {
+						if exception.Code == 60 {
+							//means local table is not exist, will auto sync schema
+							needCreateTable[cluster] = clusters
+							log.Logger.Infof("[%s]table %s.%s may not exists on one of cluster %v, need to auto create", cluster, database, local, clusters)
 						}
+					} else {
+						log.Logger.Errorf("logic %s table %s.%s sync logic table failed: %v", cluster, database, local, err)
+						continue
 					}
 				}
-
 			}
 		}
 

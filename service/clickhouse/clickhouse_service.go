@@ -1431,10 +1431,12 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig, name ...string) bool {
 		return false
 	}
 	tableName := ""
+	database := ""
 	if len(name) > 0 {
-		tableName = name[0]
+		database = name[0]
+		tableName = name[1]
 	}
-	statementsqls, err := GetLogicSchema(srcDB, *dst.LogicCluster, dst.Cluster, dst.IsReplica, tableName)
+	statementsqls, err := GetLogicSchema(srcDB, *dst.LogicCluster, dst.Cluster, dst.IsReplica, database, tableName)
 	if err != nil {
 		log.Logger.Warnf("get logic schema failed: %v", err)
 		return false
