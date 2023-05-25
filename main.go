@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -43,6 +44,9 @@ var (
 	PidFilePath     = ""
 	EncryptPassword = ""
 )
+
+//go:embed static/dist
+var fs embed.FS
 
 // @title Swagger Example API
 // @version 1.0
@@ -127,7 +131,7 @@ func main() {
 	defer cronSvr.Stop()
 
 	// start http server
-	svr := server.NewApiServer(&config.GlobalConfig, signalCh)
+	svr := server.NewApiServer(&config.GlobalConfig, signalCh, fs)
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}
