@@ -9,7 +9,7 @@ stages:
 check_build:
   stage: build
   script:
-    - make backend
+    - make build
 
 test_build:
   stage: test
