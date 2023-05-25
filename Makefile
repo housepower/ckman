@@ -35,7 +35,6 @@ backend:
 .PHONY: pre
 pre:
 	go mod tidy
-	go install github.com/markbates/pkger/cmd/pkger@v0.17.1
 	go install github.com/swaggo/swag/cmd/swag@v1.7.1
 	go install github.com/hjson/hjson-go/hjson-cli@latest
 	go install github.com/mbrukman/yaml2json/cmd/{yaml2json,json2yaml}@latest
@@ -52,7 +51,6 @@ coverage:
 
 .PHONY: build
 build:pre frontend
-	pkger
 	swag init
 	go build ${LDFLAGS}
 	go build ${LDFLAGS} -o ckmanpasswd cmd/password/password.go

@@ -2,8 +2,8 @@ package server
 
 import (
 	"context"
+	"embed"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"runtime/debug"
@@ -16,7 +16,6 @@ import (
 	"github.com/patrickmn/go-cache"
 
 	"github.com/arl/statsviz"
-	static "github.com/choidamdam/gin-static-pkger"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
@@ -28,7 +27,6 @@ import (
 	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/router"
 	"github.com/housepower/ckman/service/prometheus"
-	"github.com/markbates/pkger"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
 )
@@ -41,12 +39,14 @@ type ApiServer struct {
 	config *config.CKManConfig
 	svr    *http.Server
 	signal chan os.Signal
+	fs     embed.FS
 }
 
-func NewApiServer(config *config.CKManConfig, signal chan os.Signal) *ApiServer {
+func NewApiServer(config *config.CKManConfig, signal chan os.Signal, fs embed.FS) *ApiServer {
 	server := &ApiServer{}
 	server.config = config
 	server.signal = signal
+	server.fs = fs
 	return server
 }
 
@@ -60,13 +60,15 @@ func (server *ApiServer) Start() error {
 	controller.TokenCache = cache.New(time.Duration(server.config.Server.SessionTimeout)*time.Second, time.Minute)
 	userController := controller.NewUserController(server.config)
 
-	// https://github.com/gin-gonic/gin/issues/1048
-	// How do you solve vue.js HTML5 History Mode?
-	_ = pkger.Dir("/static/dist")
-	r.Use(static.Serve("/", static.LocalFile("/static/dist", false)))
-	homepage := embedStaticHandler("/static/dist/index.html", "text/html;charset=utf-8")
-	r.NoRoute(homepage)
-
+	r.Use(Serve("/", EmbedFolder(server.fs, "static/dist")))
+	r.NoRoute(func(c *gin.Context) {
+		data, err := server.fs.ReadFile("static/dist/index.html")
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+	})
 	if !server.config.Server.SwaggerEnable {
 		_ = os.Setenv(ENV_CKMAN_SWAGGER, "disabled")
 	} else {
@@ -132,22 +134,6 @@ func (server *ApiServer) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
 	defer cancel()
 	return server.svr.Shutdown(ctx)
-}
-
-func embedStaticHandler(embedPath, contentType string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		f, err := pkger.Open(embedPath)
-		if err != nil {
-			log.Logger.Errorf("failed to open embed static file %s", embedPath)
-			return
-		}
-		defer f.Close()
-		c.Status(http.StatusOK)
-		c.Header("Content-Type", contentType)
-		if _, err := io.Copy(c.Writer, f); err != nil {
-			log.Logger.Errorf("failed to copy embed static file %s", embedPath)
-		}
-	}
 }
 
 // Log runtime error stack to make debug easy.
