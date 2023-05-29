@@ -230,6 +230,13 @@ Non-professionals please do not fill in this`,
 			{Value: "hdfs", LabelEN: "HDFS", LabelZH: "HDFS"},
 		},
 	})
+	params.MustRegister(disk, "AllowedBackup", &common.Parameter{
+		LabelZH:       "允许备份",
+		LabelEN:       "AllowedBackup",
+		Required:      "false",
+		DescriptionZH: "是否允许备份数据到该磁盘",
+		DescriptionEN: "Whether to allow backup data to the disk",
+	})
 	params.MustRegister(disk, "DiskLocal", &common.Parameter{
 		LabelZH:  "本地硬盘",
 		LabelEN:  "Local",
@@ -792,6 +799,13 @@ Non-professionals please do not fill in this`,
 			{Value: "s3", LabelEN: "AWS S3", LabelZH: "AWS S3"},
 			{Value: "hdfs", LabelEN: "HDFS", LabelZH: "HDFS"},
 		},
+	})
+	params.MustRegister(disk, "AllowedBackup", &common.Parameter{
+		LabelZH:       "允许备份",
+		LabelEN:       "AllowedBackup",
+		Required:      "false",
+		DescriptionZH: "是否允许备份数据到该磁盘",
+		DescriptionEN: "Whether to allow backup data to the disk",
 	})
 	params.MustRegister(disk, "DiskLocal", &common.Parameter{
 		LabelZH:  "本地硬盘",

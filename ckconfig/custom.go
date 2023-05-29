@@ -99,17 +99,22 @@ func distributed_ddl(cluster string) map[string]interface{} {
 	return output
 }
 
-func storage(storage *model.Storage) map[string]interface{} {
+func storage(storage *model.Storage) (map[string]interface{}, map[string]interface{}) {
 	if storage == nil {
-		return nil
+		return nil, nil
 	}
+	backups := make(map[string]interface{})
 	output := make(map[string]interface{})
 	storage_configuration := make(map[string]interface{})
 	if len(storage.Disks) > 0 {
 		disks := make(map[string]interface{})
+		var backup_disks []string
 		for _, disk := range storage.Disks {
 			diskMapping := make(map[string]interface{})
 			diskMapping["type"] = disk.Type
+			if disk.AllowedBackup {
+				backup_disks = append(backup_disks, disk.Name)
+			}
 			switch disk.Type {
 			case "hdfs":
 				diskMapping["endpoint"] = disk.DiskHdfs.Endpoint
@@ -126,6 +131,9 @@ func storage(storage *model.Storage) map[string]interface{} {
 			disks[disk.Name] = diskMapping
 		}
 		storage_configuration["disks"] = disks
+		if len(backup_disks) > 0 {
+			backups["allowed_disk"] = backup_disks
+		}
 	}
 	if len(storage.Policies) > 0 {
 		var policies []map[string]interface{}
@@ -151,7 +159,9 @@ func storage(storage *model.Storage) map[string]interface{} {
 		storage_configuration["policies"] = policies
 	}
 	output["storage_configuration"] = storage_configuration
-	return output
+	return output, map[string]interface{}{
+		"backups": backups,
+	}
 }
 
 func expert(exp map[string]string) map[string]interface{} {
@@ -175,7 +185,9 @@ func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ipv6E
 	mergo.Merge(&custom, system_log())
 	mergo.Merge(&custom, distributed_ddl(conf.Cluster))
 	mergo.Merge(&custom, prometheus())
-	mergo.Merge(&custom, storage(conf.Storage))
+	storage_configuration, backups := storage(conf.Storage)
+	mergo.Merge(&custom, storage_configuration)
+	mergo.Merge(&custom, backups)
 	xml := common.NewXmlFile(filename)
 	xml.Begin(rootTag)
 	xml.Merge(custom)

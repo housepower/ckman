@@ -102,11 +102,12 @@ type Storage struct {
 }
 
 type Disk struct {
-	Name      string     `example:"hdfs1"`
-	Type      string     `example:"hdfs"`
-	DiskLocal *DiskLocal `swaggerignore:"true"`
-	DiskHdfs  *DiskHdfs
-	DiskS3    *DiskS3 `swaggerignore:"true"`
+	Name          string     `example:"hdfs1"`
+	AllowedBackup bool       `example:"true"`
+	Type          string     `example:"hdfs"`
+	DiskLocal     *DiskLocal `swaggerignore:"true"`
+	DiskHdfs      *DiskHdfs
+	DiskS3        *DiskS3 `swaggerignore:"true"`
 }
 
 type DiskLocal struct {

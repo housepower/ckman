@@ -14,14 +14,14 @@ func TestGenerateCustomXML(t *testing.T) {
 	var MaxDataPartSizeBytes int64 = 1000000
 	storage := model.Storage{
 		Disks: []model.Disk{
-			{Name: "hdfs1", Type: "hdfs", DiskHdfs: &model.DiskHdfs{
+			{Name: "hdfs1", Type: "hdfs", AllowedBackup: true, DiskHdfs: &model.DiskHdfs{
 				Endpoint: "localhost:8020/admin/abc",
 			}},
-			{Name: "ssd", Type: "local", DiskLocal: &model.DiskLocal{
+			{Name: "ssd", Type: "local", AllowedBackup: false, DiskLocal: &model.DiskLocal{
 				Path:               "/data01/clickhouse",
 				KeepFreeSpaceBytes: &KeepFreeSpaceBytes,
 			}},
-			{Name: "s3", Type: "s3", DiskS3: &model.DiskS3{
+			{Name: "s3", Type: "s3", AllowedBackup: true, DiskS3: &model.DiskS3{
 				Endpoint:                  "localhost:1200/var/s3",
 				AccessKeyID:               "123456",
 				SecretAccessKey:           "654321",

@@ -5,6 +5,10 @@
         <partition_by>toYYYYMMDD(event_date)</partition_by>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
     </asynchronous_metric_log>
+    <backups>
+        <allowed_disk>hdfs1</allowed_disk>
+        <allowed_disk>s3</allowed_disk>
+    </backups>
     <database_atomic_delay_before_drop_table_sec>0</database_atomic_delay_before_drop_table_sec>
     <default_replica_name>{replica}</default_replica_name>
     <default_replica_path>/clickhouse/tables/{cluster}/{database}/{table}/{shard}</default_replica_path>
