@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"path"
@@ -193,10 +194,10 @@ func (t *TargetS3) Export() error {
 
 func (t *TargetS3) Done(_ string) {
 	for _, host := range t.Hosts {
-		db := common.GetConnection(host)
+		conn := common.GetConnection(host)
 		for _, tmpTbl := range t.TmpTables {
 			query := fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTbl)
-			db.Exec(query)
+			conn.Exec(context.Background(), query)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"context"
 	"encoding/gob"
 	"fmt"
 	"os"
@@ -606,12 +607,12 @@ func (d *CKDeploy) Check(timeout int) error {
 			for {
 				select {
 				case <-ticker.C:
-					db, err := common.ConnectClickHouse(innerHost, d.Conf.Port, model.ClickHouseDefaultDB, d.Conf.User, d.Conf.Password)
+					conn, err := common.ConnectClickHouse(innerHost, d.Conf.Port, model.ClickHouseDefaultDB, d.Conf.User, d.Conf.Password)
 					if err != nil {
 						log.Logger.Errorf("connect error: %v", err)
 						continue
 					}
-					if err = db.Ping(); err != nil {
+					if err = conn.Ping(context.Background()); err != nil {
 						log.Logger.Errorf("ping error: %v", err)
 						continue
 					}

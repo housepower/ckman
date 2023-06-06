@@ -1,18 +1,19 @@
 package common
 
 import (
+	"context"
 	"crypto/sha1"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	_ "github.com/ClickHouse/clickhouse-go"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -28,80 +29,104 @@ const (
 )
 
 type Connection struct {
-	dsn string
-	db  *sql.DB
+	opts    clickhouse.Options
+	orderId string
+	conn    driver.Conn
 }
 
-func ConnectClickHouse(host string, port int, database string, user string, password string) (*sql.DB, error) {
-	var db *sql.DB
-	var err error
+type ConnBase struct {
+	Addr []string
+	Auth clickhouse.Auth
+}
 
-	dsn := fmt.Sprintf("tcp://%s:%d?database=%s&username=%s&password=%s&read_timeout=300",
-		host, port, url.QueryEscape(database), url.QueryEscape(user), url.QueryEscape(password))
+func ConnectClickHouse(host string, port int, database string, user string, password string) (driver.Conn, error) {
+	opts := clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", host, port)},
+		Auth: clickhouse.Auth{
+			Database: database,
+			Username: user,
+			Password: password,
+		},
+		// Debug: true,
+		// Debugf: func(format string, v ...interface{}) {
+		// 	log.Logger.Debugf(format, v)
+		// },
+		Settings: clickhouse.Settings{
+			"max_execution_time": 60,
+			// "read_timeout":       300,
+		},
+		// Compression: &clickhouse.Compression{
+		// 	Method: clickhouse.CompressionLZ4,
+		// },
+		DialTimeout:      time.Duration(10) * time.Second,
+		MaxOpenConns:     config.GlobalConfig.ClickHouse.MaxOpenConns,
+		MaxIdleConns:     config.GlobalConfig.ClickHouse.MaxIdleConns,
+		ConnMaxLifetime:  time.Duration(config.GlobalConfig.ClickHouse.ConnMaxIdleTime) * time.Minute,
+		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
+	}
 
-	if conn, ok := ConnectPool.Load(host); ok {
-		c := conn.(Connection)
-		err := c.db.Ping()
+	raw, err := json.Marshal(ConnBase{
+		Addr: opts.Addr,
+		Auth: opts.Auth,
+	})
+	if err != nil {
+		return nil, err
+	}
+	hashInBytes := sha256.Sum256(raw)
+	orderId := hex.EncodeToString(hashInBytes[:])
+	if v, ok := ConnectPool.Load(host); ok {
+		c := v.(Connection)
+		err := c.conn.Ping(context.Background())
 		if err == nil {
-			if c.dsn == dsn {
-				return c.db, nil
+			if c.orderId == orderId {
+				return c.conn, nil
 			} else {
-				//dsn is different, maybe annother user, close connection before and reconnect
-				_ = c.db.Close()
+				_ = c.conn.Close()
 			}
 		}
 	}
 
-	if db, err = sql.Open("clickhouse", dsn); err != nil {
-		err = errors.Wrapf(err, "")
+	conn, err := clickhouse.Open(&opts)
+	if err != nil {
 		return nil, err
 	}
-
-	if err = db.Ping(); err != nil {
-		err = errors.Wrapf(err, "")
-		db.Close()
+	err = conn.Ping(context.Background())
+	if err != nil {
+		conn.Close()
 		return nil, err
 	}
-	SetConnOptions(db)
-	connction := Connection{
-		dsn: dsn,
-		db:  db,
-	}
-	ConnectPool.Store(host, connction)
-	return db, nil
-}
-
-func SetConnOptions(conn *sql.DB) {
-	// for some reason, if lots of tables, query from system tables will be slowly, and can't finish immediately, and when we flush the web page, then blocked.
-	conn.SetMaxOpenConns(config.GlobalConfig.ClickHouse.MaxOpenConns)
-	conn.SetMaxIdleConns(config.GlobalConfig.ClickHouse.MaxIdleConns) //do not close all idle connect
-	conn.SetConnMaxIdleTime(time.Duration(config.GlobalConfig.ClickHouse.ConnMaxIdleTime) * time.Second)
+	ConnectPool.Store(host, Connection{
+		opts:    opts,
+		orderId: orderId,
+		conn:    conn,
+	})
+	return conn, nil
 }
 
 func CloseConns(hosts []string) {
 	for _, host := range hosts {
 		conn, ok := ConnectPool.LoadAndDelete(host)
 		if ok {
-			_ = conn.(Connection).db.Close()
+			_ = conn.(Connection).conn.Close()
 		}
 	}
 }
 
-func GetConnection(host string) *sql.DB {
-	if conn, ok := ConnectPool.Load(host); ok {
-		db := conn.(Connection).db
-		err := db.Ping()
+func GetConnection(host string) driver.Conn {
+	if v, ok := ConnectPool.Load(host); ok {
+		conn := v.(Connection).conn
+		err := conn.Ping(context.Background())
 		if err == nil {
-			return db
+			return conn
 		} else {
-			db.Close()
+			conn.Close()
 		}
 	}
 	return nil
 }
 
-func GetMergeTreeTables(engine string, database string, db *sql.DB) ([]string, map[string][]string, error) {
-	var rows *sql.Rows
+func GetMergeTreeTables(engine string, database string, conn driver.Conn) ([]string, map[string][]string, error) {
+	var rows driver.Rows
 	var databases []string
 	var err error
 	dbtables := make(map[string][]string)
@@ -111,7 +136,7 @@ func GetMergeTreeTables(engine string, database string, db *sql.DB) ([]string, m
 	}
 	query += " ORDER BY database"
 	log.Logger.Debugf("query: %s", query)
-	if rows, err = db.Query(query); err != nil {
+	if rows, err = conn.Query(context.Background(), query); err != nil {
 		err = errors.Wrapf(err, "")
 		return nil, nil, err
 	}
@@ -257,7 +282,7 @@ func CheckCkInstance(conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-func GetTableNames(db *sql.DB, database, local, dist, cluster string, exists bool) (string, string, error) {
+func GetTableNames(conn driver.Conn, database, local, dist, cluster string, exists bool) (string, string, error) {
 	if local == "" && dist == "" {
 		return local, dist, fmt.Errorf("local table and dist table both empty")
 	}
@@ -275,7 +300,7 @@ FROM system.tables
 WHERE match(engine, 'Distributed') AND (database = '%s') AND ((dist = '%s') OR (local = '%s')) AND (cluster = '%s')`,
 			database, dist, local, cluster)
 		log.Logger.Debug(query)
-		rows, err := db.Query(query)
+		rows, err := conn.Query(context.Background(), query)
 		if err != nil {
 			return local, dist, err
 		}

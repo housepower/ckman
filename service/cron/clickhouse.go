@@ -1,11 +1,12 @@
 package cron
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"strings"
 
-	client "github.com/ClickHouse/clickhouse-go"
+	client "github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
@@ -54,7 +55,7 @@ FROM system.tables
 WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')) 
 AND (cluster != '%s')`, cluster)
 			log.Logger.Debugf("[%s] %s", cluster, query)
-			rows, err := ckService.DB.Query(query)
+			rows, err := ckService.Conn.Query(context.Background(), query)
 			if err != nil {
 				continue
 			}
@@ -109,7 +110,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 			return err
 		}
 		query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database = '%s' AND table = '%s'", database, localTable)
-		rows, err := ckService.DB.Query(query)
+		rows, err := ckService.Conn.Query(context.Background(), query)
 		if err != nil {
 			return errors.Wrap(err, "")
 		}
@@ -151,7 +152,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 			for k, v := range needAdds {
 				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN IF NOT EXISTS `%s` %s", database, localTable, cluster, k, v)
 				log.Logger.Debugf("query:%s", query)
-				_, err = ckService.DB.Exec(query)
+				err = ckService.Conn.Exec(context.Background(), query)
 				if err != nil {
 					return errors.Wrap(err, "")
 				}
@@ -159,7 +160,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 
 			if len(needAdds) == 0 {
 				query := fmt.Sprintf("SELECT table, count() from system.columns WHERE database = '%s' AND table in ('%s%s', '%s%s') group by table", database, common.ClickHouseDistributedTablePrefix, localTable, common.ClickHouseDistTableOnLogicPrefix, localTable)
-				rows, err := ckService.DB.Query(query)
+				rows, err := ckService.Conn.Query(context.Background(), query)
 				if err != nil {
 					return errors.Wrap(err, "")
 				}
@@ -183,7 +184,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 			deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC",
 				database, common.ClickHouseDistributedTablePrefix, localTable, cluster)
 			log.Logger.Debugf(deleteSql)
-			if _, err = ckService.DB.Exec(deleteSql); err != nil {
+			if err = ckService.Conn.Exec(context.Background(), deleteSql); err != nil {
 				return errors.Wrap(err, "")
 			}
 
@@ -191,7 +192,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 				database, common.ClickHouseDistributedTablePrefix, localTable, cluster, database, localTable,
 				cluster, database, localTable)
 			log.Logger.Debugf(create)
-			if _, err = ckService.DB.Exec(create); err != nil {
+			if err = ckService.Conn.Exec(context.Background(), create); err != nil {
 				return errors.Wrap(err, "")
 			}
 
@@ -274,7 +275,7 @@ func SyncDistSchema() error {
     (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[4] AS local
 FROM system.tables
 WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))`
-		rows, err := ckService.DB.Query(query)
+		rows, err := ckService.Conn.Query(context.Background(), query)
 		if err != nil {
 			continue
 		}
@@ -298,14 +299,14 @@ WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_
 
 func syncDistTable(distTable, localTable, database string, conf model.CKManClickHouseConfig, ckServide *clickhouse.CkService) error {
 	tableLists := make(map[string]common.Map)
-	dbLists := make(map[string]*sql.DB)
+	dbLists := make(map[string]driver.Conn)
 	for _, host := range conf.Hosts {
-		db := common.GetConnection(host)
-		if db == nil {
+		conn := common.GetConnection(host)
+		if conn == nil {
 			continue
 		}
 		query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database = '%s' AND table = '%s'", database, localTable)
-		rows, err := db.Query(query)
+		rows, err := conn.Query(context.Background(), query)
 		if err != nil {
 			return errors.Wrap(err, host)
 		}
@@ -319,7 +320,7 @@ func syncDistTable(distTable, localTable, database string, conf model.CKManClick
 			tblMap[name] = typ
 		}
 		tableLists[host] = tblMap
-		dbLists[host] = db
+		dbLists[host] = conn
 	}
 
 	allCols := make(common.Map)
@@ -339,11 +340,11 @@ func syncDistTable(distTable, localTable, database string, conf model.CKManClick
 		log.Logger.Debugf("need alter table, table %s.%s have different columns on cluster %s", database, localTable, conf.Cluster)
 		for host, cols := range tableLists {
 			needAdds := allCols.Difference(cols).(common.Map)
-			db := dbLists[host]
+			conn := dbLists[host]
 			for k, v := range needAdds {
 				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ADD COLUMN IF NOT EXISTS `%s` %s", database, localTable, k, v)
 				log.Logger.Debug(query)
-				_, err := db.Exec(query)
+				err := conn.Exec(context.Background(), query)
 				if err != nil {
 					return errors.Wrap(err, host)
 				}
@@ -354,25 +355,25 @@ func syncDistTable(distTable, localTable, database string, conf model.CKManClick
 	//sync dist table
 	var needAlterDist bool
 	query := fmt.Sprintf("SELECT table, count() from system.columns WHERE database = '%s' AND table = '%s' group by table", database, distTable)
-	rows, err := ckServide.DB.Query(query)
+	rows, err := ckServide.Conn.Query(context.Background(), query)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var table string
-		var count int
+		var count uint64
 		if err = rows.Scan(&table, &count); err != nil {
 			return errors.Wrap(err, "")
 		}
-		needAlterDist = (count != len(allCols))
+		needAlterDist = (int(count) != len(allCols))
 	}
-	for host, db := range dbLists {
+	for host, conn := range dbLists {
 		if needAlterDist {
 			deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` SYNC",
 				database, distTable)
 			log.Logger.Debugf(deleteSql)
-			if _, err := db.Exec(deleteSql); err != nil {
+			if err := conn.Exec(context.Background(), deleteSql); err != nil {
 				return errors.Wrap(err, host)
 			}
 
@@ -380,7 +381,7 @@ func syncDistTable(distTable, localTable, database string, conf model.CKManClick
 				database, distTable, database, localTable,
 				conf.Cluster, database, localTable)
 			log.Logger.Debugf(create)
-			if _, err := db.Exec(create); err != nil {
+			if err := conn.Exec(context.Background(), create); err != nil {
 				return errors.Wrap(err, host)
 			}
 		}

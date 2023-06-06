@@ -1,9 +1,8 @@
 package clickhouse
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
-	"math"
 	"net"
 	"reflect"
 	"regexp"
@@ -13,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -33,14 +32,14 @@ const (
 
 type CkService struct {
 	Config *model.CKManClickHouseConfig
-	DB     *sql.DB
+	Conn   driver.Conn
 }
 
 func NewCkService(config *model.CKManClickHouseConfig) *CkService {
 	ck := &CkService{}
 	config.Normalize()
 	ck.Config = config
-	ck.DB = nil
+	ck.Conn = nil
 
 	return ck
 }
@@ -56,7 +55,7 @@ func (ck *CkService) InitCkService() error {
 	for _, host := range hosts {
 		connect, err := common.ConnectClickHouse(host, ck.Config.Port, model.ClickHouseDefaultDB, ck.Config.User, ck.Config.Password)
 		if err == nil {
-			ck.DB = connect
+			ck.Conn = connect
 			hasConnect = true
 			break
 		} else {
@@ -122,6 +121,8 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 	}
 	shardNum := uint32(0)
 	for i := 1; i < len(value); i++ {
+		sn := reflect.ValueOf(value[i][1]).Interface()
+		log.Logger.Infof("sn: %v %T", sn, sn)
 		if shardNum != value[i][1].(uint32) {
 			if len(replicas) != 0 {
 				shard := model.CkShard{
@@ -229,14 +230,14 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 
 func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool) ([]string, error) {
 	var statements []string
-	if ck.DB == nil {
+	if ck.Conn == nil {
 		return statements, errors.Errorf("clickhouse service unavailable")
 	}
 
 	ensureDatabaseSql := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` ON CLUSTER `%s`", params.DB, params.Cluster)
 	statements = append(statements, ensureDatabaseSql)
 	if !dryrun {
-		_, _ = ck.DB.Exec(ensureDatabaseSql)
+		_ = ck.Conn.Exec(context.Background(), ensureDatabaseSql)
 	}
 	columns := make([]string, 0)
 	for _, value := range params.Fields {
@@ -276,7 +277,7 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 	log.Logger.Debugf(create)
 	statements = append(statements, create)
 	if !dryrun {
-		if _, err := ck.DB.Exec(create); err != nil {
+		if err := ck.Conn.Exec(context.Background(), create); err != nil {
 			if ok := checkTableIfExists(params.DB, params.Name, params.Cluster); !ok {
 				return statements, err
 			}
@@ -288,7 +289,7 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 	log.Logger.Debugf(create)
 	statements = append(statements, create)
 	if !dryrun {
-		if _, err := ck.DB.Exec(create); err != nil {
+		if err := ck.Conn.Exec(context.Background(), create); err != nil {
 			if ok := checkTableIfExists(params.DB, params.DistName, params.Cluster); !ok {
 				return statements, err
 			}
@@ -298,7 +299,7 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 }
 
 func (ck *CkService) CreateDistTblOnLogic(params *model.DistLogicTblParams) error {
-	local, _, err := common.GetTableNames(ck.DB, params.Database, params.TableName, params.DistName, params.ClusterName, true)
+	local, _, err := common.GetTableNames(ck.Conn, params.Database, params.TableName, params.DistName, params.ClusterName, true)
 	if err != nil {
 		return err
 	}
@@ -307,7 +308,7 @@ func (ck *CkService) CreateDistTblOnLogic(params *model.DistLogicTblParams) erro
 		params.Database, local, params.LogicCluster, params.Database, local)
 
 	log.Logger.Debug(createSql)
-	if _, err := ck.DB.Exec(createSql); err != nil {
+	if err := ck.Conn.Exec(context.Background(), createSql); err != nil {
 		return errors.Wrap(err, "")
 	}
 
@@ -315,14 +316,14 @@ func (ck *CkService) CreateDistTblOnLogic(params *model.DistLogicTblParams) erro
 }
 
 func (ck *CkService) DeleteDistTblOnLogic(params *model.DistLogicTblParams) error {
-	local, _, err := common.GetTableNames(ck.DB, params.Database, params.TableName, params.DistName, params.ClusterName, true)
+	local, _, err := common.GetTableNames(ck.Conn, params.Database, params.TableName, params.DistName, params.ClusterName, true)
 	if err != nil {
 		return err
 	}
 	deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC",
 		params.Database, common.ClickHouseDistTableOnLogicPrefix, local, params.ClusterName)
 	log.Logger.Debug(deleteSql)
-	if _, err := ck.DB.Exec(deleteSql); err != nil {
+	if err := ck.Conn.Exec(context.Background(), deleteSql); err != nil {
 		return errors.Wrap(err, "")
 	}
 
@@ -330,11 +331,11 @@ func (ck *CkService) DeleteDistTblOnLogic(params *model.DistLogicTblParams) erro
 }
 
 func (ck *CkService) DeleteTable(conf *model.CKManClickHouseConfig, params *model.DeleteCkTableParams) error {
-	if ck.DB == nil {
+	if ck.Conn == nil {
 		return errors.Errorf("clickhouse service unavailable")
 	}
 
-	local, dist, err := common.GetTableNames(ck.DB, params.DB, params.Name, params.DistName, params.Cluster, true)
+	local, dist, err := common.GetTableNames(ck.Conn, params.DB, params.Name, params.DistName, params.Cluster, true)
 	if err != nil {
 		return err
 	}
@@ -342,7 +343,7 @@ func (ck *CkService) DeleteTable(conf *model.CKManClickHouseConfig, params *mode
 		deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC", params.DB,
 			dist, params.Cluster)
 		log.Logger.Debugf(deleteSql)
-		if _, err := ck.DB.Exec(deleteSql); err != nil {
+		if err := ck.Conn.Exec(context.Background(), deleteSql); err != nil {
 			return errors.Wrap(err, "")
 		}
 	}
@@ -350,7 +351,7 @@ func (ck *CkService) DeleteTable(conf *model.CKManClickHouseConfig, params *mode
 	if local != "" {
 		deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC", params.DB, local, params.Cluster)
 		log.Logger.Debugf(deleteSql)
-		if _, err := ck.DB.Exec(deleteSql); err != nil {
+		if err := ck.Conn.Exec(context.Background(), deleteSql); err != nil {
 			return errors.Wrap(err, "")
 		}
 	}
@@ -363,11 +364,11 @@ func (ck *CkService) DeleteTable(conf *model.CKManClickHouseConfig, params *mode
 }
 
 func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
-	if ck.DB == nil {
+	if ck.Conn == nil {
 		return errors.Errorf("clickhouse service unavailable")
 	}
 
-	local, dist, err := common.GetTableNames(ck.DB, params.DB, params.Name, params.DistName, params.Cluster, true)
+	local, dist, err := common.GetTableNames(ck.Conn, params.DB, params.Name, params.DistName, params.Cluster, true)
 	if err != nil {
 		return err
 	}
@@ -382,7 +383,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 				params.DB, local, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "))
 		}
 		log.Logger.Debugf(add)
-		if _, err := ck.DB.Exec(add); err != nil {
+		if err := ck.Conn.Exec(context.Background(), add); err != nil {
 			return errors.Wrap(err, "")
 		}
 	}
@@ -391,7 +392,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	for _, value := range params.Modify {
 		query := fmt.Sprintf("SELECT CAST(`%s`, '%s') FROM `%s`.`%s`", value.Name, value.Type, params.DB, local)
 		log.Logger.Debug(query)
-		if rows, err := ck.DB.Query(query); err != nil {
+		if rows, err := ck.Conn.Query(context.Background(), query); err != nil {
 			return errors.Wrapf(err, "can't modify %s to %s", value.Name, value.Type)
 		} else {
 			rows.Close()
@@ -400,7 +401,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 		modify := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY COLUMN IF EXISTS `%s` %s %s",
 			params.DB, local, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "))
 		log.Logger.Debugf(modify)
-		if _, err := ck.DB.Exec(modify); err != nil {
+		if err := ck.Conn.Exec(context.Background(), modify); err != nil {
 			return errors.Wrap(err, "")
 		}
 	}
@@ -410,7 +411,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 		drop := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` DROP COLUMN IF EXISTS `%s`",
 			params.DB, local, params.Cluster, value)
 		log.Logger.Debugf(drop)
-		if _, err := ck.DB.Exec(drop); err != nil {
+		if err := ck.Conn.Exec(context.Background(), drop); err != nil {
 			return errors.Wrap(err, "")
 		}
 	}
@@ -424,7 +425,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 			params.DB, local, params.Cluster, value.From, value.To)
 
 		log.Logger.Debugf(rename)
-		if _, err := ck.DB.Exec(rename); err != nil {
+		if err := ck.Conn.Exec(context.Background(), rename); err != nil {
 			return errors.Wrap(err, "")
 		}
 	}
@@ -440,13 +441,13 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 			query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` CLEAR PROJECTION %s", params.DB, local, params.Cluster, p.Name)
 		}
 		if query != "" {
-			if _, err := ck.DB.Exec(query); err != nil {
+			if err := ck.Conn.Exec(context.Background(), query); err != nil {
 				return errors.Wrap(err, "")
 			}
 			if p.Action == model.ProjectionAdd {
 				// trigger history data
 				query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MATERIALIZE PROJECTION %s", params.DB, local, params.Cluster, p.Name)
-				if _, err := ck.DB.Exec(query); err != nil {
+				if err := ck.Conn.Exec(context.Background(), query); err != nil {
 					return errors.Wrap(err, "")
 				}
 			}
@@ -457,12 +458,12 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 		query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD INDEX %s %s TYPE %s GRANULARITY %d",
 			params.DB, local, params.Cluster, index.Name, index.Field, index.Type, index.Granularity)
 
-		if _, err := ck.DB.Exec(query); err != nil {
+		if err := ck.Conn.Exec(context.Background(), query); err != nil {
 			return errors.Wrap(err, "")
 		}
 
 		query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MATERIALIZE INDEX %s", params.DB, local, params.Cluster, index.Name)
-		if _, err := ck.DB.Exec(query); err != nil {
+		if err := ck.Conn.Exec(context.Background(), query); err != nil {
 			return errors.Wrap(err, "")
 		}
 	}
@@ -470,7 +471,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	for _, index := range params.DropIndex {
 		query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` DROP INDEX %s", params.DB, local, params.Cluster, index.Name)
 
-		if _, err := ck.DB.Exec(query); err != nil {
+		if err := ck.Conn.Exec(context.Background(), query); err != nil {
 			return errors.Wrap(err, "")
 		}
 	}
@@ -479,7 +480,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC",
 		params.DB, dist, params.Cluster)
 	log.Logger.Debugf(deleteSql)
-	if _, err := ck.DB.Exec(deleteSql); err != nil {
+	if err := ck.Conn.Exec(context.Background(), deleteSql); err != nil {
 		return errors.Wrap(err, "")
 	}
 
@@ -487,7 +488,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 		params.DB, dist, params.Cluster, params.DB, local,
 		params.Cluster, params.DB, local)
 	log.Logger.Debugf(create)
-	if _, err := ck.DB.Exec(create); err != nil {
+	if err := ck.Conn.Exec(context.Background(), create); err != nil {
 		return errors.Wrap(err, "")
 	}
 
@@ -514,12 +515,12 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 }
 
 func (ck *CkService) AlterTableTTL(req *model.AlterTblsTTLReq) error {
-	if ck.DB == nil {
+	if ck.Conn == nil {
 		return errors.Errorf("clickhouse service unavailable")
 	}
 
 	for _, table := range req.Tables {
-		local, _, err := common.GetTableNames(ck.DB, table.Database, table.TableName, table.DistName, ck.Config.Cluster, true)
+		local, _, err := common.GetTableNames(ck.Conn, table.Database, table.TableName, table.DistName, ck.Config.Cluster, true)
 		if err != nil {
 			return err
 		}
@@ -528,14 +529,14 @@ func (ck *CkService) AlterTableTTL(req *model.AlterTblsTTLReq) error {
 				if req.TTLExpr != "" {
 					ttl := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY TTL %s", table.Database, local, ck.Config.Cluster, req.TTLExpr)
 					log.Logger.Debugf(ttl)
-					if _, err := ck.DB.Exec(ttl); err != nil {
+					if err := ck.Conn.Exec(context.Background(), ttl); err != nil {
 						return errors.Wrap(err, "")
 					}
 				}
 			} else if req.TTLType == model.TTLTypeRemove {
 				ttl := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` REMOVE TTL", table.Database, local, ck.Config.Cluster)
 				log.Logger.Debugf(ttl)
-				if _, err := ck.DB.Exec(ttl); err != nil {
+				if err := ck.Conn.Exec(context.Background(), ttl); err != nil {
 					return errors.Wrap(err, "")
 				}
 			}
@@ -547,13 +548,13 @@ func (ck *CkService) AlterTableTTL(req *model.AlterTblsTTLReq) error {
 
 func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkColumnAttribute, error) {
 	attrs := make([]model.CkColumnAttribute, 0)
-	if ck.DB == nil {
+	if ck.Conn == nil {
 		return attrs, errors.Errorf("clickhouse service unavailable")
 	}
 
 	desc := fmt.Sprintf("DESCRIBE TABLE `%s`.`%s`", params.DB, params.Name)
 	log.Logger.Debugf(desc)
-	rows, err := ck.DB.Query(desc)
+	rows, err := ck.Conn.Query(context.Background(), desc)
 	if err != nil {
 		return attrs, err
 	}
@@ -582,46 +583,35 @@ func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkColum
 }
 
 func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
-	if ck.DB == nil {
+	if ck.Conn == nil {
 		return nil, errors.Errorf("clickhouse service unavailable")
 	}
 
 	log.Logger.Debugf(query)
-	rows, err := ck.DB.Query(query)
+	rows, err := ck.Conn.Query(context.Background(), query)
 	if err != nil {
 		return nil, errors.Wrap(err, "")
 	}
 	defer rows.Close()
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-
+	cols := rows.Columns()
 	colData := make([][]interface{}, 0)
 	colNames := make([]interface{}, len(cols))
-	// Create a slice of interface{}'s to represent each column,
-	// and a second slice to contain pointers to each item in the columns slice.
-	columns := make([]interface{}, len(cols))
-	columnPointers := make([]interface{}, len(cols))
+
+	var columnPointers []interface{}
+	ctps := rows.ColumnTypes()
+	for _, ctp := range ctps {
+		if ctp.ScanType().Kind() == reflect.Ptr {
+			column := reflect.New(ctp.ScanType().Elem()).Interface()
+			columnPointers = append(columnPointers, column)
+		} else {
+			column := reflect.New(ctp.ScanType()).Interface()
+			columnPointers = append(columnPointers, column)
+		}
+	}
 	for i, colName := range cols {
-		columnPointers[i] = &columns[i]
 		colNames[i] = colName
 	}
 	colData = append(colData, colNames)
-
-	ctps, err := rows.ColumnTypes()
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-	colTpyes := make([]int64, len(cols))
-	for i, ctp := range ctps {
-		_, s, ok := ctp.DecimalSize()
-		if ok {
-			colTpyes[i] = s
-		} else {
-			colTpyes[i] = 0
-		}
-	}
 
 	for rows.Next() {
 		// Scan the result into the column pointers...
@@ -633,32 +623,8 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 		// storing it in the map with the name of the column as the key.
 		m := make([]interface{}, len(cols))
 		for i := range columnPointers {
-			val := columnPointers[i].(*interface{})
-			m[i] = *val
-			if m[i] == nil {
-				m[i] = "NULL"
-			} else {
-				if colTpyes[i] > 0 {
-					var decimal float64
-					if reflect.TypeOf(m[i]).Kind() == reflect.Int32 {
-						v := m[i].(int32)
-						decimal = float64(v) / math.Pow10(int(colTpyes[i]))
-					} else if reflect.TypeOf(m[i]).Kind() == reflect.Int64 {
-						v := m[i].(int64)
-						decimal = float64(v) / math.Pow10(int(colTpyes[i]))
-					}
-					m[i] = decimal
-				} else {
-					if reflect.TypeOf(m[i]).Kind() == reflect.Float64 {
-						v := m[i].(float64)
-						if math.IsNaN(v) {
-							m[i] = "NaN"
-						} else if math.IsInf(v, 0) {
-							m[i] = "Inf"
-						}
-					}
-				}
-			}
+			val := reflect.ValueOf(columnPointers[i]).Elem()
+			m[i] = val.Interface()
 		}
 
 		colData = append(colData, m)
@@ -671,7 +637,7 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 }
 
 func (ck *CkService) FetchSchemerFromOtherNode(host, password string) error {
-	names, statements, err := GetCreateReplicaObjects(ck.DB, host, model.ClickHouseDefaultUser, password)
+	names, statements, err := GetCreateReplicaObjects(ck.Conn, host, model.ClickHouseDefaultUser, password)
 	if err != nil {
 		return err
 	}
@@ -680,7 +646,7 @@ func (ck *CkService) FetchSchemerFromOtherNode(host, password string) error {
 	for i := 0; i < num; i++ {
 		log.Logger.Debugf("statement: %s", statements[i])
 		var e error
-		if _, e = ck.DB.Exec(statements[i]); e != nil {
+		if e = ck.Conn.Exec(context.Background(), statements[i]); e != nil {
 			return errors.Wrap(e, "")
 		}
 	}
@@ -696,7 +662,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 		return nil, err
 	}
 	// get table names
-	databases, dbtables, err := common.GetMergeTreeTables("MergeTree", database, service.DB)
+	databases, dbtables, err := common.GetMergeTreeTables("MergeTree", database, service.Conn)
 	if err != nil {
 		return nil, err
 	}
@@ -847,7 +813,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 	if err = ck.InitCkService(); err != nil {
 		return err
 	}
-	local, dist, err := common.GetTableNames(ck.DB, req.Database, req.Table, req.DistName, conf.Cluster, true)
+	local, dist, err := common.GetTableNames(ck.Conn, req.Database, req.Table, req.DistName, conf.Cluster, true)
 	if err != nil {
 		return err
 	}
@@ -855,7 +821,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 	var lastError error
 	query := fmt.Sprintf(`SELECT create_table_query, engine, partition_key, sorting_key FROM system.tables WHERE (database = '%s') AND (name = '%s')`, req.Database, local)
 	log.Logger.Debugf(query)
-	rows, err := ck.DB.Query(query)
+	rows, err := ck.Conn.Query(context.Background(), query)
 	if err != nil {
 		return err
 	}
@@ -898,7 +864,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 		wg.Add(1)
 		common.Pool.Submit(func() {
 			defer wg.Done()
-			db, err := common.ConnectClickHouse(host, conf.Port, req.Database, conf.User, conf.Password)
+			conn, err := common.ConnectClickHouse(host, conf.Port, req.Database, conf.User, conf.Password)
 			if err != nil {
 				lastError = err
 				return
@@ -911,7 +877,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 
 			for _, query := range queries {
 				log.Logger.Debugf("[%s]%s", host, query)
-				_, err = db.Exec(query)
+				err = conn.Exec(context.Background(), query)
 				if err != nil {
 					lastError = err
 					return
@@ -931,7 +897,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 
 		for _, query := range queries {
 			log.Logger.Debugf("%s", query)
-			_, err = ck.DB.Exec(query)
+			err = ck.Conn.Exec(context.Background(), query)
 			if err != nil {
 				lastError = err
 				break
@@ -951,7 +917,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 			if lastError == nil {
 				query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`tmp_%s` SETTINGS max_insert_threads=%d", req.Database, local, req.Database, local, max_insert_threads)
 				log.Logger.Debugf("%s: %s", host, query)
-				_, err := db.Exec(query)
+				err = ck.Conn.Exec(context.Background(), query)
 				if err != nil {
 					lastError = err
 				}
@@ -959,7 +925,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 
 			cleanSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`tmp_%s` SYNC", req.Database, local)
 			log.Logger.Debugf("%s: %s", host, cleanSql)
-			_, _ = db.Exec(cleanSql)
+			_ = db.Exec(context.Background(), cleanSql)
 		})
 	}
 	wg.Wait()
@@ -976,7 +942,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 		deleteSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC",
 			req.Database, dist, conf.Cluster)
 		log.Logger.Debugf(deleteSql)
-		if _, err := ck.DB.Exec(deleteSql); err != nil {
+		if err = ck.Conn.Exec(context.Background(), deleteSql); err != nil {
 			return errors.Wrap(err, "")
 		}
 
@@ -984,7 +950,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 			req.Database, dist, conf.Cluster, req.Database, local,
 			conf.Cluster, req.Database, local)
 		log.Logger.Debugf(create)
-		if _, err := ck.DB.Exec(create); err != nil {
+		if err = ck.Conn.Exec(context.Background(), create); err != nil {
 			return errors.Wrap(err, "")
 		}
 
@@ -1044,7 +1010,7 @@ func MaterializedView(conf *model.CKManClickHouseConfig, req model.MaterializedV
 		return query, nil
 	} else {
 		log.Logger.Debug(query)
-		_, err = ckService.DB.Exec(query)
+		err = ckService.Conn.Exec(context.Background(), query)
 		if err != nil {
 			return "", err
 		}
@@ -1187,12 +1153,12 @@ func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 }
 
 func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId string) error {
-	db, err := common.ConnectClickHouse(host, conf.Port, clickhouse.DefaultDatabase, conf.User, conf.Password)
+	conn, err := common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
 	if err != nil {
 		return err
 	}
 	query := fmt.Sprintf("KILL QUERY WHERE query_id = '%s'", queryId)
-	_, err = db.Exec(query)
+	err = conn.Exec(context.Background(), query)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -1215,7 +1181,7 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 
 	query := `SELECT database, name, (extractAllGroups(create_table_query, '(MergeTree\\(\')(.*)\', \'{replica}\'\\)')[1])[2] AS zoopath FROM system.tables where match(engine, 'Replicated\w*MergeTree') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))`
 	log.Logger.Debug(query)
-	rows, err := service.DB.Query(query)
+	rows, err := service.Conn.Query(context.Background(), query)
 	if err != nil {
 		return err
 	}
@@ -1233,16 +1199,16 @@ func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-func GetZkPath(db *sql.DB, database, table string) (string, error) {
+func GetZkPath(conn driver.Conn, database, table string) (string, error) {
 	var err error
 	var path string
-	var rows *sql.Rows
+	var rows driver.Rows
 	query := fmt.Sprintf(`SELECT
 		(extractAllGroups(create_table_query, '(MergeTree\\(\')(.*)\', \'{replica}\'\\)')[1])[2] AS zoopath
 FROM system.tables
 WHERE database = '%s' AND name = '%s'`, database, table)
 	log.Logger.Debugf("database:%s, table:%s: query: %s", database, table, query)
-	if rows, err = db.Query(query); err != nil {
+	if rows, err = conn.Query(context.Background(), query); err != nil {
 		err = errors.Wrapf(err, "")
 		return "", err
 	}
@@ -1311,14 +1277,14 @@ func checkTableIfExists(database, name, cluster string) bool {
 func DropTableIfExists(params model.CreateCkTableParams, ck *CkService) error {
 	dropSql := fmt.Sprintf("DROP TABLE IF EXISTS %s.%s ON CLUSTER %s SYNC", params.DB, params.Name, params.Cluster)
 	log.Logger.Debugf(dropSql)
-	_, err := ck.DB.Exec(dropSql)
+	err := ck.Conn.Exec(context.Background(), dropSql)
 	if err != nil {
 		return err
 	}
 
 	dropSql = fmt.Sprintf("DROP TABLE IF EXISTS %s.%s ON CLUSTER %s SYNC", params.DB, params.DistName, params.Cluster)
 	log.Logger.Debugf(dropSql)
-	_, err = ck.DB.Exec(dropSql)
+	err = ck.Conn.Exec(context.Background(), dropSql)
 	return err
 }
 
@@ -1367,7 +1333,7 @@ ORDER BY
 `, ck.Config.Cluster)
 
 	log.Logger.Debug(query)
-	rows, err := ck.DB.Query(query)
+	rows, err := ck.Conn.Query(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -1448,7 +1414,7 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig, name ...string) bool {
 		log.Logger.Warnf("cluster %s all node is unvaliable", src.Cluster)
 		return false
 	}
-	srcDB, err := common.ConnectClickHouse(hosts[0], src.Port, model.ClickHouseDefaultDB, src.User, src.Password)
+	srcConn, err := common.ConnectClickHouse(hosts[0], src.Port, model.ClickHouseDefaultDB, src.User, src.Password)
 	if err != nil {
 		log.Logger.Warnf("connect %s failed", hosts[0])
 		return false
@@ -1459,13 +1425,13 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig, name ...string) bool {
 		database = name[0]
 		tableName = name[1]
 	}
-	statementsqls, err := GetLogicSchema(srcDB, *dst.LogicCluster, dst.Cluster, dst.IsReplica, database, tableName)
+	statementsqls, err := GetLogicSchema(srcConn, *dst.LogicCluster, dst.Cluster, dst.IsReplica, database, tableName)
 	if err != nil {
 		log.Logger.Warnf("get logic schema failed: %v", err)
 		return false
 	}
 
-	dstDB, err := common.ConnectClickHouse(dst.Hosts[0], dst.Port, model.ClickHouseDefaultDB, dst.User, dst.Password)
+	dstConn, err := common.ConnectClickHouse(dst.Hosts[0], dst.Port, model.ClickHouseDefaultDB, dst.User, dst.Password)
 	if err != nil {
 		log.Logger.Warnf("can't connect %s", dst.Hosts[0])
 		return false
@@ -1473,7 +1439,7 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig, name ...string) bool {
 	for _, schema := range statementsqls {
 		for _, statement := range schema.Statements {
 			log.Logger.Debugf("%s", statement)
-			if _, err := dstDB.Exec(statement); err != nil {
+			if err := dstConn.Exec(context.Background(), statement); err != nil {
 				log.Logger.Warnf("excute sql failed: %v", err)
 				return false
 			}
@@ -1483,16 +1449,16 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig, name ...string) bool {
 }
 
 func RestoreReplicaTable(conf *model.CKManClickHouseConfig, host, database, table string) error {
-	db, err := common.ConnectClickHouse(host, conf.Port, database, conf.User, conf.Password)
+	conn, err := common.ConnectClickHouse(host, conf.Port, database, conf.User, conf.Password)
 	if err != nil {
 		return errors.Wrapf(err, "cann't connect to %s", host)
 	}
 	query := "SYSTEM RESTART REPLICA " + table
-	if _, err := db.Exec(query); err != nil {
+	if err := conn.Exec(context.Background(), query); err != nil {
 		return errors.Wrap(err, host)
 	}
 	query = "SYSTEM RESTORE REPLICA " + table
-	if _, err := db.Exec(query); err != nil {
+	if err := conn.Exec(context.Background(), query); err != nil {
 		return errors.Wrap(err, host)
 	}
 	return nil
@@ -1556,7 +1522,7 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 		if key.ShardingKey != "" {
 			//rebalance by shardingkey
 			log.Logger.Infof("table %s.%s rebalance by shardingkey", key.Database, key.Table)
-			if err = getShardingType(&key, service.DB); err != nil {
+			if err = getShardingType(&key, service.Conn); err != nil {
 				return err
 			}
 			rebalancer.Shardingkey = key
@@ -1630,8 +1596,8 @@ FROM system.tables
 WHERE match(engine, 'MergeTree') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))
 SETTINGS skip_unavailable_shards = 1`
 	log.Logger.Debugf("[%s]%s", exceptHost, query)
-	db := common.GetConnection(exceptHost)
-	rows, err := db.Query(query)
+	conn := common.GetConnection(exceptHost)
+	rows, err := conn.Query(context.Background(), query)
 	if err != nil {
 		return "", errors.Wrap(err, exceptHost)
 	}
@@ -1640,9 +1606,9 @@ SETTINGS skip_unavailable_shards = 1`
 	}
 	query = "SELECT free_space FROM system.disks"
 	for _, host := range hosts {
-		db = common.GetConnection(host)
+		conn = common.GetConnection(host)
 		log.Logger.Debugf("[%s]%s", host, query)
-		rows, err := db.Query(query)
+		rows, err := conn.Query(context.Background(), query)
 		if err != nil {
 			return "", errors.Wrap(err, exceptHost)
 		}
@@ -1704,10 +1670,10 @@ func paddingKeys(keys []model.RebalanceShardingkey, service *CkService, allTable
 	return results, nil
 }
 
-func getShardingType(key *model.RebalanceShardingkey, db *sql.DB) error {
+func getShardingType(key *model.RebalanceShardingkey, conn driver.Conn) error {
 	query := fmt.Sprintf("SELECT type FROM system.columns WHERE (database = '%s') AND (table = '%s') AND (name = '%s') ",
 		key.Database, key.Table, key.ShardingKey)
-	rows, err := db.Query(query)
+	rows, err := conn.Query(context.Background(), query)
 	if err != nil {
 		return err
 	}
@@ -1772,15 +1738,15 @@ func MoveExceptToOthers(conf *model.CKManClickHouseConfig, except, target, datab
 	query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM remote('%s', '%s', '%s', '%s', '%s') SETTINGS max_insert_threads=%d",
 		database, table, except, database, table, conf.User, conf.Password, max_insert_threads)
 	log.Logger.Debugf("[%s] %s", target, query)
-	db := common.GetConnection(target)
-	_, err := db.Exec(query)
+	conn := common.GetConnection(target)
+	err := conn.Exec(context.Background(), query)
 	if err != nil {
 		return err
 	}
 	query = fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`", database, table)
 	log.Logger.Debugf("[%s] %s", except, query)
-	db = common.GetConnection(except)
-	_, err = db.Exec(query)
+	conn = common.GetConnection(except)
+	err = conn.Exec(context.Background(), query)
 	if err != nil {
 		return err
 	}

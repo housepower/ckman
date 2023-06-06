@@ -1,14 +1,13 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
-	jsoniter "github.com/json-iterator/go"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
-)
 
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	"github.com/stretchr/testify/assert"
+)
 
 const (
 	//fake key for test
@@ -18,29 +17,29 @@ const (
 
 func TestAbc(t *testing.T) {
 	var rsa RSAEncryption
-	encode,_ := rsa.Encode([]byte("abc"), AUTHENTICATION_PRI_KEY)
-	decode,_ := rsa.Decode(encode, AUTHENTICATION_PUB_KEY)
+	encode, _ := rsa.Encode([]byte("abc"), AUTHENTICATION_PRI_KEY)
+	decode, _ := rsa.Decode(encode, AUTHENTICATION_PUB_KEY)
 	//Oc/K4/uEvhVy4yZ1Ao2F2Acd7qxWiRHf4yzn9p+hiwwl1HRrC9a0hLMNk5zAkABnsAyQ2WJUdlidc50rN4S9qZe/mZ0cgJYsCyeXBJqumaiO6lXJQ64RGr3Fcs6YfDeLldfgDM4ul7/RM3uawLL2g239AGEClQrQfmFeJ9tWwnw=
 	fmt.Println("encode:", string(encode))
 	fmt.Println("decode:", string(decode))
 	assert.Equal(t, "abc", string(decode))
 }
 
-func TestToken(t *testing.T){
+func TestToken(t *testing.T) {
 	var rsa RSAEncryption
 	var userToken2 UserTokenModel
 	userToken := UserTokenModel{
-		Duration: 3600,
+		Duration:           3600,
 		RandomPaddingValue: "abc",
-		UserId: 123456789,
-		Timestamp: time.Now().UnixNano()/1e6,
+		UserId:             123456789,
+		Timestamp:          time.Now().UnixNano() / 1e6,
 	}
 
 	fmt.Println("before: ", userToken)
-	uenc,_ := json.Marshal(userToken)
+	uenc, _ := json.Marshal(userToken)
 	encode, _ := rsa.Encode(uenc, AUTHENTICATION_PRI_KEY)
 	//dlAEsRx6cQvL6aEyYJSlj6CKHzXFktPe7dBSliPp+iYe8GVqdGijAqT3l45ofigKzKt8RI2U4upVnaLfwMAZ2s08ITb5yNENLdXHP0exiBvQwzdcul/3TaWMkPJ3rfIe9T5LYQDa5hJEoHnDnKkbjYg1dFk9H3p2mTpberPgTrk=
-	decode,_ := rsa.Decode(encode, AUTHENTICATION_PUB_KEY)
+	decode, _ := rsa.Decode(encode, AUTHENTICATION_PUB_KEY)
 	fmt.Println("encode:", string(encode))
 	fmt.Println("decode:", string(decode))
 	_ = json.Unmarshal(decode, &userToken2)

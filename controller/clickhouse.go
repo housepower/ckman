@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +14,7 @@ import (
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
 
-	client "github.com/ClickHouse/clickhouse-go"
+	client "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
@@ -313,7 +314,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 	if common.CompareClickHouseVersion(conf.Version, "21.8") > 0 {
 		params.Projections = req.Projections
 	}
-	local, dist, err := common.GetTableNames(ckService.DB, params.DB, params.Name, params.DistName, params.Cluster, false)
+	local, dist, err := common.GetTableNames(ckService.Conn, params.DB, params.Name, params.DistName, params.Cluster, false)
 	if err != nil {
 		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
 		return
@@ -336,7 +337,7 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 
 	// sync zookeeper path
 	if conf.IsReplica {
-		path, err := clickhouse.GetZkPath(ckService.DB, params.DB, params.Name)
+		path, err := clickhouse.GetZkPath(ckService.Conn, params.DB, params.Name)
 		if err != nil {
 			model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
 			return
@@ -1321,9 +1322,9 @@ FROM system.tables
 WHERE match(engine, 'MergeTree') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))
 SETTINGS skip_unavailable_shards = 1`
 		log.Logger.Debugf("[%s]%s", ip, query)
-		db, _ := common.ConnectClickHouse(ip, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
-		if db != nil {
-			rows, _ := db.Query(query)
+		conn, _ := common.ConnectClickHouse(ip, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
+		if conn != nil {
+			rows, _ := conn.Query(context.Background(), query)
 			for rows.Next() {
 				var data int
 				rows.Scan(&data)
@@ -1430,7 +1431,7 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 			// https://clickhouse.com/docs/en/sql-reference/statements/system/#sync-replica
 			// Provides possibility to start background fetches for inserted parts for tables in the ReplicatedMergeTree family: Always returns Ok. regardless of the table engine and even if table or database does not exist.
 			query := "SYSTEM START FETCHES"
-			ckService.DB.Exec(query)
+			ckService.Conn.Exec(context.Background(), query)
 		}
 	}
 	err = repository.Ps.UpdateCluster(conf)
@@ -1768,7 +1769,7 @@ func (ck *ClickHouseController) PingCluster(c *gin.Context) {
 		failNum := 0
 		for _, replica := range shard.Replicas {
 			host := replica.Ip
-			_, err = common.ConnectClickHouse(host, conf.Port, client.DefaultDatabase, req.User, req.Password)
+			_, err = common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, req.User, req.Password)
 			if err != nil {
 				log.Logger.Error("err: %v", err)
 				failNum++

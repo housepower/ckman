@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strings"
@@ -181,10 +182,10 @@ func (t *TargetLocal) Done(fp string) {
 		}
 	}
 	for _, host := range t.Hosts {
-		db := common.GetConnection(host)
+		conn := common.GetConnection(host)
 		for _, tmpTbl := range t.TmpTables {
 			query := fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTbl)
-			db.Exec(query)
+			conn.Exec(context.Background(), query)
 		}
 	}
 

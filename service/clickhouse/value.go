@@ -2,8 +2,10 @@ package clickhouse
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 )
@@ -125,4 +127,48 @@ func ShardingFunc(k model.RebalanceShardingkey) string {
 		f = fmt.Sprintf("xxHash64(`%s`)", k.ShardingKey)
 	}
 	return f
+}
+
+func GetColsPointer(ctp driver.ColumnType) interface{} {
+	switch ctp.ScanType().Kind() {
+	case reflect.Bool:
+		var col bool
+		return col
+	case reflect.Int8:
+		var col int8
+		return col
+	case reflect.Int16:
+		var col int16
+		return col
+	case reflect.Int32:
+		var col int32
+		return col
+	case reflect.Int64:
+		var col int64
+		return col
+	case reflect.Uint8:
+		var col uint8
+		return col
+	case reflect.Uint16:
+		var col uint16
+		return col
+	case reflect.Uint32:
+		var col uint32
+		return col
+	case reflect.Uint64:
+		var col uint64
+		return col
+	case reflect.Float32:
+		var col float32
+		return col
+	case reflect.Float64:
+		var col float64
+		return col
+	case reflect.String:
+		var col string
+		return col
+	default:
+		var col interface{}
+		return col
+	}
 }

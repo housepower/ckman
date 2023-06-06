@@ -1,9 +1,10 @@
 package clickhouse
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/pkg/errors"
@@ -51,14 +52,14 @@ func (p *PurgerRange) PurgeTable(table string) (err error) {
 	var dateExpr []string
 	// ensure the table is partitioned by a Date/DateTime column
 	for _, host := range p.Hosts {
-		db := common.GetConnection(host)
-		if db == nil {
+		conn := common.GetConnection(host)
+		if conn == nil {
 			return fmt.Errorf("can't get connection:%s", host)
 		}
-		var rows *sql.Rows
+		var rows driver.Rows
 		query := fmt.Sprintf("SELECT count(), max(max_date)!='1970-01-01', max(toDate(max_time))!='1970-01-01' FROM system.parts WHERE database='%s' AND table='%s'", p.Database, table)
 		log.Logger.Infof("host %s: query: %s", host, query)
-		if rows, err = db.Query(query); err != nil {
+		if rows, err = conn.Query(context.Background(), query); err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
@@ -88,15 +89,15 @@ func (p *PurgerRange) PurgeTable(table string) (err error) {
 
 	// ensure no partition runs across the time range boundary
 	for _, host := range p.Hosts {
-		db := common.GetConnection(host)
-		if db == nil {
+		conn := common.GetConnection(host)
+		if conn == nil {
 			log.Logger.Errorf("can't get connection: %s", host)
 			return
 		}
-		var rows *sql.Rows
+		var rows driver.Rows
 		query := fmt.Sprintf("SELECT partition FROM (SELECT partition, countIf(%s>='%s' AND %s<'%s') AS c1, countIf(%s<'%s' OR %s>='%s') AS c2 FROM system.parts WHERE database='%s' AND table='%s' GROUP BY partition HAVING c1!=0 AND c2!=0)", dateExpr[0], p.Begin, dateExpr[1], p.End, dateExpr[0], p.Begin, dateExpr[1], p.End, p.Database, table)
 		log.Logger.Infof("host %s: query: %s", host, query)
-		if rows, err = db.Query(query); err != nil {
+		if rows, err = conn.Query(context.Background(), query); err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
@@ -114,15 +115,15 @@ func (p *PurgerRange) PurgeTable(table string) (err error) {
 
 	// purge partitions
 	for _, host := range p.Hosts {
-		db := common.GetConnection(host)
-		if db == nil {
+		conn := common.GetConnection(host)
+		if conn == nil {
 			log.Logger.Errorf("can't get connection: %s", host)
 			return
 		}
-		var rows *sql.Rows
+		var rows driver.Rows
 		query := fmt.Sprintf("SELECT DISTINCT partition FROM system.parts WHERE database='%s' AND table='%s' AND %s>='%s' AND %s<'%s' ORDER BY partition;", p.Database, table, dateExpr[0], p.Begin, dateExpr[1], p.End)
 		log.Logger.Infof("host %s: query: %s", host, query)
-		if rows, err = db.Query(query); err != nil {
+		if rows, err = conn.Query(context.Background(), query); err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
@@ -139,7 +140,7 @@ func (p *PurgerRange) PurgeTable(table string) (err error) {
 		for _, patt := range partitions {
 			query := fmt.Sprintf("ALTER TABLE %s.%s DROP PARTITION '%s'", p.Database, table, patt)
 			log.Logger.Infof("host %s: query: %s", host, query)
-			if _, err = db.Exec(query); err != nil {
+			if err = conn.Exec(context.Background(), query); err != nil {
 				err = errors.Wrapf(err, "")
 				return
 			}

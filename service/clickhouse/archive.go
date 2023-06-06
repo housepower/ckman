@@ -1,13 +1,14 @@
 package clickhouse
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -108,15 +109,15 @@ func (p *ArchiveParams) GetSortingInfo() (err error) {
 	for _, table := range p.Tables {
 		var name, typ string
 		for _, host := range p.Hosts {
-			db := common.GetConnection(host)
-			if db == nil {
+			conn := common.GetConnection(host)
+			if conn == nil {
 				return fmt.Errorf("can't get connection: %s", host)
 			}
-			var rows *sql.Rows
+			var rows driver.Rows
 			// column type includes Date, Date32, DateTime, DateTime64, DateTime64(3), DateTime64(3, 'Asia/Istanbul'), ...
 			query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type like 'Date%%'", p.Database, table)
 			log.Logger.Infof("host %s: query: %s", host, query)
-			if rows, err = db.Query(query); err != nil {
+			if rows, err = conn.Query(context.Background(), query); err != nil {
 				err = errors.Wrapf(err, "")
 				return
 			}
@@ -206,8 +207,8 @@ func (p *ArchiveParams) GetSlots(host, table string) (slots []time.Time, err err
 	maxRowsCnt := uint64(float64(p.MaxFileSize) / sizePerRow)
 	slots = make([]time.Time, 0)
 	var slot time.Time
-	db := common.GetConnection(host)
-	if db == nil {
+	conn := common.GetConnection(host)
+	if conn == nil {
 		log.Logger.Errorf("can't get connection:%s", host)
 		return
 	}
@@ -231,10 +232,10 @@ func (p *ArchiveParams) GetSlots(host, table string) (slots []time.Time, err err
 	}
 	for i, interval := range tryIntervals {
 		slots = slots[:0]
-		var rows1 *sql.Rows
+		var rows1 driver.Rows
 		query1 := fmt.Sprintf(sqlTmpl3, colName, interval, table, colName, formatDate(p.Begin, colType), colName, formatDate(p.End, colType))
 		log.Logger.Infof("host %s: query: %s", host, query1)
-		if rows1, err = db.Query(query1); err != nil {
+		if rows1, err = conn.Query(context.Background(), query1); err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
@@ -275,14 +276,14 @@ func (p *ArchiveParams) ExportSlot(host, table string, seq int, slotBeg, slotEnd
 				fmt.Sprintf("CREATE TABLE %s AS %s ENGINE=%s", tmpTbl, table, engine),
 				fmt.Sprintf("INSERT INTO %s SELECT * FROM %s WHERE `%s`>=%s AND `%s`<%s", tmpTbl, table, colName, formatTimestamp(slotBeg, colType), colName, formatTimestamp(slotEnd, colType)),
 			}
-			db := common.GetConnection(host)
-			if db == nil {
+			conn := common.GetConnection(host)
+			if conn == nil {
 				lastErr = fmt.Errorf("can't get connection: %s", host)
 				return
 			}
 			for _, query := range queries {
 				log.Logger.Debugf("host %s, table %s, slot %d, query: %s", host, table, slotBeg, query)
-				if _, err := db.Exec(query); err != nil {
+				if err := conn.Exec(context.Background(), query); err != nil {
 					lastErr = errors.Wrap(err, host)
 					return
 				}
@@ -308,14 +309,14 @@ func formatTimestamp(ts time.Time, typ string) string {
 }
 
 func (a *ArchiveParams) SelectUint64(host, query string) (res uint64, err error) {
-	db := common.GetConnection(host)
-	if db == nil {
+	conn := common.GetConnection(host)
+	if conn == nil {
 		log.Logger.Errorf("can't get connection:%s", host)
 		return
 	}
-	var rows *sql.Rows
+	var rows driver.Rows
 	log.Logger.Infof("host %s: query: %s", host, query)
-	if rows, err = db.Query(query); err != nil {
+	if rows, err = conn.Query(context.Background(), query); err != nil {
 		err = errors.Wrapf(err, "")
 		return
 	}
