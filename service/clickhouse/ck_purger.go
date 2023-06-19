@@ -72,7 +72,7 @@ func (p *PurgerRange) PurgeTable(table string) (err error) {
 		if i1 == 0 {
 			continue
 		} else if i2 == 0 && i3 == 0 {
-			err = errors.Errorf("table %s is not partitioned by a Date/DateTime column", table)
+			err = errors.Errorf("table %s.%s is not partitioned by a Date/DateTime column", p.Database, table)
 			return
 		} else if i2 == 1 {
 			dateExpr = []string{"min_date", "max_date"}
@@ -82,7 +82,7 @@ func (p *PurgerRange) PurgeTable(table string) (err error) {
 		break
 	}
 	if len(dateExpr) != 2 {
-		log.Logger.Infof("table %s doesn't exist, or is empty", table)
+		log.Logger.Infof("table %s.%s doesn't exist, or is empty", p.Database, table)
 		return
 	}
 
@@ -107,7 +107,7 @@ func (p *PurgerRange) PurgeTable(table string) (err error) {
 				err = errors.Wrapf(err, "")
 				return
 			}
-			err = errors.Errorf("table %s partition %s runs across the time range boundary", table, patt)
+			err = errors.Errorf("table %s.%s partition %s runs across the time range boundary", p.Database, table, patt)
 			return
 		}
 	}
@@ -137,7 +137,7 @@ func (p *PurgerRange) PurgeTable(table string) (err error) {
 			partitions = append(partitions, patt)
 		}
 		for _, patt := range partitions {
-			query := fmt.Sprintf("ALTER TABLE %s DROP PARTITION '%s'", table, patt)
+			query := fmt.Sprintf("ALTER TABLE %s.%s DROP PARTITION '%s'", p.Database, table, patt)
 			log.Logger.Infof("host %s: query: %s", host, query)
 			if _, err = db.Exec(query); err != nil {
 				err = errors.Wrapf(err, "")
