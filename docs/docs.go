@@ -2474,6 +2474,12 @@ var doc = `{
                 "force_create": {
                     "type": "boolean"
                 },
+                "indexes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Index"
+                    }
+                },
                 "name": {
                     "type": "string",
                     "example": "test_table"
@@ -2511,6 +2517,10 @@ var doc = `{
         "model.Disk": {
             "type": "object",
             "properties": {
+                "allowedBackup": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "diskHdfs": {
                     "$ref": "#/definitions/model.DiskHdfs"
                 },
@@ -2564,6 +2574,24 @@ var doc = `{
                 "tail": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "model.Index": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "granularity": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "minmax, set, bloom_filter, ngrambf_v1, tokenbf_v1",
+                    "type": "string"
                 }
             }
         },

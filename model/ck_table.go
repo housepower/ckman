@@ -14,6 +14,14 @@ const (
 	TTLTypeRemove string = "REMOVE"
 )
 
+// https://clickhouse.com/docs/en/engines/table-engines/mergetree-family/mergetree#table_engine-mergetree-data_skipping-indexes
+type Index struct {
+	Name        string
+	Field       string
+	Type        string //minmax, set, bloom_filter, ngrambf_v1, tokenbf_v1
+	Granularity int
+}
+
 type CreateCkTableReq struct {
 	Name          string            `json:"name" example:"test_table"`
 	DistName      string            `json:"dist_table"`
@@ -23,6 +31,7 @@ type CreateCkTableReq struct {
 	Partition     CkTablePartition  `json:"partition"`
 	Distinct      bool              `json:"distinct" example:"true"`
 	TTL           []CkTableTTL      `json:"ttl"`
+	Indexes       []Index           `json:"indexes"`
 	StoragePolicy string            `json:"storage_policy" example:"external"`
 	DryRun        bool              `json:"dryrun" example:"false"`
 	Projections   []Projection      `json:"projections"`
@@ -81,6 +90,7 @@ type CreateCkTableParams struct {
 	Partition     CkTablePartition
 	DB            string
 	TTLExpr       string
+	IndexExpr     string
 	StoragePolicy string
 	Projections   []Projection
 }

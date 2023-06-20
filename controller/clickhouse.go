@@ -303,6 +303,13 @@ func (ck *ClickHouseController) CreateTable(c *gin.Context) {
 		params.StoragePolicy = req.StoragePolicy
 	}
 
+	if len(req.Indexes) > 0 {
+		for _, index := range req.Indexes {
+			idx := fmt.Sprintf("INDEX %s %s TYPE %s GRANULARITY %d", index.Name, index.Field, index.Type, index.Granularity)
+			params.IndexExpr += "," + idx
+		}
+	}
+
 	if common.CompareClickHouseVersion(conf.Version, "21.8") > 0 {
 		params.Projections = req.Projections
 	}

@@ -361,6 +361,10 @@ definitions:
         type: array
       force_create:
         type: boolean
+      indexes:
+        items:
+          $ref: '#/definitions/model.Index'
+        type: array
       name:
         example: test_table
         type: string
@@ -386,6 +390,9 @@ definitions:
     type: object
   model.Disk:
     properties:
+      allowedBackup:
+        example: true
+        type: boolean
       diskHdfs:
         $ref: '#/definitions/model.DiskHdfs'
       name:
@@ -424,6 +431,18 @@ definitions:
       tail:
         example: true
         type: boolean
+    type: object
+  model.Index:
+    properties:
+      field:
+        type: string
+      granularity:
+        type: integer
+      name:
+        type: string
+      type:
+        description: minmax, set, bloom_filter, ngrambf_v1, tokenbf_v1
+        type: string
     type: object
   model.LoginReq:
     properties:

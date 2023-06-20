@@ -264,8 +264,8 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 		projections += fmt.Sprintf(", PROJECTION %s (%s)", p.Name, p.Sql)
 	}
 
-	create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` (%s%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)",
-		params.DB, params.Name, params.Cluster, strings.Join(columns, ", "), projections, params.Engine,
+	create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` (%s%s%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)",
+		params.DB, params.Name, params.Cluster, strings.Join(columns, ", "), params.IndexExpr, projections, params.Engine,
 		partition, strings.Join(params.Order, ", "))
 	if params.TTLExpr != "" {
 		create += fmt.Sprintf(" TTL %s", params.TTLExpr)
