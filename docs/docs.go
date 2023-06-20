@@ -2002,6 +2002,12 @@ var doc = `{
                         "$ref": "#/definitions/model.CkTableNameTypeAfter"
                     }
                 },
+                "add_indexes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Index"
+                    }
+                },
                 "database": {
                     "type": "string",
                     "example": "default"
@@ -2017,6 +2023,12 @@ var doc = `{
                     "example": [
                         "age"
                     ]
+                },
+                "drop_indexes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Index"
+                    }
                 },
                 "modify": {
                     "type": "array",

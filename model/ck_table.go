@@ -143,6 +143,8 @@ type AlterCkTableReq struct {
 	Drop        []string               `json:"drop" example:"age"`
 	Rename      []CkTableRename        `json:"rename"`
 	Projections []Projection           `json:"projections"`
+	AddIndex    []Index                `json:"add_indexes"`
+	DropIndex   []Index                `json:"drop_indexes"`
 }
 
 type AlterCkTableParams struct {
@@ -155,6 +157,8 @@ type AlterCkTableParams struct {
 	Modify      []CkTableNameType
 	Rename      []CkTableRename
 	Projections []Projection
+	AddIndex    []Index
+	DropIndex   []Index
 }
 
 type AlterTblsTTLReq struct {

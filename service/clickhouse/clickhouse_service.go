@@ -435,9 +435,9 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 			query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD PROJECTION %s (%s)",
 				params.DB, params.Name, params.Cluster, p.Name, p.Sql)
 		} else if p.Action == model.ProjectionDrop {
-			query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` DROP PROJECTION %s", params.DB, params.Name, params.Cluster, p.Name)
+			query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` DROP PROJECTION %s", params.DB, local, params.Cluster, p.Name)
 		} else if p.Action == model.ProjectionClear {
-			query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` CLEAR PROJECTION %s", params.DB, params.Name, params.Cluster, p.Name)
+			query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` CLEAR PROJECTION %s", params.DB, local, params.Cluster, p.Name)
 		}
 		if query != "" {
 			if _, err := ck.DB.Exec(query); err != nil {
@@ -445,11 +445,33 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 			}
 			if p.Action == model.ProjectionAdd {
 				// trigger history data
-				query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MATERIALIZE PROJECTION %s", params.DB, params.Name, params.Cluster, p.Name)
+				query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MATERIALIZE PROJECTION %s", params.DB, local, params.Cluster, p.Name)
 				if _, err := ck.DB.Exec(query); err != nil {
 					return errors.Wrap(err, "")
 				}
 			}
+		}
+	}
+
+	for _, index := range params.AddIndex {
+		query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD INDEX %s %s TYPE %s GRANULARITY %d",
+			params.DB, local, params.Cluster, index.Name, index.Field, index.Type, index.Granularity)
+
+		if _, err := ck.DB.Exec(query); err != nil {
+			return errors.Wrap(err, "")
+		}
+
+		query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MATERIALIZE INDEX %s", params.DB, local, params.Cluster, index.Name)
+		if _, err := ck.DB.Exec(query); err != nil {
+			return errors.Wrap(err, "")
+		}
+	}
+
+	for _, index := range params.DropIndex {
+		query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` DROP INDEX %s", params.DB, local, params.Cluster, index.Name)
+
+		if _, err := ck.DB.Exec(query); err != nil {
+			return errors.Wrap(err, "")
 		}
 	}
 

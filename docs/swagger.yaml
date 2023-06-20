@@ -19,6 +19,10 @@ definitions:
         items:
           $ref: '#/definitions/model.CkTableNameTypeAfter'
         type: array
+      add_indexes:
+        items:
+          $ref: '#/definitions/model.Index'
+        type: array
       database:
         example: default
         type: string
@@ -29,6 +33,10 @@ definitions:
         - age
         items:
           type: string
+        type: array
+      drop_indexes:
+        items:
+          $ref: '#/definitions/model.Index'
         type: array
       modify:
         items:

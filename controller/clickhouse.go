@@ -517,6 +517,8 @@ func (ck *ClickHouseController) AlterTable(c *gin.Context) {
 	params.Drop = req.Drop
 	params.Modify = req.Modify
 	params.Rename = req.Rename
+	params.AddIndex = req.AddIndex
+	params.DropIndex = req.DropIndex
 	if params.DB == "" {
 		params.DB = model.ClickHouseDefaultDB
 	}
