@@ -57,7 +57,7 @@ func DestroyCkCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKManClic
 
 	//clear zkNode
 	deploy.SetNodeStatus(task, model.NodeStatusClearData, model.ALL_NODES_DEFAULT)
-	service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
+	service, err := zookeeper.GetZkService(conf.Cluster)
 	if err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
 	}
@@ -74,6 +74,9 @@ func DestroyCkCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKManClic
 			}
 		}
 	}
+
+	//clear zkConn
+	service.DeleteZkService(conf.Cluster)
 	return nil
 }
 
