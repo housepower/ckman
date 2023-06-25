@@ -172,3 +172,8 @@ func (z *ZkService) DeletePathUntilNode(path, endNode string) error {
 		path = parent
 	}
 }
+
+func (z *ZkService) DeleteZkService(clusterName string) {
+	z.Conn.Close()
+	ZkServiceCache.Delete(clusterName)
+}
