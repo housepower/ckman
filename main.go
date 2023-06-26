@@ -112,6 +112,9 @@ func main() {
 	}
 
 	zookeeper.ZkServiceCache = cache.New(time.Hour, time.Minute)
+	zookeeper.ZkServiceCache.OnEvicted(func(key string, value interface{}) {
+		value.(*zookeeper.ZkService).Conn.Close()
+	})
 
 	runnerServ := runner.NewRunnerService(selfIP, config.GlobalConfig.Server)
 	runnerServ.Start()
