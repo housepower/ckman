@@ -35,7 +35,7 @@ func InitNacosClient(config *config.CKManNacosConfig, log string) (*NacosClient,
 
 	if config.Enabled {
 		clientConfig := constant.ClientConfig{
-			NamespaceId:         config.Namespace,
+			NamespaceId:         config.NamespaceId,
 			TimeoutMs:           5000,
 			NotLoadCacheAtStart: true,
 			LogDir:              logDir,

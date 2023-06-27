@@ -71,6 +71,6 @@
     "user_name": "nacos",
     // you can use './ckman --encrypt nacos' to get password like: A7561228101CB07938FAFF00C4444546
     "password": "ENC(A7561228101CB07938FAFF00C4444546)"
-    //namespace:
+    //namespace_id:
   }
 }

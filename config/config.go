@@ -75,14 +75,14 @@ type CKManLogConfig struct {
 }
 
 type CKManNacosConfig struct {
-	Enabled   bool
-	Hosts     []string
-	Port      uint64
-	UserName  string `yaml:"user_name" json:"user_name"`
-	Password  string
-	Namespace string
-	Group     string
-	DataID    string `yaml:"data_id" json:"data_id"`
+	Enabled     bool
+	Hosts       []string
+	Port        uint64
+	UserName    string `yaml:"user_name" json:"user_name"`
+	Password    string
+	NamespaceId string `yanl:"namespace_id" json:"namespace_id"`
+	Group       string
+	DataID      string `yaml:"data_id" json:"data_id"`
 }
 
 func fillDefault(c *CKManConfig) {
