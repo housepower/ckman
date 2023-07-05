@@ -1412,7 +1412,7 @@ func (ck *ClickHouseController) StartNode(c *gin.Context) {
 			if errors.As(err, &exception) {
 				if exception.Code == 253 {
 					//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
-					service, err := zookeeper.NewZkService(conf.ZkNodes, conf.ZkPort)
+					service, err := zookeeper.GetZkService(conf.Cluster)
 					if err == nil {
 						err = service.CleanZoopath(conf, conf.Cluster, ip, false)
 						if err == nil {
