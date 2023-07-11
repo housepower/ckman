@@ -1752,3 +1752,239 @@ func MoveExceptToOthers(conf *model.CKManClickHouseConfig, except, target, datab
 	}
 	return nil
 }
+
+func GroupUniqArray(conf *model.CKManClickHouseConfig, req model.GroupUniqArrayReq) error {
+	//创建本地聚合表，本地物化视图，分布式聚合表，分布式视图
+	if err := CreateViewOnCluster(conf, req); err != nil {
+		return err
+	}
+	// 创建逻辑聚合表和逻辑视图
+	if conf.LogicCluster != nil {
+		//当前集群的逻辑表和逻辑视图创建
+		if err := CreateLogicViewOnCluster(conf, req); err != nil {
+			return err
+		}
+		clusters, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
+		if err != nil {
+			return err
+		}
+		for _, cluster := range clusters {
+			con, err := repository.Ps.GetClusterbyName(cluster)
+			if err != nil {
+				return err
+			}
+			//当前集群已经创建过了，跳过
+			if con.Cluster == conf.Cluster {
+				continue
+			} else {
+				//其他物理集群需要同步创建本地表、本地视图，分布式表、分布式视图，以及逻辑表，逻辑视图
+				if err := CreateViewOnCluster(&con, req); err != nil {
+					return err
+				}
+				if err := CreateLogicViewOnCluster(&con, req); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func CreateViewOnCluster(conf *model.CKManClickHouseConfig, req model.GroupUniqArrayReq) error {
+	//前置工作
+	service := NewCkService(conf)
+	err := service.InitCkService()
+	if err != nil {
+		return err
+	}
+	query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE (database = '%s') AND (table = '%s')", req.Database, req.Table)
+	rows, err := service.Conn.Query(context.Background(), query)
+	if err != nil {
+		return err
+	}
+	fields := make(map[string]string, len(req.Fields)+1)
+	for rows.Next() {
+		var name, typ string
+		err = rows.Scan(&name, &typ)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		if name == req.TimeField {
+			fields[name] = typ
+		} else {
+			for _, f := range req.Fields {
+				if name == f.Name {
+					fields[name] = typ
+				}
+			}
+		}
+	}
+	rows.Close()
+
+	// check 一把是否所有字段在表里都能找到
+	for _, f := range req.Fields {
+		if _, ok := fields[f.Name]; !ok {
+			return fmt.Errorf("can't find field %s in %s.%s", f.Name, req.Database, req.Table)
+		}
+	}
+
+	aggTable := fmt.Sprintf("%s%s", common.ClickHouseAggregateTablePrefix, req.Table)
+	distAggTable := fmt.Sprintf("%s%s", common.ClickHouseAggDistTablePrefix, req.Table)
+
+	mvLocal := fmt.Sprintf("%s%s", common.ClickHouseLocalViewPrefix, req.Table)
+	mvDist := fmt.Sprintf("%s%s", common.ClickHouseDistributedViewPrefix, req.Table)
+
+	var engine string
+	if conf.IsReplica {
+		engine = "ReplicatedReplacingMergeTree()"
+	} else {
+		engine = "ReplacingMergeTree"
+	}
+
+	fieldAndType := fmt.Sprintf("%s %s,", req.TimeField, fields[req.TimeField])
+	fieldSql := req.TimeField + ","
+	for i, f := range req.Fields {
+		if i > 0 {
+			fieldAndType += ","
+		}
+		if f.MaxSize == 0 {
+			f.MaxSize = 10000
+		}
+		fieldAndType += fmt.Sprintf("%s%s AggregateFunction(groupUniqArray(%d), %s)", model.GroupUniqArrayPrefix, f.Name, f.MaxSize, fields[f.Name])
+		fieldSql += fmt.Sprintf("groupUniqArrayState(%d)(%s) AS %s%s", f.MaxSize, f.Name, model.GroupUniqArrayPrefix, f.Name)
+	}
+
+	view_sql := fmt.Sprintf("SELECT %s FROM %s.%s GROUP BY (%s)", fieldSql, req.Database, req.Table, req.TimeField)
+
+	// 创建本地聚合表及本地视图
+	agg_query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s ON CLUSTER %s (%s) ENGINE = %s ORDER BY (%s)",
+		req.Database, aggTable, conf.Cluster, fieldAndType, engine, req.TimeField)
+
+	//需不需要partition by？
+	log.Logger.Debugf("agg_query: %s", agg_query)
+	err = service.Conn.Exec(context.Background(), agg_query)
+	if err != nil {
+		return err
+	}
+	view_query := fmt.Sprintf("CREATE MATERIALIZED VIEW IF NOT EXISTS %s.%s ON CLUSTER %s TO %s.%s AS %s",
+		req.Database, mvLocal, conf.Cluster, req.Database, aggTable, view_sql)
+
+	log.Logger.Debugf("view_query: %s", view_query)
+	err = service.Conn.Exec(context.Background(), view_query)
+	if err != nil {
+		return err
+	}
+
+	// 创建分布式聚合表及分布式视图
+	agg_query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s ON CLUSTER %s AS %s.%s ENGINE = Distributed('%s', '%s', '%s', rand())",
+		req.Database, distAggTable, conf.Cluster, req.Database, aggTable, conf.Cluster, req.Database, aggTable)
+	log.Logger.Debugf("agg_query: %s", agg_query)
+	err = service.Conn.Exec(context.Background(), agg_query)
+	if err != nil {
+		return err
+	}
+
+	view_query = fmt.Sprintf("CREATE MATERIALIZED VIEW IF NOT EXISTS %s.%s ON CLUSTER %s AS %s.%s ENGINE = Distributed('%s', '%s', '%s', rand())",
+		req.Database, mvDist, conf.Cluster, req.Database, mvLocal, conf.Cluster, req.Database, mvLocal)
+	log.Logger.Debugf("view_query: %s", view_query)
+	err = service.Conn.Exec(context.Background(), view_query)
+	if err != nil {
+		return err
+	}
+
+	if req.Populate {
+		insert_query := fmt.Sprintf("INSERT INTO %s.%s %s ", req.Database, aggTable, view_sql)
+		log.Logger.Debugf("[%s]insert_query: %s", conf.Cluster, insert_query)
+		hosts, err := common.GetShardAvaliableHosts(conf)
+		if err != nil {
+			return err
+		}
+		for _, host := range hosts {
+			conn := common.GetConnection(host)
+			if conn != nil {
+				err = service.Conn.AsyncInsert(context.Background(), insert_query, false)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func CreateLogicViewOnCluster(conf *model.CKManClickHouseConfig, req model.GroupUniqArrayReq) error {
+	service := NewCkService(conf)
+	err := service.InitCkService()
+	if err != nil {
+		return err
+	}
+	aggTable := fmt.Sprintf("%s%s", common.ClickHouseAggregateTablePrefix, req.Table)
+	logicAggTable := fmt.Sprintf("%s%s", common.ClickHouseAggLogicTablePrefix, req.Table)
+
+	mvLocal := fmt.Sprintf("%s%s", common.ClickHouseAggregateTablePrefix, req.Table)
+	mvLogic := fmt.Sprintf("%s%s", common.ClickHouseLogicViewPrefix, req.Table)
+
+	agg_query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s ON CLUSTER %s AS %s.%s ENGINE = Distributed('%s', '%s', '%s', rand())",
+		req.Database, logicAggTable, conf.Cluster, req.Database, aggTable, *conf.LogicCluster, req.Database, aggTable)
+	log.Logger.Debugf("agg_query: %s", agg_query)
+	err = service.Conn.Exec(context.Background(), agg_query)
+	if err != nil {
+		return err
+	}
+
+	view_query := fmt.Sprintf("CREATE MATERIALIZED VIEW IF NOT EXISTS %s.%s ON CLUSTER %s AS %s.%s ENGINE = Distributed('%s', '%s', '%s', rand())",
+		req.Database, mvLogic, conf.Cluster, req.Database, mvLocal, *conf.LogicCluster, req.Database, mvLocal)
+	log.Logger.Debugf("view_query: %s", view_query)
+	err = service.Conn.Exec(context.Background(), view_query)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetGroupUniqArray(conf *model.CKManClickHouseConfig, database, table string) ([][]interface{}, error) {
+	//确定是查分布式表还是逻辑表
+	//viewName := common.TernaryExpression(conf.LogicCluster != nil, fmt.Sprintf("%s%s", common.ClickHouseLogicViewPrefix, table), fmt.Sprintf("%s%s", common.ClickHouseDistributedViewPrefix, table)).(string)
+	viewName := "mv_" + table
+	//根据表名查询出物化视图名，聚合函数类型
+	service := NewCkService(conf)
+	err := service.InitCkService()
+	if err != nil {
+		return nil, err
+	}
+	query := fmt.Sprintf(`SELECT
+    name,
+    (extractAllGroups(type, 'groupUniqArray\\((\\d+)\\)')[1])[1] AS maxsize
+FROM system.columns
+WHERE (database = '%s') AND (table = '%s') AND (type LIKE 'AggregateFunction%%')`,
+		database, viewName)
+	log.Logger.Debugf(query)
+	rows, err := service.Conn.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	var aggFields string
+	idx := 0
+	for rows.Next() {
+		var name, maxSize string
+		err = rows.Scan(&name, &maxSize)
+		if err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if name != "" {
+			if idx > 0 {
+				aggFields += ", "
+			}
+			aggFields += fmt.Sprintf("groupUniqArrayMerge(%s)(%s)", maxSize, name)
+			idx++
+		}
+	}
+	rows.Close()
+
+	//查询
+	query = fmt.Sprintf(`SELECT %s FROM %s.%s`, aggFields, database, viewName)
+	log.Logger.Debugf("query: %s", query)
+	return service.QueryInfo(query)
+}

@@ -264,3 +264,20 @@ type MaterializedViewReq struct {
 	Dryrun    bool   `json:"dryrun"`
 	Operate   int    `json:"operate"`
 }
+
+const (
+	GroupUniqArrayPrefix = "gua_"
+)
+
+type GroupUniqArrayField struct {
+	Name    string //字段名
+	MaxSize int    //聚合条数
+}
+
+type GroupUniqArrayReq struct {
+	TimeField string                //时间字段
+	Fields    []GroupUniqArrayField //聚合字段
+	Database  string                //数据库
+	Table     string                //原始表名
+	Populate  bool                  //是否要同步存量数据
+}

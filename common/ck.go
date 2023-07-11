@@ -26,6 +26,12 @@ const (
 	ClickHouseLocalTablePrefix       string = "local_"
 	ClickHouseDistributedTablePrefix string = "dist_"
 	ClickHouseDistTableOnLogicPrefix string = "dist_logic_"
+	ClickHouseLocalViewPrefix        string = "mv_"
+	ClickHouseDistributedViewPrefix  string = "dist_mv_"
+	ClickHouseLogicViewPrefix        string = "dist_logic_mv_"
+	ClickHouseAggregateTablePrefix   string = "agg_"
+	ClickHouseAggDistTablePrefix     string = "dist_agg_"
+	ClickHouseAggLogicTablePrefix    string = "dist_logic_agg_"
 )
 
 type Connection struct {

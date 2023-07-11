@@ -710,6 +710,51 @@ func (ck *ClickHouseController) MaterializedView(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, statement)
 }
 
+func (ck *ClickHouseController) GroupUniqArray(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	var req model.GroupUniqArrayReq
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+
+	if err := clickhouse.GroupUniqArray(&conf, req); err != nil {
+		model.WrapMsg(c, model.CREAT_CK_TABLE_FAIL, err)
+		return
+	}
+	model.WrapMsg(c, model.SUCCESS, nil)
+}
+
+func (ck *ClickHouseController) GetGroupUniqArray(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	table := c.Query("table")
+	tbls := strings.SplitN(table, ".", 2)
+	if len(tbls) != 2 {
+		model.WrapMsg(c, model.INVALID_PARAMS, fmt.Sprintf("table %s is invalid", table))
+		return
+	}
+	database := tbls[0]
+	tblName := tbls[1]
+	result, err := clickhouse.GetGroupUniqArray(&conf, database, tblName)
+	if err != nil {
+		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
+		return
+	}
+	model.WrapMsg(c, model.SUCCESS, result)
+}
+
 // @Summary Delete Table
 // @Description Delete Table
 // @version 1.0
