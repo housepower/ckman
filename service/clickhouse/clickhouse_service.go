@@ -1943,10 +1943,9 @@ func CreateLogicViewOnCluster(conf *model.CKManClickHouseConfig, req model.Group
 	return nil
 }
 
-func GetGroupUniqArray(conf *model.CKManClickHouseConfig, database, table string) ([][]interface{}, error) {
+func GetGroupUniqArray(conf *model.CKManClickHouseConfig, database, table string) (map[string]interface{}, error) {
 	//确定是查分布式表还是逻辑表
-	//viewName := common.TernaryExpression(conf.LogicCluster != nil, fmt.Sprintf("%s%s", common.ClickHouseLogicViewPrefix, table), fmt.Sprintf("%s%s", common.ClickHouseDistributedViewPrefix, table)).(string)
-	viewName := "mv_" + table
+	viewName := common.TernaryExpression(conf.LogicCluster != nil, fmt.Sprintf("%s%s", common.ClickHouseLogicViewPrefix, table), fmt.Sprintf("%s%s", common.ClickHouseDistributedViewPrefix, table)).(string)
 	//根据表名查询出物化视图名，聚合函数类型
 	service := NewCkService(conf)
 	err := service.InitCkService()
@@ -1977,7 +1976,7 @@ WHERE (database = '%s') AND (table = '%s') AND (type LIKE 'AggregateFunction%%')
 			if idx > 0 {
 				aggFields += ", "
 			}
-			aggFields += fmt.Sprintf("groupUniqArrayMerge(%s)(%s)", maxSize, name)
+			aggFields += fmt.Sprintf("groupUniqArrayMerge(%s)(%s) AS %s", maxSize, name, strings.TrimPrefix(name, model.GroupUniqArrayPrefix))
 			idx++
 		}
 	}
@@ -1985,6 +1984,15 @@ WHERE (database = '%s') AND (table = '%s') AND (type LIKE 'AggregateFunction%%')
 
 	//查询
 	query = fmt.Sprintf(`SELECT %s FROM %s.%s`, aggFields, database, viewName)
-	log.Logger.Debugf("query: %s", query)
-	return service.QueryInfo(query)
+	data, err := service.QueryInfo(query)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]interface{})
+	keys := data[0]
+	for i, key := range keys {
+		value := data[1][i]
+		result[key.(string)] = value
+	}
+	return result, nil
 }
