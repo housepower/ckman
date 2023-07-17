@@ -1084,6 +1084,98 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/table/group_uniq_array/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get Materialized View with groupUniqArray",
+                "summary": "GetGroupUniqArray",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"5003\",\"retMsg\":\"alter ClickHouse table failed\",\"entity\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "create a Materialized View with groupUniqArray",
+                "summary": "GroupUniqArray",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.GroupUniqArrayReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"5003\",\"retMsg\":\"alter ClickHouse table failed\",\"entity\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Delete Materialized View with groupUniqArray",
+                "summary": "DelGroupUniqArray",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"5003\",\"retMsg\":\"alter ClickHouse table failed\",\"entity\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/table/orderby/{clusterName}": {
             "put": {
                 "security": [
@@ -1351,6 +1443,51 @@ var doc = `{
                 ],
                 "description": "Delete Table",
                 "summary": "Delete Table",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "default",
+                        "description": "database name",
+                        "name": "database",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "test_table",
+                        "description": "table name",
+                        "name": "tableName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/table_all/{clusterName}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Delete all table, include local, dist, logic and view",
+                "summary": "DeleteTableAll",
                 "parameters": [
                     {
                         "type": "string",
@@ -2586,6 +2723,47 @@ var doc = `{
                 "tail": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "model.GroupUniqArrayField": {
+            "type": "object",
+            "properties": {
+                "maxSize": {
+                    "description": "聚合条数",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "字段名",
+                    "type": "string"
+                }
+            }
+        },
+        "model.GroupUniqArrayReq": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "description": "数据库",
+                    "type": "string"
+                },
+                "fields": {
+                    "description": "聚合字段",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.GroupUniqArrayField"
+                    }
+                },
+                "populate": {
+                    "description": "是否要同步存量数据",
+                    "type": "boolean"
+                },
+                "table": {
+                    "description": "原始表名",
+                    "type": "string"
+                },
+                "timeField": {
+                    "description": "时间字段",
+                    "type": "string"
                 }
             }
         },

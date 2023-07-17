@@ -440,6 +440,35 @@ definitions:
         example: true
         type: boolean
     type: object
+  model.GroupUniqArrayField:
+    properties:
+      maxSize:
+        description: 聚合条数
+        type: integer
+      name:
+        description: 字段名
+        type: string
+    type: object
+  model.GroupUniqArrayReq:
+    properties:
+      database:
+        description: 数据库
+        type: string
+      fields:
+        description: 聚合字段
+        items:
+          $ref: '#/definitions/model.GroupUniqArrayField'
+        type: array
+      populate:
+        description: 是否要同步存量数据
+        type: boolean
+      table:
+        description: 原始表名
+        type: string
+      timeField:
+        description: 时间字段
+        type: string
+    type: object
   model.Index:
     properties:
       field:
@@ -1389,6 +1418,64 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Alter Table
+  /api/v1/ck/table/group_uniq_array/{clusterName}:
+    delete:
+      description: Delete Materialized View with groupUniqArray
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: DelGroupUniqArray
+    get:
+      description: Get Materialized View with groupUniqArray
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: GetGroupUniqArray
+    post:
+      description: create a Materialized View with groupUniqArray
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.GroupUniqArrayReq'
+      responses:
+        "200":
+          description: '{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: GroupUniqArray
   /api/v1/ck/table/orderby/{clusterName}:
     put:
       description: set order by
@@ -1479,6 +1566,36 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: MaterializedView
+  /api/v1/ck/table_all/{clusterName}:
+    delete:
+      description: Delete all table, include local, dist, logic and view
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - default: default
+        description: database name
+        in: query
+        name: database
+        required: true
+        type: string
+      - default: test_table
+        description: table name
+        in: query
+        name: tableName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"ok","entity":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: DeleteTableAll
   /api/v1/ck/table_lists/{clusterName}:
     get:
       description: get table lists config

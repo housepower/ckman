@@ -1996,3 +1996,86 @@ WHERE (database = '%s') AND (table = '%s') AND (type LIKE 'AggregateFunction%%')
 	}
 	return result, nil
 }
+
+func DelGroupUniqArray(conf *model.CKManClickHouseConfig, database, table string) error {
+	err := delGuaViewOnCluster(conf, database, table)
+	if err != nil {
+		return err
+	}
+
+	//如果有逻辑集群，还要去各个逻辑集群删除本地物化视图、分布式物化视图，逻辑物化视图
+	if conf.LogicCluster != nil {
+		clusters, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
+		if err != nil {
+			return err
+		}
+		for _, cluster := range clusters {
+			if cluster == conf.Cluster {
+				err = delGuaViewOnLogic(conf, database, table)
+				if err != nil {
+					return err
+				}
+			} else {
+				clus, err := repository.Ps.GetClusterbyName(cluster)
+				if err != nil {
+					return err
+				}
+				if err = delGuaViewOnCluster(&clus, database, table); err != nil {
+					return err
+				}
+				err = delGuaViewOnLogic(&clus, database, table)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func delGuaViewOnCluster(conf *model.CKManClickHouseConfig, database, table string) error {
+	service := NewCkService(conf)
+	err := service.InitCkService()
+	if err != nil {
+		return err
+	}
+
+	queries := []string{
+		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseLocalViewPrefix, table, conf.Cluster),
+		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseDistributedViewPrefix, table, conf.Cluster),
+		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseAggregateTablePrefix, table, conf.Cluster),
+		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseAggDistTablePrefix, table, conf.Cluster),
+	}
+
+	for _, query := range queries {
+		log.Logger.Debugf("[%s]%s", conf.Cluster, query)
+		err = service.Conn.Exec(context.Background(), query)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func delGuaViewOnLogic(conf *model.CKManClickHouseConfig, database, table string) error {
+	service := NewCkService(conf)
+	err := service.InitCkService()
+	if err != nil {
+		return err
+	}
+
+	queries := []string{
+		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseLogicViewPrefix, table, conf.Cluster),
+		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseAggLogicTablePrefix, table, conf.Cluster),
+	}
+
+	for _, query := range queries {
+		log.Logger.Debugf("[%s]%s", conf.Cluster, query)
+		err = service.Conn.Exec(context.Background(), query)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

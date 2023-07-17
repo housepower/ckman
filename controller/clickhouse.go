@@ -710,6 +710,16 @@ func (ck *ClickHouseController) MaterializedView(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, statement)
 }
 
+// @Summary GroupUniqArray
+// @Description create a Materialized View with groupUniqArray
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.GroupUniqArrayReq true "request body"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"
+// @Router /api/v1/ck/table/group_uniq_array/{clusterName} [post]
 func (ck *ClickHouseController) GroupUniqArray(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -731,6 +741,15 @@ func (ck *ClickHouseController) GroupUniqArray(c *gin.Context) {
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
+// @Summary GetGroupUniqArray
+// @Description Get Materialized View with groupUniqArray
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"
+// @Router /api/v1/ck/table/group_uniq_array/{clusterName} [get]
 func (ck *ClickHouseController) GetGroupUniqArray(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -753,6 +772,117 @@ func (ck *ClickHouseController) GetGroupUniqArray(c *gin.Context) {
 		return
 	}
 	model.WrapMsg(c, model.SUCCESS, result)
+}
+
+// @Summary DelGroupUniqArray
+// @Description Delete Materialized View with groupUniqArray
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"
+// @Router /api/v1/ck/table/group_uniq_array/{clusterName} [delete]
+func (ck *ClickHouseController) DelGroupUniqArray(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	table := c.Query("table")
+	tbls := strings.SplitN(table, ".", 2)
+	if len(tbls) != 2 {
+		model.WrapMsg(c, model.INVALID_PARAMS, fmt.Sprintf("table %s is invalid", table))
+		return
+	}
+	database := tbls[0]
+	tblName := tbls[1]
+	err = clickhouse.DelGroupUniqArray(&conf, database, tblName)
+	if err != nil {
+		model.WrapMsg(c, model.QUERY_CK_FAIL, err)
+		return
+	}
+	model.WrapMsg(c, model.SUCCESS, nil)
+}
+
+// @Summary DeleteTableAll
+// @Description Delete all table, include local, dist, logic and view
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param database query string true "database name" default(default)
+// @Param tableName query string true "table name" default(test_table)
+// @Failure 200 {string} json "{"retCode":"5002","retMsg":"delete ClickHouse table failed","entity":""}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":null}"
+// @Router /api/v1/ck/table_all/{clusterName} [delete]
+func (ck *ClickHouseController) DeleteTableAll(c *gin.Context) {
+	var params model.DeleteCkTableParams
+
+	clusterName := c.Param(ClickHouseClusterPath)
+	ckService, err := clickhouse.GetCkService(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, err)
+		return
+	}
+
+	var conf model.CKManClickHouseConfig
+	conf, err = repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	params.Cluster = ckService.Config.Cluster
+	params.Name = c.Query("tableName")
+	params.DB = c.Query("database")
+	if params.DB == "" {
+		params.DB = model.ClickHouseDefaultDB
+	}
+
+	if err := ckService.DeleteTable(&conf, &params); err != nil {
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, err)
+		return
+	}
+
+	physics, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
+	if err != nil {
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, fmt.Sprintf("logic cluster %s is not exist", *conf.LogicCluster))
+		return
+	}
+
+	for _, cluster := range physics {
+		ckService, err := clickhouse.GetCkService(cluster)
+		if err != nil {
+			model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, err)
+			return
+		}
+		params := model.DistLogicTblParams{
+			Database:     params.DB,
+			TableName:    params.Name,
+			ClusterName:  cluster,
+			LogicCluster: *conf.LogicCluster,
+		}
+		if err = ckService.DeleteDistTblOnLogic(&params); err != nil {
+			model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, err)
+			return
+		}
+	}
+
+	if err := clickhouse.DelGroupUniqArray(&conf, params.DB, params.Name); err != nil {
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, err)
+		return
+	}
+
+	//sync zookeeper path
+	err = repository.Ps.UpdateCluster(conf)
+	if err != nil {
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, err)
+		return
+	}
+
+	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
 // @Summary Delete Table
