@@ -1842,8 +1842,9 @@ func CreateViewOnCluster(conf *model.CKManClickHouseConfig, req model.GroupUniqA
 		engine = "ReplacingMergeTree"
 	}
 
-	fieldAndType := fmt.Sprintf("%s %s,", req.TimeField, fields[req.TimeField])
-	fieldSql := req.TimeField + ","
+	fieldAndType := fmt.Sprintf("`%s` %s,", req.TimeField, fields[req.TimeField])
+	fieldSql := fmt.Sprintf("`%s`, ", req.TimeField)
+	where := " WHERE 1=1 "
 	for i, f := range req.Fields {
 		if i > 0 {
 			fieldAndType += ","
@@ -1851,14 +1852,31 @@ func CreateViewOnCluster(conf *model.CKManClickHouseConfig, req model.GroupUniqA
 		if f.MaxSize == 0 {
 			f.MaxSize = 10000
 		}
-		fieldAndType += fmt.Sprintf("%s%s AggregateFunction(groupUniqArray(%d), %s)", model.GroupUniqArrayPrefix, f.Name, f.MaxSize, fields[f.Name])
-		fieldSql += fmt.Sprintf("groupUniqArrayState(%d)(%s) AS %s%s", f.MaxSize, f.Name, model.GroupUniqArrayPrefix, f.Name)
+		typ := fields[f.Name]
+		nullable := false
+		defaultValue := f.DefaultValue
+		if strings.HasPrefix(typ, "Nullable(") {
+			nullable = true
+			typ = strings.TrimSuffix(strings.TrimPrefix(typ, "Nullable("), ")")
+			if strings.Contains(typ, "Int") || strings.Contains(typ, "Float") {
+				defaultValue = fmt.Sprintf("%v", f.DefaultValue)
+			} else {
+				defaultValue = fmt.Sprintf("'%v'", f.DefaultValue)
+			}
+			where += fmt.Sprintf(" AND isNotNull(`%s`) ", f.Name)
+		}
+		fieldAndType += fmt.Sprintf("`%s%s` AggregateFunction(groupUniqArray(%d), `%s`)", model.GroupUniqArrayPrefix, f.Name, f.MaxSize, typ)
+		if nullable {
+			fieldSql += fmt.Sprintf("groupUniqArrayState(%d)(ifNull(`%s`, %s)) AS `%s%s`", f.MaxSize, f.Name, defaultValue, model.GroupUniqArrayPrefix, f.Name)
+		} else {
+			fieldSql += fmt.Sprintf("groupUniqArrayState(%d)(`%s`) AS `%s%s`", f.MaxSize, f.Name, model.GroupUniqArrayPrefix, f.Name)
+		}
 	}
 
-	view_sql := fmt.Sprintf("SELECT %s FROM %s.%s GROUP BY (%s)", fieldSql, req.Database, req.Table, req.TimeField)
+	view_sql := fmt.Sprintf("SELECT %s FROM `%s`.`%s` %s GROUP BY (`%s`)", fieldSql, req.Database, req.Table, where, req.TimeField)
 
 	// 创建本地聚合表及本地视图
-	agg_query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s ON CLUSTER %s (%s) ENGINE = %s ORDER BY (%s)",
+	agg_query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` (%s) ENGINE = %s ORDER BY (`%s`)",
 		req.Database, aggTable, conf.Cluster, fieldAndType, engine, req.TimeField)
 
 	//需不需要partition by？
@@ -1867,7 +1885,7 @@ func CreateViewOnCluster(conf *model.CKManClickHouseConfig, req model.GroupUniqA
 	if err != nil {
 		return err
 	}
-	view_query := fmt.Sprintf("CREATE MATERIALIZED VIEW IF NOT EXISTS %s.%s ON CLUSTER %s TO %s.%s AS %s",
+	view_query := fmt.Sprintf("CREATE MATERIALIZED VIEW IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` TO `%s`.`%s` AS %s",
 		req.Database, mvLocal, conf.Cluster, req.Database, aggTable, view_sql)
 
 	log.Logger.Debugf("view_query: %s", view_query)
@@ -1877,7 +1895,7 @@ func CreateViewOnCluster(conf *model.CKManClickHouseConfig, req model.GroupUniqA
 	}
 
 	// 创建分布式聚合表及分布式视图
-	agg_query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s ON CLUSTER %s AS %s.%s ENGINE = Distributed('%s', '%s', '%s', rand())",
+	agg_query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
 		req.Database, distAggTable, conf.Cluster, req.Database, aggTable, conf.Cluster, req.Database, aggTable)
 	log.Logger.Debugf("agg_query: %s", agg_query)
 	err = service.Conn.Exec(context.Background(), agg_query)
@@ -1885,7 +1903,7 @@ func CreateViewOnCluster(conf *model.CKManClickHouseConfig, req model.GroupUniqA
 		return err
 	}
 
-	view_query = fmt.Sprintf("CREATE MATERIALIZED VIEW IF NOT EXISTS %s.%s ON CLUSTER %s AS %s.%s ENGINE = Distributed('%s', '%s', '%s', rand())",
+	view_query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
 		req.Database, mvDist, conf.Cluster, req.Database, mvLocal, conf.Cluster, req.Database, mvLocal)
 	log.Logger.Debugf("view_query: %s", view_query)
 	err = service.Conn.Exec(context.Background(), view_query)
@@ -1894,7 +1912,7 @@ func CreateViewOnCluster(conf *model.CKManClickHouseConfig, req model.GroupUniqA
 	}
 
 	if req.Populate {
-		insert_query := fmt.Sprintf("INSERT INTO %s.%s %s ", req.Database, aggTable, view_sql)
+		insert_query := fmt.Sprintf("INSERT INTO `%s`.`%s` %s ", req.Database, aggTable, view_sql)
 		log.Logger.Debugf("[%s]insert_query: %s", conf.Cluster, insert_query)
 		hosts, err := common.GetShardAvaliableHosts(conf)
 		if err != nil {
@@ -1925,7 +1943,7 @@ func CreateLogicViewOnCluster(conf *model.CKManClickHouseConfig, req model.Group
 	mvLocal := fmt.Sprintf("%s%s", common.ClickHouseAggregateTablePrefix, req.Table)
 	mvLogic := fmt.Sprintf("%s%s", common.ClickHouseLogicViewPrefix, req.Table)
 
-	agg_query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s ON CLUSTER %s AS %s.%s ENGINE = Distributed('%s', '%s', '%s', rand())",
+	agg_query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
 		req.Database, logicAggTable, conf.Cluster, req.Database, aggTable, *conf.LogicCluster, req.Database, aggTable)
 	log.Logger.Debugf("agg_query: %s", agg_query)
 	err = service.Conn.Exec(context.Background(), agg_query)
@@ -1933,7 +1951,7 @@ func CreateLogicViewOnCluster(conf *model.CKManClickHouseConfig, req model.Group
 		return err
 	}
 
-	view_query := fmt.Sprintf("CREATE MATERIALIZED VIEW IF NOT EXISTS %s.%s ON CLUSTER %s AS %s.%s ENGINE = Distributed('%s', '%s', '%s', rand())",
+	view_query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE = Distributed(`%s`, `%s`, `%s`, rand())",
 		req.Database, mvLogic, conf.Cluster, req.Database, mvLocal, *conf.LogicCluster, req.Database, mvLocal)
 	log.Logger.Debugf("view_query: %s", view_query)
 	err = service.Conn.Exec(context.Background(), view_query)
@@ -1983,7 +2001,7 @@ WHERE (database = '%s') AND (table = '%s') AND (type LIKE 'AggregateFunction%%')
 	rows.Close()
 
 	//查询
-	query = fmt.Sprintf(`SELECT %s FROM %s.%s`, aggFields, database, viewName)
+	query = fmt.Sprintf("SELECT %s FROM `%s`.`%s`", aggFields, database, viewName)
 	data, err := service.QueryInfo(query)
 	if err != nil {
 		return nil, err
@@ -2041,10 +2059,10 @@ func delGuaViewOnCluster(conf *model.CKManClickHouseConfig, database, table stri
 	}
 
 	queries := []string{
-		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseLocalViewPrefix, table, conf.Cluster),
-		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseDistributedViewPrefix, table, conf.Cluster),
-		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseAggregateTablePrefix, table, conf.Cluster),
-		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseAggDistTablePrefix, table, conf.Cluster),
+		fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC", database, common.ClickHouseLocalViewPrefix, table, conf.Cluster),
+		fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC", database, common.ClickHouseDistributedViewPrefix, table, conf.Cluster),
+		fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC", database, common.ClickHouseAggregateTablePrefix, table, conf.Cluster),
+		fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC", database, common.ClickHouseAggDistTablePrefix, table, conf.Cluster),
 	}
 
 	for _, query := range queries {
@@ -2066,8 +2084,8 @@ func delGuaViewOnLogic(conf *model.CKManClickHouseConfig, database, table string
 	}
 
 	queries := []string{
-		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseLogicViewPrefix, table, conf.Cluster),
-		fmt.Sprintf("DROP TABLE IF EXISTS %s.%s%s ON CLUSTER %s SYNC", database, common.ClickHouseAggLogicTablePrefix, table, conf.Cluster),
+		fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC", database, common.ClickHouseLogicViewPrefix, table, conf.Cluster),
+		fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s%s` ON CLUSTER `%s` SYNC", database, common.ClickHouseAggLogicTablePrefix, table, conf.Cluster),
 	}
 
 	for _, query := range queries {

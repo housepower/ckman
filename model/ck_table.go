@@ -270,8 +270,9 @@ const (
 )
 
 type GroupUniqArrayField struct {
-	Name    string //字段名
-	MaxSize int    //聚合条数
+	Name         string //字段名
+	MaxSize      int    //聚合条数
+	DefaultValue string //默认值
 }
 
 type GroupUniqArrayReq struct {
