@@ -1625,6 +1625,44 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/truncate_table/{clusterName}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "TruncateTable",
+                "summary": "TruncateTable",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.AlterCkTableReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"5003\",\"retMsg\":\"alter ClickHouse table failed\",\"entity\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/upgrade/{clusterName}": {
             "put": {
                 "security": [
@@ -2729,6 +2767,10 @@ var doc = `{
         "model.GroupUniqArrayField": {
             "type": "object",
             "properties": {
+                "defaultValue": {
+                    "description": "默认值",
+                    "type": "string"
+                },
                 "maxSize": {
                     "description": "聚合条数",
                     "type": "integer"

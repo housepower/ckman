@@ -442,6 +442,9 @@ definitions:
     type: object
   model.GroupUniqArrayField:
     properties:
+      defaultValue:
+        description: 默认值
+        type: string
       maxSize:
         description: 聚合条数
         type: integer
@@ -1675,6 +1678,30 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: show create table
+  /api/v1/ck/truncate_table/{clusterName}:
+    delete:
+      description: TruncateTable
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.AlterCkTableReq'
+      responses:
+        "200":
+          description: '{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: TruncateTable
   /api/v1/ck/upgrade/{clusterName}:
     put:
       description: Upgrade ClickHouse cluster

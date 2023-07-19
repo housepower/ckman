@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/housepower/ckman/repository"
@@ -481,6 +482,59 @@ func (ck *ClickHouseController) DeleteDistTableOnLogic(c *gin.Context) {
 		}
 	}
 
+	model.WrapMsg(c, model.SUCCESS, nil)
+}
+
+// @Summary TruncateTable
+// @Description TruncateTable
+// @version 1.0
+// @Security ApiKeyAuth
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.AlterCkTableReq true "request body"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
+// @Failure 200 {string} json "{"retCode":"5003","retMsg":"alter ClickHouse table failed","entity":""}"
+// @Router /api/v1/ck/truncate_table/{clusterName} [delete]
+func (ck *ClickHouseController) TruncateTable(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, err)
+		return
+	}
+	hosts, err := common.GetShardAvaliableHosts(&conf)
+	if err != nil {
+		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		return
+	}
+	database := c.Query("database")
+	table := c.Query("tableName")
+	query := fmt.Sprintf("TRUNCATE TABLE IF EXISTS `%s`.`%s`", database, table)
+	var lastErr error
+	var wg sync.WaitGroup
+	for _, host := range hosts {
+		host := host
+		wg.Add(1)
+		common.Pool.Submit(func() {
+			defer wg.Done()
+			conn := common.GetConnection(host)
+			if conn == nil {
+				log.Logger.Errorf("[%s] get connection failed", host)
+				return
+			}
+			log.Logger.Debugf("[%s]%s", host, query)
+			err = conn.Exec(context.Background(), query)
+			if err != nil {
+				lastErr = err
+				return
+			}
+		})
+	}
+	wg.Wait()
+	if lastErr != nil {
+		model.WrapMsg(c, model.DELETE_CK_TABLE_FAIL, lastErr)
+		return
+	}
 	model.WrapMsg(c, model.SUCCESS, nil)
 }
 
