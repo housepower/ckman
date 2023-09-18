@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ckman
+  namespace: ${K8S_NAMESPACE}
+  labels:
+    app: ckman
+spec:
+  replicas: ${K8S_REPLICAS}
+  selector:
+    matchLabels:
+      app: ckman
+  template:
+    metadata:
+      labels:
+        app: ckman
+    spec:
+      containers:
+      - name: ckman
+        image: quay.io/housepower/ckman:${CKMAN_IMAGE}
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            memory: 1G
+          requests:
+            memory: 200Mi
+        ports:
+        - containerPort: ${CKMAN_PORT}
+        volumeMounts:
+        - name: ckman-config-v
+          mountPath: "/etc/ckman/conf/ckman.yaml"
+          subPath: ckman.yaml
+          readOnly: true
+        env:
+          - name: NACOS_HOST
+            value: "${NACOS_HOST}"
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        command: ["bin/ckman", "-c", "conf/ckman.yaml"]
+      volumes:
+      - name: ckman-config-v
+        configMap:
+          name: ckman-config
+          items:
+          - key: "ckman.yaml"
+            path: "ckman.yaml"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ckman
+  namespace: housepower
+spec:
+  selector:
+    app: ckman
+  ports:
+    - protocol: TCP
+      port: ${CKMAN_PORT}
+      targetPort: ${CKMAN_PORT}
+      nodePort: ${CKMAN_PORT}
+  type: NodePort
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ckman-config
+  namespace: housepower
+data:
+  ckman.yaml: |-
+    server:
+      id: 1
+      port: ${CKMAN_PORT}
+      https: false
+      pprof: true
+      session_timeout: 3600
+      persistent_policy: "mysql"
+      task_interval: 5  
+    log:
+      level: "INFO"
+      max_count: 5
+      max_size: 10
+      max_age: 10
+    clickhouse:
+      max_open_conns: 10
+      max_idle_conns: 2
+      conn_max_idle_time: 10
+    cron:
+      sync_logic_schema: "0 * * * * ?"
+      watch_cluster_status: "0 */3 * * * ?"
+      sync_dist_schema: "30 */10 * * * ?"
+    persistent_config:
+      mysql:
+        host: "${MYSQL_HOST}"
+        port: ${MYSQL_PORT}
+        user: "${MYSQL_USER}"
+        password: "${MYSQL_PASSWORD}"
+        database: "${CKMAN_MYSQL_DATABASE}"
+    nacos:
+      enabled: ${NACOS_ENABLE}
+      hosts: 
+        - 127.0.0.1
+      port: 8848
+      user_name: ${NACOS_USER}
+      password: ${NACOS_PASSWORD}
+      namespace_id: ${NACOS_NAMESPACE_ID}

@@ -194,6 +194,10 @@ func GetIntegerwithDefault(value, defaul int) int {
 // GetOutboundIP get preferred outbound ip of this machine
 // https://stackoverflow.com/questions/23558425/how-do-i-get-the-local-ip-address-in-go
 func GetOutboundIP() net.IP {
+	if hostIp := os.Getenv("HOST_IP"); hostIp != "" {
+		return net.ParseIP(hostIp)
+	}
+
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
 		log.Logger.Fatalf("need to setup the default route: %v", err)

@@ -3,9 +3,11 @@ package config
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -80,7 +82,7 @@ type CKManNacosConfig struct {
 	Port        uint64
 	UserName    string `yaml:"user_name" json:"user_name"`
 	Password    string
-	NamespaceId string `yanl:"namespace_id" json:"namespace_id"`
+	NamespaceId string `yaml:"namespace_id" json:"namespace_id"`
 	Group       string
 	DataID      string `yaml:"data_id" json:"data_id"`
 }
@@ -106,6 +108,23 @@ func fillDefault(c *CKManConfig) {
 	c.ClickHouse.ConnMaxIdleTime = 10
 }
 
+func MergeEnv() {
+	// 合并环境变量
+	if v := os.Getenv("NACOS_HOST"); v != "" {
+		hostports := strings.Split(v, ",")
+		var hosts []string
+		for _, h := range hostports {
+			host, port, _ := net.SplitHostPort(h)
+			hosts = append(hosts, host)
+			GlobalConfig.Nacos.Port, _ = strconv.ParseUint(port, 10, 64)
+		}
+		GlobalConfig.Nacos.Hosts = hosts
+	}
+	if v := os.Getenv("HOST_IP"); v != "" {
+		GlobalConfig.Server.Ip = v
+	}
+}
+
 func ParseConfigFile(p, version string) error {
 	f, err := os.Open(p)
 	if err != nil {
@@ -125,12 +144,17 @@ func ParseConfigFile(p, version string) error {
 	configFmt := path.Ext(p)
 	switch configFmt {
 	case FORMAT_JSON, FORMAT_HJSON:
-		return hjson.Unmarshal(data, &GlobalConfig)
+		err = hjson.Unmarshal(data, &GlobalConfig)
 	case FORMAT_YAML:
-		return yaml.Unmarshal(data, &GlobalConfig)
+		err = yaml.Unmarshal(data, &GlobalConfig)
 	default:
 		return fmt.Errorf("config format %s unsupported yet", configFmt)
 	}
+	if err != nil {
+		return err
+	}
+	MergeEnv()
+	return nil
 }
 
 func MarshConfigFile() error {
