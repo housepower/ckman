@@ -126,6 +126,9 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 		return err
 	}
 	if conf.LogicCluster != nil {
+		if conf.Cluster == *conf.LogicCluster {
+			return errors.Errorf("cluster name %s must not the same with logic name", conf.Cluster)
+		}
 		logics, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
 		if err == nil {
 			for _, logic := range logics {
