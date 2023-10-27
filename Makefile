@@ -31,6 +31,7 @@ backend:
 	go build ${LDFLAGS} -o ckmanpasswd cmd/password/password.go
 	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
 	go build ${LDFLAGS} -o znodefix cmd/znodefix/znodefix.go
+	go build ${LDFLAGS} -o znode_count cmd/znodecnt/znodecount.go
 
 .PHONY: pre
 pre:
@@ -52,10 +53,7 @@ coverage:
 .PHONY: build
 build:pre frontend
 	swag init
-	go build ${LDFLAGS}
-	go build ${LDFLAGS} -o ckmanpasswd cmd/password/password.go
-	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
-	go build ${LDFLAGS} -o znodefix cmd/znodefix/znodefix.go
+	make backend VERSION=${VERSION}
 
 .PHONY:check
 check:pre
@@ -70,6 +68,7 @@ package:build
 	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/migrate ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/znodefix ${PKGFULLDIR_TMP}/bin
+	@mv ${SHDIR}/znode_count ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/yaml2json.${GOARCH} ${PKGFULLDIR_TMP}/bin/yaml2json

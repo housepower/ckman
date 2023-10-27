@@ -13,6 +13,7 @@ cscope.*
 ckmanpasswd
 migrate
 znodefix
+znode_count
 pkged.go
 static/dist/
 coverage.xml
