@@ -54,12 +54,8 @@ type ArchiveParams struct {
 	SshPort          int
 	Needsudo         bool
 	AuthenticateType int
+	TrySlotIntervals []string
 }
-
-var (
-	tryDateIntervals     = []string{"1 year", "1 month", "1 week", "1 day"}
-	tryDateTimeIntervals = []string{"1 year", "1 month", "1 week", "1 day", "4 hour", "1 hour"}
-)
 
 func NewArchiveParams(hosts []string, conf model.CKManClickHouseConfig, req model.ArchiveTableReq) ArchiveParams {
 	params := ArchiveParams{
@@ -87,6 +83,28 @@ func NewArchiveParams(hosts []string, conf model.CKManClickHouseConfig, req mode
 	if params.Database == "" {
 		params.Database = model.ClickHouseDefaultDB
 	}
+	begin, _ := time.Parse(DateTimeLayout, req.Begin)
+	end, _ := time.Parse(DateTimeLayout, req.End)
+	duration := end.Sub(begin)
+	if duration > time.Duration(30*24*time.Hour) {
+		params.TrySlotIntervals = []string{"1 year", "1 month", "1 week", "1 day", "4 hour", "1 hour"}
+	} else if duration > time.Duration(7*24*time.Hour) {
+		params.TrySlotIntervals = []string{"1 month", "1 week", "1 day", "4 hour", "1 hour"}
+	} else if duration > time.Duration(24*time.Hour) {
+		params.TrySlotIntervals = []string{"1 week", "1 day", "4 hour", "1 hour"}
+	} else {
+		params.TrySlotIntervals = []string{"1 day", "4 hour", "1 hour"}
+	}
+	if params.Format == "" {
+		params.Format = "csv"
+	}
+	if params.Suffix == "" {
+		params.Suffix = "." + strings.ToLower(params.Format)
+	}
+	if params.Cluster == "" {
+		params.Cluster = "default"
+	}
+
 	return params
 }
 
@@ -226,9 +244,10 @@ func (p *ArchiveParams) GetSlots(host, table string) (slots []time.Time, err err
 	sqlTmpl3 := "SELECT toStartOfInterval(`%s`, INTERVAL %s) AS slot, count() FROM %s WHERE `%s`>=%s AND `%s`<%s GROUP BY slot ORDER BY slot"
 	var tryIntervals []string
 	if colType == "Date" {
-		tryIntervals = tryDateIntervals
+		// remove 4 hour, 1 hour
+		tryIntervals = p.TrySlotIntervals[:len(p.TrySlotIntervals)-2]
 	} else {
-		tryIntervals = tryDateTimeIntervals
+		tryIntervals = p.TrySlotIntervals
 	}
 	for i, interval := range tryIntervals {
 		slots = slots[:0]
