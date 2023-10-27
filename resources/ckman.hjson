@@ -6,6 +6,7 @@
  
 {
   "server":{
+    //"ip":
     "port": 8808,
     "https": false,
     //certfile:

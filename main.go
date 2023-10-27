@@ -94,9 +94,8 @@ func main() {
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
 	//dump config to log must ensure the password not be decode
 	DumpConfig(conf)
-	selfIP := common.GetOutboundIP().String()
 	if config.GlobalConfig.Server.Ip == "" {
-		config.GlobalConfig.Server.Ip = selfIP
+		config.GlobalConfig.Server.Ip = common.GetOutboundIP().String()
 	}
 	signalCh := make(chan os.Signal, 1)
 
@@ -110,7 +109,7 @@ func main() {
 	if err != nil {
 		log.Logger.Fatalf("Failed to init nacos client, %v", err)
 	}
-	err = nacosClient.Start(selfIP, config.GlobalConfig.Server.Port)
+	err = nacosClient.Start(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
 	if err != nil {
 		log.Logger.Fatalf("Failed to start nacos client, %v", err)
 	}
@@ -120,7 +119,7 @@ func main() {
 		value.(*zookeeper.ZkService).Conn.Close()
 	})
 
-	runnerServ := runner.NewRunnerService(selfIP, config.GlobalConfig.Server)
+	runnerServ := runner.NewRunnerService(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server)
 	runnerServ.Start()
 	defer runnerServ.Stop()
 
@@ -136,7 +135,7 @@ func main() {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}
 	defer svr.Stop()
-	log.Logger.Infof("start http server %s:%d success", selfIP, config.GlobalConfig.Server.Port)
+	log.Logger.Infof("start http server %s:%d success", config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
 
 	//block here, waiting for terminal signal
 	handleSignal(signalCh)
