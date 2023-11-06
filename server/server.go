@@ -58,7 +58,7 @@ func (server *ApiServer) Start() error {
 	r.Use(gin.CustomRecoveryWithWriter(nil, handlePanic))
 
 	controller.TokenCache = cache.New(time.Duration(server.config.Server.SessionTimeout)*time.Second, time.Minute)
-	userController := controller.NewUserController(server.config)
+	userController := controller.NewUserController(server.config, router.WrapMsg)
 
 	r.Use(Serve("/", EmbedFolder(server.fs, "static/dist")))
 	r.NoRoute(func(c *gin.Context) {
@@ -103,6 +103,9 @@ func (server *ApiServer) Start() error {
 	groupV1 := groupApi.Group("/v1")
 	router.InitRouterV1(groupV1, server.config, server.signal)
 
+	groupV2 := groupApi.Group("/v2")
+	router.InitRouterV2(groupV2, server.config, server.signal)
+
 	bind := fmt.Sprintf(":%d", server.config.Server.Port)
 	server.svr = &http.Server{
 		Addr:         bind,
@@ -139,7 +142,7 @@ func (server *ApiServer) Stop() error {
 // Log runtime error stack to make debug easy.
 func handlePanic(c *gin.Context, err interface{}) {
 	log.Logger.Errorf("server panic: %+v\n%v", err, string(debug.Stack()))
-	model.WrapMsg(c, model.UNKNOWN, err)
+	router.WrapMsg(c, model.E_UNKNOWN, err)
 }
 
 // Replace gin.Logger middleware to customize log format.
@@ -186,7 +189,7 @@ func ginJWTAuth() gin.HandlerFunc {
 			var rsaEncrypt common.RSAEncryption
 			decode, err := rsaEncrypt.Decode([]byte(uEnc), config.GlobalConfig.Server.PublicKey)
 			if err != nil {
-				model.WrapMsg(c, model.JWT_TOKEN_INVALID, nil)
+				router.WrapMsg(c, model.E_JWT_TOKEN_INVALID, nil)
 				c.Abort()
 				return
 			}
@@ -194,12 +197,12 @@ func ginJWTAuth() gin.HandlerFunc {
 			var userToken common.UserTokenModel
 			err = json.Unmarshal(decode, &userToken)
 			if err != nil {
-				model.WrapMsg(c, model.JWT_TOKEN_INVALID, nil)
+				router.WrapMsg(c, model.E_JWT_TOKEN_INVALID, nil)
 				c.Abort()
 				return
 			}
 			if time.Now().UnixNano()/1e6-userToken.Timestamp > userToken.Duration*1000 {
-				model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, nil)
+				router.WrapMsg(c, model.E_JWT_TOKEN_EXPIRED, nil)
 				c.Abort()
 				return
 			}
@@ -209,22 +212,22 @@ func ginJWTAuth() gin.HandlerFunc {
 		// jwt
 		token := c.Request.Header.Get("token")
 		if token == "" {
-			model.WrapMsg(c, model.JWT_TOKEN_NONE, nil)
+			router.WrapMsg(c, model.E_JWT_TOKEN_NONE, nil)
 			c.Abort()
 			return
 		}
 
 		j := common.NewJWT()
 		claims, code := j.ParserToken(token)
-		if code != model.SUCCESS {
-			model.WrapMsg(c, code, nil)
+		if code != model.E_SUCCESS {
+			router.WrapMsg(c, code, nil)
 			c.Abort()
 			return
 		}
 
 		// Verify Expires
 		if _, ok := controller.TokenCache.Get(token); !ok {
-			model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, nil)
+			router.WrapMsg(c, model.E_JWT_TOKEN_EXPIRED, nil)
 			c.Abort()
 			return
 		}
@@ -260,7 +263,7 @@ func ginJWTAuth() gin.HandlerFunc {
 		}
 		if claims.ClientIP != c.ClientIP() {
 			err := errors.Errorf("cliams.ClientIP: %s, c.ClientIP:%s", claims.ClientIP, c.ClientIP())
-			model.WrapMsg(c, model.JWT_TOKEN_EXPIRED, err)
+			router.WrapMsg(c, model.E_JWT_TOKEN_EXPIRED, err)
 			c.Abort()
 			return
 		}
@@ -286,7 +289,7 @@ func PromHttpSD(c *gin.Context) {
 	var clusters []model.CKManClickHouseConfig
 	schema := c.Param("schema")
 	if schema != "clickhouse" && schema != "zookeeper" && schema != "node" {
-		model.WrapMsg(c, model.INVALID_PARAMS, fmt.Errorf("%s is not a valid schema", schema))
+		router.WrapMsg(c, model.E_INVALID_PARAMS, fmt.Errorf("%s is not a valid schema", schema))
 		return
 	}
 	clusterName := c.Query("cluster")

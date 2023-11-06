@@ -17,13 +17,15 @@ import (
 var TokenCache *cache.Cache
 
 type UserController struct {
+	Controller
 	config *config.CKManConfig
 }
 
-func NewUserController(config *config.CKManConfig) *UserController {
-	ck := &UserController{}
-	ck.config = config
-	return ck
+func NewUserController(config *config.CKManConfig, wrapfunc Wrapfunc) *UserController {
+	uc := &UserController{}
+	uc.config = config
+	uc.wrapfunc = wrapfunc
+	return uc
 }
 
 // @Summary Login
@@ -36,28 +38,28 @@ func NewUserController(config *config.CKManConfig) *UserController {
 // @Failure 200 {string} json "{"retCode":"5032","retMsg":"password verify failed","entity":""}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{"username":"ckman","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"}}"
 // @Router /api/login [post]
-func (d *UserController) Login(c *gin.Context) {
+func (controller *UserController) Login(c *gin.Context) {
 	var req model.LoginReq
 	c.Request.Header.Get("")
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 
 	if req.Username != common.DefaultUserName {
-		model.WrapMsg(c, model.USER_VERIFY_FAIL, nil)
+		controller.wrapfunc(c, model.E_USER_VERIFY_FAIL, nil)
 		return
 	}
 
-	passwordFile := path.Join(filepath.Dir(d.config.ConfigFile), "password")
+	passwordFile := path.Join(filepath.Dir(controller.config.ConfigFile), "password")
 	data, err := os.ReadFile(passwordFile)
 	if err != nil {
-		model.WrapMsg(c, model.GET_USER_PASSWORD_FAIL, err)
+		controller.wrapfunc(c, model.E_GET_USER_PASSWORD_FAIL, err)
 		return
 	}
 
 	if pass := common.ComparePassword(string(data), req.Password); !pass {
-		model.WrapMsg(c, model.PASSWORD_VERIFY_FAIL, nil)
+		controller.wrapfunc(c, model.E_PASSWORD_VERIFY_FAIL, nil)
 		return
 	}
 
@@ -72,7 +74,7 @@ func (d *UserController) Login(c *gin.Context) {
 	}
 	token, err := j.CreateToken(claims)
 	if err != nil {
-		model.WrapMsg(c, model.CREAT_TOKEN_FAIL, err)
+		controller.wrapfunc(c, model.E_CREAT_TOKEN_FAIL, err)
 		return
 	}
 
@@ -80,9 +82,9 @@ func (d *UserController) Login(c *gin.Context) {
 		Username: req.Username,
 		Token:    token,
 	}
-	TokenCache.SetDefault(token, time.Now().Add(time.Second*time.Duration(d.config.Server.SessionTimeout)).Unix())
+	TokenCache.SetDefault(token, time.Now().Add(time.Second*time.Duration(controller.config.Server.SessionTimeout)).Unix())
 
-	model.WrapMsg(c, model.SUCCESS, rsp)
+	controller.wrapfunc(c, model.E_SUCCESS, rsp)
 }
 
 // @Summary Logout
@@ -91,12 +93,12 @@ func (d *UserController) Login(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Router /api/logout [put]
-func (d *UserController) Logout(c *gin.Context) {
+func (controller *UserController) Logout(c *gin.Context) {
 	if value, exists := c.Get("token"); exists {
 		token := value.(string)
 		TokenCache.Delete(token)
 		c.Set("token", "")
 	}
 
-	model.WrapMsg(c, model.SUCCESS, nil)
+	controller.wrapfunc(c, model.E_SUCCESS, nil)
 }

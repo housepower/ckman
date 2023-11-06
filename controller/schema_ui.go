@@ -20,7 +20,9 @@ const (
 
 var SchemaUIMapping map[string]common.ConfigParams
 
-type SchemaUIController struct{}
+type SchemaUIController struct {
+	Controller
+}
 
 var schemaHandleFunc = map[string]func() common.ConfigParams{
 	GET_SCHEMA_UI_DEPLOY:    RegistCreateClusterSchema,
@@ -54,8 +56,12 @@ func getPkgLists() []common.Candidate {
 	return pkgLists
 }
 
-func NewSchemaUIController() *SchemaUIController {
-	return &SchemaUIController{}
+func NewSchemaUIController(wrapfunc Wrapfunc) *SchemaUIController {
+	return &SchemaUIController{
+		Controller: Controller{
+			wrapfunc: wrapfunc,
+		},
+	}
 }
 
 func RegistCreateClusterSchema() common.ConfigParams {
@@ -1241,10 +1247,10 @@ func (ui *SchemaUIController) RegistSchemaInstance() {
 // @Success 200 {string} json ""
 // @Failure 200 {string} json "{"retCode":"5206","retMsg":"get schema ui failed","entity":nil}"
 // @Router /api/v1/ui/schema [get]
-func (ui *SchemaUIController) GetUISchema(c *gin.Context) {
+func (controller *SchemaUIController) GetUISchema(c *gin.Context) {
 	Type := c.Query("type")
 	if Type == "" {
-		model.WrapMsg(c, model.INVALID_PARAMS, nil)
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, nil)
 		return
 	}
 
@@ -1256,12 +1262,12 @@ func (ui *SchemaUIController) GetUISchema(c *gin.Context) {
 		typo := strings.ToLower(Type)
 		params := GetSchemaParams(typo, conf)
 		if params == nil {
-			model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, errors.Errorf("type %s is not regist", typo))
+			controller.wrapfunc(c, model.E_INVALID_VARIABLE, errors.Errorf("type %s is not regist", typo))
 			return
 		}
 		schema, err = params.MarshalSchema(conf)
 		if err != nil {
-			model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, err)
+			controller.wrapfunc(c, model.E_MARSHAL_FAILED, err)
 			return
 		}
 	case GET_SCHEMA_UI_REBALANCE:
@@ -1269,16 +1275,16 @@ func (ui *SchemaUIController) GetUISchema(c *gin.Context) {
 		typo := strings.ToLower(Type)
 		params, ok := SchemaUIMapping[typo]
 		if !ok {
-			model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, err)
+			controller.wrapfunc(c, model.E_DATA_NOT_EXIST, err)
 			return
 		}
 		schema, err = params.MarshalSchema(req)
 		if err != nil {
-			model.WrapMsg(c, model.GET_SCHEMA_UI_FAILED, err)
+			controller.wrapfunc(c, model.E_MARSHAL_FAILED, err)
 			return
 		}
 	}
-	model.WrapMsg(c, model.SUCCESS, schema)
+	controller.wrapfunc(c, model.E_SUCCESS, schema)
 }
 
 func GetSchemaParams(typo string, conf model.CKManClickHouseConfig) common.ConfigParams {

@@ -37,12 +37,12 @@ func (j *JWT) ParserToken(tokenString string) (*CustomClaims, string) {
 	})
 
 	if _, ok := err.(*jwt.ValidationError); ok {
-		return nil, model.JWT_TOKEN_INVALID
+		return nil, model.E_JWT_TOKEN_INVALID
 	}
 
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		return claims, model.SUCCESS
+		return claims, model.E_SUCCESS
 	} else {
-		return nil, model.JWT_TOKEN_INVALID
+		return nil, model.E_JWT_TOKEN_INVALID
 	}
 }

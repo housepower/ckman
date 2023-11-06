@@ -101,12 +101,12 @@ func GetCkNodeService(clusterName string, node string) (*CkService, error) {
 	}
 }
 
-func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
+func GetCkClusterConfig(conf *model.CKManClickHouseConfig) (string, error) {
 	var replicas []model.CkReplica
 
 	service := NewCkService(conf)
 	if err := service.InitCkService(); err != nil {
-		return err
+		return model.E_CH_CONNECT_FAILED, err
 	}
 	hosts := conf.Hosts
 	conf.Hosts = make([]string, 0)
@@ -114,10 +114,10 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 
 	value, err := service.QueryInfo(fmt.Sprintf("SELECT cluster, shard_num, replica_num, host_name, host_address FROM system.clusters WHERE cluster='%s' ORDER BY cluster, shard_num, replica_num", conf.Cluster))
 	if err != nil {
-		return err
+		return model.E_DATA_SELECT_FAILED, err
 	}
 	if len(value) == 1 {
-		return errors.Errorf("cluster %s is not exist, or hosts %v is not in cluster %s", conf.Cluster, hosts, conf.Cluster)
+		return model.E_RECORD_NOT_FOUND, errors.Errorf("cluster %s is not exist, or hosts %v is not in cluster %s", conf.Cluster, hosts, conf.Cluster)
 	}
 	shardNum := uint32(0)
 	for i := 1; i < len(value); i++ {
@@ -152,11 +152,11 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) error {
 
 	value, err = service.QueryInfo("SELECT version()")
 	if err != nil {
-		return err
+		return model.E_DATA_SELECT_FAILED, err
 	}
 	conf.Version = value[1][0].(string)
 
-	return nil
+	return model.E_SUCCESS, nil
 }
 
 func getNodeInfo(service *CkService) (string, string) {

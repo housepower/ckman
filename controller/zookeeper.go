@@ -18,10 +18,15 @@ import (
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type ZookeeperController struct {
+	Controller
 }
 
-func NewZookeeperController() *ZookeeperController {
-	ck := &ZookeeperController{}
+func NewZookeeperController(wrapfunc Wrapfunc) *ZookeeperController {
+	ck := &ZookeeperController{
+		Controller: Controller{
+			wrapfunc: wrapfunc,
+		},
+	}
 	return ck
 }
 
@@ -34,11 +39,11 @@ func NewZookeeperController() *ZookeeperController {
 // @Failure 200 {string} json "{"retCode":"5202","retMsg":"cluster not exist","entity":null}"
 // @Failure 200 {string} json "{"retCode":"5080","retMsg":"get zk status fail","entity":null}"
 // @Router /api/v1/zk/status/{clusterName} [get]
-func (zk *ZookeeperController) GetStatus(c *gin.Context) {
+func (controller *ZookeeperController) GetStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
@@ -49,7 +54,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 		}
 		body, err := getZkStatus(node, conf.ZkStatusPort)
 		if err != nil {
-			model.WrapMsg(c, model.GET_ZK_STATUS_FAIL, fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
+			controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
 			return
 		}
 		_ = json.Unmarshal(body, &tmp)
@@ -57,7 +62,7 @@ func (zk *ZookeeperController) GetStatus(c *gin.Context) {
 		zkList[index] = tmp
 	}
 
-	model.WrapMsg(c, model.SUCCESS, zkList)
+	controller.wrapfunc(c, model.E_SUCCESS, zkList)
 }
 
 func getZkStatus(host string, port int) ([]byte, error) {
@@ -95,23 +100,23 @@ func getZkStatus(host string, port int) ([]byte, error) {
 // @Failure 200 {string} json "{"retCode":"5080","retMsg":"get zk status fail","entity":null}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{"header":[["vm101106","vm101108"],["vm102114","vm101110"],["vm102116","vm102115"]],"tables":[{"name":"sensor_dt_result_online","values":[["l1846","f1846"],["l1845","f1845"],["l1846","f1846"]]}]}}"
 // @Router /api/v1/zk/replicated_table/{clusterName} [get]
-func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
+func (controller *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 
 	zkService, err := zookeeper.GetZkService(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, fmt.Sprintf("get zookeeper service fail: %v", err))
+		controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, fmt.Sprintf("get zookeeper service fail: %v", err))
 		return
 	}
 
 	tables, err := zkService.GetReplicatedTableStatus(&conf)
 	if err != nil {
-		model.WrapMsg(c, model.GET_ZK_TABLE_STATUS_FAIL, err)
+		controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
 		return
 	}
 
@@ -128,5 +133,5 @@ func (zk *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 		Tables: tables,
 	}
 
-	model.WrapMsg(c, model.SUCCESS, resp)
+	controller.wrapfunc(c, model.E_SUCCESS, resp)
 }

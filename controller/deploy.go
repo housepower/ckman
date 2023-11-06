@@ -15,12 +15,14 @@ import (
 )
 
 type DeployController struct {
+	Controller
 	config *config.CKManConfig
 }
 
-func NewDeployController(config *config.CKManConfig) *DeployController {
+func NewDeployController(config *config.CKManConfig, wrapfunc Wrapfunc) *DeployController {
 	deploy := &DeployController{}
 	deploy.config = config
+	deploy.wrapfunc = wrapfunc
 	return deploy
 }
 
@@ -38,18 +40,18 @@ func NewDeployController(config *config.CKManConfig) *DeployController {
 // @Failure 200 {string} json "{"retCode":"5016","retMsg":"check package failed","entity":""}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
 // @Router /api/v1/deploy/ck [post]
-func (d *DeployController) DeployCk(c *gin.Context) {
+func (controller *DeployController) DeployCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
 	err := DecodeRequestBody(c.Request, &conf, GET_SCHEMA_UI_DEPLOY)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 
 	force := common.TernaryExpression(c.Query("force") == "true", true, false).(bool)
 
 	if err := checkDeployParams(&conf, force); err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, err)
 		return
 	}
 
@@ -58,10 +60,10 @@ func (d *DeployController) DeployCk(c *gin.Context) {
 
 	taskId, err := deploy.CreateNewTask(conf.Cluster, model.TaskTypeCKDeploy, tmp)
 	if err != nil {
-		model.WrapMsg(c, model.DEPLOY_CK_CLUSTER_ERROR, err)
+		controller.wrapfunc(c, model.E_DATA_INSERT_FAILED, err)
 		return
 	}
-	model.WrapMsg(c, model.SUCCESS, taskId)
+	controller.wrapfunc(c, model.E_SUCCESS, taskId)
 }
 
 func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {

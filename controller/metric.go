@@ -3,6 +3,10 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"html/template"
+	"strconv"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
@@ -10,9 +14,6 @@ import (
 	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/service/prometheus"
 	"github.com/pkg/errors"
-	"html/template"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -22,13 +23,15 @@ const (
 )
 
 type MetricController struct {
-	config      *config.CKManConfig
+	Controller
+	config *config.CKManConfig
 }
 
-func NewMetricController(config *config.CKManConfig) *MetricController {
-	ck := &MetricController{}
-	ck.config = config
-	return ck
+func NewMetricController(config *config.CKManConfig, wrapfunc Wrapfunc) *MetricController {
+	mc := &MetricController{}
+	mc.config = config
+	mc.wrapfunc = wrapfunc
+	return mc
 }
 
 // @Summary Query
@@ -41,12 +44,12 @@ func NewMetricController(config *config.CKManConfig) *MetricController {
 // @Failure 200 {string} json "{"retCode":"5050","retMsg":"get query metric failed","entity":""}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"value":[1606290000,"2"]}]}"
 // @Router /api/v1/metric/query/{clusterName} [get]
-func (m *MetricController) Query(c *gin.Context) {
+func (controller *MetricController) Query(c *gin.Context) {
 	var params model.MetricQueryReq
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 	promService := prometheus.NewPrometheusService(fmt.Sprintf("%s:%d", conf.PromHost, conf.PromPort), 10)
@@ -54,18 +57,18 @@ func (m *MetricController) Query(c *gin.Context) {
 	params.Metric = c.Query("metric")
 	time, err := strconv.ParseInt(c.Query("time"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 	params.Time = time
 
 	value, err := promService.QueryMetric(&params)
 	if err != nil {
-		model.WrapMsg(c, model.QUERY_METRIC_FAIL, err)
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, value)
+	controller.wrapfunc(c, model.E_SUCCESS, value)
 }
 
 // @Summary Query Range
@@ -80,12 +83,12 @@ func (m *MetricController) Query(c *gin.Context) {
 // @Failure 200 {string} json "{"retCode":"5051","retMsg":"get range-metric failed","entity":""}"
 // @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"values":[[1606290000,"2"],[1606290060,"2"],[1606290120,"2"]]}]}"
 // @Router /api/v1/metric/query_range/{clusterName} [get]
-func (m *MetricController) QueryRange(c *gin.Context) {
+func (controller *MetricController) QueryRange(c *gin.Context) {
 	var params model.MetricQueryRangeReq
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
-		model.WrapMsg(c, model.CLUSTER_NOT_EXIST, fmt.Sprintf("cluster %s does not exist", clusterName))
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
 	promService := prometheus.NewPrometheusService(fmt.Sprintf("%s:%d", conf.PromHost, conf.PromPort), 10)
@@ -98,7 +101,7 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 		hosts = conf.ZkNodes
 	} else {
 		err := errors.Wrap(nil, fmt.Sprintf("title %s invalid", params.Title))
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 	templHosts := "(" + strings.Join(hosts, "|") + "):.*"
@@ -108,13 +111,13 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 	replace["hosts"] = templHosts
 	t, err := template.New("T1").Parse(metric)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 	buf := new(bytes.Buffer)
 	err = t.Execute(buf, replace)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 
@@ -122,17 +125,17 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 	log.Logger.Debugf("metric: %s", params.Metric)
 	start, err := strconv.ParseInt(c.Query("start"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 	end, err := strconv.ParseInt(c.Query("end"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 	step, err := strconv.ParseInt(c.Query("step"), 10, 64)
 	if err != nil {
-		model.WrapMsg(c, model.INVALID_PARAMS, err)
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 	params.Start = start
@@ -141,9 +144,9 @@ func (m *MetricController) QueryRange(c *gin.Context) {
 
 	value, err := promService.QueryRangeMetric(&params)
 	if err != nil {
-		model.WrapMsg(c, model.QUERY_RANGE_METRIC_FAIL, err)
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
 		return
 	}
 
-	model.WrapMsg(c, model.SUCCESS, value)
+	controller.wrapfunc(c, model.E_SUCCESS, value)
 }
