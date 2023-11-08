@@ -26,20 +26,18 @@ func NewDeployController(config *config.CKManConfig, wrapfunc Wrapfunc) *DeployC
 	return deploy
 }
 
-// @Summary Deploy clickhouse
-// @Description Deploy clickhouse
+// @Summary 创建集群
+// @Description 使用ckman创建集群
 // @version 1.0
 // @Security ApiKeyAuth
+// @Tags deploy
+// @Accept  json
 // @Param req body model.CKManClickHouseConfig true "request body"
-// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5011","retMsg":"init package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5012","retMsg":"prepare package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5013","retMsg":"install package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5014","retMsg":"config package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5015","retMsg":"start package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5016","retMsg":"check package failed","entity":""}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
-// @Router /api/v1/deploy/ck [post]
+// @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":"5003","msg":"数据校验失败","data":""}"
+// @Failure 200 {string} json "{"code":"5801","msg":"数据插入失败","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":nil}"
+// @Router /api/v2/deploy/ck [post]
 func (controller *DeployController) DeployCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
 	err := DecodeRequestBody(c.Request, &conf, GET_SCHEMA_UI_DEPLOY)

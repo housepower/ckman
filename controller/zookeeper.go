@@ -30,15 +30,17 @@ func NewZookeeperController(wrapfunc Wrapfunc) *ZookeeperController {
 	return ck
 }
 
-// @Summary Get Zookeeper cluster status
-// @Description Get Zookeeper cluster status
+// @Summary 获取zookeeper状态
+// @Description 访问8080端口，获取mntr信息
 // @version 1.0
 // @Security ApiKeyAuth
+// @Tags zookeeper
+// @Accept  json
 // @Param clusterName path string true "cluster name" default(test)
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{\"host\":\"192.168.110.8\",\"version\":\"3.8.0\",\"server_state\":\"follower\",\"peer_state\":\"following - broadcast\",\"avg_latency\":0.1456,\"approximate_data_size\":1451273,\"znode_count\":6485,\"outstanding_requests\":0,\"watch_count\":146},{\"host\":\"192.168.110.12\",\"version\":\"3.8.0\",\"server_state\":\"leader\",\"peer_state\":\"leading - broadcast\",\"avg_latency\":0.1118,\"approximate_data_size\":1451273,\"znode_count\":6485,\"outstanding_requests\":0,\"watch_count\":1},{\"host\":\"192.168.110.16\",\"version\":\"3.8.0\",\"server_state\":\"follower\",\"peer_state\":\"following - broadcast\",\"avg_latency\":0.2062,\"approximate_data_size\":1451273,\"znode_count\":6485,\"outstanding_requests\":0,\"watch_count\":58}]}"
-// @Failure 200 {string} json "{"retCode":"5202","retMsg":"cluster not exist","entity":null}"
-// @Failure 200 {string} json "{"retCode":"5080","retMsg":"get zk status fail","entity":null}"
-// @Router /api/v1/zk/status/{clusterName} [get]
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{\"host\":\"192.168.110.8\",\"version\":\"3.8.0\",\"server_state\":\"follower\",\"peer_state\":\"following - broadcast\",\"avg_latency\":0.1456,\"approximate_data_size\":1451273,\"znode_count\":6485,\"outstanding_requests\":0,\"watch_count\":146},{\"host\":\"192.168.110.12\",\"version\":\"3.8.0\",\"server_state\":\"leader\",\"peer_state\":\"leading - broadcast\",\"avg_latency\":0.1118,\"approximate_data_size\":1451273,\"znode_count\":6485,\"outstanding_requests\":0,\"watch_count\":1},{\"host\":\"192.168.110.16\",\"version\":\"3.8.0\",\"server_state\":\"follower\",\"peer_state\":\"following - broadcast\",\"avg_latency\":0.2062,\"approximate_data_size\":1451273,\"znode_count\":6485,\"outstanding_requests\":0,\"watch_count\":58}]}"
+// @Failure 200 {string} json "{"code":"5202","msg":"cluster not exist","data":null}"
+// @Failure 200 {string} json "{"code":"5080","msg":"get zk status fail","data":null}"
+// @Router /api/v2/zk/status/{clusterName} [get]
 func (controller *ZookeeperController) GetStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -91,15 +93,17 @@ func getZkStatus(host string, port int) ([]byte, error) {
 	return body, nil
 }
 
-// @Summary Get replicated table in  Zookeeper status
-// @Description Get replicated table in Zookeeper status
+// @Summary 获取复制表状态
+// @Description 获取ReplicatedMergeTree表的log_pointer状态
 // @version 1.0
 // @Security ApiKeyAuth
+// @Tags zookeeper
+// @Accept  json
 // @Param clusterName path string true "cluster name" default(test)
-// @Failure 200 {string} json "{"retCode":"5202","retMsg":"cluster not exist","entity":null}"
-// @Failure 200 {string} json "{"retCode":"5080","retMsg":"get zk status fail","entity":null}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{"header":[["vm101106","vm101108"],["vm102114","vm101110"],["vm102116","vm102115"]],"tables":[{"name":"sensor_dt_result_online","values":[["l1846","f1846"],["l1845","f1845"],["l1846","f1846"]]}]}}"
-// @Router /api/v1/zk/replicated_table/{clusterName} [get]
+// @Failure 200 {string} json "{"code":"5202","msg":"cluster not exist","data":null}"
+// @Failure 200 {string} json "{"code":"5080","msg":"get zk status fail","data":null}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":{"header":[["vm101106","vm101108"],["vm102114","vm101110"],["vm102116","vm102115"]],"tables":[{"name":"sensor_dt_result_online","values":[["l1846","f1846"],["l1845","f1845"],["l1846","f1846"]]}]}}"
+// @Router /api/v2/zk/replicated-table/{clusterName} [get]
 func (controller *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)

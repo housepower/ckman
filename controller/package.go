@@ -36,15 +36,17 @@ func NewPackageController(config *config.CKManConfig, wrapfunc Wrapfunc) *Packag
 	return pc
 }
 
-// @Summary Upload package
-// @Description Upload package
+// @Summary 上传安装包
+// @Description 需要同时上传三个包，包括client、server和common
 // @version 1.0
 // @Security ApiKeyAuth
+// @Tags package
+// @Accept  json
 // @accept multipart/form-data
 // @Param package formData file true "package"
-// @Failure 200 {string} json "{"retCode":"5004","retMsg":"upload local package failed","entity":""}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":null}"
-// @Router /api/v1/package [post]
+// @Failure 200 {string} json "{"code":"5202","msg":"upload local package failed","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
+// @Router /api/v2/package [post]
 func (controller *PackageController) Upload(c *gin.Context) {
 	localFile, err := ParserFormData(c.Request)
 	if err != nil {
@@ -165,14 +167,15 @@ func UploadFileByURL(url string, localFile string) error {
 	return nil
 }
 
-// @Summary Get package list
-// @Description Get package list
+// @Summary 获取安装包列表
+// @Description 获取安装包列表
 // @version 1.0
 // @Security ApiKeyAuth
+// @Tags package
+// @Accept  json
 // @Param pkgType query string true "pkgType" default(all)
-// @Failure 200 {string} json "{"retCode":"5005","retMsg":"get package list failed","entity":""}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"version":"22.3.9.19","pkgType":"x86_64.rpm","pkgName":"clickhouse-common-static-22.3.9.19.x86_64.rpm"}]}"
-// @Router /api/v1/package [get]
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"version":"22.3.9.19","pkgType":"x86_64.rpm","pkgName":"clickhouse-common-static-22.3.9.19.x86_64.rpm"}]}"
+// @Router /api/v2/package [get]
 func (controller *PackageController) List(c *gin.Context) {
 	pkgType := c.Query("pkgType")
 	if pkgType == "" {
@@ -205,16 +208,19 @@ func (controller *PackageController) List(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, resp)
 }
 
-// @Summary Delete package
-// @Description Delete package
+// @Summary 删除安装包
+// @Description 删除安装包
 // @version 1.0
 // @Security ApiKeyAuth
+// @Tags package
+// @Accept  json
 // @Param packageVersion query string true "package version" default(22.3.9.19)
 // @Param pkgType query string true "package type" default(x86_64.rpm)
-// @Failure 200 {string} json "{"retCode":"5006","retMsg":"delete local package failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5007","retMsg":"delete peer package failed","entity":""}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":null}"
-// @Router /api/v1/package [delete]
+// @Failure 200 {string} json "{"code":"5201","msg":"文件不存在","data":""}"
+// @Failure 200 {string} json "{"code":"5803","msg":"删除数据失败","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"查询数据失败","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
+// @Router /api/v2/package [delete]
 func (controller *PackageController) Delete(c *gin.Context) {
 	packageVersion := c.Query("packageVersion")
 	packageType := c.Query("pkgType")

@@ -8,7 +8,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/pprof v1.3.0
-	github.com/gin-gonic/gin v1.7.2
+	github.com/gin-gonic/gin v1.7.4
 	github.com/go-errors/errors v1.0.1
 	github.com/go-zookeeper/zk v1.0.2
 	github.com/json-iterator/go v1.1.12
@@ -33,6 +33,7 @@ require (
 )
 
 require (
+	gitee.com/youbeiwuhuan/knife4go/gin-swagger-knife v0.0.0-20230805103115-dea42f6c5fde
 	github.com/ClickHouse/clickhouse-go/v2 v2.9.3
 	github.com/arl/statsviz v0.5.1
 	github.com/aws/aws-sdk-go v1.27.0

@@ -21,12 +21,7 @@ func NewConfigController(ch chan os.Signal, wrapfunc Wrapfunc) *ConfigController
 	return cf
 }
 
-// @Summary Get Version
-// @Description Get Version
-// @version 1.0
-// @Security ApiKeyAuth
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":"v1.3.1"}"
-// @Router /api/v1/version [get]
+// 该接口不暴露给用户
 func (controller *ConfigController) GetVersion(c *gin.Context) {
 	version := strings.Split(config.GlobalConfig.Version, "-")[0]
 	controller.wrapfunc(c, model.E_SUCCESS, version)

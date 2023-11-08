@@ -28,15 +28,16 @@ func NewUserController(config *config.CKManConfig, wrapfunc Wrapfunc) *UserContr
 	return uc
 }
 
-// @Summary Login
+// @Summary 用户登录
 // @Description Login
-// @version 1.0
+// @Security ApiKeyAuth
+// @Tags user
+// @Accept  json
 // @Param req body model.LoginReq true "request body"
-// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5030","retMsg":"user verify failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5031","retMsg":"get user and password failed","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5032","retMsg":"password verify failed","entity":""}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{"username":"ckman","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"}}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"成功","data":null}"
+// @Failure 200 {string} json "{"retCode":"5000", "retMsg":"参数错误", "data":null}"
+// @Failure 200 {string} json "{"retCode":"5030", "retMsg":"用户校验失败", "data":null}"
+// @Failure 200 {string} json "{"retCode":"5031", "retMsg":"密码校验失败", "data":null}"
 // @Router /api/login [post]
 func (controller *UserController) Login(c *gin.Context) {
 	var req model.LoginReq
@@ -87,11 +88,12 @@ func (controller *UserController) Login(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, rsp)
 }
 
-// @Summary Logout
+// @Summary 退出登录
 // @Description Logout
-// @version 1.0
 // @Security ApiKeyAuth
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"success","entity":nil}"
+// @Tags user
+// @Accept  json
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"成功","data":null}"
 // @Router /api/logout [put]
 func (controller *UserController) Logout(c *gin.Context) {
 	if value, exists := c.Get("token"); exists {

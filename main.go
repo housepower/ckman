@@ -48,8 +48,8 @@ var (
 //go:embed static/dist
 var fs embed.FS
 
-// @title Swagger Example API
-// @version 1.0
+// @title CKMAN API
+// @version 2.0
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name token

@@ -34,16 +34,18 @@ func NewMetricController(config *config.CKManConfig, wrapfunc Wrapfunc) *MetricC
 	return mc
 }
 
-// @Summary Query
-// @Description Query
+// @Summary 查询性能指标
+// @Description 通过promQL查询性能指标
 // @version 1.0
 // @Security ApiKeyAuth
+// @Tags metrics
+// @Accept  json
 // @Param metric query string true "metric name" default(ClickHouseMetrics_Read)
 // @Param time query string true "metric time" default(1606290000)
-// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5050","retMsg":"get query metric failed","entity":""}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"value":[1606290000,"2"]}]}"
-// @Router /api/v1/metric/query/{clusterName} [get]
+// @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"value":[1606290000,"2"]}]}"
+// @Router /api/v2/metric/query/{clusterName} [get]
 func (controller *MetricController) Query(c *gin.Context) {
 	var params model.MetricQueryReq
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -71,18 +73,20 @@ func (controller *MetricController) Query(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, value)
 }
 
-// @Summary Query Range
-// @Description Query Range
+// @Summary 查询范围指标
+// @Description 通过PromQL查询范围指标，可指定时间段
 // @version 1.0
 // @Security ApiKeyAuth
+// @Tags metrics
+// @Accept  json
 // @Param metric query string true "metric name" default(ClickHouseMetrics_Read)
 // @Param start query string true "start time" default(1606290000)
 // @Param end query string true "end time" default(1606290120)
 // @Param step query string true "step window" default(60)
-// @Failure 200 {string} json "{"retCode":"5000","retMsg":"invalid params","entity":""}"
-// @Failure 200 {string} json "{"retCode":"5051","retMsg":"get range-metric failed","entity":""}"
-// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"values":[[1606290000,"2"],[1606290060,"2"],[1606290120,"2"]]}]}"
-// @Router /api/v1/metric/query_range/{clusterName} [get]
+// @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"values":[[1606290000,"2"],[1606290060,"2"],[1606290120,"2"]]}]}"
+// @Router /api/v2/metric/query-range/{clusterName} [get]
 func (controller *MetricController) QueryRange(c *gin.Context) {
 	var params model.MetricQueryRangeReq
 	clusterName := c.Param(ClickHouseClusterPath)
