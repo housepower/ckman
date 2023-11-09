@@ -1,12 +1,10 @@
 package clickhouse
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"strings"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/MakeNowJust/heredoc"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
@@ -14,13 +12,13 @@ import (
 )
 
 // GetObjectListFromClickHouse
-func GetObjectListFromClickHouse(conn driver.Conn, query string) (names, statements []string, err error) {
+func GetObjectListFromClickHouse(conn *common.Conn, query string) (names, statements []string, err error) {
 	// Fetch data from any of specified services
 	log.Logger.Infof("Run query: %+v", query)
 
 	// Some data available, let's fetch it
-	var rows driver.Rows
-	if rows, err = conn.Query(context.Background(), query); err != nil {
+	var rows *common.Rows
+	if rows, err = conn.Query(query); err != nil {
 		err = errors.Wrapf(err, "")
 		return
 	}
@@ -38,7 +36,7 @@ func GetObjectListFromClickHouse(conn driver.Conn, query string) (names, stateme
 }
 
 // GetCreateReplicaObjects returns a list of objects that needs to be created on a host in a cluster
-func GetCreateReplicaObjects(conn driver.Conn, host, user, password string) (names, statements []string, err error) {
+func GetCreateReplicaObjects(conn *common.Conn, host, user, password string) (names, statements []string, err error) {
 	system_tables := fmt.Sprintf("remote('%s', system, tables, '%s', '%s')", host, user, password)
 
 	//default database is always exists
@@ -82,7 +80,7 @@ type LogicSchema struct {
 	Statements []string
 }
 
-func GetLogicSchema(conn driver.Conn, logicName, clusterName string, replica bool, database, tableName string) ([]LogicSchema, error) {
+func GetLogicSchema(conn *common.Conn, logicName, clusterName string, replica bool, database, tableName string) ([]LogicSchema, error) {
 	var engine, replacingengine string
 	var expr *regexp.Regexp
 	if replica {
@@ -119,7 +117,7 @@ INNER JOIN
     WHERE (engine = 'Distributed') AND match(create_table_query, 'Distributed.*\'%s\'')
 ) AS t2 ON (t1.database = t2.database) AND (t1.name = t2.localtbl)%s`, logicName, logicName, tbNameFilter)
 	log.Logger.Debugf("query:%s", query)
-	rows, err := conn.Query(context.Background(), query)
+	rows, err := conn.Query(query)
 	if err != nil {
 		return nil, errors.Wrap(err, "")
 	}

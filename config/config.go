@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/hjson/hjson-go/v4"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
@@ -50,9 +51,10 @@ type CKManConfig struct {
 }
 
 type ClickHouseOpts struct {
-	MaxOpenConns    int `yaml:"max_open_conns" json:"max_open_conns"`
-	MaxIdleConns    int `yaml:"max_idle_conns" json:"max_idle_conns"`
-	ConnMaxIdleTime int `yaml:"conn_max_idle_time" json:"conn_max_idle_time"`
+	MaxOpenConns    int    `yaml:"max_open_conns" json:"max_open_conns"`
+	MaxIdleConns    int    `yaml:"max_idle_conns" json:"max_idle_conns"`
+	ConnMaxIdleTime int    `yaml:"conn_max_idle_time" json:"conn_max_idle_time"`
+	Protocol        string `yaml:"ptotocol" json:"protocol"` // HTTP, native
 }
 
 type CKManServerConfig struct {
@@ -106,6 +108,7 @@ func fillDefault(c *CKManConfig) {
 	c.ClickHouse.MaxOpenConns = 10
 	c.ClickHouse.MaxIdleConns = 2
 	c.ClickHouse.ConnMaxIdleTime = 10
+	c.ClickHouse.Protocol = clickhouse.Native.String()
 }
 
 func MergeEnv() {

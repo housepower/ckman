@@ -1,7 +1,6 @@
 package deploy
 
 import (
-	"context"
 	"encoding/gob"
 	"fmt"
 	"os"
@@ -607,12 +606,12 @@ func (d *CKDeploy) Check(timeout int) error {
 			for {
 				select {
 				case <-ticker.C:
-					conn, err := common.ConnectClickHouse(innerHost, d.Conf.Port, model.ClickHouseDefaultDB, d.Conf.User, d.Conf.Password)
+					conn, err := common.ConnectClickHouse(innerHost, common.GetPortWithProtocol(*d.Conf), model.ClickHouseDefaultDB, d.Conf.User, d.Conf.Password)
 					if err != nil {
 						log.Logger.Errorf("connect error: %v", err)
 						continue
 					}
-					if err = conn.Ping(context.Background()); err != nil {
+					if err = conn.Ping(); err != nil {
 						log.Logger.Errorf("ping error: %v", err)
 						continue
 					}
@@ -639,7 +638,7 @@ func (d *CKDeploy) Check(timeout int) error {
 func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 	var chHosts []string
 	for _, host := range conf.Hosts {
-		_, err := common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
+		_, err := common.ConnectClickHouse(host, common.GetPortWithProtocol(*conf), model.ClickHouseDefaultDB, conf.User, conf.Password)
 		if err != nil {
 			chHosts = append(chHosts, host)
 		}
@@ -664,7 +663,7 @@ func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 func StopCkCluster(conf *model.CKManClickHouseConfig) error {
 	var chHosts []string
 	for _, host := range conf.Hosts {
-		_, err := common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
+		_, err := common.ConnectClickHouse(host, common.GetPortWithProtocol(*conf), model.ClickHouseDefaultDB, conf.User, conf.Password)
 		if err == nil {
 			chHosts = append(chHosts, host)
 		}

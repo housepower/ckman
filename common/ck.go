@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -37,7 +36,7 @@ const (
 type Connection struct {
 	opts    clickhouse.Options
 	orderId string
-	conn    driver.Conn
+	conn    *Conn
 }
 
 type ConnBase struct {
@@ -45,7 +44,20 @@ type ConnBase struct {
 	Auth clickhouse.Auth
 }
 
-func ConnectClickHouse(host string, port int, database string, user string, password string) (driver.Conn, error) {
+func GetPortWithProtocol(conf model.CKManClickHouseConfig) int {
+	if config.GlobalConfig.ClickHouse.Protocol == clickhouse.HTTP.String() {
+		return conf.HttpPort
+	} else {
+		return conf.Port
+	}
+}
+
+func ConnectClickHouse(host string, port int, database string, user string, password string) (*Conn, error) {
+	protocol := clickhouse.Native
+	if config.GlobalConfig.ClickHouse.Protocol == clickhouse.HTTP.String() {
+		protocol = clickhouse.HTTP
+	}
+
 	opts := clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", host, port)},
 		Auth: clickhouse.Auth{
@@ -53,24 +65,19 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 			Username: user,
 			Password: password,
 		},
-		// Debug: true,
-		// Debugf: func(format string, v ...interface{}) {
-		// 	log.Logger.Debugf(format, v)
-		// },
 		Settings: clickhouse.Settings{
 			"max_execution_time": 60,
-			// "read_timeout":       300,
 		},
-		// Compression: &clickhouse.Compression{
-		// 	Method: clickhouse.CompressionLZ4,
-		// },
+		Protocol:         protocol,
 		DialTimeout:      time.Duration(10) * time.Second,
-		MaxOpenConns:     config.GlobalConfig.ClickHouse.MaxOpenConns,
-		MaxIdleConns:     config.GlobalConfig.ClickHouse.MaxIdleConns,
-		ConnMaxLifetime:  time.Duration(config.GlobalConfig.ClickHouse.ConnMaxIdleTime) * time.Minute,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
 	}
 
+	if protocol == clickhouse.Native {
+		opts.MaxOpenConns = config.GlobalConfig.ClickHouse.MaxOpenConns
+		opts.MaxIdleConns = config.GlobalConfig.ClickHouse.MaxIdleConns
+		opts.ConnMaxLifetime = time.Duration(config.GlobalConfig.ClickHouse.ConnMaxIdleTime) * time.Minute
+	}
 	raw, err := json.Marshal(ConnBase{
 		Addr: opts.Addr,
 		Auth: opts.Auth,
@@ -82,31 +89,47 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 	orderId := hex.EncodeToString(hashInBytes[:])
 	if v, ok := ConnectPool.Load(host); ok {
 		c := v.(Connection)
-		err := c.conn.Ping(context.Background())
+		err := c.conn.Ping()
 		if err == nil {
-			if c.orderId == orderId {
-				return c.conn, nil
-			} else {
-				_ = c.conn.Close()
-			}
+			return c.conn, nil
+		} else {
+			_ = c.conn.Close()
 		}
 	}
-
-	conn, err := clickhouse.Open(&opts)
-	if err != nil {
-		return nil, err
+	conn := Conn{
+		protocol: protocol,
+		ctx:      context.Background(),
 	}
-	err = conn.Ping(context.Background())
-	if err != nil {
-		conn.Close()
-		return nil, err
+	if protocol == clickhouse.HTTP {
+		db := clickhouse.OpenDB(&opts)
+		err := db.Ping()
+		if err != nil {
+			db.Close()
+			return nil, err
+		}
+		db.SetMaxOpenConns(config.GlobalConfig.ClickHouse.MaxOpenConns)
+		db.SetMaxIdleConns(config.GlobalConfig.ClickHouse.MaxIdleConns)
+		db.SetConnMaxLifetime(time.Duration(config.GlobalConfig.ClickHouse.ConnMaxIdleTime) * time.Minute)
+
+		conn.db = db
+	} else {
+		c, err := clickhouse.Open(&opts)
+		if err != nil {
+			return nil, err
+		}
+		err = c.Ping(conn.ctx)
+		if err != nil {
+			c.Close()
+			return nil, err
+		}
+		conn.c = c
 	}
 	ConnectPool.Store(host, Connection{
 		opts:    opts,
 		orderId: orderId,
-		conn:    conn,
+		conn:    &conn,
 	})
-	return conn, nil
+	return &conn, nil
 }
 
 func CloseConns(hosts []string) {
@@ -118,10 +141,10 @@ func CloseConns(hosts []string) {
 	}
 }
 
-func GetConnection(host string) driver.Conn {
+func GetConnection(host string) *Conn {
 	if v, ok := ConnectPool.Load(host); ok {
 		conn := v.(Connection).conn
-		err := conn.Ping(context.Background())
+		err := conn.Ping()
 		if err == nil {
 			return conn
 		} else {
@@ -131,8 +154,8 @@ func GetConnection(host string) driver.Conn {
 	return nil
 }
 
-func GetMergeTreeTables(engine string, database string, conn driver.Conn) ([]string, map[string][]string, error) {
-	var rows driver.Rows
+func GetMergeTreeTables(engine string, database string, conn *Conn) ([]string, map[string][]string, error) {
+	var rows *Rows
 	var databases []string
 	var err error
 	dbtables := make(map[string][]string)
@@ -142,7 +165,7 @@ func GetMergeTreeTables(engine string, database string, conn driver.Conn) ([]str
 	}
 	query += " ORDER BY database"
 	log.Logger.Debugf("query: %s", query)
-	if rows, err = conn.Query(context.Background(), query); err != nil {
+	if rows, err = conn.Query(query); err != nil {
 		err = errors.Wrapf(err, "")
 		return nil, nil, err
 	}
@@ -178,7 +201,7 @@ func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig) ([]string, error)
 
 	for _, shard := range conf.Shards {
 		for _, replica := range shard.Replicas {
-			_, err := ConnectClickHouse(replica.Ip, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
+			_, err := ConnectClickHouse(replica.Ip, GetPortWithProtocol(*conf), model.ClickHouseDefaultDB, conf.User, conf.Password)
 			if err == nil {
 				hosts = append(hosts, replica.Ip)
 				break
@@ -288,7 +311,7 @@ func CheckCkInstance(conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-func GetTableNames(conn driver.Conn, database, local, dist, cluster string, exists bool) (string, string, error) {
+func GetTableNames(conn *Conn, database, local, dist, cluster string, exists bool) (string, string, error) {
 	if local == "" && dist == "" {
 		return local, dist, fmt.Errorf("local table and dist table both empty")
 	}
@@ -306,7 +329,7 @@ FROM system.tables
 WHERE match(engine, 'Distributed') AND (database = '%s') AND ((dist = '%s') OR (local = '%s')) AND (cluster = '%s')`,
 			database, dist, local, cluster)
 		log.Logger.Debug(query)
-		rows, err := conn.Query(context.Background(), query)
+		rows, err := conn.Query(query)
 		if err != nil {
 			return local, dist, err
 		}

@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -560,7 +559,7 @@ func (controller *ClickHouseController) TruncateTable(c *gin.Context) {
 				return
 			}
 			log.Logger.Debugf("[%s]%s", host, query)
-			err = conn.Exec(context.Background(), query)
+			err = conn.Exec(query)
 			if err != nil {
 				lastErr = err
 				return
@@ -1677,9 +1676,9 @@ FROM system.tables
 WHERE match(engine, 'MergeTree') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))
 SETTINGS skip_unavailable_shards = 1`
 		log.Logger.Debugf("[%s]%s", ip, query)
-		conn, _ := common.ConnectClickHouse(ip, conf.Port, model.ClickHouseDefaultDB, conf.User, conf.Password)
+		conn, _ := common.ConnectClickHouse(ip, common.GetPortWithProtocol(conf), model.ClickHouseDefaultDB, conf.User, conf.Password)
 		if conn != nil {
-			rows, _ := conn.Query(context.Background(), query)
+			rows, _ := conn.Query(query)
 			for rows.Next() {
 				var data int
 				rows.Scan(&data)
@@ -1791,7 +1790,7 @@ func (controller *ClickHouseController) StartNode(c *gin.Context) {
 			// https://clickhouse.com/docs/en/sql-reference/statements/system/#sync-replica
 			// Provides possibility to start background fetches for inserted parts for tables in the ReplicatedMergeTree family: Always returns Ok. regardless of the table engine and even if table or database does not exist.
 			query := "SYSTEM START FETCHES"
-			ckService.Conn.Exec(context.Background(), query)
+			ckService.Conn.Exec(query)
 		}
 	}
 	err = repository.Ps.UpdateCluster(conf)
@@ -2156,7 +2155,7 @@ func (controller *ClickHouseController) PingCluster(c *gin.Context) {
 		failNum := 0
 		for _, replica := range shard.Replicas {
 			host := replica.Ip
-			_, err = common.ConnectClickHouse(host, conf.Port, model.ClickHouseDefaultDB, req.User, req.Password)
+			_, err = common.ConnectClickHouse(host, common.GetPortWithProtocol(conf), model.ClickHouseDefaultDB, req.User, req.Password)
 			if err != nil {
 				log.Logger.Error("err: %v", err)
 				failNum++

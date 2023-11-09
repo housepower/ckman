@@ -1,7 +1,6 @@
 package clickhouse
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path"
@@ -167,7 +166,7 @@ func (t *TargetHdfs) Done(_ string) {
 		conn := common.GetConnection(host)
 		for _, tmpTbl := range t.TmpTables {
 			query := fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTbl)
-			conn.Exec(context.Background(), query)
+			conn.Exec(query)
 		}
 	}
 

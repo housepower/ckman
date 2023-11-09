@@ -1,14 +1,12 @@
 package clickhouse
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -60,7 +58,7 @@ type ArchiveParams struct {
 func NewArchiveParams(hosts []string, conf model.CKManClickHouseConfig, req model.ArchiveTableReq) ArchiveParams {
 	params := ArchiveParams{
 		Hosts:            hosts,
-		Port:             conf.Port,
+		Port:             common.GetPortWithProtocol(conf),
 		User:             conf.User,
 		Password:         conf.Password,
 		Database:         req.Database,
@@ -131,11 +129,11 @@ func (p *ArchiveParams) GetSortingInfo() (err error) {
 			if conn == nil {
 				return fmt.Errorf("can't get connection: %s", host)
 			}
-			var rows driver.Rows
+			var rows *common.Rows
 			// column type includes Date, Date32, DateTime, DateTime64, DateTime64(3), DateTime64(3, 'Asia/Istanbul'), ...
 			query := fmt.Sprintf("SELECT name, type FROM system.columns WHERE database='%s' AND table='%s' AND is_in_partition_key=1 AND type like 'Date%%'", p.Database, table)
 			log.Logger.Infof("host %s: query: %s", host, query)
-			if rows, err = conn.Query(context.Background(), query); err != nil {
+			if rows, err = conn.Query(query); err != nil {
 				err = errors.Wrapf(err, "")
 				return
 			}
@@ -251,10 +249,10 @@ func (p *ArchiveParams) GetSlots(host, table string) (slots []time.Time, err err
 	}
 	for i, interval := range tryIntervals {
 		slots = slots[:0]
-		var rows1 driver.Rows
+		var rows1 *common.Rows
 		query1 := fmt.Sprintf(sqlTmpl3, colName, interval, table, colName, formatDate(p.Begin, colType), colName, formatDate(p.End, colType))
 		log.Logger.Infof("host %s: query: %s", host, query1)
-		if rows1, err = conn.Query(context.Background(), query1); err != nil {
+		if rows1, err = conn.Query(query1); err != nil {
 			err = errors.Wrapf(err, "")
 			return
 		}
@@ -302,7 +300,7 @@ func (p *ArchiveParams) ExportSlot(host, table string, seq int, slotBeg, slotEnd
 			}
 			for _, query := range queries {
 				log.Logger.Debugf("host %s, table %s, slot %d, query: %s", host, table, slotBeg, query)
-				if err := conn.Exec(context.Background(), query); err != nil {
+				if err := conn.Exec(query); err != nil {
 					lastErr = errors.Wrap(err, host)
 					return
 				}
@@ -333,9 +331,9 @@ func (a *ArchiveParams) SelectUint64(host, query string) (res uint64, err error)
 		log.Logger.Errorf("can't get connection:%s", host)
 		return
 	}
-	var rows driver.Rows
+	var rows *common.Rows
 	log.Logger.Infof("host %s: query: %s", host, query)
-	if rows, err = conn.Query(context.Background(), query); err != nil {
+	if rows, err = conn.Query(query); err != nil {
 		err = errors.Wrapf(err, "")
 		return
 	}

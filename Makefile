@@ -10,7 +10,7 @@ DATE=$(shell date +%y%m%d)
 TIME=$(shell date --iso-8601=seconds 2>/dev/null)
 OS=$(shell uname)
 OSLOWER=$(shell uname | tr '[:upper:]' '[:lower:]')
-GOARCH?=$(shell go env |grep GOARCH |cut -d\" -f2)
+GOARCH?=$(shell go env GOARCH)
 TARNAME=${PKGDIR}-${VERSION}-${DATE}.${OS}.$(GOARCH).tar.gz
 TAG?=$(shell date +%y%m%d)
 LDFLAGS=-ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=${VERSION}"
@@ -36,6 +36,7 @@ backend:
 .PHONY: pre
 pre:
 	go mod tidy
+	go mod vendor
 	go install github.com/swaggo/swag/cmd/swag@v1.7.1
 	go install github.com/hjson/hjson-go/hjson-cli@latest
 	go install github.com/mbrukman/yaml2json/cmd/{yaml2json,json2yaml}@latest
@@ -126,7 +127,7 @@ docker-image:build
 
 .PHONY: internel-release
 internel-release:
-	git tag ${VERSION}
+	#git tag ${VERSION}
 	make rpm
 	make package VERSION=${VERSION}
 	make rpm GOARCH=arm64
