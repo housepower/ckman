@@ -63,7 +63,8 @@ func (p *PurgerRange) PurgeTable(table string) (err error) {
 		}
 		defer rows.Close()
 		rows.Next()
-		var i1, i2, i3 int
+		var i1 uint64
+		var i2, i3 uint8
 		if err = rows.Scan(&i1, &i2, &i3); err != nil {
 			err = errors.Wrapf(err, "")
 			return

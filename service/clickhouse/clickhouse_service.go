@@ -1589,7 +1589,7 @@ func checkBasicTools(conf *model.CKManClickHouseConfig, hosts []string, keys []m
 }
 
 func checkDiskSpace(hosts []string, exceptHost string) (string, error) {
-	var needSpace, maxLeftSpace int
+	var needSpace, maxLeftSpace uint64
 	var target string
 	query := `SELECT sum(total_bytes)
 FROM system.tables
@@ -1612,7 +1612,7 @@ SETTINGS skip_unavailable_shards = 1`
 		if err != nil {
 			return "", errors.Wrap(err, exceptHost)
 		}
-		var freeSpace int
+		var freeSpace uint64
 		for rows.Next() {
 			rows.Scan(&freeSpace)
 		}

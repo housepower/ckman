@@ -166,11 +166,11 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 				needAlterDist := false
 				for rows.Next() {
 					var table string
-					var count int
+					var count uint64
 					if err = rows.Scan(&table, &count); err != nil {
 						return errors.Wrap(err, "")
 					}
-					needAlterDist = (count != len(allCols))
+					needAlterDist = (count != uint64(len(allCols)))
 					if needAlterDist {
 						break
 					}

@@ -46,8 +46,8 @@ type TblPartitions struct {
 	Table      string
 	Host       string
 	ZooPath    string // zoo-path with macros substituted
-	Partitions map[string]int64
-	TotalSize  int64             // total size of partitions
+	Partitions map[string]uint64
+	TotalSize  uint64            // total size of partitions
 	ToMoveOut  map[string]string // plan to move some partitions out to other hosts
 	ToMoveIn   bool              // plan to move some partitions in
 }
@@ -140,11 +140,11 @@ func (r *CKRebalance) GetPartState() (tbls []*TblPartitions, err error) {
 		tbl := TblPartitions{
 			Table:      fmt.Sprintf("%s.%s", r.Database, r.Table),
 			Host:       host,
-			Partitions: make(map[string]int64),
+			Partitions: make(map[string]uint64),
 		}
 		for rows.Next() {
 			var patt string
-			var compressed int64
+			var compressed uint64
 			if err = rows.Scan(&patt, &compressed); err != nil {
 				err = errors.Wrapf(err, "")
 				return

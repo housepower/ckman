@@ -1680,7 +1680,7 @@ SETTINGS skip_unavailable_shards = 1`
 		if conn != nil {
 			rows, _ := conn.Query(query)
 			for rows.Next() {
-				var data int
+				var data uint64
 				rows.Scan(&data)
 				if data > 0 {
 					controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, "The current node still has data, please use rebalance to move the data to another shard at first")
@@ -2764,7 +2764,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 		}
 	}
 	if storageChanged {
-		diskMapping := make(map[string]int64)
+		diskMapping := make(map[string]uint64)
 		query := "SELECT disk_name, SUM(bytes_on_disk) AS used FROM system.parts WHERE disk_name != 'default' GROUP BY disk_name"
 		svr := clickhouse.NewCkService(conf)
 		if err := svr.InitCkService(); err != nil {
@@ -2776,7 +2776,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 		}
 		for i := 1; i < len(data); i++ {
 			disk, _ := data[i][0].(string)
-			used, _ := data[i][1].(int64)
+			used, _ := data[i][1].(uint64)
 			diskMapping[disk] = used
 		}
 		if conf.Storage != nil {
