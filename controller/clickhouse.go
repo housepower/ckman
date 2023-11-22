@@ -74,6 +74,8 @@ func (controller *ClickHouseController) ImportCluster(c *gin.Context) {
 	conf.Hosts = req.Hosts
 	conf.Port = req.Port
 	conf.HttpPort = req.HttpPort
+	conf.Protocol = req.Protocol
+	conf.Secure = req.Secure
 	conf.Cluster = req.Cluster
 	conf.LogicCluster = &req.LogicCluster
 	conf.User = req.User
@@ -1676,7 +1678,7 @@ FROM system.tables
 WHERE match(engine, 'MergeTree') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))
 SETTINGS skip_unavailable_shards = 1`
 		log.Logger.Debugf("[%s]%s", ip, query)
-		conn, _ := common.ConnectClickHouse(ip, common.GetPortWithProtocol(conf), model.ClickHouseDefaultDB, conf.User, conf.Password)
+		conn, _ := common.ConnectClickHouse(ip, model.ClickHouseDefaultDB, conf.GetConnOption())
 		if conn != nil {
 			rows, _ := conn.Query(query)
 			for rows.Next() {
@@ -2155,7 +2157,7 @@ func (controller *ClickHouseController) PingCluster(c *gin.Context) {
 		failNum := 0
 		for _, replica := range shard.Replicas {
 			host := replica.Ip
-			_, err = common.ConnectClickHouse(host, common.GetPortWithProtocol(conf), model.ClickHouseDefaultDB, req.User, req.Password)
+			_, err = common.ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
 			if err != nil {
 				log.Logger.Error("err: %v", err)
 				failNum++
@@ -2214,7 +2216,7 @@ func (controller *ClickHouseController) PurgeTables(c *gin.Context) {
 		controller.wrapfunc(c, model.E_CH_CONNECT_FAILED, err)
 		return
 	}
-	p := clickhouse.NewPurgerRange(chHosts, conf.Port, conf.User, conf.Password, req.Database, req.Begin, req.End)
+	p := clickhouse.NewPurgerRange(chHosts, req.Database, req.Begin, req.End, conf.GetConnOption())
 	err = p.InitConns()
 	if err != nil {
 		controller.wrapfunc(c, model.E_CH_CONNECT_FAILED, err)

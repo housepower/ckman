@@ -136,10 +136,30 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
 		DescriptionEN: "ClickHouse Node ip, support CIDR or Range.designation by ckman automatically",
 	})
+	params.MustRegister(conf, "Protocol", &common.Parameter{
+		LabelZH: "连接协议",
+		LabelEN: "Protocol",
+		Default: "native",
+		Candidates: []common.Candidate{
+			{Value: "native", LabelEN: "native", LabelZH: "native"},
+			{Value: "http", LabelEN: "http", LabelZH: "http"},
+		},
+	})
 	params.MustRegister(conf, "Port", &common.Parameter{
 		LabelZH: "TCP端口",
 		LabelEN: "TCPPort",
 		Default: "9000",
+	})
+	params.MustRegister(conf, "HttpPort", &common.Parameter{
+		LabelZH: "HTTP端口",
+		LabelEN: "HTTP Port",
+		Default: "8123",
+	})
+	params.MustRegister(conf, "Secure", &common.Parameter{
+		LabelZH:  "TLS安全认证",
+		LabelEN:  "TLS Secure",
+		Default:  "false",
+		Required: "false",
 	})
 	params.MustRegister(conf, "ZkNodes", &common.Parameter{
 		LabelZH:       "ZooKeeper集群结点列表",
@@ -744,9 +764,29 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:   "Default Password",
 		InputType: common.InputPassword,
 	})
+	params.MustRegister(conf, "Protocol", &common.Parameter{
+		LabelZH: "连接协议",
+		LabelEN: "Protocol",
+		Default: "native",
+		Candidates: []common.Candidate{
+			{Value: "native", LabelEN: "native", LabelZH: "native"},
+			{Value: "http", LabelEN: "http", LabelZH: "http"},
+		},
+		Editable: "false",
+	})
 	params.MustRegister(conf, "Port", &common.Parameter{
 		LabelZH: "TCP端口",
 		LabelEN: "TCPPort",
+	})
+	params.MustRegister(conf, "HttpPort", &common.Parameter{
+		LabelZH:  "HTTP端口",
+		LabelEN:  "HTTP Port",
+		Editable: "false",
+	})
+	params.MustRegister(conf, "Secure", &common.Parameter{
+		LabelZH:  "TLS安全认证",
+		LabelEN:  "TLS Secure",
+		Editable: "false",
 	})
 	params.MustRegister(conf, "Storage", &common.Parameter{
 		LabelZH:       "集群存储配置",

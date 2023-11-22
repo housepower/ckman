@@ -5,29 +5,26 @@ import (
 
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
 )
 
 type PurgerRange struct {
 	Hosts    []string
-	Port     int
-	User     string
-	Password string
 	Database string
 	Tables   []string
 	Begin    string
 	End      string
+	ConnOpt  model.ConnetOption
 }
 
-func NewPurgerRange(hosts []string, port int, user string, password string, database string, begin string, end string) *PurgerRange {
+func NewPurgerRange(hosts []string, database string, begin string, end string, opt model.ConnetOption) *PurgerRange {
 	return &PurgerRange{
 		Hosts:    hosts,
-		Port:     port,
-		User:     user,
-		Password: password,
 		Database: database,
 		Begin:    begin,
 		End:      end,
+		ConnOpt:  opt,
 	}
 }
 
@@ -36,7 +33,7 @@ func (p *PurgerRange) InitConns() (err error) {
 		if len(host) == 0 {
 			continue
 		}
-		_, err = common.ConnectClickHouse(host, p.Port, p.Database, p.User, p.Password)
+		_, err = common.ConnectClickHouse(host, p.Database, p.ConnOpt)
 		if err != nil {
 			return
 		}

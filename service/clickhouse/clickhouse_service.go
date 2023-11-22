@@ -51,7 +51,7 @@ func (ck *CkService) InitCkService() error {
 	var lastError error
 	hosts := common.Shuffle(ck.Config.Hosts)
 	for _, host := range hosts {
-		connect, err := common.ConnectClickHouse(host, common.GetPortWithProtocol(*ck.Config), model.ClickHouseDefaultDB, ck.Config.User, ck.Config.Password)
+		connect, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, ck.Config.GetConnOption())
 		if err == nil {
 			ck.Conn = connect
 			hasConnect = true
@@ -864,7 +864,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 		wg.Add(1)
 		common.Pool.Submit(func() {
 			defer wg.Done()
-			conn, err := common.ConnectClickHouse(host, common.GetPortWithProtocol(*conf), req.Database, conf.User, conf.Password)
+			conn, err := common.ConnectClickHouse(host, req.Database, conf.GetConnOption())
 			if err != nil {
 				lastError = err
 				return
@@ -1153,7 +1153,7 @@ func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 }
 
 func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId string) error {
-	conn, err := common.ConnectClickHouse(host, common.GetPortWithProtocol(*conf), model.ClickHouseDefaultDB, conf.User, conf.Password)
+	conn, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
 	if err != nil {
 		return err
 	}
@@ -1414,7 +1414,7 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig, name ...string) bool {
 		log.Logger.Warnf("cluster %s all node is unvaliable", src.Cluster)
 		return false
 	}
-	srcConn, err := common.ConnectClickHouse(hosts[0], common.GetPortWithProtocol(src), model.ClickHouseDefaultDB, src.User, src.Password)
+	srcConn, err := common.ConnectClickHouse(hosts[0], model.ClickHouseDefaultDB, src.GetConnOption())
 	if err != nil {
 		log.Logger.Warnf("connect %s failed", hosts[0])
 		return false
@@ -1431,7 +1431,7 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig, name ...string) bool {
 		return false
 	}
 
-	dstConn, err := common.ConnectClickHouse(dst.Hosts[0], common.GetPortWithProtocol(dst), model.ClickHouseDefaultDB, dst.User, dst.Password)
+	dstConn, err := common.ConnectClickHouse(dst.Hosts[0], model.ClickHouseDefaultDB, dst.GetConnOption())
 	if err != nil {
 		log.Logger.Warnf("can't connect %s", dst.Hosts[0])
 		return false
@@ -1449,7 +1449,7 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig, name ...string) bool {
 }
 
 func RestoreReplicaTable(conf *model.CKManClickHouseConfig, host, database, table string) error {
-	conn, err := common.ConnectClickHouse(host, common.GetPortWithProtocol(*conf), database, conf.User, conf.Password)
+	conn, err := common.ConnectClickHouse(host, database, conf.GetConnOption())
 	if err != nil {
 		return errors.Wrapf(err, "cann't connect to %s", host)
 	}
@@ -1505,9 +1505,6 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 		rebalancer := &CKRebalance{
 			Cluster:    conf.Cluster,
 			Hosts:      hosts,
-			Port:       common.GetPortWithProtocol(*conf),
-			User:       conf.User,
-			Password:   conf.Password,
 			Database:   key.Database,
 			Table:      key.Table,
 			DistTable:  key.DistTable,
@@ -1516,6 +1513,7 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 			OsPassword: conf.SshPassword,
 			OsPort:     conf.SshPort,
 			RepTables:  make(map[string]string),
+			ConnOpt:    conf.GetConnOption(),
 		}
 		defer rebalancer.Close()
 

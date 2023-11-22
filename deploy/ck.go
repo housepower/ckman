@@ -606,7 +606,7 @@ func (d *CKDeploy) Check(timeout int) error {
 			for {
 				select {
 				case <-ticker.C:
-					conn, err := common.ConnectClickHouse(innerHost, common.GetPortWithProtocol(*d.Conf), model.ClickHouseDefaultDB, d.Conf.User, d.Conf.Password)
+					conn, err := common.ConnectClickHouse(innerHost, model.ClickHouseDefaultDB, d.Conf.GetConnOption())
 					if err != nil {
 						log.Logger.Errorf("connect error: %v", err)
 						continue
@@ -638,7 +638,7 @@ func (d *CKDeploy) Check(timeout int) error {
 func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 	var chHosts []string
 	for _, host := range conf.Hosts {
-		_, err := common.ConnectClickHouse(host, common.GetPortWithProtocol(*conf), model.ClickHouseDefaultDB, conf.User, conf.Password)
+		_, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
 		if err != nil {
 			chHosts = append(chHosts, host)
 		}
@@ -663,7 +663,7 @@ func StartCkCluster(conf *model.CKManClickHouseConfig) error {
 func StopCkCluster(conf *model.CKManClickHouseConfig) error {
 	var chHosts []string
 	for _, host := range conf.Hosts {
-		_, err := common.ConnectClickHouse(host, common.GetPortWithProtocol(*conf), model.ClickHouseDefaultDB, conf.User, conf.Password)
+		_, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
 		if err == nil {
 			chHosts = append(chHosts, host)
 		}

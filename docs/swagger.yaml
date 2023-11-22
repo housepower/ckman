@@ -245,6 +245,9 @@ definitions:
       prom_port:
         example: 9090
         type: integer
+      protocol:
+        example: native
+        type: string
       user:
         example: ck
         type: string

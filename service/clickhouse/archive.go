@@ -31,9 +31,6 @@ type Slot struct {
 
 type ArchiveParams struct {
 	Hosts            []string
-	Port             int
-	User             string
-	Password         string
 	Database         string
 	Tables           []string
 	Begin            string
@@ -53,14 +50,12 @@ type ArchiveParams struct {
 	Needsudo         bool
 	AuthenticateType int
 	TrySlotIntervals []string
+	ConnOpt          model.ConnetOption
 }
 
 func NewArchiveParams(hosts []string, conf model.CKManClickHouseConfig, req model.ArchiveTableReq) ArchiveParams {
 	params := ArchiveParams{
 		Hosts:            hosts,
-		Port:             common.GetPortWithProtocol(conf),
-		User:             conf.User,
-		Password:         conf.Password,
 		Database:         req.Database,
 		Tables:           req.Tables,
 		Begin:            req.Begin,
@@ -74,6 +69,7 @@ func NewArchiveParams(hosts []string, conf model.CKManClickHouseConfig, req mode
 		SshPort:          conf.SshPort,
 		AuthenticateType: conf.AuthenticateType,
 		Needsudo:         conf.NeedSudo,
+		ConnOpt:          conf.GetConnOption(),
 	}
 	if params.MaxFileSize == 0 {
 		params.MaxFileSize = MaxFileSizeDefault
@@ -111,7 +107,7 @@ func (p *ArchiveParams) InitConns() (err error) {
 		if len(host) == 0 {
 			continue
 		}
-		_, err = common.ConnectClickHouse(host, p.Port, p.Database, p.User, p.Password)
+		_, err = common.ConnectClickHouse(host, p.Database, p.ConnOpt)
 		if err != nil {
 			return
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -44,36 +45,29 @@ type ConnBase struct {
 	Auth clickhouse.Auth
 }
 
-func GetPortWithProtocol(conf model.CKManClickHouseConfig) int {
-	if config.GlobalConfig.ClickHouse.Protocol == clickhouse.HTTP.String() {
-		return conf.HttpPort
-	} else {
-		return conf.Port
-	}
-}
-
-func ConnectClickHouse(host string, port int, database string, user string, password string) (*Conn, error) {
-	protocol := clickhouse.Native
-	if config.GlobalConfig.ClickHouse.Protocol == clickhouse.HTTP.String() {
-		protocol = clickhouse.HTTP
-	}
-
+func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*Conn, error) {
 	opts := clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", host, port)},
+		Addr: []string{fmt.Sprintf("%s:%d", host, opt.Port)},
 		Auth: clickhouse.Auth{
 			Database: database,
-			Username: user,
-			Password: password,
+			Username: opt.User,
+			Password: opt.Password,
 		},
 		Settings: clickhouse.Settings{
 			"max_execution_time": 60,
 		},
-		Protocol:         protocol,
+		Protocol:         opt.Protocol,
 		DialTimeout:      time.Duration(10) * time.Second,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
 	}
 
-	if protocol == clickhouse.Native {
+	if opt.Secure {
+		opts.TLS = &tls.Config{
+			InsecureSkipVerify: opt.InsecureSkipVerify,
+		}
+	}
+
+	if opt.Protocol == clickhouse.Native {
 		opts.MaxOpenConns = config.GlobalConfig.ClickHouse.MaxOpenConns
 		opts.MaxIdleConns = config.GlobalConfig.ClickHouse.MaxIdleConns
 		opts.ConnMaxLifetime = time.Duration(config.GlobalConfig.ClickHouse.ConnMaxIdleTime) * time.Minute
@@ -97,10 +91,10 @@ func ConnectClickHouse(host string, port int, database string, user string, pass
 		}
 	}
 	conn := Conn{
-		protocol: protocol,
+		protocol: opt.Protocol,
 		ctx:      context.Background(),
 	}
-	if protocol == clickhouse.HTTP {
+	if opt.Protocol == clickhouse.HTTP {
 		db := clickhouse.OpenDB(&opts)
 		err := db.Ping()
 		if err != nil {
@@ -201,7 +195,7 @@ func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig) ([]string, error)
 
 	for _, shard := range conf.Shards {
 		for _, replica := range shard.Replicas {
-			_, err := ConnectClickHouse(replica.Ip, GetPortWithProtocol(*conf), model.ClickHouseDefaultDB, conf.User, conf.Password)
+			_, err := ConnectClickHouse(replica.Ip, model.ClickHouseDefaultDB, conf.GetConnOption())
 			if err == nil {
 				hosts = append(hosts, replica.Ip)
 				break

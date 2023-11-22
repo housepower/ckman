@@ -25,9 +25,6 @@ var (
 type CKRebalance struct {
 	Cluster     string
 	Hosts       []string
-	Port        int
-	User        string
-	Password    string
 	DataDir     string
 	Database    string
 	Table       string
@@ -39,6 +36,7 @@ type CKRebalance struct {
 	OsPort      int
 	Shardingkey model.RebalanceShardingkey
 	ExceptHost  string
+	ConnOpt     model.ConnetOption
 }
 
 // TblPartitions is partitions status of a host. A host never move out and move in at the same iteration.
@@ -55,7 +53,7 @@ type TblPartitions struct {
 func (r *CKRebalance) InitCKConns() (err error) {
 	locks = make(map[string]*sync.Mutex)
 	for _, host := range r.Hosts {
-		_, err = common.ConnectClickHouse(host, r.Port, model.ClickHouseDefaultDB, r.User, r.Password)
+		_, err = common.ConnectClickHouse(host, model.ClickHouseDefaultDB, r.ConnOpt)
 		if err != nil {
 			return
 		}

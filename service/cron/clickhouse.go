@@ -234,7 +234,7 @@ func WatchClusterStatus() error {
 		for _, shard := range cluster.Shards {
 			for _, replica := range shard.Replicas {
 				if replica.Watch {
-					if _, err := common.ConnectClickHouse(replica.Ip, common.GetPortWithProtocol(cluster), model.ClickHouseDefaultDB, model.ClickHouseDefaultUser, cluster.Password); err == nil {
+					if _, err := common.ConnectClickHouse(replica.Ip, model.ClickHouseDefaultDB, cluster.GetConnOption()); err == nil {
 						continue
 					}
 					log.Logger.Infof("cluster %s, node %s is watching required, try to restart ...", cluster.Cluster, replica.Ip)
@@ -390,7 +390,7 @@ func syncDistTable(distTable, localTable, database string, conf model.CKManClick
 
 func initCKConns(conf model.CKManClickHouseConfig) (err error) {
 	for _, host := range conf.Hosts {
-		_, err = common.ConnectClickHouse(host, common.GetPortWithProtocol(conf), model.ClickHouseDefaultDB, conf.User, conf.Password)
+		_, err = common.ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
 		if err != nil {
 			return
 		}

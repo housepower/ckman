@@ -3,6 +3,8 @@ package model
 import (
 	"regexp"
 	"strings"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 const (
@@ -50,6 +52,8 @@ type CkImportConfig struct {
 	Hosts        []string `json:"hosts" example:"192.168.101.105,192.168.101.107"`
 	Port         int      `json:"port" example:"9000"`
 	HttpPort     int      `json:"httpPort" example:"8123"`
+	Protocol     string   `json:"protocol" example:"native"`
+	Secure       bool     `json:"secure" example:"false"`
 	User         string   `json:"user" example:"ck"`
 	Password     string   `json:"password" example:"123456"`
 	Cluster      string   `json:"cluster" example:"test"`
@@ -68,7 +72,10 @@ type CKManClickHouseConfig struct {
 	Version          string    `json:"version" example:"21.9.1.7647"`
 	Cwd              string    `json:"cwd" example:"/home/eoi/clickhouse"`
 	LogicCluster     *string   `json:"logic_cluster" yaml:"logic_cluster" example:"logic_test"`
+	Protocol         string    `json:"protocol" yaml:"protocol" example:"native"`
 	Port             int       `json:"port" example:"9000"`
+	HttpPort         int       `json:"httpPort" example:"8123"`
+	Secure           bool      `json:"secure"`
 	IsReplica        bool      `json:"isReplica" example:"true"`
 	Hosts            []string  `json:"hosts" example:"192.168.0.1,192.168.0.2,192.168.0.3,192.168.0.4"`
 	Shards           []CkShard `json:"shards" swaggerignore:"true"`
@@ -90,7 +97,6 @@ type CKManClickHouseConfig struct {
 
 	// don't need to regist to schema
 	Mode     string            `json:"mode" swaggerignore:"true"`
-	HttpPort int               `json:"httpPort" swaggerignore:"true"`
 	ZooPath  map[string]string `json:"zooPath" swaggerignore:"true"`
 	NeedSudo bool              `json:"needSudo" swaggerignore:"true"`
 }
@@ -241,6 +247,10 @@ func (config *CKManClickHouseConfig) Normalize() {
 	if config.Cwd == "" {
 		config.NeedSudo = true
 	}
+
+	if config.Protocol != clickhouse.HTTP.String() {
+		config.Protocol = clickhouse.Native.String()
+	}
 }
 
 func (config *CKManClickHouseConfig) Watch(host string) {
@@ -299,4 +309,29 @@ func (config *CKManClickHouseConfig) UnPack(conf CKManClickHouseConfig) {
 			}
 		}
 	}
+}
+
+type ConnetOption struct {
+	Protocol           clickhouse.Protocol
+	Secure             bool
+	InsecureSkipVerify bool
+	Port               int
+	User               string
+	Password           string
+}
+
+func (config *CKManClickHouseConfig) GetConnOption() ConnetOption {
+	var opt ConnetOption
+	if config.Protocol == clickhouse.HTTP.String() {
+		opt.Protocol = clickhouse.HTTP
+		opt.Port = config.HttpPort
+	} else {
+		opt.Protocol = clickhouse.Native
+		opt.Port = config.Port
+	}
+	opt.Secure = config.Secure
+	opt.InsecureSkipVerify = true // hard code
+	opt.User = config.User
+	opt.Password = config.Password
+	return opt
 }

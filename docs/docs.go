@@ -2820,6 +2820,10 @@ var doc = `{
                     "type": "integer",
                     "example": 9090
                 },
+                "protocol": {
+                    "type": "string",
+                    "example": "native"
+                },
                 "user": {
                     "type": "string",
                     "example": "ck"
