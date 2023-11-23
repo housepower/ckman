@@ -118,9 +118,11 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) (string, error) {
 		return model.E_RECORD_NOT_FOUND, errors.Errorf("cluster %s is not exist, or hosts %v is not in cluster %s", conf.Cluster, hosts, conf.Cluster)
 	}
 	shardNum := uint32(0)
+	var (
+		loopback   bool
+		lbhostName string
+	)
 	for i := 1; i < len(value); i++ {
-		sn := reflect.ValueOf(value[i][1]).Interface()
-		log.Logger.Infof("sn: %v %T", sn, sn)
 		if shardNum != value[i][1].(uint32) {
 			if len(replicas) != 0 {
 				shard := model.CkShard{
@@ -140,12 +142,61 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) (string, error) {
 		replicas = append(replicas, replica)
 		conf.Hosts = append(conf.Hosts, value[i][4].(string))
 		shardNum = value[i][1].(uint32)
+		// when deployed on k8s, IP is not stable, and always return 127.0.0.1
+		if replica.Ip == common.NetLoopBack {
+			log.Logger.Infof("found loopback")
+			loopback = true
+			lbhostName = replica.HostName
+		}
 	}
+
 	if len(replicas) != 0 {
 		shard := model.CkShard{
 			Replicas: replicas,
 		}
 		conf.Shards = append(conf.Shards, shard)
+	}
+
+	if loopback {
+		var realHost string
+		query := fmt.Sprintf("SELECT host_address FROM system.clusters WHERE cluster='%s' AND host_name = '%s'", conf.Cluster, lbhostName)
+
+		hosts, err := common.GetShardAvaliableHosts(conf)
+		if err != nil {
+			return model.E_CH_CONNECT_FAILED, err
+		}
+		conn := common.GetConnection(hosts[0])
+		rows, err := conn.Query(query)
+		if err != nil {
+			return model.E_DATA_SELECT_FAILED, err
+		}
+		for rows.Next() {
+			var ip string
+			err = rows.Scan(&ip)
+			if err != nil {
+				return model.E_DATA_SELECT_FAILED, err
+			}
+			if ip != "" && ip != common.NetLoopBack {
+				realHost = ip
+				break
+			}
+		}
+		log.Logger.Infof("realHost: %s", realHost)
+
+		for i := range conf.Hosts {
+			if conf.Hosts[i] == common.NetLoopBack {
+				conf.Hosts[i] = realHost
+				break
+			}
+		}
+
+		for i := range conf.Shards {
+			for j := range conf.Shards[i].Replicas {
+				if conf.Shards[i].Replicas[j].Ip == common.NetLoopBack {
+					conf.Shards[i].Replicas[j].Ip = realHost
+				}
+			}
+		}
 	}
 
 	value, err = service.QueryInfo("SELECT version()")

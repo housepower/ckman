@@ -2699,6 +2699,10 @@ var doc = `{
                         "192.168.0.4"
                     ]
                 },
+                "httpPort": {
+                    "type": "integer",
+                    "example": 8123
+                },
                 "isReplica": {
                     "type": "boolean",
                     "example": true
@@ -2734,6 +2738,13 @@ var doc = `{
                 "promPort": {
                     "type": "integer",
                     "example": 9090
+                },
+                "protocol": {
+                    "type": "string",
+                    "example": "native"
+                },
+                "secure": {
+                    "type": "boolean"
                 },
                 "sshPassword": {
                     "type": "string",
@@ -2823,6 +2834,10 @@ var doc = `{
                 "protocol": {
                     "type": "string",
                     "example": "native"
+                },
+                "secure": {
+                    "type": "boolean",
+                    "example": false
                 },
                 "user": {
                     "type": "string",

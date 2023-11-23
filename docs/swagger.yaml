@@ -156,6 +156,9 @@ definitions:
         items:
           type: string
         type: array
+      httpPort:
+        example: 8123
+        type: integer
       isReplica:
         example: true
         type: boolean
@@ -183,6 +186,11 @@ definitions:
       promPort:
         example: 9090
         type: integer
+      protocol:
+        example: native
+        type: string
+      secure:
+        type: boolean
       sshPassword:
         example: "123456"
         type: string
@@ -248,6 +256,9 @@ definitions:
       protocol:
         example: native
         type: string
+      secure:
+        example: false
+        type: boolean
       user:
         example: ck
         type: string

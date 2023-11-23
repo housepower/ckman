@@ -227,8 +227,8 @@ func (controller *ClickHouseController) GetClusters(c *gin.Context) {
 		if cluster.Mode == model.CkClusterImport {
 			if _, err = clickhouse.GetCkClusterConfig(&cluster); err != nil {
 				log.Logger.Warnf("get import cluster failed:%v", err)
-				delete(clusters, key)
-				continue
+				// delete(clusters, key)
+				// continue
 			}
 		}
 		cluster.Normalize()

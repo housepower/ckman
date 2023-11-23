@@ -2683,6 +2683,10 @@
                         "192.168.0.4"
                     ]
                 },
+                "httpPort": {
+                    "type": "integer",
+                    "example": 8123
+                },
                 "isReplica": {
                     "type": "boolean",
                     "example": true
@@ -2718,6 +2722,13 @@
                 "promPort": {
                     "type": "integer",
                     "example": 9090
+                },
+                "protocol": {
+                    "type": "string",
+                    "example": "native"
+                },
+                "secure": {
+                    "type": "boolean"
                 },
                 "sshPassword": {
                     "type": "string",
@@ -2807,6 +2818,10 @@
                 "protocol": {
                     "type": "string",
                     "example": "native"
+                },
+                "secure": {
+                    "type": "boolean",
+                    "example": false
                 },
                 "user": {
                     "type": "string",

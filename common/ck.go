@@ -32,6 +32,8 @@ const (
 	ClickHouseAggregateTablePrefix   string = "agg_"
 	ClickHouseAggDistTablePrefix     string = "dist_agg_"
 	ClickHouseAggLogicTablePrefix    string = "dist_logic_agg_"
+
+	NetLoopBack string = "127.0.0.1"
 )
 
 type Connection struct {
