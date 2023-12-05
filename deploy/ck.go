@@ -717,7 +717,7 @@ func ConfigLogicOtherCluster(clusterName string) error {
 					NeedSudo:         deploy.Conf.NeedSudo,
 					AuthenticateType: deploy.Conf.AuthenticateType,
 				}
-				if err := common.ScpUploadFile(m, path.Join(remotePath, "metrika.xml"), sshOpts); err != nil {
+				if err := common.ScpUploadFile(m, path.Join(remotePath, "config.d", "metrika.xml"), sshOpts); err != nil {
 					lastError = err
 					return
 				}
