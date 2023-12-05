@@ -76,8 +76,8 @@ const (
 	ClickHouseReplacingEngine        string = "ReplacingMergeTree"
 	ClickHouseReplicaReplacingEngine string = "ReplicatedReplacingMergeTree"
 
-	UpgradePolicyFull    string = "Full"
-	UpgradePolicyRolling string = "Rolling"
+	PolicyFull    string = "Full"
+	PolicyRolling string = "Rolling"
 )
 
 type CreateCkTableParams struct {

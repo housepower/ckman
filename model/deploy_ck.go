@@ -33,9 +33,9 @@ const (
 )
 
 type CkDeployExt struct {
-	UpgradePolicy string
-	Ipv6Enable    bool
-	Restart       bool
+	Policy     string
+	Ipv6Enable bool
+	Restart    bool
 }
 
 type CkShard struct {

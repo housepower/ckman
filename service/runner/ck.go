@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -242,21 +243,23 @@ func AddCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, d *de
 }
 
 func UpgradeCkCluster(task *model.Task, d deploy.CKDeploy) error {
-	switch d.Ext.UpgradePolicy {
-	case model.UpgradePolicyRolling:
+	switch d.Ext.Policy {
+	case model.PolicyRolling:
+		var rd deploy.CKDeploy
+		common.DeepCopyByGob(&rd, d)
 		for _, host := range d.Conf.Hosts {
-			d.Conf.Hosts = []string{host}
-			if err := upgradePackage(task, d, model.MaxTimeOut); err != nil {
+			rd.Conf.Hosts = []string{host}
+			if err := upgradePackage(task, rd, model.MaxTimeOut); err != nil {
 				return err
 			}
 		}
-	case model.UpgradePolicyFull:
+	case model.PolicyFull:
 		err := upgradePackage(task, d, 10)
 		if err != model.CheckTimeOutErr {
 			return err
 		}
 	default:
-		return fmt.Errorf("not support policy %s yet", d.Ext.UpgradePolicy)
+		return fmt.Errorf("not support policy %s yet", d.Ext.Policy)
 	}
 
 	return nil
@@ -264,7 +267,7 @@ func UpgradeCkCluster(task *model.Task, d deploy.CKDeploy) error {
 
 func upgradePackage(task *model.Task, d deploy.CKDeploy, timeout int) error {
 	var node string
-	if d.Ext.UpgradePolicy == model.UpgradePolicyRolling {
+	if d.Ext.Policy == model.PolicyRolling {
 		node = d.Conf.Hosts[0]
 	} else {
 		node = model.ALL_NODES_DEFAULT
@@ -319,11 +322,32 @@ func ConfigCkCluster(task *model.Task, d deploy.CKDeploy) error {
 	}
 
 	if d.Ext.Restart {
-		deploy.SetNodeStatus(task, model.NodeStatusRestart, model.ALL_NODES_DEFAULT)
-		if err := d.Restart(); err != nil {
-			return errors.Wrapf(err, "[%s]", model.NodeStatusRestart.EN)
+		switch d.Ext.Policy {
+		case model.PolicyRolling:
+			var rd deploy.CKDeploy
+			common.DeepCopyByGob(&rd, d)
+			for _, host := range d.Conf.Hosts {
+				deploy.SetNodeStatus(task, model.NodeStatusRestart, host)
+				rd.Conf.Hosts = []string{host}
+				if err := rd.Restart(); err != nil {
+					return err
+				}
+				if err := rd.Check(30); err != nil {
+					return err
+				}
+				deploy.SetNodeStatus(task, model.NodeStatusDone, host)
+			}
+		case model.PolicyFull:
+			deploy.SetNodeStatus(task, model.NodeStatusRestart, model.ALL_NODES_DEFAULT)
+			err := d.Restart()
+			if err != model.CheckTimeOutErr {
+				return err
+			}
+			_ = d.Check(30)
+		default:
+			return fmt.Errorf("not support policy %s yet", d.Ext.Policy)
 		}
-		_ = d.Check(30)
+
 	}
 	return nil
 }

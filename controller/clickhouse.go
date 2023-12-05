@@ -1188,8 +1188,8 @@ func (controller *ClickHouseController) UpgradeCluster(c *gin.Context) {
 	var req model.CkUpgradeCkReq
 	clusterName := c.Param(ClickHouseClusterPath)
 
-	req.SkipSameVersion = true           // skip the same version default
-	req.Policy = model.UpgradePolicyFull // use full policy default
+	req.SkipSameVersion = true    // skip the same version default
+	req.Policy = model.PolicyFull // use full policy default
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
@@ -1228,7 +1228,7 @@ func (controller *ClickHouseController) UpgradeCluster(c *gin.Context) {
 
 	d := deploy.NewCkDeploy(conf)
 	d.Packages = deploy.BuildPackages(req.PackageVersion, conf.PkgType, conf.Cwd)
-	d.Ext.UpgradePolicy = req.Policy
+	d.Ext.Policy = req.Policy
 	d.Conf.Hosts = chHosts
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKUpgrade, d)
@@ -2446,6 +2446,7 @@ func (controller *ClickHouseController) ClusterSetting(c *gin.Context) {
 	}
 
 	force := common.TernaryExpression(c.Query("force") == "true", true, false).(bool)
+	policy := common.TernaryExpression(c.Query("policy") == model.PolicyFull, model.PolicyFull, model.PolicyRolling).(string)
 	if err := checkConfigParams(&conf); err != nil {
 		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
@@ -2459,6 +2460,7 @@ func (controller *ClickHouseController) ClusterSetting(c *gin.Context) {
 
 	d := deploy.NewCkDeploy(conf)
 	d.Ext.Restart = restart
+	d.Ext.Policy = policy
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKSetting, d)
 	if err != nil {
 		controller.wrapfunc(c, model.E_DATA_INSERT_FAILED, err)

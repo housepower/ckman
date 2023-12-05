@@ -258,8 +258,6 @@ func CKSettingHandle(task *model.Task) error {
 		return err
 	}
 
-	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
-
 	// sync table schema when logic cluster exists
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
 	if d.Conf.LogicCluster != nil {
