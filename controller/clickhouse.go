@@ -2754,6 +2754,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	expertChanged := !reflect.DeepEqual(cluster.Expert, conf.Expert)
 	userconfChanged := !reflect.DeepEqual(cluster.UsersConf, conf.UsersConf)
 	logicChaned := !reflect.DeepEqual(cluster.LogicCluster, conf.LogicCluster)
+	zkChanged := !reflect.DeepEqual(cluster.ZkNodes, conf.ZkNodes)
 	if !force {
 		if cluster.Port == conf.Port &&
 			cluster.AuthenticateType == conf.AuthenticateType &&
@@ -2763,8 +2764,22 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 			cluster.Password == conf.Password && !storageChanged && !expertChanged &&
 			cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
 			cluster.ZkPort == conf.ZkPort && cluster.ZkStatusPort == conf.ZkStatusPort &&
-			!userconfChanged && !logicChaned {
+			!userconfChanged && !logicChaned && !zkChanged {
 			return false, errors.Errorf("all config are the same, it's no need to update")
+		}
+	}
+
+	if zkChanged {
+		zknodes := append(cluster.ZkNodes, conf.ZkNodes...)
+		zknodes = common.ArrayDistinct(zknodes)
+		zkclusters, err := zookeeper.GetZkClusterNodes(cluster.ZkNodes[0], cluster.ZkStatusPort)
+		if err != nil {
+			return false, err
+		}
+		for _, node := range zknodes {
+			if !common.ArraySearch(node, zkclusters) {
+				return false, fmt.Errorf("node %s not in zookeeper cluster", node)
+			}
 		}
 	}
 	if storageChanged {
@@ -2823,6 +2838,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	cluster.LogicCluster = conf.LogicCluster
 	cluster.ZkPort = conf.ZkPort
 	cluster.ZkStatusPort = conf.ZkStatusPort
+	cluster.ZkNodes = conf.ZkNodes
 	if err = common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err
 	}

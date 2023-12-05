@@ -1,7 +1,10 @@
 package zookeeper
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"path"
 	"path/filepath"
 	"sort"
@@ -212,4 +215,49 @@ func clean(svr *ZkService, znode, target string, dryrun bool) error {
 		}
 	}
 	return nil
+}
+
+func ZkMetric(host string, port int, metric string) ([]byte, error) {
+	url := fmt.Sprintf("http://%s:%d/commands/%s", host, port, metric)
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "")
+	}
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, errors.Wrap(err, "")
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		return nil, errors.Errorf("%s", response.Status)
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "")
+	}
+
+	return body, nil
+}
+
+func GetZkClusterNodes(host string, port int) ([]string, error) {
+	b, err := ZkMetric(host, port, "voting_view")
+	if err != nil {
+		return nil, err
+	}
+	zkCluster := make(map[string]interface{})
+	err = json.Unmarshal(b, &zkCluster)
+	if err != nil {
+		return nil, err
+	}
+	var nodes []string
+	for _, v := range zkCluster["current_config"].(map[string]interface{}) {
+		for _, value := range v.(map[string]interface{})["server_addresses"].([]interface{}) {
+			nodes = append(nodes, strings.Split(value.(string), ":")[0])
+		}
+	}
+	return nodes, nil
 }

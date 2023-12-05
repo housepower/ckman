@@ -2,8 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 
 	"github.com/housepower/ckman/repository"
@@ -12,7 +10,6 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/zookeeper"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/pkg/errors"
 )
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -54,7 +51,7 @@ func (controller *ZookeeperController) GetStatus(c *gin.Context) {
 		tmp := model.ZkStatusRsp{
 			Host: node,
 		}
-		body, err := getZkStatus(node, conf.ZkStatusPort)
+		body, err := zookeeper.ZkMetric(node, conf.ZkStatusPort, "mntr")
 		if err != nil {
 			controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
 			return
@@ -65,32 +62,6 @@ func (controller *ZookeeperController) GetStatus(c *gin.Context) {
 	}
 
 	controller.wrapfunc(c, model.E_SUCCESS, zkList)
-}
-
-func getZkStatus(host string, port int) ([]byte, error) {
-	url := fmt.Sprintf("http://%s:%d/commands/mntr", host, port)
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-
-	client := &http.Client{}
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != 200 {
-		return nil, errors.Errorf("%s", response.Status)
-	}
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-
-	return body, nil
 }
 
 // @Summary 获取复制表状态

@@ -733,19 +733,16 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:       "Zookeeper Node List",
 		DescriptionZH: "每段为单个IP，或者IP范围，或者网段掩码",
 		DescriptionEN: "Zookeeper Node ip, support CIDR or Range.",
-		Editable:      "false",
 	})
 	params.MustRegister(conf, "ZkPort", &common.Parameter{
 		LabelZH: "ZooKeeper集群监听端口",
 		LabelEN: "Zookeeper Port",
-		Default: "2181",
 	})
 	params.MustRegister(conf, "ZkStatusPort", &common.Parameter{
 		LabelZH:       "Zookeeper监控端口",
 		LabelEN:       "Zookeeper Status Port",
 		DescriptionZH: "暴露给mntr等四字命令的端口，zookeeper 3.5.0 以上支持",
 		DescriptionEN: "expose to commands/mntr, zookeeper support it after 3.5.0",
-		Default:       "8080",
 	})
 	params.MustRegister(conf, "PromHost", &common.Parameter{
 		LabelZH:  "Promethues 地址",
