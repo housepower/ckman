@@ -63,6 +63,7 @@ AND (cluster != '%s')`, cluster)
 				_ = rows.Scan(&database, &table, &logic, &local)
 				err = syncLogicbyTable(clusters, database, local)
 				if err != nil {
+					err = common.ClikHouseExceptionDecode(err)
 					var exception *client.Exception
 					if errors.As(err, &exception) {
 						if exception.Code == 60 {

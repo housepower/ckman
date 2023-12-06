@@ -9,6 +9,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/controller"
 	"github.com/housepower/ckman/log"
@@ -29,6 +30,7 @@ func WrapMsg2(c *gin.Context, retCode string, entity interface{}) {
 	if retCode != model.E_SUCCESS {
 		log.Logger.Errorf("%s %s return %s, %v", c.Request.Method, c.Request.RequestURI, retCode, entity)
 		if err, ok := entity.(error); ok {
+			err = common.ClikHouseExceptionDecode(err)
 			var exception *clickhouse.Exception
 			if errors.As(err, &exception) {
 				retCode = fmt.Sprintf("%04d", exception.Code)

@@ -441,6 +441,7 @@ func (controller *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 			LogicCluster: *conf.LogicCluster,
 		}
 		if err = ckService.CreateDistTblOnLogic(&params); err != nil {
+			err = common.ClikHouseExceptionDecode(err)
 			var exception *client.Exception
 			if errors.As(err, &exception) {
 				if exception.Code == 60 && cluster != conf.Cluster {
@@ -1769,6 +1770,7 @@ func (controller *ClickHouseController) StartNode(c *gin.Context) {
 		ckService.InitCkService()
 		err := ckService.FetchSchemerFromOtherNode(host, conf.Password)
 		if err != nil {
+			err = common.ClikHouseExceptionDecode(err)
 			var exception *client.Exception
 			if errors.As(err, &exception) {
 				if exception.Code == 253 {
@@ -1964,6 +1966,7 @@ func (controller *ClickHouseController) GetTableMetric(c *gin.Context) {
 	metrics, err := clickhouse.GetCkTableMetrics(&conf, database, cols)
 	if err != nil {
 		gotError = true
+		err = common.ClikHouseExceptionDecode(err)
 		var exception *client.Exception
 		if errors.As(err, &exception) {
 			if exception.Code == 60 {
@@ -2011,6 +2014,7 @@ func (controller *ClickHouseController) GetOpenSessions(c *gin.Context) {
 	sessions, err := clickhouse.GetCkOpenSessions(&conf, limit)
 	if err != nil {
 		gotError = true
+		err = common.ClikHouseExceptionDecode(err)
 		var exception *client.Exception
 		if errors.As(err, &exception) {
 			if exception.Code == 60 {
@@ -2104,6 +2108,7 @@ func (controller *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	sessions, err := clickhouse.GetCkSlowSessions(&conf, cond)
 	if err != nil {
 		gotError = true
+		err = common.ClikHouseExceptionDecode(err)
 		var exception *client.Exception
 		if errors.As(err, &exception) {
 			if exception.Code == 60 {

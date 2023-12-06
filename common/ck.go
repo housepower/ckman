@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -338,4 +339,32 @@ WHERE match(engine, 'Distributed') AND (database = '%s') AND ((dist = '%s') OR (
 	}
 
 	return local, dist, nil
+}
+
+func ClikHouseExceptionDecode(err error) error {
+	var e *clickhouse.Exception
+	// TCP protocol
+	if errors.As(err, &e) {
+		return e
+	}
+	// HTTP protocol
+	if strings.HasPrefix(err.Error(), "clickhouse [execute]::") {
+		r := regexp.MustCompile(`.*Code:\s+(\d+)\.\s+(.*)`)
+		matchs := r.FindStringSubmatch(err.Error())
+		if len(matchs) != 3 {
+			return err
+		}
+		code, err2 := strconv.Atoi(matchs[1])
+		if err2 != nil {
+			return err
+		}
+		message := matchs[2]
+		e = &clickhouse.Exception{
+			Code:    int32(code),
+			Message: message,
+		}
+		return e
+	}
+
+	return err
 }
