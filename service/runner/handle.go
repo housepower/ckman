@@ -210,7 +210,7 @@ func CKAddNodeHandle(task *model.Task) error {
 	if err := service.InitCkService(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
-	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0], conf.Password); err != nil {
+	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
 

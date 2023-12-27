@@ -97,14 +97,14 @@ func (c *Conn) Query(query string, args ...any) (*Rows, error) {
 	var rs Rows
 	rs.protocol = c.protocol
 	if c.protocol == clickhouse.HTTP {
-		rows, err := c.db.Query(query, args)
+		rows, err := c.db.Query(query, args...)
 		if err != nil {
 			return &rs, err
 		} else {
 			rs.rs1 = rows
 		}
 	} else {
-		rows, err := c.c.Query(c.ctx, query, args)
+		rows, err := c.c.Query(c.ctx, query, args...)
 		if err != nil {
 			return &rs, err
 		} else {
@@ -116,10 +116,10 @@ func (c *Conn) Query(query string, args ...any) (*Rows, error) {
 
 func (c *Conn) Exec(query string, args ...any) error {
 	if c.protocol == clickhouse.HTTP {
-		_, err := c.db.Exec(query, args)
+		_, err := c.db.Exec(query, args...)
 		return err
 	} else {
-		return c.c.Exec(c.ctx, query, args)
+		return c.c.Exec(c.ctx, query, args...)
 	}
 }
 

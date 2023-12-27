@@ -1768,7 +1768,7 @@ func (controller *ClickHouseController) StartNode(c *gin.Context) {
 	if host != "" {
 		ckService := clickhouse.NewCkService(&conf)
 		ckService.InitCkService()
-		err := ckService.FetchSchemerFromOtherNode(host, conf.Password)
+		err := ckService.FetchSchemerFromOtherNode(host)
 		if err != nil {
 			err = common.ClikHouseExceptionDecode(err)
 			var exception *client.Exception
@@ -1779,7 +1779,7 @@ func (controller *ClickHouseController) StartNode(c *gin.Context) {
 					if err == nil {
 						err = service.CleanZoopath(conf, conf.Cluster, ip, false)
 						if err == nil {
-							if err = ckService.FetchSchemerFromOtherNode(host, conf.Password); err != nil {
+							if err = ckService.FetchSchemerFromOtherNode(host); err != nil {
 								log.Logger.Errorf("fetch schema from other node failed again")
 							}
 						}

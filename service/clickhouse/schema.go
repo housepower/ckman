@@ -36,20 +36,16 @@ func GetObjectListFromClickHouse(conn *common.Conn, query string) (names, statem
 }
 
 // GetCreateReplicaObjects returns a list of objects that needs to be created on a host in a cluster
-func GetCreateReplicaObjects(conn *common.Conn, host, user, password string) (names, statements []string, err error) {
-	system_tables := fmt.Sprintf("remote('%s', system, tables, '%s', '%s')", host, user, password)
-
+func GetCreateReplicaObjects(conn *common.Conn) (names, statements []string, err error) {
 	//default database is always exists
-	sqlDBs := heredoc.Doc(strings.ReplaceAll(`
+	sqlDBs := heredoc.Doc(`
 		SELECT DISTINCT 
 			database AS name, 
 			concat('CREATE DATABASE IF NOT EXISTS "', name, '"') AS create_db_query
 		FROM system.tables
 		WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA', 'default')
-		SETTINGS skip_unavailable_shards = 1`,
-		"system.tables", system_tables,
-	))
-	sqlTables := heredoc.Doc(strings.ReplaceAll(`
+		SETTINGS skip_unavailable_shards = 1`)
+	sqlTables := heredoc.Doc(`
 		SELECT DISTINCT 
 			name, 
 			replaceRegexpOne(create_table_query, 'CREATE (TABLE|VIEW|MATERIALIZED VIEW)', 'CREATE \\1 IF NOT EXISTS')
@@ -57,10 +53,7 @@ func GetCreateReplicaObjects(conn *common.Conn, host, user, password string) (na
 		WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA') 
         AND create_table_query != '' AND name NOT LIKE '.inner%'
 		ORDER BY if(engine='Distributed', 1, 0), if(match(create_table_query, 'CREATE (MATERIALIZED )?VIEW'), 1, 0), name
-		SETTINGS skip_unavailable_shards = 1`,
-		"system.tables",
-		system_tables,
-	))
+		SETTINGS skip_unavailable_shards = 1`)
 
 	names1, statements1, err := GetObjectListFromClickHouse(conn, sqlDBs)
 	if err != nil {
