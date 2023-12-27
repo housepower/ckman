@@ -686,8 +686,12 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 	return colData, nil
 }
 
-func (ck *CkService) FetchSchemerFromOtherNode(host, password string) error {
-	names, statements, err := GetCreateReplicaObjects(ck.Conn, host, model.ClickHouseDefaultUser, password)
+func (ck *CkService) FetchSchemerFromOtherNode(host string) error {
+	conn, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, ck.Config.GetConnOption())
+	if err != nil {
+		return err
+	}
+	names, statements, err := GetCreateReplicaObjects(conn)
 	if err != nil {
 		return err
 	}
@@ -695,10 +699,9 @@ func (ck *CkService) FetchSchemerFromOtherNode(host, password string) error {
 	num := len(names)
 	for i := 0; i < num; i++ {
 		log.Logger.Debugf("statement: %s", statements[i])
-		var e error
-		if e = ck.Conn.Exec(statements[i]); e != nil {
-			log.Logger.Warnf("execute [%s] failed: %v", statements[i], e)
-			continue
+		if err := ck.Conn.Exec(statements[i]); err != nil {
+			log.Logger.Warnf("execute [%s] failed: %v", statements[i], err)
+			return err
 		}
 	}
 
