@@ -183,7 +183,7 @@ func (t *TargetLocal) Done(fp string) {
 	for _, host := range t.Hosts {
 		conn := common.GetConnection(host)
 		for _, tmpTbl := range t.TmpTables {
-			query := fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTbl)
+			query := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`", t.Database, tmpTbl)
 			conn.Exec(query)
 		}
 	}
