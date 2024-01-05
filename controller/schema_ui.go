@@ -124,17 +124,36 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelEN:   "Default Password",
 		InputType: common.InputPassword,
 	})
-	params.MustRegister(conf, "IsReplica", &common.Parameter{
-		LabelZH:       "是否为多副本",
-		LabelEN:       "Replica",
-		DescriptionZH: "物理集群的每个shard是否为多副本, 生产环境建议每个shard为两副本",
-		DescriptionEN: "Whether each Shard of the cluster is multiple replication, we suggest each shard have two copies.",
+	// params.MustRegister(conf, "IsReplica", &common.Parameter{
+	// 	LabelZH:       "是否为多副本",
+	// 	LabelEN:       "Replica",
+	// 	DescriptionZH: "物理集群的每个shard是否为多副本, 生产环境建议每个shard为两副本",
+	// 	DescriptionEN: "Whether each Shard of the cluster is multiple replication, we suggest each shard have two copies.",
+	// })
+	// params.MustRegister(conf, "Hosts", &common.Parameter{
+	// 	LabelZH:       "集群结点IP地址列表",
+	// 	LabelEN:       "ClickHouse Node List",
+	// 	DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
+	// 	DescriptionEN: "ClickHouse Node ip, support CIDR or Range.designation by ckman automatically",
+	// })
+	params.MustRegister(conf, "Shards", &common.Parameter{
+		LabelZH:       "集群节点配置",
+		LabelEN:       "ClickHouse Cluster Node",
+		DescriptionEN: "shard of clickhouse cluster",
+		DescriptionZH: "集群分片信息",
 	})
-	params.MustRegister(conf, "Hosts", &common.Parameter{
-		LabelZH:       "集群结点IP地址列表",
-		LabelEN:       "ClickHouse Node List",
-		DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
-		DescriptionEN: "ClickHouse Node ip, support CIDR or Range.designation by ckman automatically",
+
+	var shard model.CkShard
+	params.MustRegister(shard, "Replicas", &common.Parameter{
+		LabelZH:       "分片",
+		LabelEN:       "Shard",
+		DescriptionEN: "replicas of each shard",
+		DescriptionZH: "集群每个分片的副本信息",
+	})
+	var replica model.CkReplica
+	params.MustRegister(replica, "Ip", &common.Parameter{
+		LabelZH: "副本节点IP",
+		LabelEN: "Replica Node IP",
 	})
 	params.MustRegister(conf, "Protocol", &common.Parameter{
 		LabelZH: "连接协议",
@@ -714,19 +733,39 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:       "SSH Port",
 		DescriptionZH: "不得为空",
 	})
-	params.MustRegister(conf, "IsReplica", &common.Parameter{
-		LabelZH:       "是否为多副本",
-		LabelEN:       "Replica",
-		DescriptionZH: "物理集群的每个shard是否为多副本, 生产环境建议每个shard为两副本",
-		DescriptionEN: "Whether each Shard of the cluster is multiple replication, we suggest each shard have two copies.",
+	// params.MustRegister(conf, "IsReplica", &common.Parameter{
+	// 	LabelZH:       "是否为多副本",
+	// 	LabelEN:       "Replica",
+	// 	DescriptionZH: "物理集群的每个shard是否为多副本, 生产环境建议每个shard为两副本",
+	// 	DescriptionEN: "Whether each Shard of the cluster is multiple replication, we suggest each shard have two copies.",
+	// })
+	// params.MustRegister(conf, "Hosts", &common.Parameter{
+	// 	LabelZH:       "集群结点IP地址列表",
+	// 	LabelEN:       "ClickHouse Node List",
+	// 	DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
+	// 	DescriptionEN: "ClickHouse Node ip, support CIDR or Range.designation by ckman automatically",
+	// })
+	params.MustRegister(conf, "Shards", &common.Parameter{
+		LabelZH:       "集群节点配置",
+		LabelEN:       "ClickHouse Cluster Node",
+		DescriptionEN: "shard of clickhouse cluster",
+		DescriptionZH: "集群分片信息",
 		Editable:      "false",
 	})
-	params.MustRegister(conf, "Hosts", &common.Parameter{
-		LabelZH:       "集群结点IP地址列表",
-		LabelEN:       "ClickHouse Node List",
-		DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
-		DescriptionEN: "ClickHouse Node ip, support CIDR or Range.designation by ckman automatically",
+
+	var shard model.CkShard
+	params.MustRegister(shard, "Replicas", &common.Parameter{
+		LabelZH:       "分片",
+		LabelEN:       "Shard",
+		DescriptionEN: "replicas of each shard",
+		DescriptionZH: "集群每个分片的副本信息",
 		Editable:      "false",
+	})
+	var replica model.CkReplica
+	params.MustRegister(replica, "Ip", &common.Parameter{
+		LabelZH:  "副本节点IP",
+		LabelEN:  "Replica Node IP",
+		Editable: "false",
 	})
 	params.MustRegister(conf, "ZkNodes", &common.Parameter{
 		LabelZH:       "ZooKeeper集群结点列表",
