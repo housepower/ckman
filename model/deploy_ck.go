@@ -72,13 +72,13 @@ type CKManClickHouseConfig struct {
 	Version          string    `json:"version" example:"21.9.1.7647"`
 	Cwd              string    `json:"cwd" example:"/home/eoi/clickhouse"`
 	LogicCluster     *string   `json:"logic_cluster" yaml:"logic_cluster" example:"logic_test"`
+	Shards           []CkShard `json:"shards" swaggerignore:"true"`
 	Protocol         string    `json:"protocol" yaml:"protocol" example:"native"`
 	Port             int       `json:"port" example:"9000"`
 	HttpPort         int       `json:"httpPort" example:"8123"`
 	Secure           bool      `json:"secure"`
 	IsReplica        bool      `json:"isReplica" example:"true"`
 	Hosts            []string  `json:"hosts" example:"192.168.0.1,192.168.0.2,192.168.0.3,192.168.0.4"`
-	Shards           []CkShard `json:"shards" swaggerignore:"true"`
 	ZkNodes          []string  `json:"zkNodes" example:"192.168.0.1,192.168.0.2,192.168.0.3"`
 	ZkPort           int       `json:"zkPort" example:"2181"`
 	ZkStatusPort     int       `json:"zkStatusPort" example:"8080"`

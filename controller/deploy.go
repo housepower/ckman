@@ -99,12 +99,22 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 	} else {
 		conf.NeedSudo = true
 	}
-	if len(conf.Hosts) == 0 {
+	if len(conf.Shards) == 0 {
 		return errors.Errorf("can't find any host")
 	}
-	if conf.Hosts, err = common.ParseHosts(conf.Hosts); err != nil {
-		return err
+
+	for _, shard := range conf.Shards {
+		if len(shard.Replicas) == 0 {
+			return errors.Errorf("can't find any host")
+		}
+		for _, replica := range shard.Replicas {
+			conf.Hosts = append(conf.Hosts, replica.Ip)
+		}
 	}
+
+	// if conf.Hosts, err = common.ParseHosts(conf.Hosts); err != nil {
+	// 	return err
+	// }
 
 	if !force {
 		if err := common.CheckCkInstance(conf); err != nil {
@@ -118,7 +128,8 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 	//if conf.IsReplica && len(conf.Hosts)%2 == 1 {
 	//	return errors.Errorf("When supporting replica, the number of nodes must be even")
 	//}
-	conf.Shards = GetShardsbyHosts(conf.Hosts, conf.IsReplica)
+	//conf.Shards = GetShardsbyHosts(conf.Hosts, conf.IsReplica)
+	conf.IsReplica = true
 	if len(conf.ZkNodes) == 0 {
 		return errors.Errorf("zookeeper nodes must not be empty")
 	}
