@@ -253,7 +253,7 @@ Non-professionals please do not fill in this`,
 		Candidates: []common.Candidate{
 			{Value: "local", LabelEN: "Local", LabelZH: "本地磁盘"},
 			{Value: "s3", LabelEN: "AWS S3", LabelZH: "AWS S3"},
-			{Value: "hdfs", LabelEN: "HDFS", LabelZH: "HDFS"},
+			//{Value: "hdfs", LabelEN: "HDFS", LabelZH: "HDFS"},
 		},
 	})
 	params.MustRegister(disk, "AllowedBackup", &common.Parameter{
@@ -840,7 +840,7 @@ Non-professionals please do not fill in this`,
 		Candidates: []common.Candidate{
 			{Value: "local", LabelEN: "Local", LabelZH: "本地磁盘"},
 			{Value: "s3", LabelEN: "AWS S3", LabelZH: "AWS S3"},
-			{Value: "hdfs", LabelEN: "HDFS", LabelZH: "HDFS"},
+			//{Value: "hdfs", LabelEN: "HDFS", LabelZH: "HDFS"},
 		},
 	})
 	params.MustRegister(disk, "AllowedBackup", &common.Parameter{
