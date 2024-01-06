@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
@@ -81,6 +82,7 @@ func (controller *TaskController) TasksList(c *gin.Context) {
 	for _, task := range tasks {
 		typ := strings.Split(task.TaskType, ".")[0]
 		option := model.TaskOptionMap[task.TaskType]
+		lastTime := common.TernaryExpression(task.Status == model.TaskStatusRunning || task.Status == model.TaskStatusWaiting, time.Now(), task.UpdateTime).(time.Time)
 		resp := model.TaskResp{
 			TaskId:      task.TaskId,
 			ClusterName: task.ClusterName,
@@ -90,7 +92,7 @@ func (controller *TaskController) TasksList(c *gin.Context) {
 			Status:      model.TaskStatusMap[task.Status],
 			CreateTime:  task.CreateTime,
 			UpdateTime:  task.UpdateTime,
-			Duration:    common.ConvertDuration(task.CreateTime, task.UpdateTime),
+			Duration:    common.ConvertDuration(task.CreateTime, lastTime),
 		}
 		resps = append(resps, resp)
 	}
