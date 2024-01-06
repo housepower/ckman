@@ -179,6 +179,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelEN:  "TLS Secure",
 		Default:  "false",
 		Required: "false",
+		Editable: "false",
 	})
 	params.MustRegister(conf, "ZkNodes", &common.Parameter{
 		LabelZH:       "ZooKeeper集群结点列表",
