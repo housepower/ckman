@@ -89,8 +89,8 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 		err := c.conn.Ping()
 		if err == nil {
 			return c.conn, nil
-		} else {
-			_ = c.conn.Close()
+			// } else {
+			//_ = c.conn.Close()
 		}
 	}
 	conn := Conn{
