@@ -1463,11 +1463,7 @@ func (controller *ClickHouseController) GetClusterStatus(c *gin.Context) {
 	}
 
 	if conf.Mode == model.CkClusterImport {
-		code, err := clickhouse.GetCkClusterConfig(&conf)
-		if err != nil {
-			controller.wrapfunc(c, code, err)
-			return
-		}
+		_, _ = clickhouse.GetCkClusterConfig(&conf)
 	}
 	conf.Normalize()
 	statusList := clickhouse.GetCkClusterStatus(&conf)
