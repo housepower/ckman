@@ -2756,8 +2756,9 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	userconfChanged := !reflect.DeepEqual(cluster.UsersConf, conf.UsersConf)
 	logicChaned := !reflect.DeepEqual(cluster.LogicCluster, conf.LogicCluster)
 	zkChanged := !reflect.DeepEqual(cluster.ZkNodes, conf.ZkNodes)
-	if !force {
-		if cluster.Port == conf.Port &&
+
+	noChangedFn := func() bool {
+		return cluster.Port == conf.Port &&
 			cluster.AuthenticateType == conf.AuthenticateType &&
 			cluster.SshUser == conf.SshUser &&
 			cluster.SshPassword == conf.SshPassword &&
@@ -2765,7 +2766,11 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 			cluster.Password == conf.Password && !storageChanged && !expertChanged &&
 			cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
 			cluster.ZkPort == conf.ZkPort && cluster.ZkStatusPort == conf.ZkStatusPort &&
-			!userconfChanged && !logicChaned && !zkChanged {
+			!userconfChanged && !logicChaned && !zkChanged
+	}
+
+	if !force {
+		if noChangedFn() {
 			return false, errors.Errorf("all config are the same, it's no need to update")
 		}
 	}
@@ -2784,32 +2789,96 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 		}
 	}
 	if storageChanged {
-		diskMapping := make(map[string]uint64)
-		query := "SELECT disk_name, SUM(bytes_on_disk) AS used FROM system.parts WHERE disk_name != 'default' GROUP BY disk_name"
-		svr := clickhouse.NewCkService(conf)
-		if err := svr.InitCkService(); err != nil {
-			return false, err
-		}
-		data, err := svr.QueryInfo(query)
-		if err != nil {
-			return false, err
-		}
-		for i := 1; i < len(data); i++ {
-			disk, _ := data[i][0].(string)
-			used, _ := data[i][1].(uint64)
-			diskMapping[disk] = used
+		srcDisks := make(common.Map)
+		dstDisks := make(common.Map)
+		if cluster.Storage != nil {
+			for _, disk := range cluster.Storage.Disks {
+				srcDisks[disk.Name] = disk
+			}
 		}
 		if conf.Storage != nil {
 			for _, disk := range conf.Storage.Disks {
-				delete(diskMapping, disk.Name)
+				dstDisks[disk.Name] = disk
 			}
 		}
-		// if still in the map, means will delete it
-		for k, v := range diskMapping {
-			if v > 0 {
-				return false, errors.Errorf("There's data on disk %v, can't delete it", k)
+		delDisks := srcDisks.Difference(dstDisks).(common.Map)
+		if len(delDisks) > 0 {
+			// delDisks contains disks which will be deleted
+			svr := clickhouse.NewCkService(&cluster)
+			if err := svr.InitCkService(); err == nil {
+				var disks []string
+				for k := range delDisks {
+					disks = append(disks, k)
+				}
+				query := fmt.Sprintf(`SELECT policy_name
+				FROM system.storage_policies
+				WHERE (policy_name != 'default') AND hasAny(disks, ['%s'])`, strings.Join(disks, "','"))
+				log.Logger.Debug(query)
+				rows, err := svr.Conn.Query(query)
+				if err != nil {
+					return false, err
+				}
+				for rows.Next() {
+					var policy string
+					if err = rows.Scan(&policy); err == nil {
+						rows.Close()
+						return false, fmt.Errorf("disk %v was refrenced by storage_policy %s, can't delete", disks, policy)
+					} else {
+						rows.Close()
+						return false, err
+					}
+				}
+				rows.Close()
+			} else if !noChangedFn() {
+				return false, err
 			}
 		}
+
+		srcPolicy := make(common.Map)
+		dstPolicy := make(common.Map)
+		if cluster.Storage != nil {
+			for _, policy := range cluster.Storage.Policies {
+				srcPolicy[policy.Name] = policy
+			}
+		}
+		if conf.Storage != nil {
+			for _, policy := range conf.Storage.Policies {
+				dstPolicy[policy.Name] = policy
+			}
+		}
+		delPolicy := srcPolicy.Difference(dstPolicy).(common.Map)
+		if len(delPolicy) > 0 {
+			// delPolicy contains disks which will be deleted
+			svr := clickhouse.NewCkService(&cluster)
+			if err := svr.InitCkService(); err == nil {
+				var policies []string
+				for k := range delPolicy {
+					policies = append(policies, k)
+				}
+				query := fmt.Sprintf(`SELECT database, table, storage_policy 
+				FROM system.tables
+				WHERE storage_policy in ('%s')`, strings.Join(policies, "','"))
+				log.Logger.Debug(query)
+				rows, err := svr.Conn.Query(query)
+				if err != nil {
+					return false, err
+				}
+				for rows.Next() {
+					var database, table, policy_name string
+					if err = rows.Scan(&database, &table, &policy_name); err == nil {
+						rows.Close()
+						return false, fmt.Errorf("storage policy %s was refrenced by table %s.%s, can't delete", policy_name, database, table)
+					} else {
+						rows.Close()
+						return false, err
+					}
+				}
+				rows.Close()
+			} else if !noChangedFn() {
+				return false, err
+			}
+		}
+
 	}
 
 	if userconfChanged {
