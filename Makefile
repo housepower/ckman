@@ -130,8 +130,10 @@ internel-release:
 	#git tag ${VERSION}
 	make rpm
 	make package VERSION=${VERSION}
+	make deb
 	make rpm GOARCH=arm64
 	make package VERSION=${VERSION} GOARCH=arm64
+	make deb GOARCH=arm64
 
 .PHONY: release
 release: internel-release
