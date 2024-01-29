@@ -2665,14 +2665,14 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 				}
 			case "hdfs":
 				if !strings.HasSuffix(disk.DiskHdfs.Endpoint, "/") {
-					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskHdfs.Endpoint))
 				}
 				if common.CompareClickHouseVersion(con.Version, "21.9") < 0 {
 					return errors.Errorf("clickhouse do not support hdfs storage policy while version < 21.9 ")
 				}
 			case "s3":
 				if !strings.HasSuffix(disk.DiskS3.Endpoint, "/") {
-					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskS3.Endpoint))
 				}
 			default:
 				return errors.Errorf("unsupport disk type %s", disk.Type)
