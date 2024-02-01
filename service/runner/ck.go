@@ -332,7 +332,7 @@ func ConfigCkCluster(task *model.Task, d deploy.CKDeploy) error {
 				if err := rd.Restart(); err != nil {
 					return err
 				}
-				if err := rd.Check(30); err != nil {
+				if err := rd.Check(model.MaxTimeOut); err != nil {
 					return err
 				}
 				deploy.SetNodeStatus(task, model.NodeStatusDone, host)
