@@ -548,7 +548,7 @@ func (controller *ClickHouseController) TruncateTable(c *gin.Context) {
 	}
 	database := c.Query("database")
 	table := c.Query("tableName")
-	query := fmt.Sprintf("TRUNCATE TABLE IF EXISTS `%s`.`%s`", database, table)
+	query := fmt.Sprintf("TRUNCATE TABLE IF EXISTS `%s`.`%s` SETTINGS alter_sync = 0", database, table)
 	var lastErr error
 	var wg sync.WaitGroup
 	for _, host := range hosts {
