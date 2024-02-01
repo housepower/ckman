@@ -426,7 +426,7 @@ func (r *CKRebalance) MoveBack() error {
 			defer wg.Done()
 			// truncate and detach ori table
 			tableName := fmt.Sprintf("tmp_%s", r.Table)
-			query := fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`", r.Database, r.Table)
+			query := fmt.Sprintf("TRUNCATE TABLE `%s`.`%s` SETTINGS alter_sync = 0", r.Database, r.Table)
 			conn := common.GetConnection(host)
 			log.Logger.Debugf("[%s]%s", host, query)
 			if err = conn.Exec(query); err != nil {

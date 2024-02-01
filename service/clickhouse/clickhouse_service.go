@@ -447,7 +447,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 			rows.Close()
 		}
 
-		modify := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY COLUMN IF EXISTS `%s` %s %s",
+		modify := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY COLUMN IF EXISTS `%s` %s %s SETTINGS alter_sync = 0",
 			params.DB, local, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "))
 		log.Logger.Debugf(modify)
 		if err := ck.Conn.Exec(modify); err != nil {
@@ -457,7 +457,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 
 	// delete column
 	for _, value := range params.Drop {
-		drop := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` DROP COLUMN IF EXISTS `%s`",
+		drop := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` DROP COLUMN IF EXISTS `%s` SETTINGS alter_sync = 0",
 			params.DB, local, params.Cluster, value)
 		log.Logger.Debugf(drop)
 		if err := ck.Conn.Exec(drop); err != nil {
@@ -470,7 +470,7 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 		if value.From == "" || value.To == "" {
 			return errors.Errorf("form %s or to %s must not be empty", value.From, value.To)
 		}
-		rename := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` RENAME COLUMN IF EXISTS `%s` TO `%s`",
+		rename := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` RENAME COLUMN IF EXISTS `%s` TO `%s` SETTINGS alter_sync = 0",
 			params.DB, local, params.Cluster, value.From, value.To)
 
 		log.Logger.Debugf(rename)
@@ -576,14 +576,14 @@ func (ck *CkService) AlterTableTTL(req *model.AlterTblsTTLReq) error {
 		if req.TTLType != "" {
 			if req.TTLType == model.TTLTypeModify {
 				if req.TTLExpr != "" {
-					ttl := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY TTL %s", table.Database, local, ck.Config.Cluster, req.TTLExpr)
+					ttl := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` MODIFY TTL %s SETTINGS alter_sync = 0", table.Database, local, ck.Config.Cluster, req.TTLExpr)
 					log.Logger.Debugf(ttl)
 					if err := ck.Conn.Exec(ttl); err != nil {
 						return errors.Wrap(err, "")
 					}
 				}
 			} else if req.TTLType == model.TTLTypeRemove {
-				ttl := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` REMOVE TTL", table.Database, local, ck.Config.Cluster)
+				ttl := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` REMOVE TTL SETTINGS alter_sync = 0", table.Database, local, ck.Config.Cluster)
 				log.Logger.Debugf(ttl)
 				if err := ck.Conn.Exec(ttl); err != nil {
 					return errors.Wrap(err, "")
@@ -1795,7 +1795,7 @@ func MoveExceptToOthers(conf *model.CKManClickHouseConfig, except, target, datab
 	if err != nil {
 		return err
 	}
-	query = fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`", database, table)
+	query = fmt.Sprintf("TRUNCATE TABLE `%s`.`%s` SETTINGS alter_sync = 0", database, table)
 	log.Logger.Debugf("[%s] %s", except, query)
 	conn = common.GetConnection(except)
 	err = conn.Exec(query)
