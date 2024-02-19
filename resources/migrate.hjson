@@ -5,7 +5,7 @@
     "local1":{
       "policy": "local",
       "config":{
-        "format": "json",
+        "format": ".json",
         "config_dir": "/etc/ckman/conf",
         "config_file": "clusters"
       }
@@ -13,7 +13,7 @@
     "local2":{
       "policy": "local",
       "config":{
-        "format": "yaml",
+        "format": ".yaml",
         "config_dir": "/etc/ckman/conf",
         "config_file": "clusters"
       }
@@ -24,7 +24,7 @@
         "host": "127.0.0.1",
         "port": 3306,
         "user": "root",
-        "password": "E310E892E56801CED9ED98AA177F18E6",
+        "password": "ENC(E310E892E56801CED9ED98AA177F18E6)",
         "database": "ckman_db"
       }
     }
