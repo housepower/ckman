@@ -926,7 +926,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 
 			queries := []string{
 				tmpSql,
-				fmt.Sprintf("INSERT INTO `%s`.`tmp_%s` SELECT * FROM `%s`.`%s` SETTINGS max_insert_threads=%d", req.Database, local, req.Database, local, max_insert_threads),
+				fmt.Sprintf("INSERT INTO `%s`.`tmp_%s` SELECT * FROM `%s`.`%s` SETTINGS max_insert_threads=%d, max_execution_time=0", req.Database, local, req.Database, local, max_insert_threads),
 			}
 
 			for _, query := range queries {
@@ -969,7 +969,7 @@ func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) er
 				return
 			}
 			if lastError == nil {
-				query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`tmp_%s` SETTINGS max_insert_threads=%d", req.Database, local, req.Database, local, max_insert_threads)
+				query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`tmp_%s` SETTINGS max_insert_threads=%d,max_execution_time=0", req.Database, local, req.Database, local, max_insert_threads)
 				log.Logger.Debugf("%s: %s", host, query)
 				err = ck.Conn.Exec(query)
 				if err != nil {
@@ -1764,24 +1764,29 @@ func RebalanceByPartition(conf *model.CKManClickHouseConfig, rebalancer *CKRebal
 // 200w data costs 4s
 func RebalanceByShardingkey(conf *model.CKManClickHouseConfig, rebalancer *CKRebalance) error {
 	var err error
+	start := time.Now()
+	log.Logger.Info("[rebalance] STEP InitCKConns")
 	if err = rebalancer.InitCKConns(); err != nil {
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
-
+	log.Logger.Info("[rebalance] STEP CreateTemporaryTable")
 	if err = rebalancer.CreateTemporaryTable(); err != nil {
 		return err
 	}
-
+	log.Logger.Info("[rebalance] STEP InsertPlan")
 	if err = rebalancer.InsertPlan(); err != nil {
 		return err
 	}
-
+	log.Logger.Info("[rebalance] STEP MoveBack")
 	if err = rebalancer.MoveBack(); err != nil {
 		return errors.Wrapf(err, "table %s.%s rebalance failed, data can be corrupted, please move back from temp table[%s] manually", rebalancer.Database, rebalancer.Table, fmt.Sprintf("tmp_%s", rebalancer.Table))
 	}
 
+	log.Logger.Info("[rebalance] STEP Cleanup")
 	rebalancer.Cleanup()
+
+	log.Logger.Infof("[rebalance] DONE, Elapsed: %v sec", time.Since(start).Seconds())
 	return nil
 }
 

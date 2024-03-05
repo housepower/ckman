@@ -398,7 +398,7 @@ func (r *CKRebalance) InsertPlan() error {
 			conn := common.GetConnection(host)
 
 			tableName := fmt.Sprintf("tmp_%s", r.Table)
-			query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s` WHERE %s %% %d = %d SETTINGS max_insert_threads=%d",
+			query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s` WHERE %s %% %d = %d SETTINGS max_insert_threads=%d, max_execution_time=0",
 				r.Database, tableName, r.Database, r.DistTable, ShardingFunc(r.Shardingkey), len(r.Hosts), idx, max_insert_threads)
 			log.Logger.Debugf("[%s]%s", host, query)
 			if err := conn.Exec(query); err != nil {
@@ -426,32 +426,12 @@ func (r *CKRebalance) MoveBack() error {
 			defer wg.Done()
 			// truncate and detach ori table
 			tableName := fmt.Sprintf("tmp_%s", r.Table)
-			query := fmt.Sprintf("TRUNCATE TABLE `%s`.`%s` SETTINGS alter_sync = 0", r.Database, r.Table)
+			query := fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`", r.Database, r.Table)
 			conn := common.GetConnection(host)
 			log.Logger.Debugf("[%s]%s", host, query)
 			if err = conn.Exec(query); err != nil {
 				lastError = errors.Wrap(err, host)
 				return
-			}
-
-			var partitions []string
-			query = fmt.Sprintf("SELECT DISTINCT partition FROM system.parts WHERE database = '%s' AND table = '%s' AND active=1", r.Database, tableName)
-			log.Logger.Debugf("[%s]%s", host, query)
-			rows, err := conn.Query(query)
-			if err != nil {
-				lastError = errors.Wrap(err, host)
-				return
-			}
-			defer rows.Close()
-			for rows.Next() {
-				var partition string
-				if err := rows.Scan(&partition); err != nil {
-					lastError = errors.Wrap(err, host)
-					return
-				}
-				if partition != "" {
-					partitions = append(partitions, partition)
-				}
 			}
 
 			// copy data
@@ -477,26 +457,44 @@ func (r *CKRebalance) MoveBack() error {
 					lastError = errors.Wrap(err, host)
 					return
 				}
-				if reg.MatchString(file) {
+				if reg.MatchString(file) && !strings.HasPrefix(file, "tmp_merge") {
 					parts = append(parts, file)
 				}
 			}
+			log.Logger.Infof("host:[%s], parts: %v", host, parts)
 			var cmds []string
 			for _, part := range parts {
 				cmds = append(cmds, fmt.Sprintf("cp -prf %sclickhouse/data/%s/%s/%s %sclickhouse/data/%s/%s/detached/", r.DataDir, r.Database, tableName, part, r.DataDir, r.Database, r.Table))
 			}
-			_, err = common.RemoteExecute(sshOpts, strings.Join(cmds, ";"))
-			if err != nil {
-				lastError = errors.Wrap(err, host)
-				return
-			}
-
-			for _, partiton := range partitions {
-				query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PARTITION '%s'", r.Database, r.Table, partiton)
-				log.Logger.Debugf("[%s]%s", host, query)
-				if err = conn.Exec(query); err != nil {
+			if len(cmds) > 0 {
+				log.Logger.Infof("host:[%s], cmds: %v", host, cmds)
+				_, err = common.RemoteExecute(sshOpts, strings.Join(cmds, ";"))
+				if err != nil {
 					lastError = errors.Wrap(err, host)
 					return
+				}
+			}
+
+			var failedParts []string
+			for _, part := range parts {
+				query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PART '%s'", r.Database, r.Table, part)
+				log.Logger.Debugf("[%s]%s", host, query)
+				if err = conn.Exec(query); err != nil {
+					failedParts = append(failedParts, part)
+					continue
+				}
+			}
+
+			if len(failedParts) > 0 {
+				max_insert_threads := runtime.NumCPU()*3/4 + 1
+				log.Logger.Infof("[%s]failed parts: %v, retry again", host, failedParts)
+				for _, part := range failedParts {
+					query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s` WHERE _part = '%s' SETTINGS max_insert_threads=%d, max_execution_time=0", r.Database, r.Table, r.Database, tableName, part, max_insert_threads)
+					log.Logger.Debugf("[%s]%s", host, query)
+					if err = conn.Exec(query); err != nil {
+						lastError = errors.Wrap(err, host)
+						return
+					}
 				}
 			}
 		})

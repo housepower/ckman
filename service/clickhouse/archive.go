@@ -235,7 +235,7 @@ func (p *ArchiveParams) GetSlots(host, table string) (slots []time.Time, err err
 	log.Logger.Infof("host %s: total rows to export: %d, estimated size (in bytes): %d", host, totalRowsCnt, tblEstSize)
 	atomic.AddUint64(&p.EstSize, tblEstSize)
 
-	sqlTmpl3 := "SELECT toStartOfInterval(`%s`, INTERVAL %s) AS slot, count() FROM `%s`.`%s` WHERE `%s`>=%s AND `%s`<%s GROUP BY slot ORDER BY slot"
+	sqlTmpl3 := "SELECT toStartOfInterval(`%s`, INTERVAL %s) AS slot, count() FROM `%s`.`%s` WHERE `%s`>=%s AND `%s`<%s GROUP BY slot ORDER BY slot SETTINGS max_execution_time=0"
 	var tryIntervals []string
 	if colType == "Date" {
 		// remove 4 hour, 1 hour
@@ -287,7 +287,7 @@ func (p *ArchiveParams) ExportSlot(host, table string, seq int, slotBeg, slotEnd
 			queries := []string{
 				fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s`", p.Database, tmpTbl),
 				fmt.Sprintf("CREATE TABLE `%s`.`%s` AS `%s`.`%s` ENGINE=%s", p.Database, tmpTbl, p.Database, table, engine),
-				fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s` WHERE `%s`>=%s AND `%s`<%s", p.Database, tmpTbl, p.Database, table, colName, formatTimestamp(slotBeg, colType), colName, formatTimestamp(slotEnd, colType)),
+				fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s` WHERE `%s`>=%s AND `%s`<%s SETTINGS max_execution_time=0", p.Database, tmpTbl, p.Database, table, colName, formatTimestamp(slotBeg, colType), colName, formatTimestamp(slotEnd, colType)),
 			}
 			conn := common.GetConnection(host)
 			if conn == nil {

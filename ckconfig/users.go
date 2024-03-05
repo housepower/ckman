@@ -84,7 +84,8 @@ func profiles(userProfiles []model.Profile, info HostInfo) map[string]interface{
 	defaultProfile["distributed_ddl_task_timeout"] = 15
 	defaultProfile["allow_drop_detached"] = 1
 	defaultProfile["use_uncompressed_cache"] = 0
-	defaultProfile["max_execution_time"] = 300
+	defaultProfile["max_execution_time"] = 3600 // 1 hour
+	defaultProfile["max_partitions_per_insert_block"] = 500
 	profileMap["default"] = defaultProfile
 
 	//normal
