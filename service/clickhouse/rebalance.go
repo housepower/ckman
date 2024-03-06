@@ -516,7 +516,7 @@ func (r *CKRebalance) MoveBackup() error {
 
 			var failedParts []string
 			for _, part := range parts {
-				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PART '%s'", r.Database, r.TmpTable, part)
+				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PART '%s' settings mutations_sync=1", r.Database, r.TmpTable, part)
 				log.Logger.Debugf("[%s]%s", host, query)
 				if err = conn.Exec(query); err != nil {
 					failedParts = append(failedParts, part)
