@@ -1561,6 +1561,7 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 			Hosts:      hosts,
 			Database:   key.Database,
 			Table:      key.Table,
+			TmpTable:   "tmp_" + key.Table,
 			DistTable:  key.DistTable,
 			DataDir:    conf.Path,
 			OsUser:     conf.SshUser,
@@ -1774,15 +1775,20 @@ func RebalanceByShardingkey(conf *model.CKManClickHouseConfig, rebalancer *CKReb
 	if err = rebalancer.CreateTemporaryTable(); err != nil {
 		return err
 	}
-	log.Logger.Info("[rebalance] STEP InsertPlan")
-	if err = rebalancer.InsertPlan(); err != nil {
+	log.Logger.Info("[rebalance] STEP MoveBackup")
+	if err = rebalancer.MoveBackup(); err != nil {
 		return err
 	}
-	log.Logger.Info("[rebalance] STEP MoveBack")
-	if err = rebalancer.MoveBack(); err != nil {
-		return errors.Wrapf(err, "table %s.%s rebalance failed, data can be corrupted, please move back from temp table[%s] manually", rebalancer.Database, rebalancer.Table, fmt.Sprintf("tmp_%s", rebalancer.Table))
+	if err = rebalancer.CheckCounts(rebalancer.TmpTable); err != nil {
+		return err
 	}
-
+	log.Logger.Info("[rebalance] STEP InsertPlan")
+	if err = rebalancer.InsertPlan(); err != nil {
+		return errors.Wrapf(err, "table %s.%s rebalance failed, data can be corrupted, please move back from temp table[%s] manually", rebalancer.Database, rebalancer.Table, rebalancer.TmpTable)
+	}
+	if err = rebalancer.CheckCounts(rebalancer.Table); err != nil {
+		return err
+	}
 	log.Logger.Info("[rebalance] STEP Cleanup")
 	rebalancer.Cleanup()
 

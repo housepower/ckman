@@ -28,6 +28,7 @@ type CKRebalance struct {
 	DataDir     string
 	Database    string
 	Table       string
+	TmpTable    string
 	DistTable   string
 	IsReplica   bool
 	RepTables   map[string]string
@@ -37,6 +38,9 @@ type CKRebalance struct {
 	Shardingkey model.RebalanceShardingkey
 	ExceptHost  string
 	ConnOpt     model.ConnetOption
+	Engine      string
+	EngineFull  string
+	OriCount    uint64
 }
 
 // TblPartitions is partitions status of a host. A host never move out and move in at the same iteration.
@@ -60,6 +64,33 @@ func (r *CKRebalance) InitCKConns() (err error) {
 		log.Logger.Infof("initialized clickhouse connection to %s", host)
 		locks[host] = &sync.Mutex{}
 	}
+
+	conn := common.GetConnection(r.Hosts[0])
+	query := fmt.Sprintf("SELECT engine, engine_full FROM system.tables WHERE database = '%s' AND table = '%s'", r.Database, r.Table)
+	log.Logger.Debugf("query:%s", query)
+	rows, _ := conn.Query(query)
+	for rows.Next() {
+		err = rows.Scan(&r.Engine, &r.EngineFull)
+		if err != nil {
+			return
+		}
+	}
+	rows.Close()
+	log.Logger.Infof("table: %s.%s, engine: %s, engine_full:%s", r.Database, r.Table, r.Engine, r.EngineFull)
+	query = fmt.Sprintf("SELECT count() FROM cluster('%s', '%s.%s')", r.Cluster, r.Database, r.Table)
+	if strings.Contains(r.Engine, "Replacing") {
+		query += " FINAL"
+	}
+	log.Logger.Debugf("query: %s", query)
+	rows, _ = conn.Query(query)
+	for rows.Next() {
+		err = rows.Scan(&r.OriCount)
+		if err != nil {
+			return
+		}
+	}
+	log.Logger.Infof("table: %s.%s, count: %d", r.Database, r.Table, r.OriCount)
+	rows.Close()
 	return
 }
 
@@ -345,42 +376,54 @@ func (r *CKRebalance) Close() {
 }
 
 func (r *CKRebalance) Cleanup() {
-	for _, host := range r.Hosts {
-		conn := common.GetConnection(host)
-		tableName := fmt.Sprintf("tmp_%s", r.Table)
-		cleanSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` SYNC", r.Database, tableName)
-		log.Logger.Debugf("[%s]%s", host, cleanSql)
-		if err := conn.Exec(cleanSql); err != nil {
-			log.Logger.Warnf("drop table %s.%s failed: %v", r.Database, tableName, err)
-		}
+	conn := common.GetConnection(r.Hosts[0])
+	cleanSql := fmt.Sprintf("DROP TABLE IF EXISTS `%s`.`%s` ON CLUSTER `%s` SYNC", r.Database, r.TmpTable, r.Cluster)
+	log.Logger.Debugf("[%s]%s", r.Hosts[0], cleanSql)
+	if err := conn.Exec(cleanSql); err != nil {
+		log.Logger.Warnf("drop table %s.%s failed: %v", r.Database, r.TmpTable, err)
 	}
 }
 
 func (r *CKRebalance) CreateTemporaryTable() error {
 	// if ckman crashed when rebalancing, cleanup tmp table to ensure next rebalance successfully
 	r.Cleanup()
-	for _, host := range r.Hosts {
-		conn := common.GetConnection(host)
-		tableName := fmt.Sprintf("tmp_%s", r.Table)
-		createSql := fmt.Sprintf("SELECT create_table_query FROM system.tables WHERE database = '%s' AND name = '%s'", r.Database, r.Table)
-		rows, err := conn.Query(createSql)
+	create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` AS `%s`.`%s` ENGINE=%s",
+		r.Database, r.TmpTable, r.Cluster, r.Database, r.Table, r.EngineFull)
+	create = strings.ReplaceAll(create, fmt.Sprintf("/%s/", r.Table), fmt.Sprintf("/%s/", r.TmpTable)) // replace engine zoopath
+	log.Logger.Debug(create)
+	if create != "" {
+		conn := common.GetConnection(r.Hosts[0])
+		err := conn.Exec(create)
 		if err != nil {
-			return errors.Wrap(err, host)
+			return errors.Wrap(err, r.Hosts[0])
 		}
-		defer rows.Close()
-		var create string
-		for rows.Next() {
-			_ = rows.Scan(&create)
+	}
+	return nil
+}
+
+func (r *CKRebalance) CheckCounts(tableName string) error {
+	query := fmt.Sprintf("SELECT count() FROM cluster('%s', '%s.%s')", r.Cluster, r.Database, tableName)
+	if strings.Contains(r.Engine, "Replacing") {
+		query += " FINAL"
+	}
+	log.Logger.Debugf("query: %s", query)
+	conn := common.GetConnection(r.Hosts[0])
+	rows, err := conn.Query(query)
+	if err != nil {
+		return err
+	}
+	var count uint64
+	for rows.Next() {
+		err := rows.Scan(&count)
+		if err != nil {
+			return err
 		}
-		create = strings.Replace(create, fmt.Sprintf("CREATE TABLE %s.%s", r.Database, r.Table), fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s`", r.Database, tableName), -1)
-		create = strings.ReplaceAll(create, fmt.Sprintf("/%s/", r.Table), fmt.Sprintf("/%s/", tableName)) // replace engine zoopath
-		log.Logger.Debug(create)
-		if create != "" {
-			err = conn.Exec(create)
-			if err != nil {
-				return errors.Wrap(err, host)
-			}
-		}
+	}
+	log.Logger.Infof("table: %s.%s, count: %d", r.Database, tableName, count)
+	rows.Close()
+	// 有可能在负载均衡期间数据还在往原始表写，所以最终数据应该是大于等于最原始统计的条数的，虽然我们并不建议这样做
+	if count < r.OriCount {
+		return fmt.Errorf("table %s count %d is less than original: %d", tableName, count, r.OriCount)
 	}
 	return nil
 }
@@ -396,10 +439,15 @@ func (r *CKRebalance) InsertPlan() error {
 		_ = common.Pool.Submit(func() {
 			defer wg.Done()
 			conn := common.GetConnection(host)
+			query := fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`", r.Database, r.Table)
+			log.Logger.Debugf("[%s]%s", host, query)
+			if err := conn.Exec(query); err != nil {
+				lastError = errors.Wrap(err, host)
+				return
+			}
 
-			tableName := fmt.Sprintf("tmp_%s", r.Table)
-			query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s` WHERE %s %% %d = %d SETTINGS max_insert_threads=%d, max_execution_time=0",
-				r.Database, tableName, r.Database, r.DistTable, ShardingFunc(r.Shardingkey), len(r.Hosts), idx, max_insert_threads)
+			query = fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM cluster('%s', '%s.%s') WHERE %s %% %d = %d SETTINGS max_insert_threads=%d, max_execution_time=0",
+				r.Database, r.Table, r.Cluster, r.Database, r.TmpTable, ShardingFunc(r.Shardingkey), len(r.Hosts), idx, max_insert_threads)
 			log.Logger.Debugf("[%s]%s", host, query)
 			if err := conn.Exec(query); err != nil {
 				lastError = errors.Wrap(err, host)
@@ -412,7 +460,7 @@ func (r *CKRebalance) InsertPlan() error {
 	return lastError
 }
 
-func (r *CKRebalance) MoveBack() error {
+func (r *CKRebalance) MoveBackup() error {
 	conf, err := repository.Ps.GetClusterbyName(r.Cluster)
 	if err != nil {
 		return err
@@ -424,18 +472,9 @@ func (r *CKRebalance) MoveBack() error {
 		wg.Add(1)
 		_ = common.Pool.Submit(func() {
 			defer wg.Done()
-			// truncate and detach ori table
-			tableName := fmt.Sprintf("tmp_%s", r.Table)
-			query := fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`", r.Database, r.Table)
 			conn := common.GetConnection(host)
-			log.Logger.Debugf("[%s]%s", host, query)
-			if err = conn.Exec(query); err != nil {
-				lastError = errors.Wrap(err, host)
-				return
-			}
-
 			// copy data
-			cmd := fmt.Sprintf("ls -l %sclickhouse/data/%s/%s/ |grep -v total |awk '{print $9}'", r.DataDir, r.Database, tableName)
+			cmd := fmt.Sprintf("ls -l %sclickhouse/data/%s/%s/ |grep -v total |awk '{print $9}'", r.DataDir, r.Database, r.Table)
 			sshOpts := common.SshOptions{
 				User:             conf.SshUser,
 				Password:         conf.SshPassword,
@@ -461,13 +500,13 @@ func (r *CKRebalance) MoveBack() error {
 					parts = append(parts, file)
 				}
 			}
-			log.Logger.Infof("host:[%s], parts: %v", host, parts)
+			log.Logger.Debugf("host:[%s], parts: %v", host, parts)
 			var cmds []string
 			for _, part := range parts {
-				cmds = append(cmds, fmt.Sprintf("cp -prf %sclickhouse/data/%s/%s/%s %sclickhouse/data/%s/%s/detached/", r.DataDir, r.Database, tableName, part, r.DataDir, r.Database, r.Table))
+				cmds = append(cmds, fmt.Sprintf("cp -prf %sclickhouse/data/%s/%s/%s %sclickhouse/data/%s/%s/detached/", r.DataDir, r.Database, r.Table, part, r.DataDir, r.Database, r.TmpTable))
 			}
 			if len(cmds) > 0 {
-				log.Logger.Infof("host:[%s], cmds: %v", host, cmds)
+				log.Logger.Debugf("host:[%s], cmds: %v", host, cmds)
 				_, err = common.RemoteExecute(sshOpts, strings.Join(cmds, ";"))
 				if err != nil {
 					lastError = errors.Wrap(err, host)
@@ -477,7 +516,7 @@ func (r *CKRebalance) MoveBack() error {
 
 			var failedParts []string
 			for _, part := range parts {
-				query = fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PART '%s'", r.Database, r.Table, part)
+				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PART '%s'", r.Database, r.TmpTable, part)
 				log.Logger.Debugf("[%s]%s", host, query)
 				if err = conn.Exec(query); err != nil {
 					failedParts = append(failedParts, part)
@@ -489,7 +528,7 @@ func (r *CKRebalance) MoveBack() error {
 				max_insert_threads := runtime.NumCPU()*3/4 + 1
 				log.Logger.Infof("[%s]failed parts: %v, retry again", host, failedParts)
 				for _, part := range failedParts {
-					query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s` WHERE _part = '%s' SETTINGS max_insert_threads=%d, max_execution_time=0", r.Database, r.Table, r.Database, tableName, part, max_insert_threads)
+					query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s` WHERE _part = '%s' SETTINGS max_insert_threads=%d, max_execution_time=0", r.Database, r.TmpTable, r.Database, r.Table, part, max_insert_threads)
 					log.Logger.Debugf("[%s]%s", host, query)
 					if err = conn.Exec(query); err != nil {
 						lastError = errors.Wrap(err, host)
@@ -498,7 +537,7 @@ func (r *CKRebalance) MoveBack() error {
 				}
 			}
 		})
-		wg.Wait()
 	}
+	wg.Wait()
 	return lastError
 }

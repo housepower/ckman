@@ -109,9 +109,9 @@ func (server *ApiServer) Start() error {
 	bind := fmt.Sprintf(":%d", server.config.Server.Port)
 	server.svr = &http.Server{
 		Addr:         bind,
-		WriteTimeout: time.Second * 300,
-		ReadTimeout:  time.Second * 300,
-		IdleTimeout:  time.Second * 60,
+		WriteTimeout: time.Second * 3600,
+		ReadTimeout:  time.Second * 3600,
+		IdleTimeout:  time.Second * 3600,
 		Handler:      r,
 	}
 
