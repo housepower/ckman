@@ -1780,19 +1780,25 @@ func RebalanceByShardingkey(conf *model.CKManClickHouseConfig, rebalancer *CKReb
 		return err
 	}
 	if err = rebalancer.CheckCounts(rebalancer.TmpTable); err != nil {
-		return err
+		time.Sleep(5 * time.Second)
+		if err = rebalancer.CheckCounts(rebalancer.TmpTable); err != nil {
+			return err
+		}
 	}
 	log.Logger.Info("[rebalance] STEP InsertPlan")
 	if err = rebalancer.InsertPlan(); err != nil {
 		return errors.Wrapf(err, "table %s.%s rebalance failed, data can be corrupted, please move back from temp table[%s] manually", rebalancer.Database, rebalancer.Table, rebalancer.TmpTable)
 	}
 	if err = rebalancer.CheckCounts(rebalancer.Table); err != nil {
-		return err
+		time.Sleep(5 * time.Second)
+		if err = rebalancer.CheckCounts(rebalancer.Table); err != nil {
+			return err
+		}
 	}
 	log.Logger.Info("[rebalance] STEP Cleanup")
 	rebalancer.Cleanup()
 
-	log.Logger.Infof("[rebalance] DONE, Elapsed: %v sec", time.Since(start).Seconds())
+	log.Logger.Infof("[rebalance] DONE, Total counts: %d, Elapsed: %v sec", rebalancer.OriCount, time.Since(start).Seconds())
 	return nil
 }
 
