@@ -1744,7 +1744,7 @@ func getShardingType(key *model.RebalanceShardingkey, conn *common.Conn) error {
 
 func RebalanceByPartition(conf *model.CKManClickHouseConfig, rebalancer *CKRebalance) error {
 	var err error
-	if err = rebalancer.InitCKConns(); err != nil {
+	if err = rebalancer.InitCKConns(false); err != nil {
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
@@ -1767,7 +1767,7 @@ func RebalanceByShardingkey(conf *model.CKManClickHouseConfig, rebalancer *CKReb
 	var err error
 	start := time.Now()
 	log.Logger.Info("[rebalance] STEP InitCKConns")
-	if err = rebalancer.InitCKConns(); err != nil {
+	if err = rebalancer.InitCKConns(true); err != nil {
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
