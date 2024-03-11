@@ -56,9 +56,6 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 			Username: opt.User,
 			Password: opt.Password,
 		},
-		Settings: clickhouse.Settings{
-			"max_execution_time": 60,
-		},
 		Protocol:         opt.Protocol,
 		DialTimeout:      time.Duration(10) * time.Second,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,

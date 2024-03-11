@@ -1744,7 +1744,7 @@ func getShardingType(key *model.RebalanceShardingkey, conn *common.Conn) error {
 
 func RebalanceByPartition(conf *model.CKManClickHouseConfig, rebalancer *CKRebalance) error {
 	var err error
-	if err = rebalancer.InitCKConns(); err != nil {
+	if err = rebalancer.InitCKConns(false); err != nil {
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
@@ -1767,7 +1767,7 @@ func RebalanceByShardingkey(conf *model.CKManClickHouseConfig, rebalancer *CKReb
 	var err error
 	start := time.Now()
 	log.Logger.Info("[rebalance] STEP InitCKConns")
-	if err = rebalancer.InitCKConns(); err != nil {
+	if err = rebalancer.InitCKConns(true); err != nil {
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
@@ -1780,19 +1780,25 @@ func RebalanceByShardingkey(conf *model.CKManClickHouseConfig, rebalancer *CKReb
 		return err
 	}
 	if err = rebalancer.CheckCounts(rebalancer.TmpTable); err != nil {
-		return err
+		time.Sleep(5 * time.Second)
+		if err = rebalancer.CheckCounts(rebalancer.TmpTable); err != nil {
+			return err
+		}
 	}
 	log.Logger.Info("[rebalance] STEP InsertPlan")
 	if err = rebalancer.InsertPlan(); err != nil {
 		return errors.Wrapf(err, "table %s.%s rebalance failed, data can be corrupted, please move back from temp table[%s] manually", rebalancer.Database, rebalancer.Table, rebalancer.TmpTable)
 	}
 	if err = rebalancer.CheckCounts(rebalancer.Table); err != nil {
-		return err
+		time.Sleep(5 * time.Second)
+		if err = rebalancer.CheckCounts(rebalancer.Table); err != nil {
+			return err
+		}
 	}
 	log.Logger.Info("[rebalance] STEP Cleanup")
 	rebalancer.Cleanup()
 
-	log.Logger.Infof("[rebalance] DONE, Elapsed: %v sec", time.Since(start).Seconds())
+	log.Logger.Infof("[rebalance] DONE, Total counts: %d, Elapsed: %v sec", rebalancer.OriCount, time.Since(start).Seconds())
 	return nil
 }
 
