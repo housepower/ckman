@@ -426,9 +426,9 @@ func (r *CKRebalance) CreateTemporaryTable() error {
 func (r *CKRebalance) CheckCounts(tableName string) error {
 	var query string
 	if strings.Contains(r.Engine, "Replacing") {
-		query = fmt.Sprintf("SELECT count() FROM (SELECT DISTINCT %s FROM cluster('%s', '%s.%s') FINAL)", strings.Join(r.SortingKey, ","), r.Cluster, r.Database, r.Table)
+		query = fmt.Sprintf("SELECT count() FROM (SELECT DISTINCT %s FROM cluster('%s', '%s.%s') FINAL)", strings.Join(r.SortingKey, ","), r.Cluster, r.Database, tableName)
 	} else {
-		query = fmt.Sprintf("SELECT count() FROM cluster('%s', '%s.%s')", r.Cluster, r.Database, r.Table)
+		query = fmt.Sprintf("SELECT count() FROM cluster('%s', '%s.%s')", r.Cluster, r.Database, tableName)
 	}
 	log.Logger.Debugf("query: %s", query)
 	conn := common.GetConnection(r.Hosts[0])
@@ -463,13 +463,7 @@ func (r *CKRebalance) InsertPlan() error {
 		_ = common.Pool.Submit(func() {
 			defer wg.Done()
 			conn := common.GetConnection(host)
-			query := fmt.Sprintf("TRUNCATE TABLE `%s`.`%s`", r.Database, r.Table)
-			log.Logger.Debugf("[%s]%s", host, query)
-			if err := conn.Exec(query); err != nil {
-				lastError = errors.Wrap(err, host)
-				return
-			}
-			query = fmt.Sprintf(`SELECT distinct partition_id FROM cluster('%s', 'system.parts') WHERE database = '%s' AND table = '%s' AND active=1 ORDER BY partition_id`, r.Cluster, r.Database, r.TmpTable)
+			query := fmt.Sprintf(`SELECT distinct partition_id FROM cluster('%s', 'system.parts') WHERE database = '%s' AND table = '%s' AND active=1 ORDER BY partition_id DESC`, r.Cluster, r.Database, r.TmpTable)
 			log.Logger.Debugf("[%s]%s", host, query)
 			rows, err := conn.Query(query)
 			if err != nil {
@@ -535,8 +529,7 @@ func (r *CKRebalance) MoveBackup() error {
 			log.Logger.Debugf("host:[%s], partitions: %v", host, partitions)
 
 			for idx, partition := range partitions {
-				query = fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s` WHERE _partition_id = '%s' SETTINGS insert_deduplicate=false,max_execution_time=0,max_insert_threads=8",
-					r.Database, r.TmpTable, r.Database, r.Table, partition)
+				query = fmt.Sprintf("ALTER TABLE `%s`.`%s` MOVE PARTITION ID '%s' TO TABLE `%s`.`%s`", r.Database, r.Table, partition, r.Database, r.TmpTable)
 				log.Logger.Debugf("[%s](%d/%d) %s", host, idx+1, len(partitions), query)
 				if err = conn.Exec(query); err != nil {
 					lastError = errors.Wrap(err, host)
