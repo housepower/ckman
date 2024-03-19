@@ -2043,7 +2043,8 @@ func (controller *ClickHouseController) GetOpenSessions(c *gin.Context) {
 func (controller *ClickHouseController) KillOpenSessions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	host := c.Query("host")
-	queryId := c.Query("query_id")
+	queryId := c.Query("queryId")
+	typ := c.Query("type")
 
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
@@ -2051,7 +2052,7 @@ func (controller *ClickHouseController) KillOpenSessions(c *gin.Context) {
 		return
 	}
 
-	err = clickhouse.KillCkOpenSessions(&conf, host, queryId)
+	err = clickhouse.KillCkOpenSessions(&conf, host, queryId, typ)
 	if err != nil {
 		controller.wrapfunc(c, model.E_DATA_UPDATE_FAILED, err)
 		return
@@ -2119,6 +2120,46 @@ func (controller *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	}
 
 	controller.wrapfunc(c, model.E_SUCCESS, sessions)
+}
+
+// @Summary 查询分布式DDL
+// @Description 查询分布式DDL
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"startTime":1609986493,"queryDuration":145,"query":"select * from dist_sensor_dt_result_online limit 10000","user":"default","queryId":"8aa3de08-92c4-4102-a83d-2f5d88569dab","address":"::1","threads":2}]}"
+// @Router /api/v2/ck/ddl_queue/{clusterName} [get]
+func (controller *ClickHouseController) GetDistDDLQueue(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	var gotError bool
+	ddlQueue, err := clickhouse.GetDistibutedDDLQueue(&conf)
+	if err != nil {
+		gotError = true
+		err = common.ClikHouseExceptionDecode(err)
+		var exception *client.Exception
+		if errors.As(err, &exception) {
+			if exception.Code == 60 {
+				// we do not return error when system.query_log is not exist
+				gotError = false
+			}
+		}
+	}
+	if gotError {
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+
+	controller.wrapfunc(c, model.E_SUCCESS, ddlQueue)
 }
 
 // @Summary Ping集群是否健康

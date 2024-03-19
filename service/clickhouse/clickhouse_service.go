@@ -1218,15 +1218,97 @@ func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 	return getCkSessions(conf, limit, query)
 }
 
-func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId string) error {
+func GetDistibutedDDLQueue(conf *model.CKManClickHouseConfig) ([]*model.CkSessionInfo, error) {
+	query := fmt.Sprintf("select query_create_time, query, host, initiator_host, entry from cluster('{cluster}', system.distributed_ddl_queue) where cluster = '%s' and status != 'Finished' ORDER BY query_create_time", conf.Cluster)
+	log.Logger.Debugf("query:%s", query)
+	service := NewCkService(conf)
+	err := service.InitCkService()
+	if err != nil {
+		return nil, err
+	}
+
+	value, err := service.QueryInfo(query)
+	if err != nil {
+		return nil, err
+	}
+	var sessions []*model.CkSessionInfo
+	if len(value) > 1 {
+		sessions = make([]*model.CkSessionInfo, len(value)-1)
+		for i := 1; i < len(value); i++ {
+			var session model.CkSessionInfo
+			startTime := value[i][0].(time.Time)
+			session.StartTime = startTime.Unix()
+			session.QueryDuration = uint64(time.Since(startTime).Milliseconds())
+			session.Query = value[i][1].(string)
+			session.Host = value[i][2].(string)
+			session.Address = value[i][3].(string)
+			session.QueryId = value[i][4].(string)
+
+			sessions[i-1] = &session
+		}
+	} else {
+		sessions = make([]*model.CkSessionInfo, 0)
+	}
+	return sessions, nil
+}
+func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId, typ string) error {
 	conn, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
 	if err != nil {
 		return err
 	}
-	query := fmt.Sprintf("KILL QUERY WHERE query_id = '%s'", queryId)
-	err = conn.Exec(query)
-	if err != nil {
-		return errors.Wrap(err, "")
+	if typ == "queue" {
+		query := fmt.Sprintf(`SELECT
+		splitByChar('.', table)[1] AS database,
+		splitByChar('.', table)[2] AS tbl,
+		initial_query_id
+	FROM
+	(
+		SELECT
+			(extractAllGroups(value, '(\\w+\\.\\w+) UUID')[1])[1] AS table,
+			(extractAllGroups(value, 'initial_query_id: (.*)\n')[1])[1] AS initial_query_id
+		FROM system.zookeeper
+		WHERE (path = '/clickhouse/task_queue/ddl/%s') AND (name = '%s')
+	)`, conf.Cluster, queryId)
+		var database, table, initial_query_id string
+		log.Logger.Debugf(query)
+		err := conn.QueryRow(query).Scan(&database, &table, &initial_query_id)
+		if err != nil {
+			return errors.Wrap(err, "")
+		}
+		log.Logger.Debugf("database: %s, table: %s, initial_query_id: %s", database, table, initial_query_id)
+		query = fmt.Sprintf("select query_id from system.processes where initial_query_id = '%s'", initial_query_id)
+		var query_id string
+		log.Logger.Debugf(query)
+		err = conn.QueryRow(query).Scan(&query_id)
+		if err == nil {
+			query = fmt.Sprintf("KILL QUERY WHERE query_id = '%s'", queryId)
+			err = conn.Exec(query)
+			if err != nil {
+				return errors.Wrap(err, "")
+			}
+		} else {
+			// kill mutation
+			query = fmt.Sprintf("select count() from system.mutations where is_done = 0 and database = '%s' and table = '%s'", database, table)
+			log.Logger.Debugf(query)
+			var count uint64
+			err = conn.QueryRow(query).Scan(&count)
+			if err != nil {
+				return errors.Wrap(err, "")
+			}
+			if count > 0 {
+				query = fmt.Sprintf("KILL MUTATION WHERE database = '%s' AND table = '%s'", database, table)
+				err = conn.Exec(query)
+				if err != nil {
+					return errors.Wrap(err, "")
+				}
+			}
+		}
+	} else {
+		query := fmt.Sprintf("KILL QUERY WHERE query_id = '%s'", queryId)
+		err = conn.Exec(query)
+		if err != nil {
+			return errors.Wrap(err, "")
+		}
 	}
 	return nil
 }
