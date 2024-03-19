@@ -81,7 +81,7 @@ func profiles(userProfiles []model.Profile, info HostInfo) map[string]interface{
 	defaultProfile["max_query_size"] = 1073741824
 	defaultProfile["distributed_aggregation_memory_efficient"] = 1
 	defaultProfile["joined_subquery_requires_alias"] = 0
-	defaultProfile["distributed_ddl_task_timeout"] = 15
+	defaultProfile["distributed_ddl_task_timeout"] = 60
 	defaultProfile["allow_drop_detached"] = 1
 	defaultProfile["use_uncompressed_cache"] = 0
 	defaultProfile["max_execution_time"] = 3600 // 1 hour
