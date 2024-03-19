@@ -199,6 +199,18 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) (string, error) {
 		}
 	}
 
+	if conf.LogicCluster != nil {
+		query := fmt.Sprintf("SELECT count() FROM system.clusters WHERE cluster = '%s'", *conf.LogicCluster)
+		value, err = service.QueryInfo(query)
+		if err != nil {
+			return model.E_DATA_SELECT_FAILED, err
+		}
+		c := value[1][0].(uint64)
+		if c == 0 {
+			return model.E_RECORD_NOT_FOUND, fmt.Errorf("logic cluster %s not exist", *conf.LogicCluster)
+		}
+	}
+
 	value, err = service.QueryInfo("SELECT version()")
 	if err != nil {
 		return model.E_DATA_SELECT_FAILED, err
