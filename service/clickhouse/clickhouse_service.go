@@ -1219,7 +1219,7 @@ func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 }
 
 func GetDistibutedDDLQueue(conf *model.CKManClickHouseConfig) ([]*model.CkSessionInfo, error) {
-	query := fmt.Sprintf("select query_create_time, query, host, initiator_host, entry from cluster('{cluster}', system.distributed_ddl_queue) where cluster = '%s' and status != 'Finished' ORDER BY query_create_time", conf.Cluster)
+	query := fmt.Sprintf("select DISTINCT query_create_time, query, host, initiator_host, entry from cluster('{cluster}', system.distributed_ddl_queue) where cluster = '%s' and status != 'Finished' ORDER BY query_create_time", conf.Cluster)
 	log.Logger.Debugf("query:%s", query)
 	service := NewCkService(conf)
 	err := service.InitCkService()
@@ -1264,7 +1264,7 @@ func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId, typ st
 	FROM
 	(
 		SELECT
-			(extractAllGroups(value, '(\\w+\\.\\w+) UUID')[1])[1] AS table,
+			(extractAllGroups(value, 'TABLE (\\w+\\.\\w+) ')[1])[1] AS table,
 			(extractAllGroups(value, 'initial_query_id: (.*)\n')[1])[1] AS initial_query_id
 		FROM system.zookeeper
 		WHERE (path = '/clickhouse/task_queue/ddl/%s') AND (name = '%s')
@@ -1281,7 +1281,8 @@ func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId, typ st
 		log.Logger.Debugf(query)
 		err = conn.QueryRow(query).Scan(&query_id)
 		if err == nil {
-			query = fmt.Sprintf("KILL QUERY WHERE query_id = '%s'", queryId)
+			query = fmt.Sprintf("KILL QUERY WHERE query_id = '%s'", query_id)
+			log.Logger.Debugf(query)
 			err = conn.Exec(query)
 			if err != nil {
 				return errors.Wrap(err, "")
@@ -1297,6 +1298,7 @@ func KillCkOpenSessions(conf *model.CKManClickHouseConfig, host, queryId, typ st
 			}
 			if count > 0 {
 				query = fmt.Sprintf("KILL MUTATION WHERE database = '%s' AND table = '%s'", database, table)
+				log.Logger.Debugf(query)
 				err = conn.Exec(query)
 				if err != nil {
 					return errors.Wrap(err, "")
