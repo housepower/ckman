@@ -111,6 +111,7 @@ func InitRouterV2(groupV2 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV2.GET(fmt.Sprintf("/ck/open-sessions/:%s", controller.ClickHouseClusterPath), ckController.GetOpenSessions)
 	groupV2.PUT(fmt.Sprintf("/ck/open-sessions/:%s", controller.ClickHouseClusterPath), ckController.KillOpenSessions)
 	groupV2.GET(fmt.Sprintf("/ck/slow-sessions/:%s", controller.ClickHouseClusterPath), ckController.GetSlowSessions)
+	groupV2.GET(fmt.Sprintf("/ck/ddl_queue/:%s", controller.ClickHouseClusterPath), ckController.GetDistDDLQueue)
 	groupV2.POST(fmt.Sprintf("/ck/node/:%s", controller.ClickHouseClusterPath), ckController.AddNode)
 	groupV2.DELETE(fmt.Sprintf("/ck/node/:%s", controller.ClickHouseClusterPath), ckController.DeleteNode)
 	groupV2.PUT(fmt.Sprintf("/ck/node/start/:%s", controller.ClickHouseClusterPath), ckController.StartNode)

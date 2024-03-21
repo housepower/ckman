@@ -853,6 +853,29 @@ paths:
       summary: 修改集群配置
       tags:
       - clickhouse
+  /api/v2/ck/ddl_queue/{clusterName}:
+    get:
+      consumes:
+      - application/json
+      description: 查询分布式DDL
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":"0000","msg":"ok","data":[{"startTime":1609986493,"queryDuration":145,"query":"select
+            * from dist_sensor_dt_result_online limit 10000","user":"default","queryId":"8aa3de08-92c4-4102-a83d-2f5d88569dab","address":"::1","threads":2}]}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 查询分布式DDL
+      tags:
+      - clickhouse
   /api/v2/ck/destroy/{clusterName}:
     put:
       consumes:

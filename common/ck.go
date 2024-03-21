@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"regexp"
 	"strconv"
 	"strings"
@@ -92,6 +93,7 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 		}
 	}
 	conn := Conn{
+		addr:     net.JoinHostPort(host, fmt.Sprint(opt.Port)),
 		protocol: opt.Protocol,
 		ctx:      context.Background(),
 	}

@@ -24,6 +24,20 @@ func (c *ColumnType) ScanType() reflect.Type {
 	}
 }
 
+type Row struct {
+	proto clickhouse.Protocol
+	r1    *sql.Row
+	r2    driver.Row
+}
+
+func (r *Row) Scan(dest ...any) error {
+	if r.proto == clickhouse.HTTP {
+		return r.r1.Scan(dest...)
+	} else {
+		return r.r2.Scan(dest...)
+	}
+}
+
 type Rows struct {
 	protocol clickhouse.Protocol
 	rs1      *sql.Rows
@@ -87,6 +101,7 @@ func (r *Rows) ColumnTypes() ([]*ColumnType, error) {
 }
 
 type Conn struct {
+	addr     string
 	protocol clickhouse.Protocol
 	c        driver.Conn
 	db       *sql.DB
@@ -95,6 +110,7 @@ type Conn struct {
 
 func (c *Conn) Query(query string, args ...any) (*Rows, error) {
 	var rs Rows
+	//log.Logger.Debugf("[%s]%s", c.addr, query)
 	rs.protocol = c.protocol
 	if c.protocol == clickhouse.HTTP {
 		rows, err := c.db.Query(query, args...)
@@ -114,7 +130,20 @@ func (c *Conn) Query(query string, args ...any) (*Rows, error) {
 	return &rs, nil
 }
 
+func (c *Conn) QueryRow(query string, args ...any) *Row {
+	var row Row
+	//log.Logger.Debugf("[%s]%s", c.addr, query)
+	row.proto = c.protocol
+	if c.protocol == clickhouse.HTTP {
+		row.r1 = c.db.QueryRow(query, args...)
+	} else {
+		row.r2 = c.c.QueryRow(c.ctx, query, args...)
+	}
+	return &row
+}
+
 func (c *Conn) Exec(query string, args ...any) error {
+	//log.Logger.Debugf("[%s]%s", c.addr, query)
 	if c.protocol == clickhouse.HTTP {
 		_, err := c.db.Exec(query, args...)
 		return err
