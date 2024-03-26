@@ -687,6 +687,9 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 		for i := range columnPointers {
 			val := reflect.ValueOf(columnPointers[i]).Elem()
 			m[i] = val.Interface()
+			if val.CanSet() {
+				val.SetZero()
+			}
 		}
 
 		colData = append(colData, m)
