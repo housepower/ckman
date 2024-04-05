@@ -149,7 +149,7 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 				return err
 			}
 			for k, v := range needAdds {
-				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN IF NOT EXISTS `%s` %s", database, localTable, cluster, k, v)
+				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN IF NOT EXISTS `%s` %s SETTINGS alter_sync = 0", database, localTable, cluster, k, v)
 				log.Logger.Debugf("query:%s", query)
 				err = ckService.Conn.Exec(query)
 				if err != nil {
@@ -341,7 +341,7 @@ func syncDistTable(distTable, localTable, database string, conf model.CKManClick
 			needAdds := allCols.Difference(cols).(common.Map)
 			conn := dbLists[host]
 			for k, v := range needAdds {
-				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ADD COLUMN IF NOT EXISTS `%s` %s", database, localTable, k, v)
+				query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ADD COLUMN IF NOT EXISTS `%s` %s SETTINGS alter_sync = 0", database, localTable, k, v)
 				log.Logger.Debug(query)
 				err := conn.Exec(query)
 				if err != nil {

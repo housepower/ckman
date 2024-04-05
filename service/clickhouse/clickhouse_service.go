@@ -438,10 +438,10 @@ func (ck *CkService) AlterTable(params *model.AlterCkTableParams) error {
 	for _, value := range params.Add {
 		add := ""
 		if value.After != "" {
-			add = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN IF NOT EXISTS `%s` %s %s AFTER `%s`",
+			add = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN IF NOT EXISTS `%s` %s %s AFTER `%s` SETTINGS alter_sync = 0",
 				params.DB, local, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "), value.After)
 		} else {
-			add = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN IF NOT EXISTS `%s` %s %s",
+			add = fmt.Sprintf("ALTER TABLE `%s`.`%s` ON CLUSTER `%s` ADD COLUMN IF NOT EXISTS `%s` %s %s SETTINGS alter_sync = 0",
 				params.DB, local, params.Cluster, value.Name, value.Type, strings.Join(value.Options, " "))
 		}
 		log.Logger.Debugf(add)
