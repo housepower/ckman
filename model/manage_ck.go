@@ -13,6 +13,7 @@ type CkClusterInfoRsp struct {
 	Nodes        []CkClusterNode `json:"nodes"`
 	Mode         string          `json:"mode"`
 	NeedPassword bool            `json:"needPassword"`
+	HttpPort     int             `json:"httpPort"`
 }
 
 type CkClusterNode struct {

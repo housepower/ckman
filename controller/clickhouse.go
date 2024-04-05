@@ -1497,6 +1497,7 @@ func (controller *ClickHouseController) GetClusterStatus(c *gin.Context) {
 		Nodes:        statusList,
 		Mode:         conf.Mode,
 		NeedPassword: needPassword,
+		HttpPort:     conf.HttpPort,
 	}
 
 	controller.wrapfunc(c, model.E_SUCCESS, info)
