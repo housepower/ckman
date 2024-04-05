@@ -188,16 +188,16 @@ type CkColumnAttribute struct {
 }
 
 type CkTableMetrics struct {
-	Columns          uint64      `json:"columns"`
-	Rows             uint64      `json:"rows"`
-	Partitions       uint64      `json:"partitions"`
-	Parts            uint64      `json:"parts"`
-	Compressed       uint64      `json:"compressed"`
-	UnCompressed     uint64      `json:"uncompressed"`
-	RWStatus         bool        `json:"readwrite_status"`
-	CompletedQueries uint64      `json:"completedQueries"`
-	FailedQueries    uint64      `json:"failedQueries"`
-	QueryCost        CkTableCost `json:"queryCost"`
+	Columns      uint64 `json:"columns"`
+	Rows         uint64 `json:"rows"`
+	Partitions   uint64 `json:"partitions"`
+	Parts        uint64 `json:"parts"`
+	Compressed   uint64 `json:"compressed"`
+	UnCompressed uint64 `json:"uncompressed"`
+	RWStatus     bool   `json:"readwrite_status"`
+	// CompletedQueries uint64      `json:"completedQueries"`
+	// FailedQueries    uint64      `json:"failedQueries"`
+	// QueryCost        CkTableCost `json:"queryCost"`
 }
 
 type PartitionInfo struct {

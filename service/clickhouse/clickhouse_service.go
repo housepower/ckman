@@ -834,48 +834,48 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 	}
 
 	// get success, failed counts
-	tables := "["
-	for k := range dbtables {
-		tables += fmt.Sprintf("'%s',", k)
-	}
-	tables = strings.TrimRight(tables, ",")
-	tables += "]"
-	if common.ArraySearch("queries", cols) || len(cols) == 0 {
-		query = fmt.Sprintf("SELECT tables[1], type, count() AS counts from cluster('{cluster}', system.query_log) where hasAny(databases, %s) = 1 AND is_initial_query=1 AND event_date >= subtractDays(now(), 1) group by tables, type", tables)
-		value, err = service.QueryInfo(query)
-		if err != nil {
-			return nil, err
-		}
-		for i := 1; i < len(value); i++ {
-			tableName := value[i][0].(string)
-			if metric, ok := metrics[tableName]; ok {
-				types := value[i][1].(string)
-				if types == ClickHouseQueryFinish {
-					metric.CompletedQueries = value[i][2].(uint64)
-				} else if types == ClickHouseQueryExStart || types == ClickHouseQueryExProcessing {
-					metric.FailedQueries = value[i][2].(uint64)
-				}
-			}
-		}
-	}
+	// tables := "["
+	// for k := range dbtables {
+	// 	tables += fmt.Sprintf("'%s',", k)
+	// }
+	// tables = strings.TrimRight(tables, ",")
+	// tables += "]"
+	// if common.ArraySearch("queries", cols) || len(cols) == 0 {
+	// 	query = fmt.Sprintf("SELECT tables[1], type, count() AS counts from cluster('{cluster}', system.query_log) where hasAny(databases, %s) = 1 AND is_initial_query=1 AND event_date >= subtractDays(now(), 1) group by tables, type", tables)
+	// 	value, err = service.QueryInfo(query)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	for i := 1; i < len(value); i++ {
+	// 		tableName := value[i][0].(string)
+	// 		if metric, ok := metrics[tableName]; ok {
+	// 			types := value[i][1].(string)
+	// 			if types == ClickHouseQueryFinish {
+	// 				metric.CompletedQueries = value[i][2].(uint64)
+	// 			} else if types == ClickHouseQueryExStart || types == ClickHouseQueryExProcessing {
+	// 				metric.FailedQueries = value[i][2].(uint64)
+	// 			}
+	// 		}
+	// 	}
+	// }
 
-	// get query duration
-	if common.ArraySearch("cost", cols) || len(cols) == 0 {
-		query = fmt.Sprintf("SELECT tables[1] AS tbl_name, quantiles(0.5, 0.99, 1.0)(query_duration_ms) AS duration from cluster('{cluster}', system.query_log) where hasAny(databases, %s) = 1  AND type = 2 AND is_initial_query=1 AND event_date >= subtractDays(now(), 7) group by tables", tables)
-		value, err = service.QueryInfo(query)
-		if err != nil {
-			return nil, err
-		}
-		for i := 1; i < len(value); i++ {
-			tableName := value[i][0].(string)
-			if _, ok := metrics[tableName]; ok {
-				durations := value[i][1].([]float64)
-				metrics[tableName].QueryCost.Middle = common.Decimal(durations[0])
-				metrics[tableName].QueryCost.SecondaryMax = common.Decimal(durations[1])
-				metrics[tableName].QueryCost.Max = common.Decimal(durations[2])
-			}
-		}
-	}
+	// // get query duration
+	// if common.ArraySearch("cost", cols) || len(cols) == 0 {
+	// 	query = fmt.Sprintf("SELECT tables[1] AS tbl_name, quantiles(0.5, 0.99, 1.0)(query_duration_ms) AS duration from cluster('{cluster}', system.query_log) where hasAny(databases, %s) = 1  AND type = 2 AND is_initial_query=1 AND event_date >= subtractDays(now(), 7) group by tables", tables)
+	// 	value, err = service.QueryInfo(query)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	for i := 1; i < len(value); i++ {
+	// 		tableName := value[i][0].(string)
+	// 		if _, ok := metrics[tableName]; ok {
+	// 			durations := value[i][1].([]float64)
+	// 			metrics[tableName].QueryCost.Middle = common.Decimal(durations[0])
+	// 			metrics[tableName].QueryCost.SecondaryMax = common.Decimal(durations[1])
+	// 			metrics[tableName].QueryCost.Max = common.Decimal(durations[2])
+	// 		}
+	// 	}
+	// }
 
 	return metrics, nil
 }
