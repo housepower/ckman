@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"reflect"
 	"regexp"
@@ -651,7 +652,14 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 	log.Logger.Debugf(query)
 	rows, err := ck.Conn.Query(query)
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		if err != io.EOF {
+			return nil, errors.Wrap(err, "")
+		} else {
+			return [][]interface{}{
+				{"result"},
+				{"OK"},
+			}, nil
+		}
 	}
 	defer rows.Close()
 	cols, _ := rows.Columns()
