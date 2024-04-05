@@ -1116,6 +1116,7 @@ func GetPartitions(conf *model.CKManClickHouseConfig, table string) (map[string]
 
 		query := fmt.Sprintf(`SELECT
     partition,
+	count(name),
     sum(rows),
     sum(data_compressed_bytes),
     sum(data_uncompressed_bytes),
@@ -1136,25 +1137,27 @@ ORDER BY partition ASC`, dabatase, tableName)
 		for i := 1; i < len(value); i++ {
 			partitionId := value[i][0].(string)
 			if part, ok := partInfo[partitionId]; ok {
-				part.Rows += value[i][1].(uint64)
-				part.Compressed += value[i][2].(uint64)
-				part.UnCompressed += value[i][3].(uint64)
-				minTime := value[i][4].(time.Time)
+				part.Parts += value[i][1].(uint64)
+				part.Rows += value[i][2].(uint64)
+				part.Compressed += value[i][3].(uint64)
+				part.UnCompressed += value[i][4].(uint64)
+				minTime := value[i][5].(time.Time)
 				part.MinTime = common.TernaryExpression(part.MinTime.After(minTime), minTime, part.MinTime).(time.Time)
-				maxTime := value[i][5].(time.Time)
+				maxTime := value[i][6].(time.Time)
 				part.MaxTime = common.TernaryExpression(part.MaxTime.Before(maxTime), maxTime, part.MinTime).(time.Time)
-				part.DiskName = value[i][6].(string)
+				part.DiskName = value[i][7].(string)
 				partInfo[partitionId] = part
 			} else {
 				part := model.PartitionInfo{
 					Database:     dabatase,
 					Table:        tableName,
-					Rows:         value[i][1].(uint64),
-					Compressed:   value[i][2].(uint64),
-					UnCompressed: value[i][3].(uint64),
-					MinTime:      value[i][4].(time.Time),
-					MaxTime:      value[i][5].(time.Time),
-					DiskName:     value[i][6].(string),
+					Parts:        value[i][1].(uint64),
+					Rows:         value[i][2].(uint64),
+					Compressed:   value[i][3].(uint64),
+					UnCompressed: value[i][4].(uint64),
+					MinTime:      value[i][5].(time.Time),
+					MaxTime:      value[i][6].(time.Time),
+					DiskName:     value[i][7].(string),
 				}
 				partInfo[partitionId] = part
 			}

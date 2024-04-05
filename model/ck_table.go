@@ -203,6 +203,7 @@ type CkTableMetrics struct {
 type PartitionInfo struct {
 	Database     string    `json:"database"`
 	Table        string    `json:"table"`
+	Parts        uint64    `json:"parts"`
 	Rows         uint64    `json:"rows"`
 	Compressed   uint64    `json:"compressed"`
 	UnCompressed uint64    `json:"uncompressed"`
