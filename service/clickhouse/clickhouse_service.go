@@ -880,6 +880,52 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 	return metrics, nil
 }
 
+func GetCKMerges(conf *model.CKManClickHouseConfig) ([]model.CKTableMerges, error) {
+	var merges []model.CKTableMerges
+	query := "SELECT database, table, elapsed, num_parts, result_part_name, source_part_names, total_size_bytes_compressed, bytes_read_uncompressed, bytes_written_uncompressed, rows_read, memory_usage, merge_algorithm FROM system.merges"
+	log.Logger.Debug("query: %s", query)
+	for _, host := range conf.Hosts {
+		db, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
+		if err != nil {
+			return merges, err
+		}
+		rows, err := db.Query(query)
+		if err != nil {
+			return merges, err
+		}
+		for rows.Next() {
+			var (
+				databse, table, result_part_name, merge_algorithm                                                                    string
+				elapsed                                                                                                              float64
+				memory_usage, num_parts, total_size_bytes_compressed, bytes_written_uncompressed, bytes_read_uncompressed, rows_read uint64
+				source_part_names                                                                                                    []string
+			)
+			err = rows.Scan(&databse, &table, &elapsed, &num_parts, &result_part_name, &source_part_names, &total_size_bytes_compressed, &bytes_read_uncompressed, &bytes_written_uncompressed, &rows_read, &memory_usage, &merge_algorithm)
+			if err != nil {
+				return merges, err
+			}
+			merge := model.CKTableMerges{
+				Table:           databse + "." + table,
+				Host:            host,
+				Elapsed:         elapsed,
+				MergeStart:      time.Now().Add(time.Duration(elapsed) * (-1)),
+				NumParts:        num_parts,
+				ResultPartName:  result_part_name,
+				SourcePartNames: strings.Join(source_part_names, ","),
+				Compressed:      total_size_bytes_compressed,
+				Uncomressed:     bytes_read_uncompressed + bytes_written_uncompressed,
+				Rows:            rows_read,
+				MemUsage:        memory_usage,
+				Algorithm:       merge_algorithm,
+			}
+			merges = append(merges, merge)
+		}
+		rows.Close()
+	}
+
+	return merges, nil
+}
+
 func SetTableOrderBy(conf *model.CKManClickHouseConfig, req model.OrderbyReq) error {
 	hosts, err := common.GetShardAvaliableHosts(conf)
 	if err != nil {

@@ -1981,6 +1981,34 @@ func (controller *ClickHouseController) GetTableMetric(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, metrics)
 }
 
+// @Summary 获取表merge指标
+// @Description 获取表merge指标
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":{"sensor_dt_result_online":{"columns":22,"rows":1381742496,"parts":192,"space":54967700946,"completedQueries":5,"failedQueries":0,"queryCost":{"middle":130,"secondaryMax":160.76,"max":162}}}}"
+// @Router /api/v2/ck/table-merges/{clusterName} [get]
+func (controller *ClickHouseController) GetTableMerges(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+	merges, err := clickhouse.GetCKMerges(&conf)
+	if err != nil {
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+
+	controller.wrapfunc(c, model.E_SUCCESS, merges)
+}
+
 // @Summary 查询正在进行的会话
 // @Description 查询正在进行的会话
 // @version 1.0

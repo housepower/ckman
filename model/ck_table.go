@@ -200,6 +200,22 @@ type CkTableMetrics struct {
 	// QueryCost        CkTableCost `json:"queryCost"`
 }
 
+type CKTableMerges struct {
+	Table           string    `json:"table"`
+	Host            string    `json:"host"`
+	Elapsed         float64   `json:"elapsed"`
+	MergeStart      time.Time `json:"merge_start"`
+	Progress        float64   `json:"progress"`
+	NumParts        uint64    `json:"num_parts"`
+	Rows            uint64    `json:"rows"`
+	Compressed      uint64    `json:"compressed"`
+	Uncomressed     uint64    `json:"uncompressed"`
+	ResultPartName  string    `json:"result_part_name"`
+	SourcePartNames string    `json:"source_part_names"`
+	MemUsage        uint64    `json:"memory_usage"`
+	Algorithm       string    `json:"merge_algorithm"`
+}
+
 type PartitionInfo struct {
 	Database     string    `json:"database"`
 	Table        string    `json:"table"`
