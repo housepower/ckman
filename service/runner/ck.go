@@ -76,6 +76,11 @@ func DestroyCkCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKManClic
 			}
 		}
 	}
+	taskQueuePath := fmt.Sprintf("/clickhouse/task_queue/ddl/%s", conf.Cluster)
+	if err = service.DeleteAll(taskQueuePath); err != nil {
+		return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
+	}
+
 	return nil
 }
 
