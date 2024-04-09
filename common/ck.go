@@ -368,3 +368,26 @@ func ClikHouseExceptionDecode(err error) error {
 
 	return err
 }
+
+func Execute(conf *model.CKManClickHouseConfig, sql string) error {
+	var wg sync.WaitGroup
+	var lastErr error
+	wg.Add(len(conf.Hosts))
+	for _, h := range conf.Hosts {
+		defer wg.Done()
+		go func(host string) {
+			conn, err := ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
+			if err != nil {
+				lastErr = errors.Wrap(err, host)
+				return
+			}
+			if err = conn.Exec(sql); err != nil {
+				lastErr = errors.Wrap(err, host)
+				return
+			}
+		}(h)
+	}
+	wg.Wait()
+
+	return lastErr
+}
