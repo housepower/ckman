@@ -3,11 +3,14 @@ package runner
 import (
 	"encoding/json"
 
+	client "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
+	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/service/clickhouse"
+	"github.com/housepower/ckman/service/zookeeper"
 	"github.com/pkg/errors"
 )
 
@@ -211,9 +214,28 @@ func CKAddNodeHandle(task *model.Task) error {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
 	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
-		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
+		err = common.ClikHouseExceptionDecode(err)
+		var exception *client.Exception
+		if errors.As(err, &exception) {
+			if exception.Code == 253 {
+				//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
+				zkService, err := zookeeper.GetZkService(conf.Cluster)
+				if err == nil {
+					err = zkService.CleanZoopath(conf, conf.Cluster, conf.Hosts[0], false)
+					if err == nil {
+						if err = service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
+							log.Logger.Errorf("fetch schema from other node failed again")
+						}
+					}
+				} else {
+					log.Logger.Errorf("can't create zookeeper instance:%v", err)
+				}
+			}
+		}
+		if err != nil {
+			return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
+		}
 	}
-
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
 	if err = repository.Ps.UpdateCluster(conf); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
