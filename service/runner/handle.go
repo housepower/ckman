@@ -201,39 +201,41 @@ func CKAddNodeHandle(task *model.Task) error {
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusConfigExt, model.ALL_NODES_DEFAULT)
-	tmp := &model.CKManClickHouseConfig{
-		Hosts:    d.Conf.Hosts,
-		Port:     conf.Port,
-		Cluster:  conf.Cluster,
-		User:     conf.User,
-		Password: conf.Password,
-	}
+	for _, host := range d.Conf.Hosts {
+		tmp := &model.CKManClickHouseConfig{
+			Hosts:    []string{host},
+			Port:     conf.Port,
+			Cluster:  conf.Cluster,
+			User:     conf.User,
+			Password: conf.Password,
+		}
 
-	service := clickhouse.NewCkService(tmp)
-	if err := service.InitCkService(); err != nil {
-		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
-	}
-	if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
-		err = common.ClikHouseExceptionDecode(err)
-		var exception *client.Exception
-		if errors.As(err, &exception) {
-			if exception.Code == 253 {
-				//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
-				zkService, err := zookeeper.GetZkService(conf.Cluster)
-				if err == nil {
-					err = zkService.CleanZoopath(conf, conf.Cluster, conf.Hosts[0], false)
+		service := clickhouse.NewCkService(tmp)
+		if err := service.InitCkService(); err != nil {
+			return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
+		}
+		if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
+			err = common.ClikHouseExceptionDecode(err)
+			var exception *client.Exception
+			if errors.As(err, &exception) {
+				if exception.Code == 253 {
+					//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
+					zkService, err := zookeeper.GetZkService(conf.Cluster)
 					if err == nil {
-						if err = service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
-							log.Logger.Errorf("fetch schema from other node failed again")
+						err = zkService.CleanZoopath(conf, conf.Cluster, conf.Hosts[0], false)
+						if err == nil {
+							if err = service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
+								log.Logger.Errorf("fetch schema from other node failed again")
+							}
 						}
+					} else {
+						log.Logger.Errorf("can't create zookeeper instance:%v", err)
 					}
-				} else {
-					log.Logger.Errorf("can't create zookeeper instance:%v", err)
 				}
 			}
-		}
-		if err != nil {
-			return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
+			if err != nil {
+				return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
+			}
 		}
 	}
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
