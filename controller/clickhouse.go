@@ -2775,9 +2775,9 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 
 	var quotas []string
 	quotas = append(quotas, model.ClickHouseUserQuotaDefault)
-	if len(conf.UsersConf.Profiles) > 0 {
+	if len(conf.UsersConf.Quotas) > 0 {
 		for _, quota := range conf.UsersConf.Quotas {
-			if common.ArraySearch(quota.Name, profiles) {
+			if common.ArraySearch(quota.Name, quotas) {
 				return errors.Errorf("quota %s is duplicate", quota.Name)
 			}
 			if quota.Name == model.ClickHouseUserQuotaDefault {
