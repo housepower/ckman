@@ -445,6 +445,7 @@ func (controller *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 			var exception *client.Exception
 			if errors.As(err, &exception) {
 				if exception.Code == 60 && cluster != conf.Cluster {
+					log.Logger.Warnf("table %s.%s not exist on cluster %s, should create it", params.Database, params.TableName, cluster)
 					//means local table is not exist, will auto sync schema
 					con, err := repository.Ps.GetClusterbyName(cluster)
 					if err == nil {
