@@ -225,7 +225,7 @@ func getNodeInfo(service *CkService) (string, string) {
 	query := `SELECT
 	formatReadableSize(sum(total_space) - sum(free_space)) AS used,
 		formatReadableSize(sum(total_space)) AS total, uptime() as uptime
-	FROM system.disks WHERE type = 'local'`
+	FROM system.disks WHERE lower(type) = 'local'`
 	value, err := service.QueryInfo(query)
 	if err != nil {
 		return "NA/NA", ""
