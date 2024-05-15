@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	client "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -1664,12 +1665,29 @@ func RestoreReplicaTable(conf *model.CKManClickHouseConfig, host, database, tabl
 	if err != nil {
 		return errors.Wrapf(err, "cann't connect to %s", host)
 	}
-	query := "SYSTEM RESTART REPLICA " + table
+	query := "SELECT is_readonly FROM system.replicas"
+	var is_readonly uint8
+	if err = conn.QueryRow(query).Scan(&is_readonly); err != nil {
+		return errors.Wrap(err, host)
+	}
+	if is_readonly == 0 {
+		return nil
+	}
+
+	query = "SYSTEM RESTART REPLICA " + table
 	if err := conn.Exec(query); err != nil {
 		return errors.Wrap(err, host)
 	}
 	query = "SYSTEM RESTORE REPLICA " + table
 	if err := conn.Exec(query); err != nil {
+		err = common.ClikHouseExceptionDecode(err)
+		var exception *client.Exception
+		if errors.As(err, &exception) {
+			if exception.Code == 36 {
+				// Code: 36. DB::Exception: Replica must be readonly. (BAD_ARGUMENTS)
+				return nil
+			}
+		}
 		return errors.Wrap(err, host)
 	}
 	return nil
