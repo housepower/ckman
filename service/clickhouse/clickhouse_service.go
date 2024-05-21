@@ -785,7 +785,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 		found = true
 	}
 	if found {
-		query = fmt.Sprintf("SELECT table, uniqExact(partition) AS partitions, count(*) AS parts, sum(data_compressed_bytes) AS compressed, sum(data_uncompressed_bytes) AS uncompressed, sum(rows) AS rows, database FROM cluster('{cluster}', system.parts) WHERE (database in ('%s')) AND (active = '1') GROUP BY table, database;", dbs)
+		query = fmt.Sprintf("SELECT table, uniqExact(partition) AS partitions, count(*) AS parts, sum(data_compressed_bytes) AS compressed, sum(data_uncompressed_bytes) AS uncompressed, sum(rows) AS rows, database FROM cluster('%s', system.parts) WHERE (database in ('%s')) AND (active = '1') GROUP BY table, database;", conf.Cluster, dbs)
 		value, err = service.QueryInfo(query)
 		if err != nil {
 			return nil, err
@@ -816,7 +816,7 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 
 	// get readwrite_status
 	if common.ArraySearch("is_readonly", cols) || len(cols) == 0 {
-		query = fmt.Sprintf("select table, is_readonly, database from cluster('{cluster}', system.replicas) where database in ('%s')", dbs)
+		query = fmt.Sprintf("select table, is_readonly, database from cluster('%s', system.replicas) where database in ('%s')", conf.Cluster, dbs)
 		value, err = service.QueryInfo(query)
 		if err != nil {
 			return nil, err
@@ -1281,7 +1281,7 @@ func GetCkOpenSessions(conf *model.CKManClickHouseConfig, limit int) ([]*model.C
 }
 
 func GetDistibutedDDLQueue(conf *model.CKManClickHouseConfig) ([]*model.CkSessionInfo, error) {
-	query := fmt.Sprintf("select DISTINCT query_create_time, query, host, initiator_host, entry from cluster('{cluster}', system.distributed_ddl_queue) where cluster = '%s' and status != 'Finished' ORDER BY query_create_time", conf.Cluster)
+	query := fmt.Sprintf("select DISTINCT query_create_time, query, host, initiator_host, entry from cluster('%s', system.distributed_ddl_queue) where cluster = '%s' and status != 'Finished' ORDER BY query_create_time", conf.Cluster, conf.Cluster)
 	log.Logger.Debugf("query:%s", query)
 	service := NewCkService(conf)
 	err := service.InitCkService()
