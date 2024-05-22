@@ -1172,7 +1172,7 @@ func GetPartitions(conf *model.CKManClickHouseConfig, table string) (map[string]
     max(max_time),
     disk_name
 FROM system.parts
-WHERE (database = '%s') AND (table = '%s')
+WHERE (database = '%s') AND (table = '%s') AND (active = 1)
 GROUP BY
     partition,
     disk_name
