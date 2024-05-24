@@ -161,17 +161,17 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 			columnsExpr := strings.Join(columns, ",")
 			// local table
 			onCluster := fmt.Sprintf("ON CLUSTER `%s`", cluster)
-			if err = alterTable(ckService.Conn, database, localTable, onCluster, columnsExpr); err != nil {
+			if err = alterTable(ckService.Conn, database, localTable, onCluster, columnsExpr, ckService.Config.Version); err != nil {
 				return err
 			}
 
 			// distributed table
-			if err = alterTable(ckService.Conn, database, common.ClickHouseDistributedTablePrefix+localTable, onCluster, columnsExpr); err != nil {
+			if err = alterTable(ckService.Conn, database, common.ClickHouseDistributedTablePrefix+localTable, onCluster, columnsExpr, ckService.Config.Version); err != nil {
 				return err
 			}
 
 			// logic table
-			if err = alterTable(ckService.Conn, database, common.ClickHouseDistTableOnLogicPrefix+localTable, onCluster, columnsExpr); err != nil {
+			if err = alterTable(ckService.Conn, database, common.ClickHouseDistTableOnLogicPrefix+localTable, onCluster, columnsExpr, ckService.Config.Version); err != nil {
 				return err
 			}
 
@@ -233,13 +233,15 @@ func SyncDistSchema() error {
 		if err != nil {
 			continue
 		}
-		query := `SELECT
+		query := fmt.Sprintf(`SELECT
     database,
     name,
     (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[2] AS cluster,
     (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[4] AS local
 FROM system.tables
-WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))`
+WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))
+AND cluster = '%s'`, conf.Cluster)
+		log.Logger.Debugf("[%s]%s", conf.Cluster, query)
 		rows, err := ckService.Conn.Query(query)
 		if err != nil {
 			continue
@@ -293,7 +295,7 @@ func syncDistTable(distTable, localTable, database string, conf model.CKManClick
 	if needAlter {
 		log.Logger.Debugf("need alter table, table %s.%s have different columns on cluster %s", database, localTable, conf.Cluster)
 		for host, cols := range tableLists {
-			if err := syncSchema(dbLists[host], allCols, cols, database, localTable, ""); err != nil {
+			if err := syncSchema(dbLists[host], allCols, cols, database, localTable, "", conf.Version); err != nil {
 				return err
 			}
 		}
@@ -310,8 +312,8 @@ func syncDistTable(distTable, localTable, database string, conf model.CKManClick
 			return errors.Wrap(err, host)
 		}
 		onCluster := fmt.Sprintf("ON CLUSTER %s", conf.Cluster)
-		if err = syncSchema(conn, allCols, distCols, database, distTable, onCluster); err != nil {
-			return errors.Wrap(err, host)
+		if err = syncSchema(conn, allCols, distCols, database, distTable, onCluster, conf.Version); err != nil {
+			return errors.Wrap(err, "dist table")
 		}
 
 		logicTable := common.ClickHouseDistTableOnLogicPrefix + localTable
@@ -328,8 +330,16 @@ func syncDistTable(distTable, localTable, database string, conf model.CKManClick
 			return errors.Wrap(err, host)
 		}
 
-		if err = syncSchema(conn, allCols, logicCols, database, logicTable, onCluster); err != nil {
-			return errors.Wrap(err, host)
+		if err = syncSchema(conn, allCols, logicCols, database, logicTable, onCluster, conf.Version); err != nil {
+			err = common.ClikHouseExceptionDecode(err)
+			var exception *client.Exception
+			if errors.As(err, &exception) {
+				// 逻辑表不存在没关系，不报错
+				if exception.Code == 60 {
+					continue
+				}
+			}
+			return errors.Wrap(err, "logic table")
 		}
 
 	}
@@ -347,11 +357,11 @@ func initCKConns(conf model.CKManClickHouseConfig) (err error) {
 	return
 }
 
-func alterTable(conn *common.Conn, database, table, onCluster, col string) error {
+func alterTable(conn *common.Conn, database, table, onCluster, col, version string) error {
 	query := fmt.Sprintf("ALTER TABLE `%s`.`%s` %s %s",
 		database, table, onCluster, col)
 	if onCluster != "" {
-		query += "SETTINGS alter_sync = 0"
+		query += " " + common.WithAlterSync(version)
 	}
 	log.Logger.Debug(query)
 	return conn.Exec(query)
@@ -375,20 +385,20 @@ func getColumns(conn *common.Conn, database, table string) (common.Map, error) {
 	return tblMap, nil
 }
 
-func syncSchema(conn *common.Conn, allCols, cols common.Map, database, table, oncluster string) error {
+func syncSchema(conn *common.Conn, allCols, cols common.Map, database, table, oncluster, version string) error {
 	needAdds := allCols.Difference(cols).(common.Map)
 	var columns []string
 	for k, v := range needAdds {
 		columns = append(columns, fmt.Sprintf("ADD COLUMN IF NOT EXISTS `%s` %s ", k, v))
 	}
 
-	// 当前节点是全量的列, 无需更新
-	if len(columns) == 0 {
+	// 当前节点是全量的列, 无需更新, columns 和allCols相等， 说明有表不存在，也不管了
+	if len(columns) == 0 || len(columns) == len(allCols) {
 		return nil
 	}
 	// local table
-	if err := alterTable(conn, database, table, oncluster, strings.Join(columns, ",")); err != nil {
-		return err
+	if err := alterTable(conn, database, table, oncluster, strings.Join(columns, ","), version); err != nil {
+		return errors.Wrapf(err, table)
 	}
 	return nil
 }

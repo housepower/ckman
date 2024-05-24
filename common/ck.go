@@ -391,3 +391,10 @@ func Execute(conf *model.CKManClickHouseConfig, sql string) error {
 
 	return lastErr
 }
+
+func WithAlterSync(version string) string {
+	if CompareClickHouseVersion(version, "23.3") >= 0 {
+		return "SETTINGS alter_sync = 0"
+	}
+	return ""
+}
