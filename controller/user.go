@@ -47,12 +47,12 @@ func (controller *UserController) Login(c *gin.Context) {
 		return
 	}
 
-	if req.Username != common.DefaultUserName {
+	if !common.UsernameInvalid(req.Username) {
 		controller.wrapfunc(c, model.E_USER_VERIFY_FAIL, nil)
 		return
 	}
 
-	passwordFile := path.Join(filepath.Dir(controller.config.ConfigFile), "password")
+	passwordFile := path.Join(filepath.Dir(controller.config.ConfigFile), common.PasswordFile[req.Username])
 	data, err := os.ReadFile(passwordFile)
 	if err != nil {
 		controller.wrapfunc(c, model.E_GET_USER_PASSWORD_FAIL, err)
@@ -70,7 +70,7 @@ func (controller *UserController) Login(c *gin.Context) {
 			IssuedAt: time.Now().Unix(),
 			// ExpiresAt: time.Now().Add(time.Second * time.Duration(d.config.Server.SessionTimeout)).Unix(),
 		},
-		Name:     common.DefaultUserName,
+		Name:     req.Username,
 		ClientIP: c.ClientIP(),
 	}
 	token, err := j.CreateToken(claims)

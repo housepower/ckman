@@ -14,7 +14,7 @@ func TestJwt(t *testing.T) {
 		StandardClaims: jwt.StandardClaims{
 			IssuedAt: 1136160245,
 		},
-		Name:     DefaultUserName,
+		Name:     DefaultAdminName,
 		ClientIP: "172.16.144.1",
 	}
 	token, err := j.CreateToken(claims)

@@ -26,6 +26,7 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/router"
+	"github.com/housepower/ckman/server/enforce"
 	"github.com/housepower/ckman/service/prometheus"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
@@ -99,6 +100,7 @@ func (server *ApiServer) Start() error {
 	// add authenticate middleware for /api
 	groupApi.Use(ginJWTAuth())
 	groupApi.Use(ginRefreshTokenExpires())
+	groupApi.Use(ginEnforce())
 	groupApi.PUT("/logout", userController.Logout)
 	groupV1 := groupApi.Group("/v1")
 	router.InitRouterV1(groupV1, server.config, server.signal)
@@ -206,6 +208,8 @@ func ginJWTAuth() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
+			//c.Set("username", userToken.UserId)
+			c.Set("username", common.DefaultAdminName)
 			return
 		}
 
@@ -257,8 +261,8 @@ func ginJWTAuth() gin.HandlerFunc {
 			if clientIp == claims.ClientIP {
 				c.Set("claims", claims)
 				c.Set("token", token)
+				c.Set("username", claims.Name)
 				return
-
 			}
 		}
 		if claims.ClientIP != c.ClientIP() {
@@ -270,6 +274,7 @@ func ginJWTAuth() gin.HandlerFunc {
 
 		c.Set("claims", claims)
 		c.Set("token", token)
+		c.Set("username", claims.Name)
 	}
 }
 
@@ -312,4 +317,16 @@ func PromHttpSD(c *gin.Context) {
 	}
 	objs := prometheus.GetObjects(clusters)
 	c.JSON(http.StatusOK, objs[schema])
+}
+
+func ginEnforce() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username := c.GetString("username")
+		ok := enforce.Enforce(username, c.Request.URL.RequestURI(), c.Request.Method)
+		if !ok {
+			err := fmt.Errorf("permission denied: username [%s]", username)
+			router.WrapMsg(c, model.E_USER_VERIFY_FAIL, err)
+			c.Abort()
+		}
+	}
 }
