@@ -211,6 +211,38 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		Default:  "9090",
 		Required: "false",
 	})
+	params.MustRegister(conf, "PromMetricPort", &common.Parameter{
+		LabelZH:  "Promethues指标端口",
+		LabelEN:  "Prometheus Metrics Port",
+		Required: "false",
+	})
+
+	var promPort model.PromMetricPort
+	params.MustRegister(promPort, "ClickHouse", &common.Parameter{
+		LabelZH:       "ClickHouse指标端口",
+		LabelEN:       "ClickHouse Metrics Port",
+		Default:       "9363",
+		Required:      "false",
+		DescriptionEN: "Prometheus port export by ClickHouse",
+		DescriptionZH: "clickhouse暴露的prometheus端口",
+	})
+	params.MustRegister(promPort, "ZooKeeper", &common.Parameter{
+		LabelZH:       "ZooKeeper指标端口",
+		LabelEN:       "Zookeeper Metrics Port",
+		Default:       "7000",
+		Required:      "false",
+		DescriptionEN: "Prometheus port export by Zookeeper",
+		DescriptionZH: "zookeeper暴露的prometheus端口",
+	})
+	params.MustRegister(promPort, "NodeExport", &common.Parameter{
+		LabelZH:       "Node Exporter端口",
+		LabelEN:       "Node Exporter Port",
+		Default:       "9100",
+		Required:      "false",
+		DescriptionEN: "Prometheus port export by NodeExporter",
+		DescriptionZH: "NodeExporter暴露的prometheus端口",
+	})
+
 	params.MustRegister(conf, "Path", &common.Parameter{
 		LabelZH:       "数据存储路径",
 		LabelEN:       "Data Path",
@@ -796,6 +828,38 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		Default:  "9090",
 		Required: "false",
 	})
+	params.MustRegister(conf, "PromMetricPort", &common.Parameter{
+		LabelZH:  "Promethues指标端口",
+		LabelEN:  "Prometheus Metrics Port",
+		Required: "false",
+	})
+
+	var promPort model.PromMetricPort
+	params.MustRegister(promPort, "ClickHouse", &common.Parameter{
+		LabelZH:       "ClickHouse指标端口",
+		LabelEN:       "ClickHouse Metrics Port",
+		Default:       "9363",
+		Required:      "false",
+		DescriptionEN: "Prometheus port export by ClickHouse",
+		DescriptionZH: "clickhouse暴露的prometheus端口",
+	})
+	params.MustRegister(promPort, "ZooKeeper", &common.Parameter{
+		LabelZH:       "ZooKeeper指标端口",
+		LabelEN:       "Zookeeper Metrics Port",
+		Default:       "7000",
+		Required:      "false",
+		DescriptionEN: "Prometheus port export by Zookeeper",
+		DescriptionZH: "zookeeper暴露的prometheus端口",
+	})
+	params.MustRegister(promPort, "NodeExport", &common.Parameter{
+		LabelZH:       "Node Exporter端口",
+		LabelEN:       "Node Exporter Port",
+		Default:       "9100",
+		Required:      "false",
+		DescriptionEN: "Prometheus port export by NodeExporter",
+		DescriptionZH: "NodeExporter暴露的prometheus端口",
+	})
+
 	params.MustRegister(conf, "Password", &common.Parameter{
 		LabelZH:   "默认用户密码",
 		LabelEN:   "Default Password",

@@ -17,6 +17,9 @@ const (
 	ClickHouseDefaultHttpPort    int    = 8123
 	ClickHouseDefaultZkPort      int    = 2181
 	ZkStatusDefaultPort          int    = 8080
+	ClickHouseMericPort          int    = 9363
+	ZookeeperMetricPort          int    = 7000
+	NodeExporterPort             int    = 9100
 	SshDefaultPort               int    = 22
 	PromHostDefault              string = "127.0.0.1"
 	PromPortDefault              int    = 9090
@@ -65,6 +68,12 @@ type CkImportConfig struct {
 	PromPort     int      `json:"prom_port" example:"9090"`
 }
 
+type PromMetricPort struct {
+	ClickHouse int
+	ZooKeeper  int
+	NodeExport int
+}
+
 type CKManClickHouseConfig struct {
 	Cluster          string    `json:"cluster" example:"test"`
 	PkgType          string    `json:"pkgType" example:"x86_64.rpm"`
@@ -84,13 +93,14 @@ type CKManClickHouseConfig struct {
 	ZkStatusPort     int       `json:"zkStatusPort" example:"8080"`
 	PromHost         string    `json:"promHost" example:"127.0.0.1"`
 	PromPort         int       `json:"promPort" example:"9090"`
-	User             string    `json:"user" example:"ck"`
-	Password         string    `json:"password" example:"123456"`
-	Path             string    `json:"path" example:"/var/lib/"`
-	SshUser          string    `json:"sshUser" example:"root"`
-	AuthenticateType int       `json:"authenticateType" example:"0"`
-	SshPassword      string    `json:"sshPassword" example:"123456"`
-	SshPort          int       `json:"sshPort" example:"22"`
+	PromMetricPort   PromMetricPort
+	User             string `json:"user" example:"ck"`
+	Password         string `json:"password" example:"123456"`
+	Path             string `json:"path" example:"/var/lib/"`
+	SshUser          string `json:"sshUser" example:"root"`
+	AuthenticateType int    `json:"authenticateType" example:"0"`
+	SshPassword      string `json:"sshPassword" example:"123456"`
+	SshPort          int    `json:"sshPort" example:"22"`
 	Storage          *Storage
 	UsersConf        UsersConf `swaggerignore:"true"`
 	Expert           map[string]string
@@ -234,6 +244,16 @@ func (config *CKManClickHouseConfig) Normalize() {
 	}
 	if config.PromPort == 0 {
 		config.PromPort = PromPortDefault
+	}
+
+	if config.PromMetricPort.ClickHouse == 0 {
+		config.PromMetricPort.ClickHouse = ClickHouseMericPort
+	}
+	if config.PromMetricPort.ZooKeeper == 0 {
+		config.PromMetricPort.ZooKeeper = ZookeeperMetricPort
+	}
+	if config.PromMetricPort.NodeExport == 0 {
+		config.PromMetricPort.NodeExport = NodeExporterPort
 	}
 
 	if config.PkgType == "" {
