@@ -358,6 +358,10 @@ func initCKConns(conf model.CKManClickHouseConfig) (err error) {
 }
 
 func alterTable(conn *common.Conn, database, table, onCluster, col, version string) error {
+	if err := common.CheckTable(conn, database, table); err != nil {
+		// table not exist, ignore sync
+		return err
+	}
 	query := fmt.Sprintf("ALTER TABLE `%s`.`%s` %s %s",
 		database, table, onCluster, col)
 	if onCluster != "" {
