@@ -2,12 +2,11 @@ package enforce
 
 import (
 	"strings"
+
+	"github.com/housepower/ckman/common"
 )
 
 const (
-	ADMIN string = "ckman"
-	GUEST string = "guest"
-
 	POST   string = "POST"
 	GET    string = "GET"
 	PUT    string = "PUT"
@@ -15,7 +14,6 @@ const (
 )
 
 type Policy struct {
-	User   string
 	URL    string
 	Method string
 }
@@ -26,12 +24,13 @@ type Model struct {
 }
 
 type Enforcer struct {
-	model    Model
-	policies []Policy
+	model   Model
+	guest   []Policy
+	orinary []Policy
 }
 
 var DefaultModel = Model{
-	Admin: ADMIN,
+	Admin: common.ADMIN,
 	UrlPrefix: []string{
 		"/api/v1", "/api/v2",
 	},
@@ -40,38 +39,9 @@ var e *Enforcer
 
 func init() {
 	e = &Enforcer{
-		model: DefaultModel,
-		policies: []Policy{
-			{GUEST, "/ck/cluster", GET},
-			{GUEST, "/ck/cluster/*", GET},
-			{GUEST, "/ck/table/*", GET},
-			{GUEST, "/ck/table/group_uniq_array/*", GET},
-			{GUEST, "/ck/query/*", GET},
-			{GUEST, "/ck/query_explain/*", GET},
-			{GUEST, "/ck/query_history/*", GET},
-			{GUEST, "/ck/table_lists/*", GET},
-			{GUEST, "/ck/table_schema/*", GET},
-			{GUEST, "/ck/get/*", GET},
-			{GUEST, "/ck/partition/*", GET},
-			{GUEST, "/ck/table_metric/*", GET},
-			{GUEST, "/ck/table_merges/*", GET},
-			{GUEST, "/ck/open_sessions/*", GET},
-			{GUEST, "/ck/slow_sessions/*", GET},
-			{GUEST, "/ck/ddl_queue/*", GET},
-			{GUEST, "/ck/node/log/*", POST},
-			{GUEST, "/ck/ping/*", POST},
-			{GUEST, "/ck/config/*", GET},
-			{GUEST, "/zk/status/*", GET},
-			{GUEST, "/zk/replicated_table/*", GET},
-			{GUEST, "/package", GET},
-			{GUEST, "/metric/query/*", GET},
-			{GUEST, "/metric/query_range/*", GET},
-			{GUEST, "/version", GET},
-			{GUEST, "/ui/schema", GET},
-			{GUEST, "/task/*", GET},
-			{GUEST, "/task/lists", GET},
-			{GUEST, "/task/running", GET},
-		},
+		model:   DefaultModel,
+		guest:   GuestPolicies(),
+		orinary: OrdinaryPolicies(),
 	}
 }
 
@@ -95,8 +65,20 @@ func Enforce(username, url, method string) bool {
 		return true
 	}
 
-	for _, policy := range e.policies {
-		if policy.User == username && e.Match(policy.URL, url) && policy.Method == method {
+	userinfo, err := common.GetUserInfo(username)
+	if err != nil {
+		return false
+	}
+	var policies []Policy
+	switch userinfo.Policy {
+	case common.GUEST:
+		policies = e.guest
+	case common.ORDINARY:
+		policies = e.orinary
+	}
+
+	for _, policy := range policies {
+		if e.Match(policy.URL, url) && policy.Method == method {
 			return true
 		}
 	}

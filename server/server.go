@@ -209,7 +209,7 @@ func ginJWTAuth() gin.HandlerFunc {
 				return
 			}
 			//c.Set("username", userToken.UserId)
-			c.Set("username", common.DefaultAdminName)
+			c.Set("username", common.InternalOrdinaryName)
 			return
 		}
 

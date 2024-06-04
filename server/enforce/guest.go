@@ -1,0 +1,35 @@
+package enforce
+
+func GuestPolicies() []Policy {
+	return []Policy{
+		{"/ck/cluster", GET},
+		{"/ck/cluster/*", GET},
+		{"/ck/table/*", GET},
+		{"/ck/table/group_uniq_array/*", GET},
+		{"/ck/query/*", GET},
+		{"/ck/query_explain/*", GET},
+		{"/ck/query_history/*", GET},
+		{"/ck/table_lists/*", GET},
+		{"/ck/table_schema/*", GET},
+		{"/ck/get/*", GET},
+		{"/ck/partition/*", GET},
+		{"/ck/table_metric/*", GET},
+		{"/ck/table_merges/*", GET},
+		{"/ck/open_sessions/*", GET},
+		{"/ck/slow_sessions/*", GET},
+		{"/ck/ddl_queue/*", GET},
+		{"/ck/node/log/*", POST},
+		{"/ck/ping/*", POST},
+		{"/ck/config/*", GET},
+		{"/zk/status/*", GET},
+		{"/zk/replicated_table/*", GET},
+		{"/package", GET},
+		{"/metric/query/*", GET},
+		{"/metric/query_range/*", GET},
+		{"/version", GET},
+		{"/ui/schema", GET},
+		{"/task/*", GET},
+		{"/task/lists", GET},
+		{"/task/running", GET},
+	}
+}

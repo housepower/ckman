@@ -6,19 +6,8 @@ import (
 )
 
 var (
-	DefaultAdminName  = "ckman"
-	DefaultGuestName  = "guest"
 	DefaultSigningKey = "change me"
 )
-
-var PasswordFile = map[string]string{
-	DefaultAdminName: "password",
-	DefaultGuestName: "guestpassword",
-}
-
-func UsernameInvalid(username string) bool {
-	return ArraySearch(username, []string{DefaultAdminName, DefaultGuestName})
-}
 
 type JWT struct {
 	SigningKey []byte

@@ -12,6 +12,7 @@ import (
 )
 
 func main() {
+	common.LoadUsers(path.Join(common.GetWorkDirectory(), "conf"))
 	fmt.Println(`Password must be at least 8 characters long.
 Password must contain at least three character categories among the following:
 * Uppercase characters (A-Z)
@@ -19,11 +20,12 @@ Password must contain at least three character categories among the following:
 * Digits (0-9)
 * Special characters (~!@#$%^&*_-+=|\(){}[]:;"'<>,.?/)`)
 
-	fmt.Printf("\nEnter username(ckman/guest):")
+	fmt.Printf("\nEnter username:")
 	var username string
 	fmt.Scanf("%s", &username)
-	if !common.UsernameInvalid(username) {
-		fmt.Printf("invalid username, expect %s or %s\n", common.DefaultAdminName, common.DefaultGuestName)
+	userinfo, err := common.GetUserInfo(username)
+	if err != nil {
+		fmt.Printf("\nGet user info fail: %v\n", err)
 		return
 	}
 	fmt.Printf("\nEnter password for [%s]: ", username)
@@ -58,16 +60,14 @@ Password must contain at least three character categories among the following:
 		return
 	}
 
-	passwordFile := path.Join(common.GetWorkDirectory(), path.Join("conf", common.PasswordFile[username]))
-	fileFd, err := os.OpenFile(passwordFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	fileFd, err := os.OpenFile(userinfo.UserFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		fmt.Printf("\nOpen password file %s fail: %v\n", passwordFile, err)
+		fmt.Printf("\nOpen password file %s fail: %v\n", userinfo.UserFile, err)
 		return
 	}
 	defer fileFd.Close()
-
 	if _, err := fileFd.Write([]byte(hash)); err != nil {
-		fmt.Printf("\nWrite password file %s fail: %v\n", passwordFile, err)
+		fmt.Printf("\nWrite password file %s fail: %v\n", userinfo.UserFile, err)
 		return
 	}
 

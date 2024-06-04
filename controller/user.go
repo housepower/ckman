@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"os"
-	"path"
 	"path/filepath"
 	"time"
 
@@ -42,24 +40,18 @@ func NewUserController(config *config.CKManConfig, wrapfunc Wrapfunc) *UserContr
 func (controller *UserController) Login(c *gin.Context) {
 	var req model.LoginReq
 	c.Request.Header.Get("")
+	common.LoadUsers(filepath.Dir(controller.config.ConfigFile))
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 
-	if !common.UsernameInvalid(req.Username) {
-		controller.wrapfunc(c, model.E_USER_VERIFY_FAIL, nil)
-		return
-	}
-
-	passwordFile := path.Join(filepath.Dir(controller.config.ConfigFile), common.PasswordFile[req.Username])
-	data, err := os.ReadFile(passwordFile)
+	userinfo, err := common.GetUserInfo(req.Username)
 	if err != nil {
-		controller.wrapfunc(c, model.E_GET_USER_PASSWORD_FAIL, err)
+		controller.wrapfunc(c, model.E_USER_VERIFY_FAIL, err)
 		return
 	}
-
-	if pass := common.ComparePassword(string(data), req.Password); !pass {
+	if pass := common.ComparePassword(userinfo.Password, req.Password); !pass {
 		controller.wrapfunc(c, model.E_PASSWORD_VERIFY_FAIL, nil)
 		return
 	}
