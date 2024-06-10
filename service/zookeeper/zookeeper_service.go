@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
+	"net"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -217,30 +218,69 @@ func clean(svr *ZkService, znode, target string, dryrun bool) error {
 	return nil
 }
 
+// func ZkMetric(host string, port int, metric string) ([]byte, error) {
+// 	url := fmt.Sprintf("http://%s:%d/commands/%s", host, port, metric)
+// 	request, err := http.NewRequest("GET", url, nil)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "")
+// 	}
+
+// 	client := &http.Client{}
+// 	response, err := client.Do(request)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "")
+// 	}
+// 	defer response.Body.Close()
+
+// 	if response.StatusCode != 200 {
+// 		return nil, errors.Errorf("%s", response.Status)
+// 	}
+
+// 	body, err := io.ReadAll(response.Body)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "")
+// 	}
+
+// 	return body, nil
+// }
+
 func ZkMetric(host string, port int, metric string) ([]byte, error) {
-	url := fmt.Sprintf("http://%s:%d/commands/%s", host, port, metric)
-	request, err := http.NewRequest("GET", url, nil)
+	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		return nil, err
 	}
-
-	client := &http.Client{}
-	response, err := client.Do(request)
+	defer conn.Close()
+	_, err = conn.Write([]byte(metric))
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		return nil, err
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != 200 {
-		return nil, errors.Errorf("%s", response.Status)
+	var b []byte
+	for {
+		buf := [8192]byte{}
+		n, err := conn.Read(buf[:])
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		if n == 0 {
+			break
+		}
+		fmt.Println("n = ", n)
+		b = append(b, buf[:n]...)
 	}
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, errors.Wrap(err, "")
+	resp := make(map[string]interface{})
+	lines := strings.Split(string(b), "\n")
+	re := regexp.MustCompile(`zk_(\w+)\s+(.*)`)
+	for _, line := range lines {
+		fmt.Println(line)
+		matches := re.FindStringSubmatch(line)
+		if len(matches) >= 3 {
+			resp[matches[1]] = matches[2]
+		}
 	}
-
-	return body, nil
+	return json.Marshal(resp)
 }
 
 func GetZkClusterNodes(host string, port int) ([]string, error) {

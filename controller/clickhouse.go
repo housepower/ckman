@@ -82,7 +82,6 @@ func (controller *ClickHouseController) ImportCluster(c *gin.Context) {
 	conf.Password = req.Password
 	conf.ZkNodes = req.ZkNodes
 	conf.ZkPort = req.ZkPort
-	conf.ZkStatusPort = req.ZkStatusPort
 	conf.PromHost = req.PromHost
 	conf.PromPort = req.PromPort
 	conf.AuthenticateType = model.SshPasswordNotSave
@@ -186,7 +185,7 @@ func (controller *ClickHouseController) DeleteCluster(c *gin.Context) {
 // @Accept  json
 // @Param clusterName path string true "cluster name" default(test)
 // @Failure 200 {string} json "{"code":"5804","msg":"查询数据失败","data":null}"
-// @Success 200 {string} json "{"code":"0000","msg":"ok", "data":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok", "data":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}"
 // @Router /api/v2/ck/cluster/{clusterName} [get]
 func (controller *ClickHouseController) GetCluster(c *gin.Context) {
 	var err error
@@ -212,7 +211,7 @@ func (controller *ClickHouseController) GetCluster(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Tags clickhouse
 // @Accept  json
-// @Success 200 {string} json "{"code":"0000","msg":"ok", "data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok", "data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":null}"
 // @Router /api/v2/ck/cluster [get]
 func (controller *ClickHouseController) GetClusters(c *gin.Context) {
@@ -1447,7 +1446,7 @@ func (controller *ClickHouseController) RebalanceCluster(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
-// @Success 200 {string} json "{"code":"0000","msg":"success","data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}}"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}}"
 // @Router /api/v2/ck/get/{clusterName} [get]
 func (controller *ClickHouseController) GetClusterStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -2831,7 +2830,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 			cluster.SshPort == conf.SshPort &&
 			cluster.Password == conf.Password && !storageChanged && !expertChanged &&
 			cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
-			cluster.ZkPort == conf.ZkPort && cluster.ZkStatusPort == conf.ZkStatusPort &&
+			cluster.ZkPort == conf.ZkPort &&
 			!userconfChanged && !logicChaned && !zkChanged
 	}
 
@@ -2844,7 +2843,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	if zkChanged {
 		zknodes := append(cluster.ZkNodes, conf.ZkNodes...)
 		zknodes = common.ArrayDistinct(zknodes)
-		zkclusters, err := zookeeper.GetZkClusterNodes(cluster.ZkNodes[0], cluster.ZkStatusPort)
+		zkclusters, err := zookeeper.GetZkClusterNodes(cluster.ZkNodes[0], cluster.ZkPort)
 		if err != nil {
 			return false, err
 		}
@@ -2973,7 +2972,6 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	cluster.UsersConf = conf.UsersConf
 	cluster.LogicCluster = conf.LogicCluster
 	cluster.ZkPort = conf.ZkPort
-	cluster.ZkStatusPort = conf.ZkStatusPort
 	cluster.ZkNodes = conf.ZkNodes
 	if err = common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err

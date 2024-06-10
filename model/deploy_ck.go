@@ -63,7 +63,6 @@ type CkImportConfig struct {
 	LogicCluster string   `json:"logic_cluster" example:"logic_test"`
 	ZkNodes      []string `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
 	ZkPort       int      `json:"zkPort" example:"2181"`
-	ZkStatusPort int      `json:"zkStatusPort" example:"8080"`
 	PromHost     string   `json:"prom_host" example:"127.0.01"`
 	PromPort     int      `json:"prom_port" example:"9090"`
 }
@@ -90,7 +89,6 @@ type CKManClickHouseConfig struct {
 	Hosts            []string  `json:"hosts" example:"192.168.0.1,192.168.0.2,192.168.0.3,192.168.0.4"`
 	ZkNodes          []string  `json:"zkNodes" example:"192.168.0.1,192.168.0.2,192.168.0.3"`
 	ZkPort           int       `json:"zkPort" example:"2181"`
-	ZkStatusPort     int       `json:"zkStatusPort" example:"8080"`
 	PromHost         string    `json:"promHost" example:"127.0.0.1"`
 	PromPort         int       `json:"promPort" example:"9090"`
 	PromMetricPort   PromMetricPort
@@ -232,9 +230,6 @@ func (config *CKManClickHouseConfig) Normalize() {
 	}
 	if config.ZkPort == 0 {
 		config.ZkPort = ClickHouseDefaultZkPort
-	}
-	if config.ZkStatusPort == 0 {
-		config.ZkStatusPort = ZkStatusDefaultPort
 	}
 	if config.SshPort == 0 {
 		config.SshPort = SshDefaultPort

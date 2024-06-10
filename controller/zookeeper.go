@@ -51,7 +51,7 @@ func (controller *ZookeeperController) GetStatus(c *gin.Context) {
 		tmp := model.ZkStatusRsp{
 			Host: node,
 		}
-		body, err := zookeeper.ZkMetric(node, conf.ZkStatusPort, "mntr")
+		body, err := zookeeper.ZkMetric(node, conf.ZkPort, "mntr")
 		if err != nil {
 			controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
 			return
