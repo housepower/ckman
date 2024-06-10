@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/zookeeper"
 	jsoniter "github.com/json-iterator/go"
 )
@@ -83,13 +84,7 @@ func (controller *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) 
 		return
 	}
 
-	zkService, err := zookeeper.GetZkService(clusterName)
-	if err != nil {
-		controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, fmt.Sprintf("get zookeeper service fail: %v", err))
-		return
-	}
-
-	tables, err := zkService.GetReplicatedTableStatus(&conf)
+	tables, err := clickhouse.GetReplicatedTableStatus(&conf)
 	if err != nil {
 		controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
 		return
