@@ -2840,19 +2840,19 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 		}
 	}
 
-	if zkChanged {
-		zknodes := append(cluster.ZkNodes, conf.ZkNodes...)
-		zknodes = common.ArrayDistinct(zknodes)
-		zkclusters, err := zookeeper.GetZkClusterNodes(cluster.ZkNodes[0], cluster.ZkPort)
-		if err != nil {
-			return false, err
-		}
-		for _, node := range zknodes {
-			if !common.ArraySearch(node, zkclusters) {
-				return false, fmt.Errorf("node %s not in zookeeper cluster", node)
-			}
-		}
-	}
+	// if zkChanged {
+	// 	zknodes := append(cluster.ZkNodes, conf.ZkNodes...)
+	// 	zknodes = common.ArrayDistinct(zknodes)
+	// 	zkclusters, err := zookeeper.GetZkClusterNodes(cluster.ZkNodes[0], cluster.ZkPort)
+	// 	if err != nil {
+	// 		return false, err
+	// 	}
+	// 	for _, node := range zknodes {
+	// 		if !common.ArraySearch(node, zkclusters) {
+	// 			return false, fmt.Errorf("node %s not in zookeeper cluster", node)
+	// 		}
+	// 	}
+	// }
 	if storageChanged {
 		srcDisks := make(common.Map)
 		dstDisks := make(common.Map)
