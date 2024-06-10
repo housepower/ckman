@@ -267,14 +267,12 @@ func ZkMetric(host string, port int, metric string) ([]byte, error) {
 		if n == 0 {
 			break
 		}
-		fmt.Println("n = ", n)
 		b = append(b, buf[:n]...)
 	}
 	resp := make(map[string]interface{})
 	lines := strings.Split(string(b), "\n")
 	re := regexp.MustCompile(`zk_(\w+)\s+(.*)`)
 	for _, line := range lines {
-		fmt.Println(line)
 		matches := re.FindStringSubmatch(line)
 		if len(matches) >= 3 {
 			resp[matches[1]] = matches[2]

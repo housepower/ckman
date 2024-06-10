@@ -102,7 +102,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)"},
 			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证"},
 		},
-		Default: "2",
+		Default: "0",
 	})
 	params.MustRegister(conf, "SshPassword", &common.Parameter{
 		LabelZH:       "系统账户密码",
@@ -124,18 +124,6 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelEN:   "Default Password",
 		InputType: common.InputPassword,
 	})
-	// params.MustRegister(conf, "IsReplica", &common.Parameter{
-	// 	LabelZH:       "是否为多副本",
-	// 	LabelEN:       "Replica",
-	// 	DescriptionZH: "物理集群的每个shard是否为多副本, 生产环境建议每个shard为两副本",
-	// 	DescriptionEN: "Whether each Shard of the cluster is multiple replication, we suggest each shard have two copies.",
-	// })
-	// params.MustRegister(conf, "Hosts", &common.Parameter{
-	// 	LabelZH:       "集群结点IP地址列表",
-	// 	LabelEN:       "ClickHouse Node List",
-	// 	DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
-	// 	DescriptionEN: "ClickHouse Node ip, support CIDR or Range.designation by ckman automatically",
-	// })
 	params.MustRegister(conf, "Shards", &common.Parameter{
 		LabelZH:       "集群节点配置",
 		LabelEN:       "ClickHouse Cluster Node",
@@ -240,6 +228,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelZH:       "数据存储路径",
 		LabelEN:       "Data Path",
 		DescriptionZH: "ClickHouse存储数据的路径，路径需要存在且必须以'/'结尾",
+		Default:       "/var/lib/",
 		DescriptionEN: "path need exist, must end with '/'",
 		Regexp:        "^/.+/$",
 	})
