@@ -87,10 +87,12 @@ type CKManClickHouseConfig struct {
 	Secure           bool      `json:"secure"`
 	IsReplica        bool      `json:"isReplica" example:"true"`
 	Hosts            []string  `json:"hosts" example:"192.168.0.1,192.168.0.2,192.168.0.3,192.168.0.4"`
-	ZkNodes          []string  `json:"zkNodes" example:"192.168.0.1,192.168.0.2,192.168.0.3"`
-	ZkPort           int       `json:"zkPort" example:"2181"`
-	PromHost         string    `json:"promHost" example:"127.0.0.1"`
-	PromPort         int       `json:"promPort" example:"9090"`
+	Keeper           string    `json:"keeper" example:"zookeeper"`
+	KeeperConf       *KeeperConf
+	ZkNodes          []string `json:"zkNodes" example:"192.168.0.1,192.168.0.2,192.168.0.3"`
+	ZkPort           int      `json:"zkPort" example:"2181"`
+	PromHost         string   `json:"promHost" example:"127.0.0.1"`
+	PromPort         int      `json:"promPort" example:"9090"`
 	PromMetricPort   PromMetricPort
 	User             string `json:"user" example:"ck"`
 	Password         string `json:"password" example:"123456"`
@@ -107,6 +109,15 @@ type CKManClickHouseConfig struct {
 	Mode     string            `json:"mode" swaggerignore:"true"`
 	ZooPath  map[string]string `json:"zooPath" swaggerignore:"true"`
 	NeedSudo bool              `json:"needSudo" swaggerignore:"true"`
+}
+
+type KeeperConf struct {
+	Runtime      string   `json:"runtime" example:"standalone"`
+	KeeperNodes  []string `json:"keeper_nodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
+	KeeperPort   int      `json:"keeper_port" example:"9181"`
+	LogPath      string
+	SnapshotPath string
+	Expert       map[string]string
 }
 
 // Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes
@@ -253,6 +264,10 @@ func (config *CKManClickHouseConfig) Normalize() {
 
 	if config.PkgType == "" {
 		config.PkgType = PkgTypeDefault
+	}
+
+	if config.Keeper == "" {
+		config.Keeper = "zookeeper"
 	}
 
 	if !strings.HasSuffix(config.PkgType, "tgz") {

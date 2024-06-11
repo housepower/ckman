@@ -169,16 +169,73 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		Required: "false",
 		Editable: "false",
 	})
+
+	params.MustRegister(conf, "Keeper", &common.Parameter{
+		Default:       "zookeeper",
+		DescriptionZH: "如果使用clickhouse-keeper， 则默认由ckman托管；如果使用已有zookeeper或已经创建好的keeper集群，都视同zookeeper",
+		Candidates: []common.Candidate{
+			{Value: "zookeeper", LabelEN: "Zookeeper", LabelZH: "Zookeeper"},
+			{Value: "clickhouse-keeper", LabelEN: "ClickHouse-Keeper", LabelZH: "ClickHouse-Keeper"},
+		},
+	})
+
+	params.MustRegister(conf, "KeeperConf", &common.Parameter{
+		LabelZH:       "Keeper配置",
+		LabelEN:       "KeeperConf",
+		DescriptionZH: "clickhouse-keeper的配置项",
+		Visiable:      "Keeper == 'clickhouse-keeper'",
+	})
+
+	var keeper model.KeeperConf
+	params.MustRegister(keeper, "Runtime", &common.Parameter{
+		LabelZH:       "运行方式",
+		LabelEN:       "Runtime",
+		Default:       "standalone",
+		DescriptionZH: "如果单独部署，则和clickhouse-server 分开进程；如果内置，则和clickhouse-server放在一块",
+		Candidates: []common.Candidate{
+			{Value: "standalone", LabelEN: "Standalone", LabelZH: "单独部署"},
+			{Value: "internal", LabelEN: "Internal", LabelZH: "内置"},
+		},
+	})
+	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
+		LabelZH:  "Keeper节点",
+		LabelEN:  "KeeperNodes",
+		Visiable: "Runtime == 'standalone'",
+	})
+
+	params.MustRegister(keeper, "KeeperPort", &common.Parameter{
+		LabelZH: "Keeper端口",
+		LabelEN: "KeeperPort",
+		Default: "9181",
+	})
+	params.MustRegister(keeper, "LogPath", &common.Parameter{
+		LabelZH: "Log路径",
+		LabelEN: "LogPath",
+		Default: "/var/lib/clickhouse/coordination/logs",
+	})
+	params.MustRegister(keeper, "SnapshotPath", &common.Parameter{
+		LabelZH: "Snapshot路径",
+		LabelEN: "SnapshotPath",
+		Default: "/var/lib/clickhouse/coordination/snapshots",
+	})
+	params.MustRegister(keeper, "Expert", &common.Parameter{
+		LabelZH:  "专家配置",
+		LabelEN:  "Expert",
+		Required: "false",
+	})
+
 	params.MustRegister(conf, "ZkNodes", &common.Parameter{
 		LabelZH:       "ZooKeeper集群结点列表",
 		LabelEN:       "Zookeeper Node List",
 		DescriptionZH: "每段为单个IP，或者IP范围，或者网段掩码",
 		DescriptionEN: "Zookeeper Node ip, support CIDR or Range.",
+		Visiable:      "Keeper == 'zookeeper'",
 	})
 	params.MustRegister(conf, "ZkPort", &common.Parameter{
-		LabelZH: "ZooKeeper集群监听端口",
-		LabelEN: "Zookeeper Port",
-		Default: "2181",
+		LabelZH:  "ZooKeeper集群监听端口",
+		LabelEN:  "Zookeeper Port",
+		Default:  "2181",
+		Visiable: "Keeper == 'zookeeper'",
 	})
 	params.MustRegister(conf, "PromHost", &common.Parameter{
 		LabelZH:  "Promethues 地址",
@@ -782,15 +839,67 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:  "Replica Node IP",
 		Editable: "false",
 	})
+	params.MustRegister(conf, "Keeper", &common.Parameter{
+		DescriptionZH: "如果使用clickhouse-keeper， 则默认由ckman托管；如果使用已有zookeeper或已经创建好的keeper集群，都视同zookeeper",
+		Candidates: []common.Candidate{
+			{Value: "zookeeper", LabelEN: "Zookeeper", LabelZH: "Zookeeper"},
+			{Value: "clickhouse-keeper", LabelEN: "ClickHouse-Keeper", LabelZH: "ClickHouse-Keeper"},
+		},
+		Editable: "false",
+	})
+
+	params.MustRegister(conf, "KeeperConf", &common.Parameter{
+		LabelZH:       "Keeper配置",
+		LabelEN:       "KeeperConf",
+		DescriptionZH: "clickhouse-keeper的配置项",
+		Visiable:      "Keeper == 'clickhouse-keeper'",
+	})
+
+	var keeper model.KeeperConf
+	params.MustRegister(keeper, "Runtime", &common.Parameter{
+		LabelZH:       "运行方式",
+		LabelEN:       "Runtime",
+		DescriptionZH: "如果单独部署，则和clickhouse-server 分开进程；如果内置，则和clickhouse-server放在一块",
+		Candidates: []common.Candidate{
+			{Value: "standalone", LabelEN: "Standalone", LabelZH: "单独部署"},
+			{Value: "internal", LabelEN: "Internal", LabelZH: "内置"},
+		},
+	})
+	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
+		LabelZH:  "Keeper节点",
+		LabelEN:  "KeeperNodes",
+		Visiable: "Runtime == 'standalone'",
+	})
+
+	params.MustRegister(keeper, "KeeperPort", &common.Parameter{
+		LabelZH: "Keeper端口",
+		LabelEN: "KeeperPort",
+	})
+	params.MustRegister(keeper, "LogPath", &common.Parameter{
+		LabelZH: "Log路径",
+		LabelEN: "LogPath",
+	})
+	params.MustRegister(keeper, "SnapshotPath", &common.Parameter{
+		LabelZH: "Snapshot路径",
+		LabelEN: "SnapshotPath",
+	})
+	params.MustRegister(keeper, "Expert", &common.Parameter{
+		LabelZH:  "专家配置",
+		LabelEN:  "Expert",
+		Required: "false",
+	})
+
 	params.MustRegister(conf, "ZkNodes", &common.Parameter{
 		LabelZH:       "ZooKeeper集群结点列表",
 		LabelEN:       "Zookeeper Node List",
 		DescriptionZH: "每段为单个IP，或者IP范围，或者网段掩码",
 		DescriptionEN: "Zookeeper Node ip, support CIDR or Range.",
+		Visiable:      "Keeper == 'zookeeper'",
 	})
 	params.MustRegister(conf, "ZkPort", &common.Parameter{
-		LabelZH: "ZooKeeper集群监听端口",
-		LabelEN: "Zookeeper Port",
+		LabelZH:  "ZooKeeper集群监听端口",
+		LabelEN:  "Zookeeper Port",
+		Visiable: "Keeper == 'zookeeper'",
 	})
 	params.MustRegister(conf, "PromHost", &common.Parameter{
 		LabelZH:  "Promethues 地址",
