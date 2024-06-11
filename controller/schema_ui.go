@@ -30,8 +30,13 @@ var schemaHandleFunc = map[string]func() common.ConfigParams{
 	GET_SCHEMA_UI_REBALANCE: RegistRebalanceClusterSchema,
 }
 
-func getPkgType() []common.Candidate {
-	pkgs := common.GetAllPackages()
+func getPkgType(kind string) []common.Candidate {
+	var pkgs map[string]common.CkPackageFiles
+	if kind == "clickhouse" {
+		pkgs = common.GetAllPackages()
+	} else if kind == "keeper" {
+		pkgs = common.GetAllKeeperPackages()
+	}
 	var lists []common.Candidate
 	for pkgType := range pkgs {
 		can := common.Candidate{
@@ -42,8 +47,13 @@ func getPkgType() []common.Candidate {
 	return lists
 }
 
-func getPkgLists() []common.Candidate {
-	packages := common.GetAllPackages()
+func getPkgLists(kind string) []common.Candidate {
+	var packages map[string]common.CkPackageFiles
+	if kind == "clickhouse" {
+		packages = common.GetAllPackages()
+	} else if kind == "keeper" {
+		packages = common.GetAllKeeperPackages()
+	}
 	var pkgLists []common.Candidate
 	for _, pkgs := range packages {
 		for _, pkg := range pkgs {
@@ -196,6 +206,23 @@ func RegistCreateClusterSchema() common.ConfigParams {
 			{Value: "standalone", LabelEN: "Standalone", LabelZH: "单独部署"},
 			{Value: "internal", LabelEN: "Internal", LabelZH: "内置"},
 		},
+	})
+	params.MustRegister(keeper, "KeeperPkg", &common.Parameter{
+		LabelZH:       "Keeper版本",
+		LabelEN:       "Keeper Package Name",
+		DescriptionZH: "需要部署的ClickHouse-Keeper集群的安装包",
+		DescriptionEN: "which package of clickhouse will deployed, need upload rpm package before",
+		Candidates:    getPkgLists("keeper"),
+		Visiable:      "Runtime == 'standalone'",
+		Filter:        "\"KeeperPkg\".indexOf(KeeperPkgType) !== -1",
+	})
+	params.MustRegister(keeper, "KeeperPkgType", &common.Parameter{
+		LabelZH:       "安装包类型",
+		LabelEN:       "Package Type",
+		DescriptionZH: "安装包的类型，表示当前安装包是什么系统架构，什么压缩格式",
+		DescriptionEN: "The type of the installation package, indicating what system architecture and compression format",
+		Candidates:    getPkgType("keeper"),
+		Visiable:      "Runtime == 'standalone'",
 	})
 	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
 		LabelZH:  "Keeper节点",
@@ -805,18 +832,6 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:       "SSH Port",
 		DescriptionZH: "不得为空",
 	})
-	// params.MustRegister(conf, "IsReplica", &common.Parameter{
-	// 	LabelZH:       "是否为多副本",
-	// 	LabelEN:       "Replica",
-	// 	DescriptionZH: "物理集群的每个shard是否为多副本, 生产环境建议每个shard为两副本",
-	// 	DescriptionEN: "Whether each Shard of the cluster is multiple replication, we suggest each shard have two copies.",
-	// })
-	// params.MustRegister(conf, "Hosts", &common.Parameter{
-	// 	LabelZH:       "集群结点IP地址列表",
-	// 	LabelEN:       "ClickHouse Node List",
-	// 	DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
-	// 	DescriptionEN: "ClickHouse Node ip, support CIDR or Range.designation by ckman automatically",
-	// })
 	params.MustRegister(conf, "Shards", &common.Parameter{
 		LabelZH:       "集群节点配置",
 		LabelEN:       "ClickHouse Cluster Node",
@@ -864,6 +879,17 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 			{Value: "standalone", LabelEN: "Standalone", LabelZH: "单独部署"},
 			{Value: "internal", LabelEN: "Internal", LabelZH: "内置"},
 		},
+	})
+	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
+		LabelZH:  "Keeper节点",
+		LabelEN:  "KeeperNodes",
+		Visiable: "Runtime == 'standalone'",
+	})
+
+	params.MustRegister(keeper, "KeeperVersion", &common.Parameter{
+		LabelZH:  "Keeper版本",
+		LabelEN:  "KeeperVersion",
+		Visiable: "Runtime == 'standalone'",
 	})
 	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
 		LabelZH:  "Keeper节点",
@@ -1519,7 +1545,7 @@ func GetSchemaParams(typo string, conf model.CKManClickHouseConfig) common.Confi
 			LabelEN:       "Package Name",
 			DescriptionZH: "需要部署的ClickHouse集群的安装包版本，只显示common安装包，但需提前上传common、server、client安装包",
 			DescriptionEN: "which package of clickhouse will deployed, need upload rpm package before",
-			Candidates:    getPkgLists(),
+			Candidates:    getPkgLists("clickhouse"),
 			Filter:        "\"PkgName\".indexOf(PkgType) !== -1",
 		})
 
@@ -1528,7 +1554,7 @@ func GetSchemaParams(typo string, conf model.CKManClickHouseConfig) common.Confi
 			LabelEN:       "Package Type",
 			DescriptionZH: "安装包的类型，表示当前安装包是什么系统架构，什么压缩格式",
 			DescriptionEN: "The type of the installation package, indicating what system architecture and compression format",
-			Candidates:    getPkgType(),
+			Candidates:    getPkgType("clickhouse"),
 		})
 	}
 	return params

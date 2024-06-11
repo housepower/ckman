@@ -112,12 +112,15 @@ type CKManClickHouseConfig struct {
 }
 
 type KeeperConf struct {
-	Runtime      string   `json:"runtime" example:"standalone"`
-	KeeperNodes  []string `json:"keeper_nodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
-	KeeperPort   int      `json:"keeper_port" example:"9181"`
-	LogPath      string
-	SnapshotPath string
-	Expert       map[string]string
+	Runtime       string   `json:"runtime" example:"standalone"`
+	KeeperPkgType string   `json:"keeperPkgType" example:"x86_64.rpm"`
+	KeeperPkg     string   `json:"keeperPkg" example:"clickhouse-keeper-22.3.3.44.noarch.rpm"`
+	KeeperVersion string   `json:"keeperVersion" example:"22.3.3.44"`
+	KeeperNodes   []string `json:"keeperNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
+	KeeperPort    int      `json:"keeperPort" example:"9181"`
+	LogPath       string
+	SnapshotPath  string
+	Expert        map[string]string
 }
 
 // Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes
