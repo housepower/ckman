@@ -47,6 +47,14 @@ func CKDeployHandle(task *model.Task) error {
 		return err
 	}
 
+	if d.Conf.KeeperWithStanalone() {
+		task.TaskType = model.TaskTypeKeeperDeploy
+		if err := DeployKeeperCluster(task, d); err != nil {
+			return err
+		}
+		task.TaskType = model.TaskTypeCKDeploy
+	}
+
 	if err := DeployCkCluster(task, d); err != nil {
 		return err
 	}
@@ -114,6 +122,14 @@ func CKDestoryHandle(task *model.Task) error {
 	common.CloseConns(conf.Hosts)
 	if err = DestroyCkCluster(task, d, &conf); err != nil {
 		return err
+	}
+
+	if d.Conf.KeeperWithStanalone() {
+		task.TaskType = model.TaskTypeKeeperDestory
+		if err = DestroyKeeperCluster(task, d, &conf); err != nil {
+			return err
+		}
+		task.TaskType = model.TaskTypeCKDestory
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
@@ -258,6 +274,14 @@ func CKUpgradeHandle(task *model.Task) error {
 		return nil
 	}
 
+	if d.Conf.KeeperWithStanalone() {
+		task.TaskType = model.TaskTypeKeeperUpgrade
+		if err = UpgradeKeeperCluster(task, d); err != nil {
+			return err
+		}
+		task.TaskType = model.TaskTypeCKUpgrade
+	}
+
 	err = UpgradeCkCluster(task, d)
 	if err != nil {
 		return err
@@ -276,6 +300,14 @@ func CKSettingHandle(task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
 		return err
+	}
+
+	if d.Conf.KeeperWithStanalone() {
+		task.TaskType = model.TaskTypeKeeperSetting
+		if err := ConfigKeeperCluster(task, d); err != nil {
+			return err
+		}
+		task.TaskType = model.TaskTypeCKSetting
 	}
 
 	if err := ConfigCkCluster(task, d); err != nil {

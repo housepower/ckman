@@ -214,7 +214,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"ok\", \"data\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}",
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\", \"data\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}",
                         "schema": {
                             "type": "string"
                         }
@@ -530,7 +530,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"success\",\"data\":{\"test\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}}}",
+                        "description": "{\"code\":\"0000\",\"msg\":\"success\",\"data\":{\"test\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}}}",
                         "schema": {
                             "type": "string"
                         }
@@ -2777,6 +2777,13 @@ var doc = `{
                     "type": "boolean",
                     "example": true
                 },
+                "keeper": {
+                    "type": "string",
+                    "example": "zookeeper"
+                },
+                "keeperConf": {
+                    "$ref": "#/definitions/model.KeeperConf"
+                },
                 "logic_cluster": {
                     "type": "string",
                     "example": "logic_test"
@@ -2804,6 +2811,9 @@ var doc = `{
                 "promHost": {
                     "type": "string",
                     "example": "127.0.0.1"
+                },
+                "promMetricPort": {
+                    "$ref": "#/definitions/model.PromMetricPort"
                 },
                 "promPort": {
                     "type": "integer",
@@ -2853,10 +2863,6 @@ var doc = `{
                 "zkPort": {
                     "type": "integer",
                     "example": 2181
-                },
-                "zkStatusPort": {
-                    "type": "integer",
-                    "example": 8080
                 }
             }
         },
@@ -2927,10 +2933,6 @@ var doc = `{
                 "zkPort": {
                     "type": "integer",
                     "example": 2181
-                },
-                "zkStatusPort": {
-                    "type": "integer",
-                    "example": 8080
                 }
             }
         },
@@ -3049,6 +3051,29 @@ var doc = `{
                 "skip": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "model.Coordination": {
+            "type": "object",
+            "properties": {
+                "autoForwarding": {
+                    "type": "boolean"
+                },
+                "expert": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "forceSync": {
+                    "type": "boolean"
+                },
+                "operationTimeoutMs": {
+                    "type": "integer"
+                },
+                "sessionTimeoutMs": {
+                    "type": "integer"
                 }
             }
         },
@@ -3245,6 +3270,49 @@ var doc = `{
                 }
             }
         },
+        "model.KeeperConf": {
+            "type": "object",
+            "properties": {
+                "coordination": {
+                    "$ref": "#/definitions/model.Coordination"
+                },
+                "expert": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "keeperNodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.101.102",
+                        "192.168.101.105",
+                        "192.168.101.107"
+                    ]
+                },
+                "logPath": {
+                    "type": "string"
+                },
+                "raftPort": {
+                    "type": "integer",
+                    "example": 9234
+                },
+                "runtime": {
+                    "type": "string",
+                    "example": "standalone"
+                },
+                "snapshotPath": {
+                    "type": "string"
+                },
+                "tcpPort": {
+                    "type": "integer",
+                    "example": 9181
+                }
+            }
+        },
         "model.LoginReq": {
             "type": "object",
             "properties": {
@@ -3359,6 +3427,20 @@ var doc = `{
                 },
                 "sql": {
                     "type": "string"
+                }
+            }
+        },
+        "model.PromMetricPort": {
+            "type": "object",
+            "properties": {
+                "clickHouse": {
+                    "type": "integer"
+                },
+                "nodeExport": {
+                    "type": "integer"
+                },
+                "zooKeeper": {
+                    "type": "integer"
                 }
             }
         },

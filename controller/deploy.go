@@ -55,7 +55,12 @@ func (controller *DeployController) DeployCk(c *gin.Context) {
 
 	tmp := deploy.NewCkDeploy(conf)
 	tmp.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
-
+	if conf.KeeperWithStanalone() {
+		if tmp.Packages.Keeper == "" {
+			controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, errors.Errorf("keeper package not found"))
+			return
+		}
+	}
 	taskId, err := deploy.CreateNewTask(conf.Cluster, model.TaskTypeCKDeploy, tmp)
 	if err != nil {
 		controller.wrapfunc(c, model.E_DATA_INSERT_FAILED, err)
@@ -112,10 +117,6 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 		}
 	}
 
-	// if conf.Hosts, err = common.ParseHosts(conf.Hosts); err != nil {
-	// 	return err
-	// }
-
 	if !force {
 		if err := common.CheckCkInstance(conf); err != nil {
 			return err
@@ -125,16 +126,38 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 	if err = MatchingPlatfrom(conf); err != nil {
 		return err
 	}
-	//if conf.IsReplica && len(conf.Hosts)%2 == 1 {
-	//	return errors.Errorf("When supporting replica, the number of nodes must be even")
-	//}
-	//conf.Shards = GetShardsbyHosts(conf.Hosts, conf.IsReplica)
+
 	conf.IsReplica = true
-	if len(conf.ZkNodes) == 0 {
-		return errors.Errorf("zookeeper nodes must not be empty")
-	}
-	if conf.ZkNodes, err = common.ParseHosts(conf.ZkNodes); err != nil {
-		return err
+	if conf.Keeper == model.ClickhouseKeeper {
+		if conf.KeeperConf == nil {
+			return errors.Errorf("keeper conf must not be empty")
+		}
+		if conf.KeeperConf.Runtime == model.KeeperRuntimeStandalone {
+			if conf.KeeperConf.KeeperNodes, err = common.ParseHosts(conf.KeeperConf.KeeperNodes); err != nil {
+				return err
+			}
+			if len(conf.KeeperConf.KeeperNodes) == 0 {
+				return errors.Errorf("keeper nodes must not be empty")
+			}
+		} else if conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
+			conf.KeeperConf.KeeperNodes = make([]string, len(conf.Hosts))
+			copy(conf.KeeperConf.KeeperNodes, conf.Hosts)
+		} else {
+			return errors.Errorf("keeper runtime %s is not supported", conf.KeeperConf.Runtime)
+		}
+		if err := checkAccess(conf.KeeperConf.LogPath, conf); err != nil {
+			return errors.Wrapf(err, "check access error")
+		}
+		if err := checkAccess(conf.KeeperConf.SnapshotPath, conf); err != nil {
+			return errors.Wrapf(err, "check access error")
+		}
+	} else {
+		if len(conf.ZkNodes) == 0 {
+			return errors.Errorf("zookeeper nodes must not be empty")
+		}
+		if conf.ZkNodes, err = common.ParseHosts(conf.ZkNodes); err != nil {
+			return err
+		}
 	}
 	if conf.LogicCluster != nil {
 		if conf.Cluster == *conf.LogicCluster {

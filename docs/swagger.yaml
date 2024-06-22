@@ -162,6 +162,11 @@ definitions:
       isReplica:
         example: true
         type: boolean
+      keeper:
+        example: zookeeper
+        type: string
+      keeperConf:
+        $ref: '#/definitions/model.KeeperConf'
       logic_cluster:
         example: logic_test
         type: string
@@ -183,6 +188,8 @@ definitions:
       promHost:
         example: 127.0.0.1
         type: string
+      promMetricPort:
+        $ref: '#/definitions/model.PromMetricPort'
       promPort:
         example: 9090
         type: integer
@@ -218,9 +225,6 @@ definitions:
         type: array
       zkPort:
         example: 2181
-        type: integer
-      zkStatusPort:
-        example: 8080
         type: integer
     type: object
   model.CkImportConfig:
@@ -272,9 +276,6 @@ definitions:
         type: array
       zkPort:
         example: 2181
-        type: integer
-      zkStatusPort:
-        example: 8080
         type: integer
     type: object
   model.CkTableNameType:
@@ -363,6 +364,21 @@ definitions:
       skip:
         example: true
         type: boolean
+    type: object
+  model.Coordination:
+    properties:
+      autoForwarding:
+        type: boolean
+      expert:
+        additionalProperties:
+          type: string
+        type: object
+      forceSync:
+        type: boolean
+      operationTimeoutMs:
+        type: integer
+      sessionTimeoutMs:
+        type: integer
     type: object
   model.CreateCkTableReq:
     properties:
@@ -498,6 +514,36 @@ definitions:
         description: minmax, set, bloom_filter, ngrambf_v1, tokenbf_v1
         type: string
     type: object
+  model.KeeperConf:
+    properties:
+      coordination:
+        $ref: '#/definitions/model.Coordination'
+      expert:
+        additionalProperties:
+          type: string
+        type: object
+      keeperNodes:
+        example:
+        - 192.168.101.102
+        - 192.168.101.105
+        - 192.168.101.107
+        items:
+          type: string
+        type: array
+      logPath:
+        type: string
+      raftPort:
+        example: 9234
+        type: integer
+      runtime:
+        example: standalone
+        type: string
+      snapshotPath:
+        type: string
+      tcpPort:
+        example: 9181
+        type: integer
+    type: object
   model.LoginReq:
     properties:
       password:
@@ -575,6 +621,15 @@ definitions:
         type: string
       sql:
         type: string
+    type: object
+  model.PromMetricPort:
+    properties:
+      clickHouse:
+        type: integer
+      nodeExport:
+        type: integer
+      zooKeeper:
+        type: integer
     type: object
   model.PurgerTableReq:
     properties:
@@ -790,7 +845,7 @@ paths:
         type: string
       responses:
         "200":
-          description: '{"code":"0000","msg":"ok", "data":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}'
+          description: '{"code":"0000","msg":"ok", "data":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}'
           schema:
             type: string
       security:
@@ -971,7 +1026,7 @@ paths:
         type: string
       responses:
         "200":
-          description: '{"code":"0000","msg":"success","data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}}'
+          description: '{"code":"0000","msg":"success","data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}}'
           schema:
             type: string
       security:

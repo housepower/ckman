@@ -33,6 +33,13 @@ const (
 	SshPasswordUsePubkey int = 2
 
 	MaxTimeOut int = 3600
+
+	ClickhouseKeeper string = "clickhouse-keeper"
+	Zookeeper        string = "zookeeper"
+	ClickHouse       string = "clickhouse"
+
+	KeeperRuntimeStandalone = "standalone"
+	KeeperRuntimeInternal   = "internal"
 )
 
 type CkDeployExt struct {
@@ -111,16 +118,23 @@ type CKManClickHouseConfig struct {
 	NeedSudo bool              `json:"needSudo" swaggerignore:"true"`
 }
 
+type Coordination struct {
+	OperationTimeoutMs int
+	SessionTimeoutMs   int
+	ForceSync          bool
+	AutoForwarding     bool
+	Expert             map[string]string
+}
+
 type KeeperConf struct {
-	Runtime       string   `json:"runtime" example:"standalone"`
-	KeeperPkgType string   `json:"keeperPkgType" example:"x86_64.rpm"`
-	KeeperPkg     string   `json:"keeperPkg" example:"clickhouse-keeper-22.3.3.44.noarch.rpm"`
-	KeeperVersion string   `json:"keeperVersion" example:"22.3.3.44"`
-	KeeperNodes   []string `json:"keeperNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
-	KeeperPort    int      `json:"keeperPort" example:"9181"`
-	LogPath       string
-	SnapshotPath  string
-	Expert        map[string]string
+	Runtime      string   `json:"runtime" example:"standalone"`
+	KeeperNodes  []string `json:"keeperNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
+	TcpPort      int      `json:"tcpPort" example:"9181"`
+	RaftPort     int      `json:"raftPort" example:"9234"`
+	LogPath      string
+	SnapshotPath string
+	Coordination Coordination
+	Expert       map[string]string
 }
 
 // Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes
@@ -270,7 +284,7 @@ func (config *CKManClickHouseConfig) Normalize() {
 	}
 
 	if config.Keeper == "" {
-		config.Keeper = "zookeeper"
+		config.Keeper = Zookeeper
 	}
 
 	if !strings.HasSuffix(config.PkgType, "tgz") {
@@ -367,4 +381,11 @@ func (config *CKManClickHouseConfig) GetConnOption() ConnetOption {
 	opt.User = config.User
 	opt.Password = config.Password
 	return opt
+}
+
+func (config *CKManClickHouseConfig) KeeperWithStanalone() bool {
+	if config.Keeper == ClickhouseKeeper {
+		return config.KeeperConf != nil && config.KeeperConf.Runtime == KeeperRuntimeStandalone
+	}
+	return false
 }

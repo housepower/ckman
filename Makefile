@@ -14,6 +14,7 @@ GOARCH?=$(shell go env GOARCH)
 TARNAME=${PKGDIR}-${VERSION}-${DATE}.${OS}.$(GOARCH).tar.gz
 TAG?=$(shell date +%y%m%d)
 LDFLAGS=-ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=${VERSION}"
+GCFLAGS=-gcflags "all=-N -l"
 PUB_KEY=$(shell cat resources/eoi_public_key.pub 2>/dev/null)
 export GOPROXY=https://goproxy.cn,direct
 
@@ -32,6 +33,15 @@ backend:
 	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
 	go build ${LDFLAGS} -o znodefix cmd/znodefix/znodefix.go
 	go build ${LDFLAGS} -o znode_count cmd/znodecnt/znodecount.go
+
+.PHONY: debug
+debug:
+	@rm -rf ${PKGFULLDIR}
+	go build ${GCFLAGS} ${LDFLAGS}
+	go build ${GCFLAGS} ${LDFLAGS} -o ckmanpasswd cmd/password/password.go
+	go build ${GCFLAGS} ${LDFLAGS} -o migrate cmd/migrate/migrate.go
+	go build ${GCFLAGS} ${LDFLAGS} -o znodefix cmd/znodefix/znodefix.go
+	go build ${GCFLAGS} ${LDFLAGS} -o znode_count cmd/znodecnt/znodecount.go
 
 .PHONY: pre
 pre:

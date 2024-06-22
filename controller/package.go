@@ -48,10 +48,6 @@ func NewPackageController(config *config.CKManConfig, wrapfunc Wrapfunc) *Packag
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
 // @Router /api/v2/package [post]
 func (controller *PackageController) Upload(c *gin.Context) {
-	kind := c.Query("pkgKind")
-	if kind == "" {
-		kind = "clickhouse"
-	}
 	localFile, err := ParserFormData(c.Request)
 	if err != nil {
 		controller.wrapfunc(c, model.E_UPLOAD_FAILED, err)
@@ -67,14 +63,14 @@ func (controller *PackageController) Upload(c *gin.Context) {
 		for _, peer := range config.GetClusterPeers() {
 			peerUrl := ""
 			if controller.config.Server.Https {
-				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package?pkgKind=%s", peer.Ip, peer.Port, kind)
+				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package", peer.Ip, peer.Port)
 				err = UploadFileByURL(peerUrl, localFile)
 				if err != nil {
 					controller.wrapfunc(c, model.E_UPLOAD_FAILED, err)
 					return
 				}
 			} else {
-				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package?pkgKind=%s", peer.Ip, peer.Port, kind)
+				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package", peer.Ip, peer.Port)
 				err = UploadFileByURL(peerUrl, localFile)
 				if err != nil {
 					controller.wrapfunc(c, model.E_UPLOAD_FAILED, err)
@@ -83,13 +79,8 @@ func (controller *PackageController) Upload(c *gin.Context) {
 			}
 		}
 	}
-	if kind == "clickhouse" {
-		err = common.LoadPackages()
-	} else if kind == "keeper" {
-		err = common.LoadKeeperPackages()
-	} else {
-		err = fmt.Errorf("invalid package kind")
-	}
+
+	err = common.LoadPackages()
 	if err != nil {
 		controller.wrapfunc(c, model.E_UPLOAD_FAILED, err)
 		return
@@ -186,21 +177,12 @@ func UploadFileByURL(url string, localFile string) error {
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"version":"22.3.9.19","pkgType":"x86_64.rpm","pkgName":"clickhouse-common-static-22.3.9.19.x86_64.rpm"}]}"
 // @Router /api/v2/package [get]
 func (controller *PackageController) List(c *gin.Context) {
-	pkgKind := c.Query("pkgKind")
 	pkgType := c.Query("pkgType")
 	if pkgType == "" {
 		pkgType = model.PkgTypeDefault
 	}
-	if pkgKind == "" {
-		pkgKind = "clickhouse"
-	}
-	var pkgs map[string]common.CkPackageFiles
-	if pkgKind == "clickhouse" {
-		pkgs = common.GetAllPackages()
-	} else if pkgKind == "keeper" {
-		pkgs = common.GetAllKeeperPackages()
-	}
 
+	pkgs := common.GetAllPackages()
 	var resp []model.PkgInfo
 	if pkgType == "all" {
 		for k, v := range pkgs {
@@ -243,32 +225,11 @@ func (controller *PackageController) List(c *gin.Context) {
 func (controller *PackageController) Delete(c *gin.Context) {
 	packageVersion := c.Query("packageVersion")
 	packageType := c.Query("pkgType")
-	kind := c.Query("pkgKind")
-	if kind == "" {
-		kind = "clickhouse"
-	}
-	if kind == "clickhouse" {
-		packages := deploy.BuildPackages(packageVersion, packageType, "")
-		for _, packageName := range packages.PkgLists {
-			if err := os.Remove(path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory, packageName)); err != nil {
-				controller.wrapfunc(c, model.E_FILE_NOT_EXIST, err)
-				return
-			}
-		}
-	} else if kind == "keeper" {
-		pkgs := common.GetAllKeeperPackages()
-	LOOP:
-		for _, pkg := range pkgs {
-			for _, p := range pkg {
-				if p.Version == packageVersion && p.Module == packageType {
-					packageName := p.PkgName
-					if err := os.Remove(path.Join(config.GetWorkDirectory(), common.DefaultKeeperDirectory, packageName)); err != nil {
-						controller.wrapfunc(c, model.E_FILE_NOT_EXIST, err)
-						return
-					}
-					break LOOP
-				}
-			}
+	packages := deploy.BuildPackages(packageVersion, packageType, "")
+	for _, packageName := range packages.PkgLists {
+		if err := os.Remove(path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory, packageName)); err != nil {
+			controller.wrapfunc(c, model.E_FILE_NOT_EXIST, err)
+			return
 		}
 	}
 
@@ -282,14 +243,14 @@ func (controller *PackageController) Delete(c *gin.Context) {
 		for _, peer := range config.GetClusterPeers() {
 			peerUrl := ""
 			if controller.config.Server.Https {
-				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package?packageVersion=%s&packageType=%s&packageKind=%s", peer.Ip, peer.Port, packageVersion, packageType, kind)
+				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package?packageVersion=%s&packageType=%s", peer.Ip, peer.Port, packageVersion, packageType)
 				err := DeleteFileByURL(peerUrl)
 				if err != nil {
 					controller.wrapfunc(c, model.E_DATA_DELETE_FAILED, err)
 					return
 				}
 			} else {
-				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package?packageVersion=%s&packageType=%s&packageKind=%s", peer.Ip, peer.Port, packageVersion, packageType, kind)
+				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package?packageVersion=%s&packageType=%s", peer.Ip, peer.Port, packageVersion, packageType)
 				err := DeleteFileByURL(peerUrl)
 				if err != nil {
 					controller.wrapfunc(c, model.E_DATA_DELETE_FAILED, err)
@@ -298,14 +259,8 @@ func (controller *PackageController) Delete(c *gin.Context) {
 			}
 		}
 	}
-	var err error
-	if kind == "clickhouse" {
-		err = common.LoadPackages()
-	} else if kind == "keeper" {
-		err = common.LoadKeeperPackages()
-	} else {
-		err = fmt.Errorf("invalid package kind")
-	}
+
+	err := common.LoadPackages()
 	if err != nil {
 		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
 		return

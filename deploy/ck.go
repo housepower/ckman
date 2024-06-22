@@ -178,7 +178,7 @@ func (d *CKDeploy) Install() error {
 	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmds := make([]string, 0)
-	cmds = append(cmds, cmdIns.InstallCmd(d.Packages))
+	cmds = append(cmds, cmdIns.InstallCmd(CkSvrName, d.Packages))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
 	cmds = append(cmds, fmt.Sprintf("mkdir -p %s", path.Join(d.Conf.Path, "clickhouse")))
 	if d.Conf.NeedSudo {
@@ -243,7 +243,7 @@ func (d *CKDeploy) Uninstall() error {
 	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmds := make([]string, 0)
-	cmds = append(cmds, cmdIns.Uninstall(d.Packages, d.Conf.Version))
+	cmds = append(cmds, cmdIns.Uninstall(CkSvrName, d.Packages, d.Conf.Version))
 	cmds = append(cmds, fmt.Sprintf("rm -rf %s", path.Join(d.Conf.Path, "clickhouse")))
 	if d.Conf.NeedSudo {
 		cmds = append(cmds, "rm -rf /etc/clickhouse-server")
@@ -284,7 +284,7 @@ func (d *CKDeploy) Uninstall() error {
 func (d *CKDeploy) Upgrade() error {
 	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
-	cmd := cmdIns.UpgradeCmd(d.Packages)
+	cmd := cmdIns.UpgradeCmd(CkSvrName, d.Packages)
 	var lastError error
 	var wg sync.WaitGroup
 	for _, host := range d.Conf.Hosts {
@@ -391,6 +391,30 @@ func (d *CKDeploy) Config() error {
 			}
 			confFiles = append(confFiles, hostXml)
 
+			var keeperFile common.TempFile
+			if d.Conf.Keeper == model.ClickhouseKeeper && !d.Conf.KeeperWithStanalone() {
+				var err error
+				keeperFile, err = common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "keeper_config")
+				if err != nil {
+					lastError = err
+					return
+				}
+				defer os.Remove(keeperFile.FullName)
+				idx := 0
+				for i, kn := range d.Conf.KeeperConf.KeeperNodes {
+					if kn == innerHost {
+						idx = i
+						break
+					}
+				}
+				keeperXml, err := ckconfig.GenerateKeeperXML(keeperFile.FullName, d.Conf, d.Ext.Ipv6Enable, idx+1)
+				if err != nil {
+					lastError = err
+					return
+				}
+				confFiles = append(confFiles, keeperXml)
+			}
+
 			if err := common.ScpUploadFiles(confFiles, path.Join(remotePath, "config.d"), sshOpts); err != nil {
 				lastError = err
 				return
@@ -403,6 +427,9 @@ func (d *CKDeploy) Config() error {
 			cmds := make([]string, 0)
 			cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "config.d", hostFile.BaseName), path.Join(remotePath, "config.d", "host.xml")))
 			cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "users.d", usersFile.BaseName), path.Join(remotePath, "users.d", "users.xml")))
+			if d.Conf.Keeper == model.ClickhouseKeeper && !d.Conf.KeeperWithStanalone() {
+				cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "config.d", keeperFile.BaseName), path.Join(remotePath, "config.d", "keeper_config.xml")))
+			}
 			if d.Conf.NeedSudo {
 				cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
 			}
@@ -806,6 +833,7 @@ func BuildPackages(version, pkgType, cwd string) Packages {
 	if !ok {
 		return Packages{}
 	}
+	var keeper string
 	for _, pkg := range pkgs.(common.CkPackageFiles) {
 		if pkg.Version == version {
 			if pkg.Module == common.PkgModuleCommon {
@@ -814,6 +842,8 @@ func BuildPackages(version, pkgType, cwd string) Packages {
 				pkgLists[1] = pkg.PkgName
 			} else if pkg.Module == common.PkgModuleClient {
 				pkgLists[2] = pkg.PkgName
+			} else if pkg.Module == common.PkgModuleKeeper {
+				keeper = pkg.PkgName
 			}
 		}
 	}
@@ -821,5 +851,6 @@ func BuildPackages(version, pkgType, cwd string) Packages {
 	return Packages{
 		PkgLists: pkgLists,
 		Cwd:      cwd,
+		Keeper:   keeper,
 	}
 }

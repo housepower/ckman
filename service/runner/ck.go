@@ -56,6 +56,9 @@ func DestroyCkCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKManClic
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInstall.EN)
 	}
 
+	if d.Conf.Keeper == model.ClickhouseKeeper {
+		return nil
+	}
 	//clear zkNode
 	deploy.SetNodeStatus(task, model.NodeStatusClearData, model.ALL_NODES_DEFAULT)
 	service, err := zookeeper.GetZkService(conf.Cluster)
@@ -194,9 +197,21 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 	if err := d.Config(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
+	if d.Ext.Restart {
+		if err := d.Restart(); err != nil {
+			return errors.Wrapf(err, "[%s]", model.NodeStatusRestart.EN)
+		}
+		if err := d.Check(300); err != nil {
+			return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
+		}
+	}
 
 	conf.Hosts = hosts
 	conf.Shards = shards
+	if d.Conf.Keeper == model.ClickhouseKeeper && d.Conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
+		conf.KeeperConf.KeeperNodes = make([]string, len(d.Conf.Hosts))
+		copy(conf.KeeperConf.KeeperNodes, d.Conf.Hosts)
+	}
 	return nil
 }
 
@@ -235,6 +250,10 @@ func AddCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, d *de
 	deploy.SetNodeStatus(task, model.NodeStatusConfigExt, model.ALL_NODES_DEFAULT)
 	d2 := deploy.NewCkDeploy(*conf)
 	d2.Conf.Shards = d.Conf.Shards
+	if conf.Keeper == model.ClickhouseKeeper && conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
+		d2.Conf.KeeperConf.KeeperNodes = make([]string, len(conf.Hosts)+len(d.Conf.Hosts))
+		copy(d2.Conf.KeeperConf.KeeperNodes, append(conf.Hosts, d.Conf.Hosts...))
+	}
 	if err := d2.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
@@ -242,8 +261,22 @@ func AddCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, d *de
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfig.EN)
 	}
 
+	if d.Ext.Restart {
+		if err := d2.Restart(); err != nil {
+			return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
+		}
+
+		if err := d2.Check(300); err != nil {
+			return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
+		}
+	}
+
 	conf.Shards = d.Conf.Shards
 	conf.Hosts = append(conf.Hosts, d.Conf.Hosts...)
+	if conf.Keeper == model.ClickhouseKeeper && conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
+		conf.KeeperConf.KeeperNodes = make([]string, len(conf.Hosts))
+		copy(conf.KeeperConf.KeeperNodes, conf.Hosts)
+	}
 	return nil
 }
 
@@ -260,7 +293,7 @@ func UpgradeCkCluster(task *model.Task, d deploy.CKDeploy) error {
 		}
 	case model.PolicyFull:
 		err := upgradePackage(task, d, 10)
-		if err != model.CheckTimeOutErr {
+		if err != nil && err != model.CheckTimeOutErr {
 			return err
 		}
 	default:
@@ -345,7 +378,7 @@ func ConfigCkCluster(task *model.Task, d deploy.CKDeploy) error {
 		case model.PolicyFull:
 			deploy.SetNodeStatus(task, model.NodeStatusRestart, model.ALL_NODES_DEFAULT)
 			err := d.Restart()
-			if err != model.CheckTimeOutErr {
+			if err != nil && err != model.CheckTimeOutErr {
 				return err
 			}
 			_ = d.Check(30)

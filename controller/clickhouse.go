@@ -1590,6 +1590,11 @@ func (controller *ClickHouseController) AddNode(c *gin.Context) {
 	// install clickhouse and start service on the new node
 	d := deploy.NewCkDeploy(conf)
 	d.Conf.Hosts = req.Ips
+	if d.Conf.Keeper == model.ClickhouseKeeper && d.Conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
+		d.Ext.Restart = true
+		d.Conf.KeeperConf.KeeperNodes = append(d.Conf.KeeperConf.KeeperNodes, req.Ips...)
+	}
+
 	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	if reflect.DeepEqual(d.Packages, deploy.Packages{}) {
 		err := errors.Errorf("package %s %s not found in localpath", conf.Version, conf.PkgType)
@@ -1698,6 +1703,10 @@ SETTINGS skip_unavailable_shards = 1`
 	d := deploy.NewCkDeploy(conf)
 	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	d.Conf.Hosts = []string{ip}
+	if d.Conf.Keeper == model.ClickhouseKeeper && d.Conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
+		d.Ext.Restart = true
+		d.Conf.KeeperConf.KeeperNodes = common.ArrayRemove(conf.Hosts, ip)
+	}
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKDeleteNode, d)
 	if err != nil {
@@ -2821,6 +2830,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	userconfChanged := !reflect.DeepEqual(cluster.UsersConf, conf.UsersConf)
 	logicChaned := !reflect.DeepEqual(cluster.LogicCluster, conf.LogicCluster)
 	zkChanged := !reflect.DeepEqual(cluster.ZkNodes, conf.ZkNodes)
+	keeperChanged := !reflect.DeepEqual(cluster.KeeperConf, conf.KeeperConf)
 
 	noChangedFn := func() bool {
 		return cluster.Port == conf.Port &&
@@ -2831,7 +2841,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 			cluster.Password == conf.Password && !storageChanged && !expertChanged &&
 			cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
 			cluster.ZkPort == conf.ZkPort &&
-			!userconfChanged && !logicChaned && !zkChanged
+			!userconfChanged && !logicChaned && !zkChanged && !keeperChanged
 	}
 
 	if !force {
@@ -2954,7 +2964,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	}
 
 	// need restart
-	if cluster.Port != conf.Port || storageChanged || expertChanged {
+	if cluster.Port != conf.Port || storageChanged || expertChanged || keeperChanged {
 		restart = true
 	}
 
@@ -2973,6 +2983,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	cluster.LogicCluster = conf.LogicCluster
 	cluster.ZkPort = conf.ZkPort
 	cluster.ZkNodes = conf.ZkNodes
+	cluster.KeeperConf = conf.KeeperConf
 	if err = common.DeepCopyByGob(conf, cluster); err != nil {
 		return false, err
 	}

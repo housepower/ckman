@@ -15,12 +15,11 @@ import (
 
 const (
 	DefaultPackageDirectory string = "package/clickhouse"
-	DefaultKeeperDirectory  string = "package/keeper"
 
 	PkgModuleCommon string = "common"
 	PkgModuleClient string = "client"
 	PkgModuleServer string = "server"
-	PkgKeeper       string = "keeper"
+	PkgModuleKeeper string = "keeper"
 
 	PkgSuffixRpm string = "rpm"
 	PkgSuffixTgz string = "tgz"
@@ -43,10 +42,7 @@ func (v CkPackageFiles) Less(i, j int) bool {
 	return CompareClickHouseVersion(v[i].Version, v[j].Version) < 0
 }
 
-var (
-	CkPackages     sync.Map
-	KeeperPackages sync.Map
-)
+var CkPackages sync.Map
 
 func parsePkgName(fname string) CkPackageFile {
 	var module, version, arch, suffix string
@@ -234,64 +230,6 @@ func GetAllPackages() map[string]CkPackageFiles {
 			}
 		}
 		pkgs[key] = list
-		return true
-	})
-	return pkgs
-}
-
-func LoadKeeperPackages() error {
-	var files CkPackageFiles
-	CkPackages.Range(func(k, v interface{}) bool {
-		CkPackages.Delete(k)
-		return true
-	})
-	dir, err := os.ReadDir(path.Join(config.GetWorkDirectory(), DefaultKeeperDirectory))
-	if err != nil {
-		return errors.Wrap(err, "")
-	}
-
-	for _, fi := range dir {
-		if !fi.IsDir() {
-			fname := fi.Name()
-			file := parsePkgName(fname)
-			files = append(files, file)
-		}
-	}
-
-	sort.Sort(sort.Reverse(files))
-	for _, file := range files {
-		key := fmt.Sprintf("%s.%s", file.Arch, file.Suffix)
-		value, ok := CkPackages.Load(key)
-		if !ok {
-			pkgs := CkPackageFiles{file}
-			CkPackages.Store(key, pkgs)
-		} else {
-			pkgs := value.(CkPackageFiles)
-			found := false
-			for _, pkg := range pkgs {
-				if reflect.DeepEqual(pkg, file) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				pkgs = append(pkgs, file)
-			}
-			CkPackages.Store(key, pkgs)
-		}
-	}
-
-	return nil
-}
-
-func GetAllKeeperPackages() map[string]CkPackageFiles {
-	pkgs := make(map[string]CkPackageFiles, 0)
-	_ = LoadKeeperPackages()
-	CkPackages.Range(func(k, v interface{}) bool {
-		key := k.(string)
-		files := v.(CkPackageFiles)
-		sort.Sort(sort.Reverse(files))
-		pkgs[key] = files
 		return true
 	})
 	return pkgs

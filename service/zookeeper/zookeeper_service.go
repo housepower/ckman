@@ -57,7 +57,8 @@ func GetZkService(clusterName string) (*ZkService, error) {
 	} else {
 		conf, err := repository.Ps.GetClusterbyName(clusterName)
 		if err == nil {
-			service, err := NewZkService(conf.ZkNodes, conf.ZkPort)
+			nodes, port := GetZkInfo(&conf)
+			service, err := NewZkService(nodes, port)
 			if err != nil {
 				return nil, err
 			}
@@ -182,6 +183,9 @@ func ZkMetric(host string, port int, metric string) ([]byte, error) {
 			resp[matches[1]] = matches[2]
 		}
 	}
+	if len(resp) == 0 {
+		return b, nil
+	}
 	return json.Marshal(resp)
 }
 
@@ -202,4 +206,17 @@ func GetZkClusterNodes(host string, port int) ([]string, error) {
 		}
 	}
 	return nodes, nil
+}
+
+func GetZkInfo(conf *model.CKManClickHouseConfig) ([]string, int) {
+	var nodes []string
+	var port int
+	if conf.Keeper == model.ClickhouseKeeper {
+		nodes = conf.KeeperConf.KeeperNodes
+		port = conf.KeeperConf.TcpPort
+	} else {
+		nodes = conf.ZkNodes
+		port = conf.ZkPort
+	}
+	return nodes, port
 }

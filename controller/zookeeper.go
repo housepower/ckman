@@ -47,12 +47,14 @@ func (controller *ZookeeperController) GetStatus(c *gin.Context) {
 		return
 	}
 
-	zkList := make([]model.ZkStatusRsp, len(conf.ZkNodes))
-	for index, node := range conf.ZkNodes {
+	nodes, port := zookeeper.GetZkInfo(&conf)
+
+	zkList := make([]model.ZkStatusRsp, len(nodes))
+	for index, node := range nodes {
 		tmp := model.ZkStatusRsp{
 			Host: node,
 		}
-		body, err := zookeeper.ZkMetric(node, conf.ZkPort, "mntr")
+		body, err := zookeeper.ZkMetric(node, port, "mntr")
 		if err != nil {
 			controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
 			return

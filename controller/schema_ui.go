@@ -30,13 +30,8 @@ var schemaHandleFunc = map[string]func() common.ConfigParams{
 	GET_SCHEMA_UI_REBALANCE: RegistRebalanceClusterSchema,
 }
 
-func getPkgType(kind string) []common.Candidate {
-	var pkgs map[string]common.CkPackageFiles
-	if kind == "clickhouse" {
-		pkgs = common.GetAllPackages()
-	} else if kind == "keeper" {
-		pkgs = common.GetAllKeeperPackages()
-	}
+func getPkgType() []common.Candidate {
+	pkgs := common.GetAllPackages()
 	var lists []common.Candidate
 	for pkgType := range pkgs {
 		can := common.Candidate{
@@ -47,13 +42,8 @@ func getPkgType(kind string) []common.Candidate {
 	return lists
 }
 
-func getPkgLists(kind string) []common.Candidate {
-	var packages map[string]common.CkPackageFiles
-	if kind == "clickhouse" {
-		packages = common.GetAllPackages()
-	} else if kind == "keeper" {
-		packages = common.GetAllKeeperPackages()
-	}
+func getPkgLists() []common.Candidate {
+	packages := common.GetAllPackages()
 	var pkgLists []common.Candidate
 	for _, pkgs := range packages {
 		for _, pkg := range pkgs {
@@ -184,8 +174,8 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		Default:       "zookeeper",
 		DescriptionZH: "如果使用clickhouse-keeper， 则默认由ckman托管；如果使用已有zookeeper或已经创建好的keeper集群，都视同zookeeper",
 		Candidates: []common.Candidate{
-			{Value: "zookeeper", LabelEN: "Zookeeper", LabelZH: "Zookeeper"},
-			{Value: "clickhouse-keeper", LabelEN: "ClickHouse-Keeper", LabelZH: "ClickHouse-Keeper"},
+			{Value: model.Zookeeper, LabelEN: "Zookeeper", LabelZH: "Zookeeper"},
+			{Value: model.ClickhouseKeeper, LabelEN: "ClickHouse-Keeper", LabelZH: "ClickHouse-Keeper"},
 		},
 	})
 
@@ -200,29 +190,12 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(keeper, "Runtime", &common.Parameter{
 		LabelZH:       "运行方式",
 		LabelEN:       "Runtime",
-		Default:       "standalone",
+		Default:       model.KeeperRuntimeStandalone,
 		DescriptionZH: "如果单独部署，则和clickhouse-server 分开进程；如果内置，则和clickhouse-server放在一块",
 		Candidates: []common.Candidate{
-			{Value: "standalone", LabelEN: "Standalone", LabelZH: "单独部署"},
-			{Value: "internal", LabelEN: "Internal", LabelZH: "内置"},
+			{Value: model.KeeperRuntimeStandalone, LabelEN: "Standalone", LabelZH: "单独部署"},
+			{Value: model.KeeperRuntimeInternal, LabelEN: "Internal", LabelZH: "内置"},
 		},
-	})
-	params.MustRegister(keeper, "KeeperPkg", &common.Parameter{
-		LabelZH:       "Keeper版本",
-		LabelEN:       "Keeper Package Name",
-		DescriptionZH: "需要部署的ClickHouse-Keeper集群的安装包",
-		DescriptionEN: "which package of clickhouse will deployed, need upload rpm package before",
-		Candidates:    getPkgLists("keeper"),
-		Visiable:      "Runtime == 'standalone'",
-		Filter:        "\"KeeperPkg\".indexOf(KeeperPkgType) !== -1",
-	})
-	params.MustRegister(keeper, "KeeperPkgType", &common.Parameter{
-		LabelZH:       "安装包类型",
-		LabelEN:       "Package Type",
-		DescriptionZH: "安装包的类型，表示当前安装包是什么系统架构，什么压缩格式",
-		DescriptionEN: "The type of the installation package, indicating what system architecture and compression format",
-		Candidates:    getPkgType("keeper"),
-		Visiable:      "Runtime == 'standalone'",
 	})
 	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
 		LabelZH:  "Keeper节点",
@@ -230,22 +203,63 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		Visiable: "Runtime == 'standalone'",
 	})
 
-	params.MustRegister(keeper, "KeeperPort", &common.Parameter{
+	params.MustRegister(keeper, "TcpPort", &common.Parameter{
 		LabelZH: "Keeper端口",
-		LabelEN: "KeeperPort",
+		LabelEN: "TcpPort",
 		Default: "9181",
+	})
+	params.MustRegister(keeper, "RaftPort", &common.Parameter{
+		LabelZH: "Raft通信端口",
+		LabelEN: "RaftPort",
+		Default: "9234",
 	})
 	params.MustRegister(keeper, "LogPath", &common.Parameter{
 		LabelZH: "Log路径",
 		LabelEN: "LogPath",
-		Default: "/var/lib/clickhouse/coordination/logs",
+		Default: "/var/lib/",
+		Regexp:  "^/.+/$",
 	})
 	params.MustRegister(keeper, "SnapshotPath", &common.Parameter{
 		LabelZH: "Snapshot路径",
 		LabelEN: "SnapshotPath",
-		Default: "/var/lib/clickhouse/coordination/snapshots",
+		Default: "/var/lib/",
+		Regexp:  "^/.+/$",
 	})
 	params.MustRegister(keeper, "Expert", &common.Parameter{
+		LabelZH:  "专家配置",
+		LabelEN:  "Expert",
+		Required: "false",
+	})
+	params.MustRegister(keeper, "Coordination", &common.Parameter{
+		LabelZH:  "协作配置",
+		LabelEN:  "Coordination",
+		Required: "false",
+	})
+
+	var coordination model.Coordination
+	params.MustRegister(coordination, "OperationTimeoutMs", &common.Parameter{
+		LabelZH:  "OperationTimeoutMs",
+		LabelEN:  "OperationTimeoutMs",
+		Default:  "10000",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "SessionTimeoutMs", &common.Parameter{
+		LabelZH:  "SessionTimeoutMs",
+		LabelEN:  "SessionTimeoutMs",
+		Default:  "30000",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "ForceSync", &common.Parameter{
+		LabelZH:  "ForceSync",
+		LabelEN:  "ForceSync",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "AutoForwarding", &common.Parameter{
+		LabelZH:  "AutoForwarding",
+		LabelEN:  "AutoForwarding",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "Expert", &common.Parameter{
 		LabelZH:  "专家配置",
 		LabelEN:  "Expert",
 		Required: "false",
@@ -857,8 +871,8 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(conf, "Keeper", &common.Parameter{
 		DescriptionZH: "如果使用clickhouse-keeper， 则默认由ckman托管；如果使用已有zookeeper或已经创建好的keeper集群，都视同zookeeper",
 		Candidates: []common.Candidate{
-			{Value: "zookeeper", LabelEN: "Zookeeper", LabelZH: "Zookeeper"},
-			{Value: "clickhouse-keeper", LabelEN: "ClickHouse-Keeper", LabelZH: "ClickHouse-Keeper"},
+			{Value: model.Zookeeper, LabelEN: "Zookeeper", LabelZH: "Zookeeper"},
+			{Value: model.ClickhouseKeeper, LabelEN: "ClickHouse-Keeper", LabelZH: "ClickHouse-Keeper"},
 		},
 		Editable: "false",
 	})
@@ -876,40 +890,70 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:       "Runtime",
 		DescriptionZH: "如果单独部署，则和clickhouse-server 分开进程；如果内置，则和clickhouse-server放在一块",
 		Candidates: []common.Candidate{
-			{Value: "standalone", LabelEN: "Standalone", LabelZH: "单独部署"},
-			{Value: "internal", LabelEN: "Internal", LabelZH: "内置"},
+			{Value: model.KeeperRuntimeStandalone, LabelEN: "Standalone", LabelZH: "单独部署"},
+			{Value: model.KeeperRuntimeInternal, LabelEN: "Internal", LabelZH: "内置"},
 		},
+		Editable: "false",
 	})
 	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
 		LabelZH:  "Keeper节点",
 		LabelEN:  "KeeperNodes",
-		Visiable: "Runtime == 'standalone'",
+		Editable: "false",
 	})
 
-	params.MustRegister(keeper, "KeeperVersion", &common.Parameter{
-		LabelZH:  "Keeper版本",
-		LabelEN:  "KeeperVersion",
-		Visiable: "Runtime == 'standalone'",
-	})
-	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
-		LabelZH:  "Keeper节点",
-		LabelEN:  "KeeperNodes",
-		Visiable: "Runtime == 'standalone'",
-	})
-
-	params.MustRegister(keeper, "KeeperPort", &common.Parameter{
+	params.MustRegister(keeper, "TcpPort", &common.Parameter{
 		LabelZH: "Keeper端口",
-		LabelEN: "KeeperPort",
+		LabelEN: "TcpPort",
+	})
+	params.MustRegister(keeper, "RaftPort", &common.Parameter{
+		LabelZH: "Raft通信端口",
+		LabelEN: "RaftPort",
 	})
 	params.MustRegister(keeper, "LogPath", &common.Parameter{
-		LabelZH: "Log路径",
-		LabelEN: "LogPath",
+		LabelZH:  "Log路径",
+		LabelEN:  "LogPath",
+		Editable: "false",
 	})
 	params.MustRegister(keeper, "SnapshotPath", &common.Parameter{
-		LabelZH: "Snapshot路径",
-		LabelEN: "SnapshotPath",
+		LabelZH:  "Snapshot路径",
+		LabelEN:  "SnapshotPath",
+		Editable: "false",
 	})
 	params.MustRegister(keeper, "Expert", &common.Parameter{
+		LabelZH:  "专家配置",
+		LabelEN:  "Expert",
+		Required: "false",
+	})
+	params.MustRegister(keeper, "Coordination", &common.Parameter{
+		LabelZH:  "协作配置",
+		LabelEN:  "Coordination",
+		Required: "false",
+	})
+
+	var coordination model.Coordination
+	params.MustRegister(coordination, "OperationTimeoutMs", &common.Parameter{
+		LabelZH:  "OperationTimeoutMs",
+		LabelEN:  "OperationTimeoutMs",
+		Default:  "10000",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "SessionTimeoutMs", &common.Parameter{
+		LabelZH:  "SessionTimeoutMs",
+		LabelEN:  "SessionTimeoutMs",
+		Default:  "30000",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "ForceSync", &common.Parameter{
+		LabelZH:  "ForceSync",
+		LabelEN:  "ForceSync",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "AutoForwarding", &common.Parameter{
+		LabelZH:  "AutoForwarding",
+		LabelEN:  "AutoForwarding",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "Expert", &common.Parameter{
 		LabelZH:  "专家配置",
 		LabelEN:  "Expert",
 		Required: "false",
@@ -1545,7 +1589,7 @@ func GetSchemaParams(typo string, conf model.CKManClickHouseConfig) common.Confi
 			LabelEN:       "Package Name",
 			DescriptionZH: "需要部署的ClickHouse集群的安装包版本，只显示common安装包，但需提前上传common、server、client安装包",
 			DescriptionEN: "which package of clickhouse will deployed, need upload rpm package before",
-			Candidates:    getPkgLists("clickhouse"),
+			Candidates:    getPkgLists(),
 			Filter:        "\"PkgName\".indexOf(PkgType) !== -1",
 		})
 
@@ -1554,7 +1598,7 @@ func GetSchemaParams(typo string, conf model.CKManClickHouseConfig) common.Confi
 			LabelEN:       "Package Type",
 			DescriptionZH: "安装包的类型，表示当前安装包是什么系统架构，什么压缩格式",
 			DescriptionEN: "The type of the installation package, indicating what system architecture and compression format",
-			Candidates:    getPkgType("clickhouse"),
+			Candidates:    getPkgType(),
 		})
 	}
 	return params

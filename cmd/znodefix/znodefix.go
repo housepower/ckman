@@ -82,7 +82,8 @@ func main() {
 	if err != nil {
 		log.Logger.Fatalf("get cluster %s failed:%v", cmdOps.ClusterName, err)
 	}
-	service, err := zookeeper.NewZkService(cluster.ZkNodes, cluster.ZkPort)
+	nodes, port := zookeeper.GetZkInfo(&cluster)
+	service, err := zookeeper.NewZkService(nodes, port)
 	if err != nil {
 		log.Logger.Fatalf("can't create zookeeper instance:%v", err)
 	}
