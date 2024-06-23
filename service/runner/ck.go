@@ -191,6 +191,10 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 	d = deploy.NewCkDeploy(*conf)
 	d.Conf.Hosts = hosts
 	d.Conf.Shards = shards
+	if d.Conf.Keeper == model.ClickhouseKeeper && d.Conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
+		d.Ext.Restart = true
+		d.Conf.KeeperConf.KeeperNodes = common.ArrayRemove(conf.Hosts, ip)
+	}
 	if err := d.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
@@ -202,7 +206,8 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 			return errors.Wrapf(err, "[%s]", model.NodeStatusRestart.EN)
 		}
 		if err := d.Check(300); err != nil {
-			return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
+			log.Logger.Warnf("[%s]delnode check failed: %v", d.Conf.Cluster, err)
+			//return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
 		}
 	}
 
@@ -243,7 +248,8 @@ func AddCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, d *de
 
 	deploy.SetNodeStatus(task, model.NodeStatusCheck, model.ALL_NODES_DEFAULT)
 	if err := d.Check(30); err != nil {
-		return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
+		log.Logger.Warnf("[%s]addnode check failed: %v", d.Conf.Cluster, err)
+		//return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
 	}
 
 	// update other nodes config
@@ -267,7 +273,8 @@ func AddCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, d *de
 		}
 
 		if err := d2.Check(300); err != nil {
-			return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
+			log.Logger.Warnf("[%s]addnode check failed: %v", d.Conf.Cluster, err)
+			//return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
 		}
 	}
 

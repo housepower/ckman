@@ -172,8 +172,7 @@ func (d *KeeperDeploy) Install() error {
 				lastIndex := strings.LastIndex(pkg, "-")
 				extractDir := pkg[:lastIndex]
 
-				cmd3 := fmt.Sprintf("cp /tmp/%s/etc/init.d/clickhouse-keeper /etc/init.d/;", extractDir)
-				cmd3 += fmt.Sprintf("cp /tmp/%s/lib/systemd/system/clickhouse-keeper.service /etc/systemd/system/", extractDir)
+				cmd3 := fmt.Sprintf("cp /tmp/%s/lib/systemd/system/clickhouse-keeper.service /etc/systemd/system/", extractDir)
 				sshOpts.NeedSudo = true
 				_, err = common.RemoteExecute(sshOpts, cmd3)
 				if err != nil {
@@ -197,7 +196,7 @@ func (d *KeeperDeploy) Uninstall() error {
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmds := make([]string, 0)
 	cmds = append(cmds, cmdIns.Uninstall(KeeperSvrName, d.Packages, d.Conf.Version))
-	cmds = append(cmds, fmt.Sprintf("rm -rf %s %s", d.Conf.KeeperConf.LogPath, d.Conf.KeeperConf.SnapshotPath))
+	cmds = append(cmds, fmt.Sprintf("rm -rf %s/* %s/*", d.Conf.KeeperConf.LogPath, d.Conf.KeeperConf.SnapshotPath))
 	if d.Conf.NeedSudo {
 		cmds = append(cmds, "rm -rf /etc/clickhouse-keeper")
 	}
@@ -327,6 +326,7 @@ func (d *KeeperDeploy) Config() error {
 			if d.Conf.NeedSudo {
 				cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-keeper")
 			}
+			cmds = append(cmds, "rm -rf /tmp/keeper_config*")
 			cmd := strings.Join(cmds, ";")
 			if _, err = common.RemoteExecute(sshOpts, cmd); err != nil {
 				lastError = err

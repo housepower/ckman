@@ -97,6 +97,9 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 		if conf.Cwd == "" {
 			return errors.Errorf("cwd can't be empty for tgz deployment")
 		}
+		if !strings.HasSuffix(conf.Cwd, "/") {
+			return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.Cwd))
+		}
 		conf.NeedSudo = false
 		if err = checkAccess(conf.Cwd, conf); err != nil {
 			return errors.Wrapf(err, "check access error")
@@ -140,10 +143,20 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 				return errors.Errorf("keeper nodes must not be empty")
 			}
 		} else if conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
+			if strings.HasSuffix(conf.PkgType, common.PkgSuffixTgz) {
+				return errors.Errorf("keeper internal runtime doesn't support tgz deployment")
+			}
 			conf.KeeperConf.KeeperNodes = make([]string, len(conf.Hosts))
 			copy(conf.KeeperConf.KeeperNodes, conf.Hosts)
+
 		} else {
 			return errors.Errorf("keeper runtime %s is not supported", conf.KeeperConf.Runtime)
+		}
+		if !strings.HasSuffix(conf.KeeperConf.LogPath, "/") {
+			return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.KeeperConf.LogPath))
+		}
+		if !strings.HasSuffix(conf.KeeperConf.SnapshotPath, "/") {
+			return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.KeeperConf.SnapshotPath))
 		}
 		if err := checkAccess(conf.KeeperConf.LogPath, conf); err != nil {
 			return errors.Wrapf(err, "check access error")

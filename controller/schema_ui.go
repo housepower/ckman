@@ -85,6 +85,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "工作路径，仅tgz部署时需要",
 		DescriptionEN: "Working directory, only required for tgz deployment",
 		Visiable:      "PkgType.indexOf('tgz') !== -1",
+		Regexp:        "^/.+/$",
 	})
 	params.MustRegister(conf, "SshUser", &common.Parameter{
 		LabelZH:       "系统账户名",

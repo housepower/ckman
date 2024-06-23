@@ -430,6 +430,7 @@ func (d *CKDeploy) Config() error {
 			if d.Conf.Keeper == model.ClickhouseKeeper && !d.Conf.KeeperWithStanalone() {
 				cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "config.d", keeperFile.BaseName), path.Join(remotePath, "config.d", "keeper_config.xml")))
 			}
+			cmds = append(cmds, "rm -rf /tmp/host* /tmp/users*")
 			if d.Conf.NeedSudo {
 				cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
 			}

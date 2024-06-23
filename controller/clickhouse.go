@@ -1590,10 +1590,6 @@ func (controller *ClickHouseController) AddNode(c *gin.Context) {
 	// install clickhouse and start service on the new node
 	d := deploy.NewCkDeploy(conf)
 	d.Conf.Hosts = req.Ips
-	if d.Conf.Keeper == model.ClickhouseKeeper && d.Conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
-		d.Ext.Restart = true
-		d.Conf.KeeperConf.KeeperNodes = append(d.Conf.KeeperConf.KeeperNodes, req.Ips...)
-	}
 
 	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	if reflect.DeepEqual(d.Packages, deploy.Packages{}) {
@@ -1703,10 +1699,6 @@ SETTINGS skip_unavailable_shards = 1`
 	d := deploy.NewCkDeploy(conf)
 	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	d.Conf.Hosts = []string{ip}
-	if d.Conf.Keeper == model.ClickhouseKeeper && d.Conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
-		d.Ext.Restart = true
-		d.Conf.KeeperConf.KeeperNodes = common.ArrayRemove(conf.Hosts, ip)
-	}
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKDeleteNode, d)
 	if err != nil {

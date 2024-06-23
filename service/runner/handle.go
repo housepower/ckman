@@ -206,6 +206,11 @@ func CKAddNodeHandle(task *model.Task) error {
 		return err
 	}
 
+	if d.Conf.Keeper == model.ClickhouseKeeper && d.Conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
+		d.Ext.Restart = true
+		d.Conf.KeeperConf.KeeperNodes = append(d.Conf.KeeperConf.KeeperNodes, d.Conf.Hosts...)
+	}
+
 	conf, err := repository.Ps.GetClusterbyName(d.Conf.Cluster)
 	if err != nil {
 		return nil
