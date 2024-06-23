@@ -73,6 +73,11 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "不得与本ckman管理的其他集群名重复",
 		DescriptionEN: "not allow to duplicate with exist name",
 	})
+	params.MustRegister(conf, "Comment", &common.Parameter{
+		LabelZH:  "备注",
+		LabelEN:  "Comment",
+		Required: "false",
+	})
 	params.MustRegister(conf, "LogicCluster", &common.Parameter{
 		LabelZH:       "逻辑集群名",
 		LabelEN:       "Logic Name",
@@ -771,6 +776,11 @@ Non-professionals please do not fill in this`,
 func RegistUpdateConfigSchema() common.ConfigParams {
 	var params common.ConfigParams = make(map[string]*common.Parameter)
 	var conf model.CKManClickHouseConfig
+	params.MustRegister(conf, "Comment", &common.Parameter{
+		LabelZH:  "备注",
+		LabelEN:  "Comment",
+		Required: "false",
+	})
 	params.MustRegister(conf, "Version", &common.Parameter{
 		LabelZH:       "ClickHouse版本",
 		LabelEN:       "Version",

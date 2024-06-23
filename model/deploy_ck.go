@@ -46,6 +46,7 @@ type CkDeployExt struct {
 	Policy     string
 	Ipv6Enable bool
 	Restart    bool
+	ChangeCk   bool
 }
 
 type CkShard struct {
@@ -82,6 +83,7 @@ type PromMetricPort struct {
 
 type CKManClickHouseConfig struct {
 	Cluster          string    `json:"cluster" example:"test"`
+	Comment          string    `json:"comment" example:"test"`
 	PkgType          string    `json:"pkgType" example:"x86_64.rpm"`
 	PkgName          string    `json:"pkgName" example:"clickhouse-common-static-22.3.3.44.noarch.rpm"`
 	Version          string    `json:"version" example:"21.9.1.7647"`

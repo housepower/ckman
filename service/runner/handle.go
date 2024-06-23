@@ -307,6 +307,15 @@ func CKSettingHandle(task *model.Task) error {
 		return err
 	}
 
+	if !d.Ext.ChangeCk {
+		deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
+		if err := repository.Ps.UpdateCluster(*d.Conf); err != nil {
+			return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
+		}
+		deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
+		return nil
+	}
+
 	if d.Conf.KeeperWithStanalone() {
 		task.TaskType = model.TaskTypeKeeperSetting
 		if err := ConfigKeeperCluster(task, d); err != nil {
