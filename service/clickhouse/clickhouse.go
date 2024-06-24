@@ -813,35 +813,6 @@ func GetCkSlowSessions(conf *model.CKManClickHouseConfig, cond model.SessionCond
 	log.Logger.Debugf("query: %s", query)
 	return getCkSessions(conf, cond.Limit, query)
 }
-
-func GetReplicaZkPath(conf *model.CKManClickHouseConfig) error {
-	var err error
-	service := NewCkService(conf)
-	if err = service.InitCkService(); err != nil {
-		log.Logger.Errorf("all hosts not available, can't get zoopath")
-		return err
-	}
-
-	query := `SELECT database, name, (extractAllGroups(create_table_query, '(MergeTree\\(\')(.*)\', \'{replica}\'\\)')[1])[2] AS zoopath FROM system.tables where match(engine, 'Replicated\w*MergeTree') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))`
-	log.Logger.Debug(query)
-	rows, err := service.Conn.Query(query)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	conf.ZooPath = make(map[string]string)
-	for rows.Next() {
-		var database, table, zoopath string
-		err = rows.Scan(&database, &table, &zoopath)
-		if err != nil {
-			return err
-		}
-		tableName := fmt.Sprintf("%s.%s", database, table)
-		conf.ZooPath[tableName] = zoopath
-	}
-	return nil
-}
-
 func GetZkPath(conn *common.Conn, database, table string) (string, error) {
 	var err error
 	var path string
@@ -866,23 +837,6 @@ WHERE database = '%s' AND name = '%s'`, database, table)
 	}
 
 	return path, nil
-}
-
-func ConvertZooPath(conf *model.CKManClickHouseConfig) []string {
-	var zooPaths []string
-
-	for _, path := range conf.ZooPath {
-		if path != "" {
-			for index := range conf.Shards {
-				// TODO[L] macros maybe not named {cluster} or {shard}
-				shardNum := fmt.Sprintf("%d", index+1)
-				zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
-				zooPath = strings.Replace(zooPath, "{shard}", shardNum, -1)
-				zooPaths = append(zooPaths, zooPath)
-			}
-		}
-	}
-	return zooPaths
 }
 
 func checkTableIfExists(database, name, cluster string) bool {

@@ -115,9 +115,8 @@ type CKManClickHouseConfig struct {
 	Expert           map[string]string
 
 	// don't need to regist to schema
-	Mode     string            `json:"mode" swaggerignore:"true"`
-	ZooPath  map[string]string `json:"zooPath" swaggerignore:"true"`
-	NeedSudo bool              `json:"needSudo" swaggerignore:"true"`
+	Mode     string `json:"mode" swaggerignore:"true"`
+	NeedSudo bool   `json:"needSudo" swaggerignore:"true"`
 }
 
 type Coordination struct {
@@ -329,7 +328,6 @@ func (config *CKManClickHouseConfig) UnWatch(host string) {
 }
 
 func (config *CKManClickHouseConfig) Pack() {
-	config.ZooPath = make(map[string]string)
 	config.Password = strings.Repeat("*", len(config.Password))
 	if config.SshPassword != "" {
 		config.SshPassword = strings.Repeat("*", len(config.SshPassword))

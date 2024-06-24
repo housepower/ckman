@@ -366,25 +366,6 @@ func (controller *ClickHouseController) CreateTable(c *gin.Context) {
 		return
 	}
 
-	// sync zookeeper path
-	if conf.IsReplica {
-		path, err := clickhouse.GetZkPath(ckService.Conn, params.DB, params.Name)
-		if err != nil {
-			controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
-			return
-		}
-		tableName := fmt.Sprintf("%s.%s", params.DB, params.Name)
-		if conf.ZooPath == nil {
-			conf.ZooPath = make(map[string]string)
-		}
-		conf.ZooPath[tableName] = path
-
-		if err = repository.Ps.UpdateCluster(conf); err != nil {
-			controller.wrapfunc(c, model.E_DATA_UPDATE_FAILED, err)
-			return
-		}
-	}
-
 	if req.DryRun {
 		controller.wrapfunc(c, model.E_SUCCESS, statements)
 	} else {
@@ -1381,20 +1362,6 @@ func (controller *ClickHouseController) StopCluster(c *gin.Context) {
 	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
 		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, err)
 		return
-	}
-
-	// before stop, we need sync zoopath
-	/*
-		Since when destory cluster, the cluster must be stopped,
-		we cant't get zookeeper path by querying ck,
-		so need to save the ZooKeeper path before stopping the cluster.
-	*/
-	if conf.IsReplica {
-		err = clickhouse.GetReplicaZkPath(&conf)
-		if err != nil {
-			controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
-			return
-		}
 	}
 
 	common.CloseConns(conf.Hosts)

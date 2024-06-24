@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
@@ -71,14 +70,6 @@ func DestroyCkCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKManClic
 	if err = service.DeleteAll(stdZooPath); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
 	}
-	zooPaths := clickhouse.ConvertZooPath(conf)
-	if len(zooPaths) > 0 {
-		for _, zooPath := range zooPaths {
-			if err = service.DeleteAll(zooPath); err != nil {
-				return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
-			}
-		}
-	}
 	taskQueuePath := fmt.Sprintf("/clickhouse/task_queue/ddl/%s", conf.Cluster)
 	if err = service.DeleteAll(taskQueuePath); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
@@ -91,13 +82,9 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 	//delete zookeeper path if need
 	deploy.SetNodeStatus(task, model.NodeStatusClearData, model.ALL_NODES_DEFAULT)
 	ifDeleteShard := false
-	shardNum := 0
-	replicaNum := 0
 	for i, shard := range conf.Shards {
-		for j, replica := range shard.Replicas {
+		for _, replica := range shard.Replicas {
 			if replica.Ip == ip {
-				shardNum = i
-				replicaNum = j
 				if i+1 == len(conf.Shards) {
 					if len(shard.Replicas) == 1 {
 						ifDeleteShard = true
@@ -121,31 +108,31 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 		if err != nil {
 			return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
 		}
-		_ = clickhouse.GetReplicaZkPath(conf)
+		// err = service.CleanZoopath(*conf, conf.Cluster, ip, false)
+		// if err != nil {
+		// 	log.Logger.Fatalf("clean zoopath error:%v", err)
+		// }
 		var zooPaths []string
-		for _, path := range conf.ZooPath {
-			zooPath := strings.Replace(path, "{cluster}", conf.Cluster, -1)
-			zooPath = strings.Replace(zooPath, "{shard}", fmt.Sprintf("%d", shardNum+1), -1)
-			zooPaths = append(zooPaths, zooPath)
+		query := fmt.Sprintf("SELECT zookeeper_path,replica_path FROM clusterAllReplicas('%s', system.replicas) WHERE replica_name = '%s'", conf.Cluster, ip)
+		ckService := clickhouse.NewCkService(conf)
+		err = ckService.InitCkService()
+		if err == nil {
+			data, err := ckService.QueryInfo(query)
+			if err == nil {
+				for i := 1; i < len(data); i++ {
+					if ifDeleteShard {
+						zooPaths = append(zooPaths, data[i][0].(string))
+					} else {
+						zooPaths = append(zooPaths, data[i][1].(string))
+					}
+				}
+			}
 		}
-
-		for _, path := range zooPaths {
-			if ifDeleteShard {
-				//delete the shard
-				shardNode := fmt.Sprintf("%d", shardNum+1)
-				err = service.DeletePathUntilNode(path, shardNode)
-				if err != nil {
-					return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
-				}
-			} else {
-				// delete replica path
-				replicaName := conf.Shards[shardNum].Replicas[replicaNum].Ip
-				replicaPath := fmt.Sprintf("%s/replicas/%s", path, replicaName)
-				log.Logger.Debugf("replicaPath: %s", replicaPath)
-				err = service.DeleteAll(replicaPath)
-				if err != nil {
-					return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
-				}
+		for _, zoopath := range zooPaths {
+			log.Logger.Debugf("delete zoopath:%s", zoopath)
+			err = service.DeleteAll(zoopath)
+			if err != nil {
+				return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
 			}
 		}
 	}

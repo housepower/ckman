@@ -222,10 +222,6 @@ func (ck *CkService) DeleteTable(conf *model.CKManClickHouseConfig, params *mode
 		}
 	}
 
-	// delete zoopath
-	tableName := fmt.Sprintf("%s.%s", params.DB, local)
-	delete(conf.ZooPath, tableName)
-
 	return nil
 }
 

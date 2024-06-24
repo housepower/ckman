@@ -189,25 +189,6 @@ func ZkMetric(host string, port int, metric string) ([]byte, error) {
 	return json.Marshal(resp)
 }
 
-func GetZkClusterNodes(host string, port int) ([]string, error) {
-	b, err := ZkMetric(host, port, "voting_view")
-	if err != nil {
-		return nil, err
-	}
-	zkCluster := make(map[string]interface{})
-	err = json.Unmarshal(b, &zkCluster)
-	if err != nil {
-		return nil, err
-	}
-	var nodes []string
-	for _, v := range zkCluster["current_config"].(map[string]interface{}) {
-		for _, value := range v.(map[string]interface{})["server_addresses"].([]interface{}) {
-			nodes = append(nodes, strings.Split(value.(string), ":")[0])
-		}
-	}
-	return nodes, nil
-}
-
 func GetZkInfo(conf *model.CKManClickHouseConfig) ([]string, int) {
 	var nodes []string
 	var port int
