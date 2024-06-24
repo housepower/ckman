@@ -902,14 +902,7 @@ func checkTableIfExists(database, name, cluster string) bool {
 			log.Logger.Warnf("shard: %v init service failed: %v", tmp.Hosts, err)
 			return false
 		}
-		query := fmt.Sprintf("SELECT count() FROM system.tables WHERE database = '%s' AND name = '%s'", database, name)
-		data, err := service.QueryInfo(query)
-		if err != nil {
-			log.Logger.Warnf("shard: %v , query: %v ,err: %v", tmp.Hosts, query, err)
-			return false
-		}
-		log.Logger.Debugf("count: %d", data[1][0].(uint64))
-		if data[1][0].(uint64) != 1 {
+		if err := common.CheckTable(service.Conn, database, name); err != nil {
 			log.Logger.Warnf("shard: %v, table %s does not exist", tmp.Hosts, name)
 			return false
 		}
