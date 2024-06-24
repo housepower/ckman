@@ -1,9 +1,11 @@
 package controller
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path"
 	"reflect"
 	"strconv"
@@ -11,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
 
@@ -23,6 +26,7 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/zookeeper"
+	"github.com/tealeg/xlsx"
 )
 
 const (
@@ -1162,6 +1166,78 @@ func (controller *ClickHouseController) QueryInfo(c *gin.Context) {
 	}
 
 	controller.wrapfunc(c, model.E_SUCCESS, data)
+}
+
+// @Summary 查询SQL
+// @Description 查询SQL
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Param query query string true "sql" default(show databases)
+// @Failure 200 {string} json "{"code":"5110","msg":"连接clickhouse失败","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":[["name"],["default"],["system"]]}"
+// @Router /api/v2/ck/query_export/{clusterName} [get]
+func (controller *ClickHouseController) QueryExport(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	host := c.Query("host")
+	query := c.Query("query")
+	query = strings.TrimRight(strings.TrimSpace(query), ";")
+
+	var ckService *clickhouse.CkService
+	var err error
+	if host == "" {
+		ckService, err = clickhouse.GetCkService(clusterName)
+		if err != nil {
+			controller.wrapfunc(c, model.E_CH_CONNECT_FAILED, err)
+			return
+		}
+	} else {
+		ckService, err = clickhouse.GetCkNodeService(clusterName, host)
+		if err != nil {
+			controller.wrapfunc(c, model.E_CH_CONNECT_FAILED, err)
+			return
+		}
+	}
+
+	data, err := ckService.QueryInfo(query)
+	if err != nil {
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	fileName := fmt.Sprintf("ckman_query_%s.xlsx", time.Now().Format("2006-01-02T15:04:05"))
+	file := xlsx.NewFile()
+	sheet, _ := file.AddSheet("Sheet1")
+	for _, v := range data {
+		row := sheet.AddRow()
+		for _, vv := range v {
+			cell := row.AddCell()
+			cell.Value = fmt.Sprintf("%v", vv)
+		}
+	}
+	var buffer bytes.Buffer
+	_ = file.Write(&buffer)
+	fName := path.Join(config.GetWorkDirectory(), fileName)
+	err = file.Save(fName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	c.Writer.Header().Add("Content-Disposition", "attachment; filename="+fileName)
+	c.Writer.Header().Add("Content-Description", "File Transfer")
+	c.Writer.Header().Add("Content-Type", "application/octet-stream")
+	c.Writer.Header().Add("Content-Transfer-Encoding", "binary")
+	c.Writer.Header().Add("Expires", "0")
+	c.Writer.Header().Add("Cache-Control", "must-revalidate")
+	c.Writer.Header().Add("Pragma", "public")
+	http.ServeFile(c.Writer, c.Request, fName)
+	err = os.Remove(fName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
 }
 
 // @Summary 升级集群

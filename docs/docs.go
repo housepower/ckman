@@ -1123,6 +1123,49 @@ var doc = `{
                 }
             }
         },
+        "/api/v2/ck/query_export/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "查询SQL",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "查询SQL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "show databases",
+                        "description": "sql",
+                        "name": "query",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":[[\"name\"],[\"default\"],[\"system\"]]}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/ck/rebalance/{clusterName}": {
             "put": {
                 "security": [
@@ -2744,6 +2787,10 @@ var doc = `{
                     "example": 0
                 },
                 "cluster": {
+                    "type": "string",
+                    "example": "test"
+                },
+                "comment": {
                     "type": "string",
                     "example": "test"
                 },

@@ -140,6 +140,9 @@ definitions:
       cluster:
         example: test
         type: string
+      comment:
+        example: test
+        type: string
       cwd:
         example: /home/eoi/clickhouse
         type: string
@@ -1383,6 +1386,34 @@ paths:
       tags:
       - clickhouse
   /api/v2/ck/query/{clusterName}:
+    get:
+      consumes:
+      - application/json
+      description: 查询SQL
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - default: show databases
+        description: sql
+        in: query
+        name: query
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":"0000","msg":"ok","data":[["name"],["default"],["system"]]}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 查询SQL
+      tags:
+      - clickhouse
+  /api/v2/ck/query_export/{clusterName}:
     get:
       consumes:
       - application/json

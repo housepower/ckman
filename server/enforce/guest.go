@@ -8,6 +8,7 @@ func GuestPolicies() []Policy {
 		{"/ck/table/group_uniq_array/*", GET},
 		{"/ck/query/*", GET},
 		{"/ck/query_explain/*", GET},
+		{"/ck/query_export/*", GET},
 		{"/ck/query_history/*", GET},
 		{"/ck/table_lists/*", GET},
 		{"/ck/table_schema/*", GET},

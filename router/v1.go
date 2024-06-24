@@ -97,6 +97,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.GET(fmt.Sprintf("/ck/table/:%s", controller.ClickHouseClusterPath), ckController.DescTable)
 	groupV1.GET(fmt.Sprintf("/ck/query/:%s", controller.ClickHouseClusterPath), ckController.QueryInfo)
 	groupV1.GET(fmt.Sprintf("/ck/query_explain/:%s", controller.ClickHouseClusterPath), ckController.QueryExplain)
+	groupV1.GET(fmt.Sprintf("/ck/query_export/:%s", controller.ClickHouseClusterPath), ckController.QueryExport)
 	groupV1.GET(fmt.Sprintf("/ck/query_history/:%s", controller.ClickHouseClusterPath), ckController.QueryHistory)
 	groupV1.DELETE(fmt.Sprintf("/ck/query_history/:%s", controller.ClickHouseClusterPath), ckController.DeleteQuery)
 	groupV1.GET(fmt.Sprintf("/ck/table_lists/:%s", controller.ClickHouseClusterPath), ckController.GetTableLists)
