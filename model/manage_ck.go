@@ -92,11 +92,13 @@ type ArchiveTableReq struct {
 }
 
 type RebalanceShardingkey struct {
-	Database     string   `json:"database" example:"default"`
-	Table        string   `json:"table" example:"t123"`
-	ShardingKey  string   `json:"shardingKey" example:"_timestamp"`
-	ShardingType TypeInfo `json:"-"`
-	DistTable    string   `json:"-"`
+	Database      string   `json:"database" example:"default"`
+	Table         string   `json:"table" example:"t123"`
+	ShardingKey   string   `json:"shardingKey" example:"_timestamp"`
+	AllowLossRate float64  `json:"allowLossRate" example:"0.1"`
+	SaveTemps     bool     `json:"saveTemps" example:"true"`
+	ShardingType  TypeInfo `json:"-"`
+	DistTable     string   `json:"-"`
 }
 
 type RebalanceTableReq struct {

@@ -1536,6 +1536,27 @@ func RegistRebalanceClusterSchema() common.ConfigParams {
 		Required:      "false",
 	})
 
+	params.MustRegister(key, "AllowLossRate", &common.Parameter{
+		LabelZH:       "允许错误率",
+		LabelEN:       "AllowLossRate",
+		DescriptionZH: "均衡数据过程中允许数据的丢失率",
+		DescriptionEN: "Allow the loss rate during the data balancing process",
+		Range: &common.Range{
+			Min:  0,
+			Max:  1,
+			Step: 0.01,
+		},
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(key, "SaveTemps", &common.Parameter{
+		LabelZH:       "保留临时数据",
+		LabelEN:       "SaveTemps",
+		DescriptionZH: "均衡数据过程中保存原始数据到临时表",
+		DescriptionEN: "Save the original data to a temporary table during data balancing",
+		Required:      "false",
+	})
+
 	return params
 }
 

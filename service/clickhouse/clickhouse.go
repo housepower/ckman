@@ -1057,18 +1057,20 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 			}
 		}
 		rebalancer := &CKRebalance{
-			Cluster:    conf.Cluster,
-			Hosts:      hosts,
-			Database:   key.Database,
-			Table:      key.Table,
-			TmpTable:   "tmp_" + key.Table,
-			DistTable:  key.DistTable,
-			DataDir:    conf.Path,
-			OsUser:     conf.SshUser,
-			OsPassword: conf.SshPassword,
-			OsPort:     conf.SshPort,
-			RepTables:  make(map[string]string),
-			ConnOpt:    conf.GetConnOption(),
+			Cluster:       conf.Cluster,
+			Hosts:         hosts,
+			Database:      key.Database,
+			Table:         key.Table,
+			TmpTable:      "tmp_" + key.Table,
+			DistTable:     key.DistTable,
+			DataDir:       conf.Path,
+			OsUser:        conf.SshUser,
+			OsPassword:    conf.SshPassword,
+			OsPort:        conf.SshPort,
+			RepTables:     make(map[string]string),
+			ConnOpt:       conf.GetConnOption(),
+			AllowLossRate: key.AllowLossRate,
+			SaveTemps:     key.SaveTemps,
 		}
 		defer rebalancer.Close()
 
@@ -1295,8 +1297,10 @@ func RebalanceByShardingkey(conf *model.CKManClickHouseConfig, rebalancer *CKReb
 			return err
 		}
 	}
-	log.Logger.Info("[rebalance] STEP Cleanup")
-	rebalancer.Cleanup()
+	if !rebalancer.SaveTemps {
+		log.Logger.Info("[rebalance] STEP Cleanup")
+		rebalancer.Cleanup()
+	}
 
 	log.Logger.Infof("[rebalance] DONE, Total counts: %d, Elapsed: %v sec", rebalancer.OriCount, time.Since(start).Seconds())
 	return nil

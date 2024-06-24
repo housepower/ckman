@@ -20,25 +20,27 @@ var (
 )
 
 type CKRebalance struct {
-	Cluster     string
-	Hosts       []string
-	DataDir     string
-	Database    string
-	Table       string
-	TmpTable    string
-	DistTable   string
-	IsReplica   bool
-	RepTables   map[string]string
-	OsUser      string
-	OsPassword  string
-	OsPort      int
-	Shardingkey model.RebalanceShardingkey
-	ExceptHost  string
-	ConnOpt     model.ConnetOption
-	Engine      string
-	EngineFull  string
-	OriCount    uint64
-	SortingKey  []string
+	Cluster       string
+	Hosts         []string
+	DataDir       string
+	Database      string
+	Table         string
+	TmpTable      string
+	DistTable     string
+	IsReplica     bool
+	RepTables     map[string]string
+	OsUser        string
+	OsPassword    string
+	OsPort        int
+	Shardingkey   model.RebalanceShardingkey
+	ExceptHost    string
+	ConnOpt       model.ConnetOption
+	Engine        string
+	EngineFull    string
+	OriCount      uint64
+	SortingKey    []string
+	AllowLossRate float64
+	SaveTemps     bool
 }
 
 // TblPartitions is partitions status of a host. A host never move out and move in at the same iteration.
@@ -104,13 +106,15 @@ func (r *CKRebalance) InitCKConns(withShardingkey bool) (err error) {
 		}
 		log.Logger.Debugf("query: %s", query)
 		rows, _ = conn.Query(query)
+		var oriCount uint64
 		for rows.Next() {
-			err = rows.Scan(&r.OriCount)
+			err = rows.Scan(&oriCount)
 			if err != nil {
 				return
 			}
 		}
-		log.Logger.Infof("table: %s.%s, count: %d", r.Database, r.Table, r.OriCount)
+		r.OriCount = uint64((1 - r.AllowLossRate) * float64(oriCount))
+		log.Logger.Infof("table: %s.%s, oriCount: %d, count: %d", r.Database, r.Table, oriCount, r.OriCount)
 		rows.Close()
 	}
 	return
