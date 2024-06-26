@@ -2,10 +2,10 @@ package controller
 
 import (
 	"bytes"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path"
 	"reflect"
 	"strconv"
@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
 
@@ -26,7 +25,6 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/zookeeper"
-	"github.com/tealeg/xlsx"
 )
 
 const (
@@ -1188,37 +1186,21 @@ func (controller *ClickHouseController) QueryExport(c *gin.Context) {
 		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
 		return
 	}
-	fileName := fmt.Sprintf("ckman_query_%s.xlsx", time.Now().Format("2006-01-02T15:04:05"))
-	file := xlsx.NewFile()
-	sheet, _ := file.AddSheet("Sheet1")
-	for _, v := range data {
-		row := sheet.AddRow()
-		for _, vv := range v {
-			cell := row.AddCell()
-			cell.Value = fmt.Sprintf("%v", vv)
+	fileName := fmt.Sprintf("ckman_query_%s_%s.csv", clusterName, time.Now().Format("2006-01-02T15:04:05"))
+
+	buf := &bytes.Buffer{}
+	buf.WriteString("\xEF\xBB\xBE")
+	writer := csv.NewWriter(buf)
+	for _, row := range data {
+		var cells []string
+		for _, cell := range row {
+			cells = append(cells, fmt.Sprintf("%v", cell))
 		}
+		writer.Write(cells)
 	}
-	var buffer bytes.Buffer
-	_ = file.Write(&buffer)
-	fName := path.Join(config.GetWorkDirectory(), fileName)
-	err = file.Save(fName)
-	if err != nil {
-		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
-		return
-	}
-	c.Writer.Header().Add("Content-Disposition", "attachment; filename="+fileName)
-	c.Writer.Header().Add("Content-Description", "File Transfer")
-	c.Writer.Header().Add("Content-Type", "application/octet-stream")
-	c.Writer.Header().Add("Content-Transfer-Encoding", "binary")
-	c.Writer.Header().Add("Expires", "0")
-	c.Writer.Header().Add("Cache-Control", "must-revalidate")
-	c.Writer.Header().Add("Pragma", "public")
-	http.ServeFile(c.Writer, c.Request, fName)
-	err = os.Remove(fName)
-	if err != nil {
-		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
-		return
-	}
+	writer.Flush()
+	c.Writer.Header().Set("Content-Disposition", "attachment;filename="+fileName)
+	c.Data(http.StatusOK, "application/octet-stream", buf.Bytes())
 }
 
 // @Summary 升级集群
