@@ -320,7 +320,7 @@ func (d *CKDeploy) Config() error {
 	d.Conf.Normalize()
 	confFiles := make([]string, 0)
 
-	if d.Conf.LogicCluster == nil {
+	if d.Conf.LogicCluster == nil || d.Ext.CurClusterOnly {
 		metrika, err := ckconfig.GenerateMetrikaXML(path.Join(config.GetWorkDirectory(), "package", "metrika.xml"), d.Conf)
 		if err != nil {
 			return err
@@ -446,7 +446,7 @@ func (d *CKDeploy) Config() error {
 	if lastError != nil {
 		return lastError
 	}
-	if d.Conf.LogicCluster != nil {
+	if !d.Ext.CurClusterOnly && d.Conf.LogicCluster != nil {
 		logicMetrika, deploys := GenLogicMetrika(d)
 		for _, deploy := range deploys {
 			deploy.Conf.Normalize()

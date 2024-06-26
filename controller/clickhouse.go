@@ -1264,6 +1264,7 @@ func (controller *ClickHouseController) UpgradeCluster(c *gin.Context) {
 	d := deploy.NewCkDeploy(conf)
 	d.Packages = deploy.BuildPackages(req.PackageVersion, conf.PkgType, conf.Cwd)
 	d.Ext.Policy = req.Policy
+	d.Ext.CurClusterOnly = true
 	d.Conf.Hosts = chHosts
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKUpgrade, d)
@@ -2554,6 +2555,7 @@ func (controller *ClickHouseController) ClusterSetting(c *gin.Context) {
 	d.Ext.Restart = restart
 	d.Ext.Policy = policy
 	d.Ext.ChangeCk = cc
+	d.Ext.CurClusterOnly = true
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKSetting, d)
 	if err != nil {
 		controller.wrapfunc(c, model.E_DATA_INSERT_FAILED, err)

@@ -43,10 +43,11 @@ const (
 )
 
 type CkDeployExt struct {
-	Policy     string
-	Ipv6Enable bool
-	Restart    bool
-	ChangeCk   bool
+	Policy         string
+	Ipv6Enable     bool
+	Restart        bool
+	ChangeCk       bool
+	CurClusterOnly bool //仅修改当前集群的配置
 }
 
 type CkShard struct {
