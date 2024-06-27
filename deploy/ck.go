@@ -643,10 +643,8 @@ func (d *CKDeploy) Check(timeout int) error {
 						log.Logger.Errorf("ping error: %v", err)
 						continue
 					}
-					if err == nil {
-						log.Logger.Debugf("host %s check done", innerHost)
-						return
-					}
+					log.Logger.Debugf("host %s check done", innerHost)
+					return
 				case <-ticker2.C:
 					lastError = errors.Wrapf(model.CheckTimeOutErr, "clickhouse-server may start failed, please check the clickhouse-server log")
 					return
