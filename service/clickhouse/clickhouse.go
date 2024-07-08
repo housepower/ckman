@@ -1018,12 +1018,13 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 			ConnOpt:       conf.GetConnOption(),
 			AllowLossRate: key.AllowLossRate,
 			SaveTemps:     key.SaveTemps,
+			IsReplica:     conf.IsReplica,
 		}
 		defer rebalancer.Close()
 
 		if key.ShardingKey != "" {
 			//rebalance by shardingkey
-			log.Logger.Infof("table %s.%s rebalance by shardingkey", key.Database, key.Table)
+			log.Logger.Infof("[rebalance]table %s.%s rebalance by shardingkey", key.Database, key.Table)
 			if err = getShardingType(&key, service.Conn); err != nil {
 				return err
 			}
@@ -1033,7 +1034,7 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 			}
 		} else {
 			//rebalance by partition
-			log.Logger.Infof("table %s.%s rebalance by partition", key.Database, key.Table)
+			log.Logger.Infof("[rebalance]table %s.%s rebalance by partition", key.Database, key.Table)
 			err = RebalanceByPartition(conf, rebalancer)
 			if err != nil {
 				return err
@@ -1163,9 +1164,9 @@ func paddingKeys(keys []model.RebalanceShardingkey, service *CkService, allTable
 					return keys, fmt.Errorf("shardingkey %s not found in %s.%s", elem.ShardingKey, elem.Database, key.Table)
 				}
 			}
-			if allTable && !found {
-				results = append(results, key)
-			}
+		}
+		if allTable && !found {
+			results = append(results, key)
 		}
 	}
 
@@ -1194,12 +1195,12 @@ func getShardingType(key *model.RebalanceShardingkey, conn *common.Conn) error {
 func RebalanceByPartition(conf *model.CKManClickHouseConfig, rebalancer *CKRebalance) error {
 	var err error
 	if err = rebalancer.InitCKConns(false); err != nil {
-		log.Logger.Errorf("got error %+v", err)
+		log.Logger.Errorf("[rebalance]got error %+v", err)
 		return err
 	}
 
 	if err = rebalancer.GetRepTables(); err != nil {
-		log.Logger.Errorf("got error %+v", err)
+		log.Logger.Errorf("[rebalance]got error %+v", err)
 		return err
 	}
 
@@ -1255,7 +1256,7 @@ func RebalanceByShardingkey(conf *model.CKManClickHouseConfig, rebalancer *CKReb
 
 func MoveExceptToOthers(conf *model.CKManClickHouseConfig, except, target, database, table string) error {
 	max_insert_threads := runtime.NumCPU()*3/4 + 1
-	query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM remote('%s', '%s', '%s', '%s', '%s') SETTINGS max_insert_threads=%d",
+	query := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM remote('%s', '%s', '%s', '%s', '%s') SETTINGS max_insert_threads=%d,max_execution_time=0",
 		database, table, except, database, table, conf.User, conf.Password, max_insert_threads)
 	log.Logger.Debugf("[%s] %s", target, query)
 	conn := common.GetConnection(target)

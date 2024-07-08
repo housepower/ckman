@@ -1450,7 +1450,10 @@ func (controller *ClickHouseController) RebalanceCluster(c *gin.Context) {
 				return
 			}
 		}
-		allTable := common.TernaryExpression(c.Query("all") == "false" || req.ExceptMaxShard, false, true).(bool)
+		allTable := common.TernaryExpression(c.Query("all") == "false", false, true).(bool)
+		if req.ExceptMaxShard {
+			allTable = true
+		}
 		err = clickhouse.RebalanceCluster(&conf, req.Keys, allTable, req.ExceptMaxShard)
 		if err != nil {
 			controller.wrapfunc(c, model.E_TBL_ALTER_FAILED, err)

@@ -61,7 +61,7 @@ func (r *CKRebalance) InitCKConns(withShardingkey bool) (err error) {
 		if err != nil {
 			return
 		}
-		log.Logger.Infof("initialized clickhouse connection to %s", host)
+		log.Logger.Infof("[rebalance]initialized clickhouse connection to %s", host)
 		locks[host] = &sync.Mutex{}
 	}
 
@@ -69,7 +69,7 @@ func (r *CKRebalance) InitCKConns(withShardingkey bool) (err error) {
 		conn := common.GetConnection(r.Hosts[0])
 		// get engine
 		query := fmt.Sprintf("SELECT engine, engine_full FROM system.tables WHERE database = '%s' AND table = '%s'", r.Database, r.Table)
-		log.Logger.Debugf("query:%s", query)
+		log.Logger.Debugf("[rebalance]query:%s", query)
 		rows, _ := conn.Query(query)
 		for rows.Next() {
 			err = rows.Scan(&r.Engine, &r.EngineFull)
@@ -78,12 +78,12 @@ func (r *CKRebalance) InitCKConns(withShardingkey bool) (err error) {
 			}
 		}
 		rows.Close()
-		log.Logger.Infof("table: %s.%s, engine: %s, engine_full:%s", r.Database, r.Table, r.Engine, r.EngineFull)
+		log.Logger.Infof("[rebalance]table: %s.%s, engine: %s, engine_full:%s", r.Database, r.Table, r.Engine, r.EngineFull)
 
 		//get sortingkey
 		if strings.Contains(r.Engine, "Replacing") {
 			query = fmt.Sprintf("SELECT name FROM system.columns WHERE (database = '%s') AND (table = '%s') AND (is_in_sorting_key = 1)", r.Database, r.Table)
-			log.Logger.Debugf("query:%s", query)
+			log.Logger.Debugf("[rebalance]query:%s", query)
 			rows, _ := conn.Query(query)
 			for rows.Next() {
 				var sortingkey string
@@ -94,7 +94,7 @@ func (r *CKRebalance) InitCKConns(withShardingkey bool) (err error) {
 				r.SortingKey = append(r.SortingKey, sortingkey)
 			}
 			rows.Close()
-			log.Logger.Infof("table: %s.%s, sortingkey:%s", r.Database, r.Table, r.SortingKey)
+			log.Logger.Infof("[rebalance]table: %s.%s, sortingkey:%s", r.Database, r.Table, r.SortingKey)
 
 		}
 
@@ -127,10 +127,10 @@ func (r *CKRebalance) GetRepTables() (err error) {
 	for _, host := range r.Hosts {
 		conn := common.GetConnection(host)
 		if conn == nil {
-			return fmt.Errorf("can't get connection: %s", host)
+			return fmt.Errorf("[rebalance]can't get connection: %s", host)
 		}
 		query := fmt.Sprintf("SELECT zookeeper_path FROM system.replicas WHERE database='%s' AND table = '%s'", r.Database, r.Table)
-		log.Logger.Infof("host %s: query: %s", host, query)
+		log.Logger.Infof("[rebalance]host %s: query: %s", host, query)
 		var rows *common.Rows
 		if rows, err = conn.Query(query); err != nil {
 			err = errors.Wrapf(err, "")
@@ -156,7 +156,7 @@ func (r *CKRebalance) InitSshConns() (err error) {
 				continue
 			}
 			cmd := fmt.Sprintf("ssh -o StrictHostKeyChecking=false %s sudo ls %sclickhouse/data/%s", dstHost, r.DataDir, r.Database)
-			log.Logger.Infof("host: %s, command: %s", srcHost, cmd)
+			log.Logger.Infof("[rebalance]host: %s, command: %s", srcHost, cmd)
 			sshOpts := common.SshOptions{
 				User:             r.OsUser,
 				Password:         r.OsPassword,
@@ -169,7 +169,7 @@ func (r *CKRebalance) InitSshConns() (err error) {
 			if out, err = common.RemoteExecute(sshOpts, cmd); err != nil {
 				return
 			}
-			log.Logger.Debugf("host: %s, output: %s", srcHost, out)
+			log.Logger.Debugf("[rebalance]host: %s, output: %s", srcHost, out)
 		}
 	}
 	return
@@ -180,13 +180,13 @@ func (r *CKRebalance) GetPartState() (tbls []*TblPartitions, err error) {
 	for _, host := range r.Hosts {
 		conn := common.GetConnection(host)
 		if conn == nil {
-			err = fmt.Errorf("can't get connection: %s", host)
+			err = fmt.Errorf("[rebalance]can't get connection: %s", host)
 			return
 		}
 		var rows *common.Rows
 		// Skip the newest partition on each host since into which there could by ongoing insertions.
 		query := fmt.Sprintf(`WITH (SELECT argMax(partition, modification_time) FROM system.parts WHERE database='%s' AND table='%s') AS latest_partition SELECT partition, sum(data_compressed_bytes) AS compressed FROM system.parts WHERE database='%s' AND table='%s' AND active=1 AND partition!=latest_partition GROUP BY partition ORDER BY partition;`, r.Database, r.Table, r.Database, r.Table)
-		log.Logger.Infof("host %s: query: %s", host, query)
+		log.Logger.Infof("[rebalance]host %s: query: %s", host, query)
 		if rows, err = conn.Query(query); err != nil {
 			err = errors.Wrapf(err, "")
 			return
@@ -212,7 +212,7 @@ func (r *CKRebalance) GetPartState() (tbls []*TblPartitions, err error) {
 		}
 		tbls = append(tbls, &tbl)
 	}
-	log.Logger.Infof("table %s state %s", r.Table, pp.Sprint(tbls))
+	log.Logger.Infof("[rebalance]table %s state %s", r.Table, pp.Sprint(tbls))
 	return
 }
 
@@ -262,6 +262,7 @@ func (r *CKRebalance) ExecutePartPlan(tbl *TblPartitions) (err error) {
 		return
 	}
 	if tbl.ZooPath != "" {
+		// 带副本集群
 		for patt, dstHost := range tbl.ToMoveOut {
 			lock := locks[dstHost]
 
@@ -269,7 +270,7 @@ func (r *CKRebalance) ExecutePartPlan(tbl *TblPartitions) (err error) {
 			lock.Lock()
 			dstChConn := common.GetConnection(dstHost)
 			if dstChConn == nil {
-				return fmt.Errorf("can't get connection: %s", dstHost)
+				return fmt.Errorf("[rebalance]can't get connection: %s", dstHost)
 			}
 			dstQuires := []string{
 				fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION '%s' ", tbl.Table, patt),
@@ -277,7 +278,7 @@ func (r *CKRebalance) ExecutePartPlan(tbl *TblPartitions) (err error) {
 				fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt),
 			}
 			for _, query := range dstQuires {
-				log.Logger.Infof("host %s: query: %s", dstHost, query)
+				log.Logger.Infof("[rebalance]host %s: query: %s", dstHost, query)
 				if err = dstChConn.Exec(query); err != nil {
 					err = errors.Wrapf(err, "")
 					return
@@ -287,75 +288,77 @@ func (r *CKRebalance) ExecutePartPlan(tbl *TblPartitions) (err error) {
 
 			srcChConn := common.GetConnection(tbl.Host)
 			if srcChConn == nil {
-				return fmt.Errorf("can't get connection: %s", tbl.Host)
+				return fmt.Errorf("[rebalance]can't get connection: %s", tbl.Host)
 			}
 			query := fmt.Sprintf("ALTER TABLE %s DROP PARTITION '%s'", tbl.Table, patt)
 			if err = srcChConn.Exec(query); err != nil {
-				log.Logger.Infof("host %s: query: %s", tbl.Host, query)
+				log.Logger.Infof("[rebalance]host %s: query: %s", tbl.Host, query)
 				err = errors.Wrapf(err, "")
 				return
 			}
 		}
 		return
-	}
-	if sshErr != nil {
-		log.Logger.Warnf("skip execution for %s due to previous SSH error", tbl.Table)
-		return
-	}
-	for patt, dstHost := range tbl.ToMoveOut {
-		srcCkConn := common.GetConnection(tbl.Host)
-		dstCkConn := common.GetConnection(dstHost)
-		if srcCkConn == nil || dstCkConn == nil {
-			log.Logger.Errorf("can't get connection: %s & %s", tbl.Host, dstHost)
+	} else {
+		//不带副本集群， 公钥认证集群做不了
+		if sshErr != nil {
+			log.Logger.Warnf("[rebalance]skip execution for %s due to previous SSH error", tbl.Table)
 			return
 		}
-		lock := locks[dstHost]
-		tableName := strings.Split(tbl.Table, ".")[1]
-		dstDir := filepath.Join(r.DataDir, fmt.Sprintf("clickhouse/data/%s/%s/detached", r.Database, tableName))
-		srcDir := dstDir + "/"
+		for patt, dstHost := range tbl.ToMoveOut {
+			srcCkConn := common.GetConnection(tbl.Host)
+			dstCkConn := common.GetConnection(dstHost)
+			if srcCkConn == nil || dstCkConn == nil {
+				log.Logger.Errorf("[rebalance]can't get connection: %s & %s", tbl.Host, dstHost)
+				return
+			}
+			lock := locks[dstHost]
+			tableName := strings.Split(tbl.Table, ".")[1]
+			dstDir := filepath.Join(r.DataDir, fmt.Sprintf("clickhouse/data/%s/%s/detached", r.Database, tableName))
+			srcDir := dstDir + "/"
 
-		query := fmt.Sprintf("ALTER TABLE %s DETACH PARTITION '%s'", tbl.Table, patt)
-		log.Logger.Infof("host: %s, query: %s", tbl.Host, query)
-		if err = srcCkConn.Exec(query); err != nil {
-			err = errors.Wrapf(err, "")
-			return
-		}
+			query := fmt.Sprintf("ALTER TABLE %s DETACH PARTITION '%s'", tbl.Table, patt)
+			log.Logger.Infof("[rebalance]host: %s, query: %s", tbl.Host, query)
+			if err = srcCkConn.Exec(query); err != nil {
+				err = errors.Wrapf(err, "")
+				return
+			}
 
-		// There could be multiple executions on the same dest node and partition.
-		lock.Lock()
-		cmds := []string{
-			fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, srcDir, dstHost, dstDir),
-			fmt.Sprintf("rm -fr %s", srcDir),
-		}
-		sshOpts := common.SshOptions{
-			User:             r.OsUser,
-			Password:         r.OsPassword,
-			Port:             r.OsPort,
-			Host:             tbl.Host,
-			NeedSudo:         true,
-			AuthenticateType: model.SshPasswordSave,
-		}
-		var out string
-		if out, err = common.RemoteExecute(sshOpts, strings.Join(cmds, ";")); err != nil {
+			// There could be multiple executions on the same dest node and partition.
+			lock.Lock()
+			cmds := []string{
+				fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, srcDir, dstHost, dstDir),
+				fmt.Sprintf("rm -fr %s", srcDir),
+			}
+			sshOpts := common.SshOptions{
+				User:             r.OsUser,
+				Password:         r.OsPassword,
+				Port:             r.OsPort,
+				Host:             tbl.Host,
+				NeedSudo:         true,
+				AuthenticateType: model.SshPasswordSave,
+			}
+			var out string
+			if out, err = common.RemoteExecute(sshOpts, strings.Join(cmds, ";")); err != nil {
+				lock.Unlock()
+				return
+			}
+			log.Logger.Debugf("[rebalance]host: %s, output: %s", tbl.Host, out)
+
+			query = fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt)
+			log.Logger.Infof("[rebalance]host: %s, query: %s", dstHost, query)
+			if err = dstCkConn.Exec(query); err != nil {
+				err = errors.Wrapf(err, "")
+				lock.Unlock()
+				return
+			}
 			lock.Unlock()
-			return
-		}
-		log.Logger.Debugf("host: %s, output: %s", tbl.Host, out)
 
-		query = fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt)
-		log.Logger.Infof("host: %s, query: %s", dstHost, query)
-		if err = dstCkConn.Exec(query); err != nil {
-			err = errors.Wrapf(err, "")
-			lock.Unlock()
-			return
-		}
-		lock.Unlock()
-
-		query = fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION '%s'", tbl.Table, patt)
-		log.Logger.Infof("host: %s, query: %s", tbl.Host, query)
-		if err = srcCkConn.Exec(query); err != nil {
-			err = errors.Wrapf(err, "")
-			return
+			query = fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION '%s'", tbl.Table, patt)
+			log.Logger.Infof("[rebalance]host: %s, query: %s", tbl.Host, query)
+			if err = srcCkConn.Exec(query); err != nil {
+				err = errors.Wrapf(err, "")
+				return
+			}
 		}
 	}
 	return
@@ -364,12 +367,14 @@ func (r *CKRebalance) ExecutePartPlan(tbl *TblPartitions) (err error) {
 func (r *CKRebalance) DoRebalanceByPart() (err error) {
 
 	// initialize SSH connections only if there are some non-replicated tables
-	if sshErr = r.InitSshConns(); sshErr != nil {
-		log.Logger.Warnf("failed to init ssh connections, error: %+v", sshErr)
+	if !r.IsReplica {
+		if sshErr = r.InitSshConns(); sshErr != nil {
+			log.Logger.Warnf("[rebalance]failed to init ssh connections, error: %+v", sshErr)
+		}
 	}
 	var tbls []*TblPartitions
 	if tbls, err = r.GetPartState(); err != nil {
-		log.Logger.Errorf("got error %+v", err)
+		log.Logger.Errorf("[rebalance]got error %+v", err)
 		return err
 	}
 	r.GeneratePartPlan(tbls)
@@ -382,10 +387,10 @@ func (r *CKRebalance) DoRebalanceByPart() (err error) {
 		_ = common.Pool.Submit(func() {
 			defer wg.Done()
 			if err := r.ExecutePartPlan(tbl); err != nil {
-				log.Logger.Errorf("host: %s, got error %+v", tbl.Host, err)
+				log.Logger.Errorf("[rebalance]host: %s, got error %+v", tbl.Host, err)
 				gotError = true
 			} else {
-				log.Logger.Infof("table %s host %s rebalance done", tbl.Table, tbl.Host)
+				log.Logger.Infof("[rebalance]table %s host %s rebalance done", tbl.Table, tbl.Host)
 			}
 		})
 	}
@@ -393,7 +398,7 @@ func (r *CKRebalance) DoRebalanceByPart() (err error) {
 	if gotError {
 		return err
 	}
-	log.Logger.Infof("table %s.%s rebalance done", r.Database, r.Table)
+	log.Logger.Infof("[rebalance]table %s.%s rebalance done", r.Database, r.Table)
 	return
 }
 
