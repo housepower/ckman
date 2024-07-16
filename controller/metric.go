@@ -12,6 +12,7 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
+	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/prometheus"
 	"github.com/pkg/errors"
 )
@@ -153,4 +154,64 @@ func (controller *MetricController) QueryRange(c *gin.Context) {
 	}
 
 	controller.wrapfunc(c, model.E_SUCCESS, value)
+}
+
+func (controller *MetricController) QueryMetric(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+	title := c.Query("title")
+	start, err := strconv.ParseInt(c.Query("start"), 10, 64)
+	if err != nil {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+		return
+	}
+	end, err := strconv.ParseInt(c.Query("end"), 10, 64)
+	if err != nil {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+		return
+	}
+	step, err := strconv.ParseInt(c.Query("step"), 10, 64)
+	if err != nil {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+		return
+	}
+	m, ok := model.MetricMap[title]
+	if !ok {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, fmt.Errorf("title %s not found", title))
+	}
+	query := fmt.Sprintf(`SELECT toStartOfInterval(event_time, INTERVAL %d SECOND) AS t, %s
+	FROM %s
+	WHERE event_date >= %d AND event_time >= %d
+	AND event_date <= %d AND event_time <= %d 
+	GROUP BY t
+	ORDER BY t WITH FILL STEP %d`, step, m.Field, m.Table, start, start, end, end, step)
+	log.Logger.Debugf("query: %v", query)
+	var rsps []model.MetricRsp
+	for _, host := range conf.Hosts {
+		rsp := model.MetricRsp{
+			Metric: model.Metric{
+				Job:      "ckman",
+				Name:     m.Field,
+				Instance: host,
+			},
+		}
+		tmp := conf
+		tmp.Hosts = []string{host}
+		s := clickhouse.NewCkService(&tmp)
+		err = s.InitCkService()
+		if err != nil {
+			return
+		}
+		data, err := s.QueryInfo(query)
+		if err != nil {
+			return
+		}
+		rsp.Value = data[1:]
+		rsps = append(rsps, rsp)
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, rsps)
 }
