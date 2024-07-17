@@ -84,6 +84,7 @@ func InitRouterV2(groupV2 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV2.POST(fmt.Sprintf("/ck/dist-logic-table/:%s", controller.ClickHouseClusterPath), ckController.CreateDistTableOnLogic)
 	groupV2.DELETE(fmt.Sprintf("/ck/dist-logic-table/:%s", controller.ClickHouseClusterPath), ckController.DeleteDistTableOnLogic)
 	groupV2.PUT(fmt.Sprintf("/ck/table/:%s", controller.ClickHouseClusterPath), ckController.AlterTable)
+	groupV2.POST(fmt.Sprintf("/ck/table/dml/:%s", controller.ClickHouseClusterPath), ckController.DMLOnLogic)
 	groupV2.DELETE(fmt.Sprintf("/ck/truncate-table/:%s", controller.ClickHouseClusterPath), ckController.TruncateTable)
 	groupV2.PUT(fmt.Sprintf("/ck/table/ttl/:%s", controller.ClickHouseClusterPath), ckController.AlterTableTTL)
 	groupV2.PUT(fmt.Sprintf("/ck/table/readonly/:%s", controller.ClickHouseClusterPath), ckController.RestoreReplica)

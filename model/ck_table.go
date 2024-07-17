@@ -187,6 +187,24 @@ type CkColumnAttribute struct {
 	TTLExpression     string `json:"ttlExpression"`
 }
 
+const (
+	DML_UPDATE string = "UPDATE"
+	DML_DELETE string = "DELETE"
+)
+
+type DMLCond struct {
+	Field   string
+	Operate string
+	Targert string
+}
+
+type DMLOnLogicReq struct {
+	Database     string
+	Table        string
+	Manipulation string
+	Cond         []DMLCond
+}
+
 type CkTableMetrics struct {
 	Columns      uint64 `json:"columns"`
 	Rows         uint64 `json:"rows"`

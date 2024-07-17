@@ -41,7 +41,6 @@ require (
 	github.com/hjson/hjson-go/v4 v4.2.0
 	github.com/imdario/mergo v0.3.12
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/tealeg/xlsx v1.0.5
 	github.com/wanlay/gorm-dm8 v1.0.5
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.3.3

@@ -5,6 +5,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
@@ -634,4 +635,42 @@ ORDER BY
 		tblLists[database] = tblMapping
 	}
 	return tblLists, err
+}
+
+func DMLOnLogic(logics []string, req model.DMLOnLogicReq) error {
+	query := fmt.Sprintf("ALTER TABLE %s.%s %s WHERE (1=1)", req.Database, req.Table, req.Manipulation)
+	for _, cond := range req.Cond {
+		query += fmt.Sprintf(" AND (%s %s %s)", cond.Field, cond.Field, cond.Targert)
+	}
+	var wg sync.WaitGroup
+	var lastErr error
+	for _, cluster := range logics {
+		conf, err := repository.Ps.GetClusterbyName(cluster)
+		if err != nil {
+			return err
+		}
+		hosts, err := common.GetShardAvaliableHosts(&conf)
+		if err != nil {
+			return err
+		}
+		for _, host := range hosts {
+			wg.Add(1)
+			go func(host string) {
+				defer wg.Done()
+				conn := common.GetConnection(host)
+				if conn == nil {
+					lastErr = fmt.Errorf("%s can't connect clickhouse", host)
+					return
+				}
+				log.Logger.Debugf("[%s]%s", host, query)
+				err = conn.Exec(query)
+				if err != nil {
+					lastErr = err
+					return
+				}
+			}(host)
+		}
+	}
+	wg.Wait()
+	return lastErr
 }
