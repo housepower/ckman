@@ -410,6 +410,28 @@ definitions:
           $ref: '#/definitions/model.CkTableTTL'
         type: array
     type: object
+  model.DMLCond:
+    properties:
+      field:
+        type: string
+      operate:
+        type: string
+      targert:
+        type: string
+    type: object
+  model.DMLOnLogicReq:
+    properties:
+      cond:
+        items:
+          $ref: '#/definitions/model.DMLCond'
+        type: array
+      database:
+        type: string
+      manipulation:
+        type: string
+      table:
+        type: string
+    type: object
   model.Disk:
     properties:
       allowedBackup:
@@ -1749,6 +1771,34 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 修改表
+      tags:
+      - clickhouse
+  /api/v2/ck/table/dml/{clusterName}:
+    post:
+      consumes:
+      - application/json
+      description: 更新/删除表中的数据
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.DMLOnLogicReq'
+      responses:
+        "200":
+          description: '{"code":"5809","msg":"修改表失败","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 更新/删除表中的数据
       tags:
       - clickhouse
   /api/v2/ck/table/group-uniq-array/{clusterName}:

@@ -172,6 +172,24 @@ type AlterTblsTTLReq struct {
 	TTLExpr string       `json:"-"`
 }
 
+const (
+	DML_UPDATE string = "UPDATE"
+	DML_DELETE string = "DELETE"
+)
+
+type DMLCond struct {
+	Field   string
+	Operate string
+	Targert string
+}
+
+type DMLOnLogicReq struct {
+	Database     string
+	Table        string
+	Manipulation string
+	Cond         []DMLCond
+}
+
 type DescCkTableParams struct {
 	Name string
 	DB   string

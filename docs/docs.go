@@ -1515,6 +1515,50 @@ var doc = `{
                 }
             }
         },
+        "/api/v2/ck/table/dml/{clusterName}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新/删除表中的数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "更新/删除表中的数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DMLOnLogicReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"5809\",\"msg\":\"修改表失败\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/ck/table/group-uniq-array/{clusterName}": {
             "get": {
                 "security": [
@@ -3116,6 +3160,40 @@ var doc = `{
                     "items": {
                         "$ref": "#/definitions/model.CkTableTTL"
                     }
+                }
+            }
+        },
+        "model.DMLCond": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "operate": {
+                    "type": "string"
+                },
+                "targert": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.DMLOnLogicReq": {
+            "type": "object",
+            "properties": {
+                "cond": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.DMLCond"
+                    }
+                },
+                "database": {
+                    "type": "string"
+                },
+                "manipulation": {
+                    "type": "string"
+                },
+                "table": {
+                    "type": "string"
                 }
             }
         },

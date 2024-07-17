@@ -639,6 +639,40 @@ func (controller *ClickHouseController) AlterTable(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, nil)
 }
 
+// @Summary 更新/删除表中的数据
+// @Description 更新/删除表中的数据
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.DMLOnLogicReq true "request body"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":nil}"
+// @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":null}"
+// @Failure 200 {string} json "{"code":"5809","msg":"修改表失败","data":null}"
+// @Router /api/v2/ck/table/dml/{clusterName} [post]
+func (controller *ClickHouseController) DMLOnLogic(c *gin.Context) {
+	var req model.DMLOnLogicReq
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+		return
+	}
+	clusterName := c.Param(ClickHouseClusterPath)
+	logics, err := repository.Ps.GetLogicClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, err)
+		return
+	}
+
+	if err := clickhouse.DMLOnLogic(logics, req); err != nil {
+		controller.wrapfunc(c, model.E_TBL_ALTER_FAILED, err)
+		return
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, nil)
+}
+
 // @Summary 修改表TTL
 // @Description 修改表TTL
 // @version 1.0
