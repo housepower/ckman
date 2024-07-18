@@ -89,6 +89,23 @@ func (controller *ClickHouseController) ImportCluster(c *gin.Context) {
 	conf.AuthenticateType = model.SshPasswordNotSave
 	conf.Mode = model.CkClusterImport
 	conf.Normalize()
+
+	if req.LogicCluster != "" {
+		logics, err := repository.Ps.GetLogicClusterbyName(req.LogicCluster)
+		if err == nil {
+			for _, cn := range logics {
+				clus, err := repository.Ps.GetClusterbyName(cn)
+				if err != nil {
+					controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+					return
+				}
+				if clus.Mode == model.CkClusterDeploy {
+					controller.wrapfunc(c, model.E_DATA_DUPLICATED, fmt.Sprintf("logic %s has cluster %s which is depolyed", req.LogicCluster, cn))
+					return
+				}
+			}
+		}
+	}
 	code, err := clickhouse.GetCkClusterConfig(&conf)
 	if err != nil {
 		controller.wrapfunc(c, code, err)
