@@ -192,17 +192,12 @@ const (
 	DML_DELETE string = "DELETE"
 )
 
-type DMLCond struct {
-	Field   string
-	Operate string
-	Targert string
-}
-
 type DMLOnLogicReq struct {
 	Database     string
 	Table        string
 	Manipulation string
-	Cond         []DMLCond
+	KV           map[string]string
+	Cond         string
 }
 
 type CkTableMetrics struct {

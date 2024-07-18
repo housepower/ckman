@@ -659,9 +659,26 @@ func (controller *ClickHouseController) DMLOnLogic(c *gin.Context) {
 		return
 	}
 	clusterName := c.Param(ClickHouseClusterPath)
-	logics, err := repository.Ps.GetLogicClusterbyName(clusterName)
+	cluster, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
 		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, err)
+		return
+	}
+
+	logics, err := repository.Ps.GetLogicClusterbyName(*cluster.LogicCluster)
+
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, err)
+		return
+	}
+
+	if req.Manipulation != model.DML_DELETE && req.Manipulation != model.DML_UPDATE {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, errors.New("manipulation is invalid"))
+		return
+	}
+
+	if req.Manipulation == model.DML_UPDATE && len(req.KV) == 0 {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, errors.New("kv is empty"))
 		return
 	}
 

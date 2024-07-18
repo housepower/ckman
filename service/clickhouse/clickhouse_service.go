@@ -638,9 +638,20 @@ ORDER BY
 }
 
 func DMLOnLogic(logics []string, req model.DMLOnLogicReq) error {
-	query := fmt.Sprintf("ALTER TABLE %s.%s %s WHERE (1=1)", req.Database, req.Table, req.Manipulation)
-	for _, cond := range req.Cond {
-		query += fmt.Sprintf(" AND (%s %s %s)", cond.Field, cond.Field, cond.Targert)
+	var query string
+	if req.Manipulation == model.DML_DELETE {
+		query = fmt.Sprintf("ALTER TABLE `%s`.`%s` %s WHERE (1=1)", req.Database, req.Table, req.Manipulation)
+	} else if req.Manipulation == model.DML_UPDATE {
+		var kv string
+		for k, v := range req.KV {
+			kv += fmt.Sprintf(" `%s` = '%s',", k, v)
+		}
+		kv = kv[:len(kv)-1]
+		query = fmt.Sprintf("ALTER TABLE `%s`.`%s` %s %s WHERE (1=1)", req.Database, req.Table, req.Manipulation, kv)
+	}
+
+	if req.Cond != "" {
+		query += fmt.Sprintf(" AND (%s)", req.Cond)
 	}
 	var wg sync.WaitGroup
 	var lastErr error

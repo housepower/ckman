@@ -209,7 +209,7 @@ func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig) ([]string, error)
 	}
 	if len(hosts) < len(conf.Shards) {
 		log.Logger.Errorf("not all shard avaliable: %v", lastErr)
-		return []string{}, nil
+		return []string{}, lastErr
 	}
 	log.Logger.Debugf("hosts: %v", hosts)
 	return hosts, nil

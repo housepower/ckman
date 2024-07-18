@@ -429,23 +429,16 @@ definitions:
           $ref: '#/definitions/model.CkTableTTL'
         type: array
     type: object
-  model.DMLCond:
-    properties:
-      field:
-        type: string
-      operate:
-        type: string
-      targert:
-        type: string
-    type: object
   model.DMLOnLogicReq:
     properties:
       cond:
-        items:
-          $ref: '#/definitions/model.DMLCond'
-        type: array
+        type: string
       database:
         type: string
+      kv:
+        additionalProperties:
+          type: string
+        type: object
       manipulation:
         type: string
       table:

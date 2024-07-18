@@ -3235,31 +3235,20 @@ var doc = `{
                 }
             }
         },
-        "model.DMLCond": {
-            "type": "object",
-            "properties": {
-                "field": {
-                    "type": "string"
-                },
-                "operate": {
-                    "type": "string"
-                },
-                "targert": {
-                    "type": "string"
-                }
-            }
-        },
         "model.DMLOnLogicReq": {
             "type": "object",
             "properties": {
                 "cond": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.DMLCond"
-                    }
+                    "type": "string"
                 },
                 "database": {
                     "type": "string"
+                },
+                "kv": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "manipulation": {
                     "type": "string"
