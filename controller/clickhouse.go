@@ -16,7 +16,6 @@ import (
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
 
-	client "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
@@ -440,18 +439,14 @@ func (controller *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 			LogicCluster: *conf.LogicCluster,
 		}
 		if err = ckService.CreateDistTblOnLogic(&params); err != nil {
-			err = common.ClikHouseExceptionDecode(err)
-			var exception *client.Exception
-			if errors.As(err, &exception) {
-				if exception.Code == 60 && cluster != conf.Cluster {
-					log.Logger.Warnf("table %s.%s not exist on cluster %s, should create it", params.Database, params.TableName, cluster)
-					//means local table is not exist, will auto sync schema
-					con, err := repository.Ps.GetClusterbyName(cluster)
-					if err == nil {
-						// conf is current cluster, we believe that local table must be exist
-						clickhouse.SyncLogicTable(conf, con, req.Database, req.LocalTable)
-						continue
-					}
+			if common.ExceptionAS(err, common.UNKNOWN_TABLE) && cluster != conf.Cluster {
+				log.Logger.Warnf("table %s.%s not exist on cluster %s, should create it", params.Database, params.TableName, cluster)
+				//means local table is not exist, will auto sync schema
+				con, err := repository.Ps.GetClusterbyName(cluster)
+				if err == nil {
+					// conf is current cluster, we believe that local table must be exist
+					clickhouse.SyncLogicTable(conf, con, req.Database, req.LocalTable)
+					continue
 				}
 			}
 			controller.wrapfunc(c, model.E_TBL_CREATE_FAILED, err)
@@ -696,7 +691,7 @@ func (controller *ClickHouseController) DMLOnLogic(c *gin.Context) {
 // @Tags clickhouse
 // @Accept  json
 // @Param clusterName path string true "cluster name" default(test)
-// @Param req body model.AlterCkTableReq true "request body"
+// @Param req body model.AlterTblsTTLReq true "request body"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
@@ -1860,23 +1855,19 @@ func (controller *ClickHouseController) StartNode(c *gin.Context) {
 		ckService.InitCkService()
 		err := ckService.FetchSchemerFromOtherNode(host)
 		if err != nil {
-			err = common.ClikHouseExceptionDecode(err)
-			var exception *client.Exception
-			if errors.As(err, &exception) {
-				if exception.Code == 253 {
-					//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
-					service, err := zookeeper.GetZkService(conf.Cluster)
+			if common.ExceptionAS(err, common.REPLICA_ALREADY_EXISTS) {
+				//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
+				service, err := zookeeper.GetZkService(conf.Cluster)
+				if err == nil {
+					err = service.CleanZoopath(conf, conf.Cluster, ip, false)
 					if err == nil {
-						err = service.CleanZoopath(conf, conf.Cluster, ip, false)
-						if err == nil {
-							if err = ckService.FetchSchemerFromOtherNode(host); err != nil {
-								log.Logger.Errorf("fetch schema from other node failed again")
-							}
+						if err = ckService.FetchSchemerFromOtherNode(host); err != nil {
+							log.Logger.Errorf("fetch schema from other node failed again")
+
 						}
 					} else {
 						log.Logger.Errorf("can't create zookeeper instance:%v", err)
 					}
-
 				}
 			}
 		}
@@ -2055,15 +2046,8 @@ func (controller *ClickHouseController) GetTableMetric(c *gin.Context) {
 	var gotError bool
 	metrics, err := clickhouse.GetCkTableMetrics(&conf, database, cols)
 	if err != nil {
-		gotError = true
-		err = common.ClikHouseExceptionDecode(err)
-		var exception *client.Exception
-		if errors.As(err, &exception) {
-			if exception.Code == 60 {
-				// we do not return error when system.query_log is not exist
-				gotError = false
-			}
-		}
+		// we do not return error when system.query_log is not exist
+		gotError = !common.ExceptionAS(err, common.UNKNOWN_TABLE)
 	}
 
 	if gotError {
@@ -2131,15 +2115,8 @@ func (controller *ClickHouseController) GetOpenSessions(c *gin.Context) {
 	var gotError bool
 	sessions, err := clickhouse.GetCkOpenSessions(&conf, limit)
 	if err != nil {
-		gotError = true
-		err = common.ClikHouseExceptionDecode(err)
-		var exception *client.Exception
-		if errors.As(err, &exception) {
-			if exception.Code == 60 {
-				// we do not return error when system.query_log is not exist
-				gotError = false
-			}
-		}
+		// we do not return error when system.query_log is not exist
+		gotError = !common.ExceptionAS(err, common.UNKNOWN_TABLE)
 	}
 	if gotError {
 		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
@@ -2226,15 +2203,8 @@ func (controller *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	var gotError bool
 	sessions, err := clickhouse.GetCkSlowSessions(&conf, cond)
 	if err != nil {
-		gotError = true
-		err = common.ClikHouseExceptionDecode(err)
-		var exception *client.Exception
-		if errors.As(err, &exception) {
-			if exception.Code == 60 {
-				// we do not return error when system.query_log is not exist
-				gotError = false
-			}
-		}
+		// we do not return error when system.query_log is not exist
+		gotError = !common.ExceptionAS(err, common.UNKNOWN_TABLE)
 	}
 	if gotError {
 		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
@@ -2266,15 +2236,8 @@ func (controller *ClickHouseController) GetDistDDLQueue(c *gin.Context) {
 	var gotError bool
 	ddlQueue, err := clickhouse.GetDistibutedDDLQueue(&conf)
 	if err != nil {
-		gotError = true
-		err = common.ClikHouseExceptionDecode(err)
-		var exception *client.Exception
-		if errors.As(err, &exception) {
-			if exception.Code == 60 {
-				// we do not return error when system.query_log is not exist
-				gotError = false
-			}
-		}
+		// we do not return error when system.query_log is not exist
+		gotError = !common.ExceptionAS(err, common.UNKNOWN_TABLE)
 	}
 	if gotError {
 		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
@@ -3081,7 +3044,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 func genTTLExpress(ttls []model.CkTableTTL, storage *model.Storage) ([]string, error) {
 	var express []string
 	for _, ttl := range ttls {
-		expr := fmt.Sprintf("toDateTime(`%s`) + INTERVAL %d %s ", ttl.TimeCloumn, ttl.Interval, ttl.Unit)
+		expr := fmt.Sprintf("toDateTime(`%s`) + toInterval%s(%d) ", ttl.TimeCloumn, strings.Title(strings.ToLower(ttl.Unit)), ttl.Interval)
 		if ttl.Action == model.TTLActionDelete {
 			expr += ttl.Action
 		} else if ttl.Action == model.TTLActionToVolume {

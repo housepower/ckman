@@ -54,6 +54,32 @@ definitions:
           $ref: '#/definitions/model.CkTableRename'
         type: array
     type: object
+  model.AlterTblTTL:
+    properties:
+      database:
+        example: default
+        type: string
+      distName:
+        example: distt1
+        type: string
+      tableName:
+        example: t1
+        type: string
+    type: object
+  model.AlterTblsTTLReq:
+    properties:
+      tables:
+        items:
+          $ref: '#/definitions/model.AlterTblTTL'
+        type: array
+      ttl:
+        items:
+          $ref: '#/definitions/model.CkTableTTL'
+        type: array
+      ttl_type:
+        example: MODIFY
+        type: string
+    type: object
   model.ArchiveHdfs:
     properties:
       addr:
@@ -2023,7 +2049,7 @@ paths:
         name: req
         required: true
         schema:
-          $ref: '#/definitions/model.AlterCkTableReq'
+          $ref: '#/definitions/model.AlterTblsTTLReq'
       responses:
         "200":
           description: '{"code":"5809","msg":"修改表失败","data":null}'

@@ -1821,7 +1821,7 @@ var doc = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.AlterCkTableReq"
+                            "$ref": "#/definitions/model.AlterTblsTTLReq"
                         }
                     }
                 ],
@@ -2712,6 +2712,44 @@ var doc = `{
                     "items": {
                         "$ref": "#/definitions/model.CkTableRename"
                     }
+                }
+            }
+        },
+        "model.AlterTblTTL": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string",
+                    "example": "default"
+                },
+                "distName": {
+                    "type": "string",
+                    "example": "distt1"
+                },
+                "tableName": {
+                    "type": "string",
+                    "example": "t1"
+                }
+            }
+        },
+        "model.AlterTblsTTLReq": {
+            "type": "object",
+            "properties": {
+                "tables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.AlterTblTTL"
+                    }
+                },
+                "ttl": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkTableTTL"
+                    }
+                },
+                "ttl_type": {
+                    "type": "string",
+                    "example": "MODIFY"
                 }
             }
         },

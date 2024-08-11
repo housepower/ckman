@@ -161,15 +161,17 @@ type AlterCkTableParams struct {
 	DropIndex   []Index
 }
 
+type AlterTblTTL struct {
+	Database  string `json:"database" example:"default"`
+	TableName string `json:"tableName" example:"t1"`
+	DistName  string `json:"distName" example:"distt1"`
+}
+
 type AlterTblsTTLReq struct {
-	Tables []struct {
-		Database  string `json:"database" example:"default"`
-		TableName string `json:"tableName" example:"t1"`
-		DistName  string `json:"distName" example:"distt1"`
-	} `json:"tables"`
-	TTLType string       `json:"ttl_type" example:"MODIFY"`
-	TTL     []CkTableTTL `json:"ttl"`
-	TTLExpr string       `json:"-"`
+	Tables  []AlterTblTTL `json:"tables"`
+	TTLType string        `json:"ttl_type" example:"MODIFY"`
+	TTL     []CkTableTTL  `json:"ttl"`
+	TTLExpr string        `json:"-"`
 }
 
 type DescCkTableParams struct {
