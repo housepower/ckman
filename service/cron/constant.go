@@ -5,6 +5,7 @@ const (
 	JOB_SYNC_LOGIC_SCHEMA
 	JOB_WATCH_CLUSTER_STATUS
 	JOB_SYNC_DIST_SCHEMA
+	JOB_CLEAR_ZNODES
 )
 
 const (
@@ -15,6 +16,7 @@ const (
 
 	SCHEDULE_WATCH_DEFAULT = "0 */3 * * * ?"
 	SCHEDULE_SYNC_DIST     = "30 */10 * * * ?"
+	SCHEDULE_CLEAR_ZNODES  = "0 0 */6 * * ?"
 
 	SCHEDULE_DISABLED = "disabled"
 )

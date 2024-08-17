@@ -36,6 +36,7 @@ type CronJob struct {
 	SyncLogicSchema    string `yaml:"sync_logic_schema" json:"sync_logic_schema"`
 	WatchClusterStatus string `yaml:"watch_cluster_status" json:"watch_cluster_status"`
 	SyncDistSchema     string `yaml:"sync_dist_schema" json:"sync_dist_schema"`
+	ClearZnodes        string `yaml:"clear_znodes" json:"clear_znodes"`
 }
 
 type CKManConfig struct {
