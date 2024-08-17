@@ -370,14 +370,10 @@ func WithAlterSync(version string) string {
 }
 
 func CheckTable(conn *Conn, database, table string) error {
-	query := fmt.Sprintf("CHECK TABLE `%s`.`%s`", database, table)
-	var res uint8
-	err := conn.QueryRow(query).Scan(&res)
-	if err != nil {
+	query := fmt.Sprintf("DESC `%s`.`%s`", database, table)
+	_, err := conn.Query(query)
+	if err != nil && ExceptionAS(err, UNKNOWN_TABLE) {
 		return err
-	}
-	if res != 1 {
-		return errors.Errorf("check table %s.%s failed", database, table)
 	}
 	return nil
 }
