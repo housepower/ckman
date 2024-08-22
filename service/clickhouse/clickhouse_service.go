@@ -132,6 +132,11 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 		projections += fmt.Sprintf(", PROJECTION %s (%s)", p.Name, p.Sql)
 	}
 
+	settings := make(map[string]interface{})
+	if common.CompareClickHouseVersion(ck.Config.Version, "22.4.x") > 0 {
+		settings["use_metadata_cache"] = true
+	}
+
 	create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` (%s%s%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)",
 		params.DB, params.Name, params.Cluster, strings.Join(columns, ", "), params.IndexExpr, projections, params.Engine,
 		partition, strings.Join(params.Order, ", "))
@@ -139,8 +144,21 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 		create += fmt.Sprintf(" TTL %s", params.TTLExpr)
 	}
 	if params.StoragePolicy != "" {
-		create += fmt.Sprintf(" SETTINGS storage_policy = '%s'", params.StoragePolicy)
+		settings["storage_policy"] = params.StoragePolicy
 	}
+	if len(settings) > 0 {
+		create += " SETTINGS "
+		idx := 0
+		for k, v := range settings {
+			if idx == len(settings) {
+				create += fmt.Sprintf("%s = '%v'", k, v)
+			} else {
+				create += fmt.Sprintf("%s = '%v',", k, v)
+			}
+			idx++
+		}
+	}
+
 	log.Logger.Debugf(create)
 	statements = append(statements, create)
 	if !dryrun {

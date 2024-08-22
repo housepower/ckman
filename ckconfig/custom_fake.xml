@@ -50,6 +50,10 @@
         <replicated_fetches_http_receive_timeout>0</replicated_fetches_http_receive_timeout>
         <replicated_fetches_http_send_timeout>0</replicated_fetches_http_send_timeout>
     </merge_tree>
+    <merge_tree_metadata_cache>
+        <continue_if_corrupted>true</continue_if_corrupted>
+        <lru_cache_size>1073741824</lru_cache_size>
+    </merge_tree_metadata_cache>
     <metric_log>
         <flush_interval_milliseconds>30000</flush_interval_milliseconds>
         <partition_by>toYYYYMMDD(event_date)</partition_by>

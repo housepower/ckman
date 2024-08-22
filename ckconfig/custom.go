@@ -173,6 +173,15 @@ func expert(exp map[string]string) map[string]interface{} {
 	return common.ConvertMapping(output)
 }
 
+func merge_tree_metadata_cache() map[string]interface{} {
+	output := make(map[string]interface{})
+	output["merge_tree_metadata_cache"] = map[string]interface{}{
+		"lru_cache_size":        1073741824,
+		"continue_if_corrupted": true,
+	}
+	return output
+}
+
 func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ipv6Enable bool) (string, error) {
 	rootTag := "yandex"
 	if common.CompareClickHouseVersion(conf.Version, "22.x") >= 0 {
@@ -185,6 +194,9 @@ func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ipv6E
 	mergo.Merge(&custom, system_log())
 	mergo.Merge(&custom, distributed_ddl(conf.Cluster))
 	mergo.Merge(&custom, prometheus())
+	if common.CompareClickHouseVersion(conf.Version, "22.4.x") >= 0 {
+		mergo.Merge(&custom, merge_tree_metadata_cache())
+	}
 	storage_configuration, backups := storage(conf.Storage)
 	mergo.Merge(&custom, storage_configuration)
 	mergo.Merge(&custom, backups)
