@@ -29,20 +29,20 @@ func ClearZnodes() error {
 			continue
 		}
 		// remove block_numbers in zookeeper
-		znodes, err := GetBlockNumberZnodes(ckService)
-		if err != nil {
-			log.Logger.Warnf("[%s]remove block_number from zookeeper failed: %v", cluster.Cluster, err)
-		}
+		// znodes, err := GetBlockNumberZnodes(ckService)
+		// if err != nil {
+		// 	log.Logger.Warnf("[%s]remove block_number from zookeeper failed: %v", cluster.Cluster, err)
+		// }
 
-		deleted, notexist := RemoveZnodes(zkService, znodes)
-		log.Logger.Warnf("[%s]remove [%d] block_number from zookeeper success, %d already deleted", cluster.Cluster, deleted, notexist)
+		// deleted, notexist := RemoveZnodes(zkService, znodes)
+		// log.Logger.Warnf("[%s]remove [%d] block_number from zookeeper success, %d already deleted", cluster.Cluster, deleted, notexist)
 
 		// remove replica_queue in zookeeper
-		znodes, err = GetReplicaQueueZnodes(ckService)
+		znodes, err := GetReplicaQueueZnodes(ckService)
 		if err != nil {
 			log.Logger.Infof("[%s]remove replica_queue from zookeeper failed: %v", cluster.Cluster, err)
 		}
-		deleted, notexist = RemoveZnodes(zkService, znodes)
+		deleted, notexist := RemoveZnodes(zkService, znodes)
 		log.Logger.Infof("[%s]remove [%d] replica_queue from zookeeper success, %d already deleted", cluster.Cluster, deleted, notexist)
 
 	}
