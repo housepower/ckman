@@ -3014,7 +3014,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	}
 
 	// need restart
-	if cluster.Port != conf.Port || storageChanged || expertChanged || keeperChanged {
+	if force || cluster.Port != conf.Port || storageChanged || expertChanged || keeperChanged {
 		restart = true
 	}
 

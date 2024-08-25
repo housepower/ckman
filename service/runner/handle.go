@@ -322,21 +322,6 @@ func CKSettingHandle(task *model.Task) error {
 		return err
 	}
 
-	// sync table schema when logic cluster exists
-	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
-	if d.Conf.LogicCluster != nil {
-		logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
-		if err == nil && len(logics) > 0 {
-			for _, logic := range logics {
-				if cluster, err := repository.Ps.GetClusterbyName(logic); err == nil {
-					if clickhouse.SyncLogicTable(cluster, *d.Conf) {
-						break
-					}
-				}
-			}
-		}
-	}
-
 	if err := repository.Ps.Begin(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
 	}
