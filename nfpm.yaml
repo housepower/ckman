@@ -10,10 +10,7 @@ section: "default"
 priority: "extra"
 provides:
 - ckman
-- ckmanpasswd
-- migrate
-- znodefix
-- znode_count
+- ckmanctl
 maintainer: "Zhichang Yu <yuzhichang@gmail.com>"
 description: |
   ckman is a tool which used to manage and monitor ClickHouse database
@@ -22,14 +19,8 @@ license: "MIT"
 contents:
   - src: ./ckman
     dst: /usr/local/bin/ckman
-  - src: ./ckmanpasswd
-    dst: /usr/local/bin/ckmanpasswd
-  - src: ./migrate
-    dst: /usr/local/bin/migrate
-  - src: ./znodefix
-    dst: /usr/local/bin/znodefix
-  - src: ./znode_count
-    dst: /usr/local/bin/znode_count
+  - src: ./cmd/ckmanctl/ckmanctl
+    dst: /usr/local/bin/ckmanctl
   - src: ./resources/yaml2json
     dst: /usr/local/bin/yaml2json
   - src: ./README.md
@@ -57,6 +48,9 @@ contents:
     type: config
   - src: /usr/local/bin/ckman
     dst: /sbin/ckman
+    type: symlink
+  - src: /usr/local/bin/ckmanctl
+    dst: /sbin/ckmanctl
     type: symlink
   - src: /etc/systemd/system/ckman.service
     dst: /etc/systemd/system/multi-user.target.wants/ckman.service

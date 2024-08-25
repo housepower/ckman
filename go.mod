@@ -34,6 +34,7 @@ require (
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.15.0
+	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/arl/statsviz v0.5.1
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/bramvdbogaerde/go-scp v1.2.0
@@ -55,6 +56,7 @@ require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18 // indirect
 	github.com/andybalholm/brotli v1.0.6 // indirect
 	github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23 // indirect
@@ -114,6 +116,7 @@ require (
 	github.com/thoas/go-funk v0.9.2 // indirect
 	github.com/toolkits/concurrent v0.0.0-20150624120057-a4371d70e3e3 // indirect
 	github.com/ugorji/go/codec v1.1.13 // indirect
+	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	go.opentelemetry.io/otel v1.19.0 // indirect
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

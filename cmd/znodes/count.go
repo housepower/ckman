@@ -1,11 +1,6 @@
-package main
-
-/*
-znodefix  --cluster=abc --config=/etc/ckman/conf/ckman.hjson --node=192.168.110.8 --dryrun
-*/
+package znodes
 
 import (
-	"flag"
 	"fmt"
 	"net"
 	"sort"
@@ -13,10 +8,6 @@ import (
 	"strings"
 
 	"github.com/housepower/ckman/log"
-	_ "github.com/housepower/ckman/repository/dm8"
-	_ "github.com/housepower/ckman/repository/local"
-	_ "github.com/housepower/ckman/repository/mysql"
-	_ "github.com/housepower/ckman/repository/postgres"
 	"github.com/housepower/ckman/service/zookeeper"
 )
 
@@ -32,24 +23,22 @@ func (v ZCntList) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (v ZCntList) Less(i, j int) bool { return v[i].Count < v[j].Count }
 
 var (
-	zkhosts     = flag.String("h", "127.0.0.1:2181", `zookeeper server hosts`)
-	node        = flag.String("n", "/clickhouse", "znode")
-	recursive   = flag.Bool("r", false, "show all sub znodes")
-	sort_number = flag.Int("s", 0, "return number znode count order by count desc")
-	zcnts       ZCntList
+	zcnts ZCntList
 )
 
-func init() {
-	flag.Parse()
+type ZCntOpts struct {
+	Zkhosts    string
+	Path       string
+	Recursive  bool
+	SortNumber int
 }
 
-func main() {
-	log.InitLoggerConsole()
+func ZCntHandle(opts ZCntOpts) {
 	log.Logger.Infof("znode_count start...")
-	log.Logger.Infof("zookeeper service: %s, root znode: %s, recursive: %v, sort_number: %d", *zkhosts, *node, *recursive, *sort_number)
+	log.Logger.Infof("zookeeper service: %s, root znode: %s, recursive: %v, sort_number: %d", opts.Zkhosts, opts.Path, opts.Recursive, opts.SortNumber)
 	var hosts []string
 	var zkPort int
-	for _, zkhost := range strings.Split(*zkhosts, ",") {
+	for _, zkhost := range strings.Split(opts.Zkhosts, ",") {
 		host, port, _ := net.SplitHostPort(zkhost)
 		hosts = append(hosts, host)
 		zkPort, _ = strconv.Atoi(port)
@@ -60,19 +49,19 @@ func main() {
 		log.Logger.Fatalf("can't create zookeeper instance:%v", err)
 	}
 
-	if err = ZkCount(service); err != nil {
+	if err = ZkCount(service, opts); err != nil {
 		log.Logger.Fatalf("%v\n", err)
 	}
 }
 
-func ZkCount(service *zookeeper.ZkService) error {
-	cnt, err := count(service, *node)
+func ZkCount(service *zookeeper.ZkService, opts ZCntOpts) error {
+	cnt, err := count(service, opts.Path, opts)
 	if err != nil {
 		return err
 	}
 
-	if *sort_number == 0 {
-		fmt.Printf("%s\t%d\n", *node, cnt)
+	if opts.SortNumber == 0 {
+		fmt.Printf("%s\t%d\n", opts.Path, cnt)
 	} else {
 		for _, z := range zcnts {
 			fmt.Printf("%s\t%d\n", z.Node, z.Count)
@@ -82,7 +71,7 @@ func ZkCount(service *zookeeper.ZkService) error {
 	return nil
 }
 
-func count(service *zookeeper.ZkService, znode string) (int32, error) {
+func count(service *zookeeper.ZkService, znode string, opts ZCntOpts) (int32, error) {
 	var cnt int32
 	_, n, err := service.Conn.Get(znode)
 	if err != nil {
@@ -93,14 +82,14 @@ func count(service *zookeeper.ZkService, znode string) (int32, error) {
 	} else {
 		children, _, _ := service.Conn.Children(znode)
 		for _, child := range children {
-			if c, err := count(service, znode+"/"+child); err != nil {
+			if c, err := count(service, znode+"/"+child, opts); err != nil {
 				return cnt, err
 			} else {
 				cnt += c
 			}
 		}
 		cnt++
-		if *sort_number > 0 {
+		if opts.SortNumber > 0 {
 			zcnts = append(zcnts, ZCnt{
 				Node:  znode,
 				Count: cnt,
@@ -108,11 +97,11 @@ func count(service *zookeeper.ZkService, znode string) (int32, error) {
 
 			sort.Sort(sort.Reverse(zcnts))
 
-			if len(zcnts) > *sort_number {
-				zcnts = zcnts[:*sort_number]
+			if len(zcnts) > opts.SortNumber {
+				zcnts = zcnts[:opts.SortNumber]
 			}
 		} else {
-			if *recursive {
+			if opts.Recursive {
 				fmt.Printf("%s\t%d\n", znode, cnt)
 			}
 		}

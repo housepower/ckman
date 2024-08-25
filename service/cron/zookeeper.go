@@ -2,6 +2,7 @@ package cron
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/go-zookeeper/zk"
 	"github.com/housepower/ckman/log"
@@ -38,12 +39,12 @@ func ClearZnodes() error {
 		// log.Logger.Warnf("[%s]remove [%d] block_number from zookeeper success, %d already deleted", cluster.Cluster, deleted, notexist)
 
 		// remove replica_queue in zookeeper
-		znodes, err := GetReplicaQueueZnodes(ckService)
+		znodes, err := GetReplicaQueueZnodes(ckService, 100)
 		if err != nil {
 			log.Logger.Infof("[%s]remove replica_queue from zookeeper failed: %v", cluster.Cluster, err)
 		}
 		deleted, notexist := RemoveZnodes(zkService, znodes)
-		log.Logger.Infof("[%s]remove [%d] replica_queue from zookeeper success, %d already deleted", cluster.Cluster, deleted, notexist)
+		log.Logger.Infof("[%s]remove [%d] replica_queue from zookeeper success, [%d] already deleted", cluster.Cluster, deleted, notexist)
 
 	}
 	return nil
@@ -52,10 +53,12 @@ func ClearZnodes() error {
 func RemoveZnodes(zkService *zookeeper.ZkService, znodes []string) (int, int) {
 	var deleted, notexist int
 	for _, znode := range znodes {
-		err := zkService.DeleteAll(znode)
+		err := zkService.Delete(znode)
 		if err != nil {
 			if errors.Is(err, zk.ErrNoNode) {
 				notexist++
+			} else {
+				log.Logger.Debugf("[%s]remove replica_queue from zookeeper failed: %v", znode, err)
 			}
 		} else {
 			deleted++
@@ -111,8 +114,8 @@ func GetBlockNumberZnodes(ckService *clickhouse.CkService) ([]string, error) {
 	return znodes, nil
 }
 
-func GetReplicaQueueZnodes(ckService *clickhouse.CkService) ([]string, error) {
-	query := `SELECT DISTINCT concat(t0.replica_path, '/queue/', t1.node_name)
+func GetReplicaQueueZnodes(ckService *clickhouse.CkService, numtries int) ([]string, error) {
+	query := fmt.Sprintf(`SELECT DISTINCT concat(t0.replica_path, '/queue/', t1.node_name)
 	FROM clusterAllReplicas('{cluster}', system.replicas) AS t0,
 	(
 		SELECT
@@ -124,9 +127,9 @@ func GetReplicaQueueZnodes(ckService *clickhouse.CkService) ([]string, error) {
 			last_exception_time,
 			num_tries
 		FROM clusterAllReplicas('{cluster}', system.replication_queue)
-		WHERE (num_postponed > 0) AND (num_tries > 100)
+		WHERE (num_postponed > 0) AND (num_tries > %d)
 	) AS t1
-	WHERE (t0.database = t1.database) AND (t0.table = t1.table) AND (t0.replica_name = t1.replica_name)`
+	WHERE (t0.database = t1.database) AND (t0.table = t1.table) AND (t0.replica_name = t1.replica_name)`, numtries)
 	rows, err := ckService.Conn.Query(query)
 	if err != nil {
 		return nil, err

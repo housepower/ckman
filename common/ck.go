@@ -155,7 +155,7 @@ func GetMergeTreeTables(engine string, database string, conn *Conn) ([]string, m
 	var databases []string
 	var err error
 	dbtables := make(map[string][]string)
-	query := fmt.Sprintf("SELECT DISTINCT  database, name FROM system.tables WHERE (match(engine, '%s')) AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))", engine)
+	query := fmt.Sprintf("SELECT DISTINCT  database, name FROM system.tables WHERE (match(engine, '%s')) AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA') AND name NOT LIKE '.inner%%')", engine)
 	if database != "" {
 		query += fmt.Sprintf(" AND database = '%s'", database)
 	}

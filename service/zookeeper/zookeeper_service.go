@@ -89,6 +89,14 @@ func (z *ZkService) DeleteAll(node string) (err error) {
 	return z.Conn.Delete(node, stat.Version)
 }
 
+func (z *ZkService) Delete(node string) (err error) {
+	_, stat, err := z.Conn.Get(node)
+	if err != nil {
+		return
+	}
+	return z.Conn.Delete(node, stat.Version)
+}
+
 func (z *ZkService) DeletePathUntilNode(path, endNode string) error {
 	ok, _, _ := z.Conn.Exists(path)
 	if !ok {

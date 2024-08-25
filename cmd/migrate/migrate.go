@@ -1,31 +1,16 @@
-package main
+package migrate
 
 import (
-	"flag"
-	"fmt"
 	"io"
 	"os"
 
 	"github.com/hjson/hjson-go/v4"
-	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/repository"
 	_ "github.com/housepower/ckman/repository/local"
 	_ "github.com/housepower/ckman/repository/mysql"
 	"github.com/pkg/errors"
 )
-
-/*
-*
-auto migrate cluster config between diffrent persistent policy
-eg.
-
-	migrate --config=/etc/ckman/conf/migrate.hjson
-*/
-type CmdOptions struct {
-	ShowVer    bool
-	ConfigFile string
-}
 
 type PersistentConfig struct {
 	Policy string
@@ -39,29 +24,13 @@ type MigrateConfig struct {
 }
 
 var (
-	cmdOps         CmdOptions
-	GitCommitHash  string
-	BuildTimeStamp string
-	psrc           repository.PersistentMgr
-	pdst           repository.PersistentMgr
+	psrc repository.PersistentMgr
+	pdst repository.PersistentMgr
 )
 
-func initCmdOptions() {
-	cmdOps = CmdOptions{
-		ShowVer:    false,
-		ConfigFile: "/etc/ckman/conf/migrate.hjson",
-	}
-	common.EnvBoolVar(&cmdOps.ShowVer, "v")
-	common.EnvStringVar(&cmdOps.ConfigFile, "config")
-
-	flag.BoolVar(&cmdOps.ShowVer, "v", cmdOps.ShowVer, "show build version and quit")
-	flag.StringVar(&cmdOps.ConfigFile, "config", cmdOps.ConfigFile, "migrate config file")
-	flag.Parse()
-}
-
-func ParseConfig() (MigrateConfig, error) {
+func ParseConfig(conf string) (MigrateConfig, error) {
 	var config MigrateConfig
-	f, err := os.Open(cmdOps.ConfigFile)
+	f, err := os.Open(conf)
 	if err != nil {
 		return MigrateConfig{}, errors.Wrap(err, "")
 	}
@@ -163,18 +132,10 @@ func Migrate() error {
 	return nil
 }
 
-func main() {
-	log.InitLoggerConsole()
-	initCmdOptions()
-	if cmdOps.ShowVer {
-		fmt.Println("Build Timestamp:", BuildTimeStamp)
-		fmt.Println("Git Commit Hash:", GitCommitHash)
-		os.Exit(0)
-	}
-
-	config, err := ParseConfig()
+func MigrateHandle(conf string) {
+	config, err := ParseConfig(conf)
 	if err != nil {
-		log.Logger.Fatalf("parse config file %s failed: %v", cmdOps.ConfigFile, err)
+		log.Logger.Fatalf("parse config file %s failed: %v", conf, err)
 	}
 	psrc, err = PersistentCheck(config, config.Source)
 	if err != nil {
