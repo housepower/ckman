@@ -27,7 +27,7 @@ func (p *TgzPkg) StopCmd(svr, cwd string) string {
 }
 
 func (p *TgzPkg) RestartCmd(svr, cwd string) string {
-	return p.StopCmd(svr, cwd) + ";" + p.StartCmd(svr, cwd)
+	return p.StopCmd(svr, cwd) + "; sleep 5;" + p.StartCmd(svr, cwd)
 }
 
 func (p *TgzPkg) InstallCmd(svr string, pkgs Packages) string {
