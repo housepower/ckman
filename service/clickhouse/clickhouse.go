@@ -577,22 +577,16 @@ func MaterializedView(conf *model.CKManClickHouseConfig, req model.MaterializedV
 func GetPartitions(conf *model.CKManClickHouseConfig, table string) (map[string]model.PartitionInfo, error) {
 	partInfo := make(map[string]model.PartitionInfo)
 
-	chHosts, err := common.GetShardAvaliableHosts(conf)
-	if err != nil {
-		return nil, err
-	}
-
 	dbTbl := strings.SplitN(table, ".", 2)
 	dabatase := dbTbl[0]
 	tableName := dbTbl[1]
 
-	for _, host := range chHosts {
-		service, err := GetCkNodeService(conf.Cluster, host)
-		if err != nil {
-			return nil, err
-		}
-
-		query := fmt.Sprintf(`SELECT
+	service := NewCkService(conf)
+	err := service.InitCkService()
+	if err != nil {
+		return nil, err
+	}
+	query := fmt.Sprintf(`SELECT
     partition,
 	count(name),
     sum(rows),
@@ -601,45 +595,31 @@ func GetPartitions(conf *model.CKManClickHouseConfig, table string) (map[string]
     min(min_time),
     max(max_time),
     disk_name
-FROM system.parts
+FROM cluster('%s', system.parts)
 WHERE (database = '%s') AND (table = '%s') AND (active = 1)
 GROUP BY
     partition,
     disk_name
-ORDER BY partition ASC`, dabatase, tableName)
-		log.Logger.Infof("host: %s, query: %s", host, query)
-		value, err := service.QueryInfo(query)
-		if err != nil {
-			return nil, err
+ORDER BY partition ASC`, conf.Cluster, dabatase, tableName)
+	log.Logger.Infof("query: %s", query)
+	value, err := service.QueryInfo(query)
+	if err != nil {
+		return nil, err
+	}
+	for i := 1; i < len(value); i++ {
+		partitionId := value[i][0].(string)
+		part := model.PartitionInfo{
+			Database:     dabatase,
+			Table:        tableName,
+			Parts:        value[i][1].(uint64),
+			Rows:         value[i][2].(uint64),
+			Compressed:   value[i][3].(uint64),
+			UnCompressed: value[i][4].(uint64),
+			MinTime:      value[i][5].(time.Time),
+			MaxTime:      value[i][6].(time.Time),
+			DiskName:     value[i][7].(string),
 		}
-		for i := 1; i < len(value); i++ {
-			partitionId := value[i][0].(string)
-			if part, ok := partInfo[partitionId]; ok {
-				part.Parts += value[i][1].(uint64)
-				part.Rows += value[i][2].(uint64)
-				part.Compressed += value[i][3].(uint64)
-				part.UnCompressed += value[i][4].(uint64)
-				minTime := value[i][5].(time.Time)
-				part.MinTime = common.TernaryExpression(part.MinTime.After(minTime), minTime, part.MinTime).(time.Time)
-				maxTime := value[i][6].(time.Time)
-				part.MaxTime = common.TernaryExpression(part.MaxTime.Before(maxTime), maxTime, part.MinTime).(time.Time)
-				part.DiskName = value[i][7].(string)
-				partInfo[partitionId] = part
-			} else {
-				part := model.PartitionInfo{
-					Database:     dabatase,
-					Table:        tableName,
-					Parts:        value[i][1].(uint64),
-					Rows:         value[i][2].(uint64),
-					Compressed:   value[i][3].(uint64),
-					UnCompressed: value[i][4].(uint64),
-					MinTime:      value[i][5].(time.Time),
-					MaxTime:      value[i][6].(time.Time),
-					DiskName:     value[i][7].(string),
-				}
-				partInfo[partitionId] = part
-			}
-		}
+		partInfo[partitionId] = part
 	}
 
 	return partInfo, nil
