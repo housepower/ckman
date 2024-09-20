@@ -19,6 +19,7 @@ func root(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interfa
 	output["default_replica_path"] = "/clickhouse/tables/{cluster}/{database}/{table}/{shard}"
 	output["default_replica_name"] = "{replica}"
 	output["tcp_port"] = conf.Port
+	output["http_port"] = conf.HttpPort
 	if ipv6Enable {
 		output["listen_host"] = "::"
 	} else {
