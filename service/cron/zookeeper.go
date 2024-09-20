@@ -116,7 +116,7 @@ func GetBlockNumberZnodes(ckService *clickhouse.CkService) ([]string, error) {
 
 func GetReplicaQueueZnodes(ckService *clickhouse.CkService, numtries int) ([]string, error) {
 	query := fmt.Sprintf(`SELECT DISTINCT concat(t0.replica_path, '/queue/', t1.node_name)
-	FROM clusterAllReplicas('{cluster}', system.replicas) AS t0,
+	FROM clusterAllReplicas('%s', system.replicas) AS t0,
 	(
 		SELECT
 			database,
@@ -126,10 +126,11 @@ func GetReplicaQueueZnodes(ckService *clickhouse.CkService, numtries int) ([]str
 			create_time,
 			last_exception_time,
 			num_tries
-		FROM clusterAllReplicas('{cluster}', system.replication_queue)
-		WHERE (num_postponed > 0) AND (num_tries > %d)
+		FROM clusterAllReplicas('%s', system.replication_queue)
+		WHERE (num_postponed > 0) AND (num_tries > %d OR create_time > addSeconds(now(), -86400))
 	) AS t1
-	WHERE (t0.database = t1.database) AND (t0.table = t1.table) AND (t0.replica_name = t1.replica_name)`, numtries)
+	WHERE (t0.database = t1.database) AND (t0.table = t1.table) AND (t0.replica_name = t1.replica_name)`,
+		ckService.Config.Cluster, ckService.Config.Cluster, numtries)
 	rows, err := ckService.Conn.Query(query)
 	if err != nil {
 		return nil, err
