@@ -665,6 +665,9 @@ ORDER BY
 
 	tblLists := make(map[string]map[string][]string)
 	value, err := ck.QueryInfo(query)
+	if err != nil {
+		return nil, err
+	}
 	for i := 1; i < len(value); i++ {
 		tblMapping := make(map[string][]string)
 		database := value[i][0].(string)
@@ -677,6 +680,16 @@ ORDER BY
 		tblMapping[table] = cols
 		tblLists[database] = tblMapping
 	}
+
+	query = `SELECT name FROM system.databases WHERE name NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')`
+	value, err = ck.QueryInfo(query)
+	for i := 1; i < len(value); i++ {
+		database := value[i][0].(string)
+		if _, ok := tblLists[database]; !ok {
+			tblLists[database] = make(map[string][]string)
+		}
+	}
+
 	return tblLists, err
 }
 
