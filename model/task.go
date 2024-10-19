@@ -31,6 +31,8 @@ const (
 
 	TaskTypeKeeperDeploy  string = "keeper.deploy"
 	TaskTypeKeeperUpgrade string = "keeper.upgrade"
+	TaskTypeKeeperDestory string = "keeper.destory"
+	TaskTypeKeeperSetting string = "keeper.setting"
 
 	ALL_NODES_DEFAULT string = "all_hosts"
 )

@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"bytes"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,7 +16,6 @@ import (
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
 
-	client "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
@@ -82,12 +83,28 @@ func (controller *ClickHouseController) ImportCluster(c *gin.Context) {
 	conf.Password = req.Password
 	conf.ZkNodes = req.ZkNodes
 	conf.ZkPort = req.ZkPort
-	conf.ZkStatusPort = req.ZkStatusPort
 	conf.PromHost = req.PromHost
 	conf.PromPort = req.PromPort
 	conf.AuthenticateType = model.SshPasswordNotSave
 	conf.Mode = model.CkClusterImport
 	conf.Normalize()
+
+	if req.LogicCluster != "" {
+		logics, err := repository.Ps.GetLogicClusterbyName(req.LogicCluster)
+		if err == nil {
+			for _, cn := range logics {
+				clus, err := repository.Ps.GetClusterbyName(cn)
+				if err != nil {
+					controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+					return
+				}
+				if clus.Mode == model.CkClusterDeploy {
+					controller.wrapfunc(c, model.E_DATA_DUPLICATED, fmt.Sprintf("logic %s has cluster %s which is depolyed", req.LogicCluster, cn))
+					return
+				}
+			}
+		}
+	}
 	code, err := clickhouse.GetCkClusterConfig(&conf)
 	if err != nil {
 		controller.wrapfunc(c, code, err)
@@ -186,7 +203,7 @@ func (controller *ClickHouseController) DeleteCluster(c *gin.Context) {
 // @Accept  json
 // @Param clusterName path string true "cluster name" default(test)
 // @Failure 200 {string} json "{"code":"5804","msg":"查询数据失败","data":null}"
-// @Success 200 {string} json "{"code":"0000","msg":"ok", "data":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok", "data":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}"
 // @Router /api/v2/ck/cluster/{clusterName} [get]
 func (controller *ClickHouseController) GetCluster(c *gin.Context) {
 	var err error
@@ -212,7 +229,7 @@ func (controller *ClickHouseController) GetCluster(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Tags clickhouse
 // @Accept  json
-// @Success 200 {string} json "{"code":"0000","msg":"ok", "data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok", "data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":null}"
 // @Router /api/v2/ck/cluster [get]
 func (controller *ClickHouseController) GetClusters(c *gin.Context) {
@@ -363,25 +380,6 @@ func (controller *ClickHouseController) CreateTable(c *gin.Context) {
 		return
 	}
 
-	// sync zookeeper path
-	if conf.IsReplica {
-		path, err := clickhouse.GetZkPath(ckService.Conn, params.DB, params.Name)
-		if err != nil {
-			controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
-			return
-		}
-		tableName := fmt.Sprintf("%s.%s", params.DB, params.Name)
-		if conf.ZooPath == nil {
-			conf.ZooPath = make(map[string]string)
-		}
-		conf.ZooPath[tableName] = path
-
-		if err = repository.Ps.UpdateCluster(conf); err != nil {
-			controller.wrapfunc(c, model.E_DATA_UPDATE_FAILED, err)
-			return
-		}
-	}
-
 	if req.DryRun {
 		controller.wrapfunc(c, model.E_SUCCESS, statements)
 	} else {
@@ -441,18 +439,14 @@ func (controller *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 			LogicCluster: *conf.LogicCluster,
 		}
 		if err = ckService.CreateDistTblOnLogic(&params); err != nil {
-			err = common.ClikHouseExceptionDecode(err)
-			var exception *client.Exception
-			if errors.As(err, &exception) {
-				if exception.Code == 60 && cluster != conf.Cluster {
-					log.Logger.Warnf("table %s.%s not exist on cluster %s, should create it", params.Database, params.TableName, cluster)
-					//means local table is not exist, will auto sync schema
-					con, err := repository.Ps.GetClusterbyName(cluster)
-					if err == nil {
-						// conf is current cluster, we believe that local table must be exist
-						clickhouse.SyncLogicTable(conf, con, req.Database, req.LocalTable)
-						continue
-					}
+			if common.ExceptionAS(err, common.UNKNOWN_TABLE) && cluster != conf.Cluster {
+				log.Logger.Warnf("table %s.%s not exist on cluster %s, should create it", params.Database, params.TableName, cluster)
+				//means local table is not exist, will auto sync schema
+				con, err := repository.Ps.GetClusterbyName(cluster)
+				if err == nil {
+					// conf is current cluster, we believe that local table must be exist
+					clickhouse.SyncLogicTable(conf, con, req.Database, req.LocalTable)
+					continue
 				}
 			}
 			controller.wrapfunc(c, model.E_TBL_CREATE_FAILED, err)
@@ -639,6 +633,57 @@ func (controller *ClickHouseController) AlterTable(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, nil)
 }
 
+// @Summary 更新/删除表中的数据
+// @Description 更新/删除表中的数据
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.DMLOnLogicReq true "request body"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":nil}"
+// @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":null}"
+// @Failure 200 {string} json "{"code":"5809","msg":"修改表失败","data":null}"
+// @Router /api/v2/ck/table/dml/{clusterName} [post]
+func (controller *ClickHouseController) DMLOnLogic(c *gin.Context) {
+	var req model.DMLOnLogicReq
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+		return
+	}
+	clusterName := c.Param(ClickHouseClusterPath)
+	cluster, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, err)
+		return
+	}
+
+	logics, err := repository.Ps.GetLogicClusterbyName(*cluster.LogicCluster)
+
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, err)
+		return
+	}
+
+	if req.Manipulation != model.DML_DELETE && req.Manipulation != model.DML_UPDATE {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, errors.New("manipulation is invalid"))
+		return
+	}
+
+	if req.Manipulation == model.DML_UPDATE && len(req.KV) == 0 {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, errors.New("kv is empty"))
+		return
+	}
+
+	if err := clickhouse.DMLOnLogic(logics, req); err != nil {
+		controller.wrapfunc(c, model.E_TBL_ALTER_FAILED, err)
+		return
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, nil)
+}
+
 // @Summary 修改表TTL
 // @Description 修改表TTL
 // @version 1.0
@@ -646,7 +691,7 @@ func (controller *ClickHouseController) AlterTable(c *gin.Context) {
 // @Tags clickhouse
 // @Accept  json
 // @Param clusterName path string true "cluster name" default(test)
-// @Param req body model.AlterCkTableReq true "request body"
+// @Param req body model.AlterTblsTTLReq true "request body"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":nil}"
 // @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
@@ -1165,6 +1210,62 @@ func (controller *ClickHouseController) QueryInfo(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, data)
 }
 
+// @Summary 查询SQL
+// @Description 查询SQL
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Param query query string true "sql" default(show databases)
+// @Failure 200 {string} json "{"code":"5110","msg":"连接clickhouse失败","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":[["name"],["default"],["system"]]}"
+// @Router /api/v2/ck/query_export/{clusterName} [get]
+func (controller *ClickHouseController) QueryExport(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	host := c.Query("host")
+	query := c.Query("query")
+	query = strings.TrimRight(strings.TrimSpace(query), ";")
+
+	var ckService *clickhouse.CkService
+	var err error
+	if host == "" {
+		ckService, err = clickhouse.GetCkService(clusterName)
+		if err != nil {
+			controller.wrapfunc(c, model.E_CH_CONNECT_FAILED, err)
+			return
+		}
+	} else {
+		ckService, err = clickhouse.GetCkNodeService(clusterName, host)
+		if err != nil {
+			controller.wrapfunc(c, model.E_CH_CONNECT_FAILED, err)
+			return
+		}
+	}
+
+	data, err := ckService.QueryInfo(query)
+	if err != nil {
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	fileName := fmt.Sprintf("ckman_query_%s_%s.csv", clusterName, time.Now().Format("2006-01-02T15:04:05"))
+
+	buf := &bytes.Buffer{}
+	buf.WriteString("\xEF\xBB\xBE")
+	writer := csv.NewWriter(buf)
+	for _, row := range data {
+		var cells []string
+		for _, cell := range row {
+			cells = append(cells, fmt.Sprintf("%v", cell))
+		}
+		writer.Write(cells)
+	}
+	writer.Flush()
+	c.Writer.Header().Set("Content-Disposition", "attachment;filename="+fileName)
+	c.Data(http.StatusOK, "application/octet-stream", buf.Bytes())
+}
+
 // @Summary 升级集群
 // @Description 升级集群，支持全量升级和滚动升级
 // @version 1.0
@@ -1226,6 +1327,7 @@ func (controller *ClickHouseController) UpgradeCluster(c *gin.Context) {
 	d := deploy.NewCkDeploy(conf)
 	d.Packages = deploy.BuildPackages(req.PackageVersion, conf.PkgType, conf.Cwd)
 	d.Ext.Policy = req.Policy
+	d.Ext.CurClusterOnly = true
 	d.Conf.Hosts = chHosts
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKUpgrade, d)
@@ -1306,20 +1408,6 @@ func (controller *ClickHouseController) StopCluster(c *gin.Context) {
 	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
 		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, err)
 		return
-	}
-
-	// before stop, we need sync zoopath
-	/*
-		Since when destory cluster, the cluster must be stopped,
-		we cant't get zookeeper path by querying ck,
-		so need to save the ZooKeeper path before stopping the cluster.
-	*/
-	if conf.IsReplica {
-		err = clickhouse.GetReplicaZkPath(&conf)
-		if err != nil {
-			controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
-			return
-		}
 	}
 
 	common.CloseConns(conf.Hosts)
@@ -1425,7 +1513,10 @@ func (controller *ClickHouseController) RebalanceCluster(c *gin.Context) {
 				return
 			}
 		}
-		allTable := common.TernaryExpression(c.Query("all") == "false" || req.ExceptMaxShard, false, true).(bool)
+		allTable := common.TernaryExpression(c.Query("all") == "false", false, true).(bool)
+		if req.ExceptMaxShard {
+			allTable = true
+		}
 		err = clickhouse.RebalanceCluster(&conf, req.Keys, allTable, req.ExceptMaxShard)
 		if err != nil {
 			controller.wrapfunc(c, model.E_TBL_ALTER_FAILED, err)
@@ -1447,7 +1538,7 @@ func (controller *ClickHouseController) RebalanceCluster(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
-// @Success 200 {string} json "{"code":"0000","msg":"success","data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}}"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}}"
 // @Router /api/v2/ck/get/{clusterName} [get]
 func (controller *ClickHouseController) GetClusterStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -1591,6 +1682,7 @@ func (controller *ClickHouseController) AddNode(c *gin.Context) {
 	// install clickhouse and start service on the new node
 	d := deploy.NewCkDeploy(conf)
 	d.Conf.Hosts = req.Ips
+
 	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	if reflect.DeepEqual(d.Packages, deploy.Packages{}) {
 		err := errors.Errorf("package %s %s not found in localpath", conf.Version, conf.PkgType)
@@ -1763,23 +1855,19 @@ func (controller *ClickHouseController) StartNode(c *gin.Context) {
 		ckService.InitCkService()
 		err := ckService.FetchSchemerFromOtherNode(host)
 		if err != nil {
-			err = common.ClikHouseExceptionDecode(err)
-			var exception *client.Exception
-			if errors.As(err, &exception) {
-				if exception.Code == 253 {
-					//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
-					service, err := zookeeper.GetZkService(conf.Cluster)
+			if common.ExceptionAS(err, common.REPLICA_ALREADY_EXISTS) {
+				//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
+				service, err := zookeeper.GetZkService(conf.Cluster)
+				if err == nil {
+					err = service.CleanZoopath(conf, conf.Cluster, ip, false)
 					if err == nil {
-						err = service.CleanZoopath(conf, conf.Cluster, ip, false)
-						if err == nil {
-							if err = ckService.FetchSchemerFromOtherNode(host); err != nil {
-								log.Logger.Errorf("fetch schema from other node failed again")
-							}
+						if err = ckService.FetchSchemerFromOtherNode(host); err != nil {
+							log.Logger.Errorf("fetch schema from other node failed again")
+
 						}
 					} else {
 						log.Logger.Errorf("can't create zookeeper instance:%v", err)
 					}
-
 				}
 			}
 		}
@@ -1958,15 +2046,8 @@ func (controller *ClickHouseController) GetTableMetric(c *gin.Context) {
 	var gotError bool
 	metrics, err := clickhouse.GetCkTableMetrics(&conf, database, cols)
 	if err != nil {
-		gotError = true
-		err = common.ClikHouseExceptionDecode(err)
-		var exception *client.Exception
-		if errors.As(err, &exception) {
-			if exception.Code == 60 {
-				// we do not return error when system.query_log is not exist
-				gotError = false
-			}
-		}
+		// we do not return error when system.query_log is not exist
+		gotError = !common.ExceptionAS(err, common.UNKNOWN_TABLE)
 	}
 
 	if gotError {
@@ -2034,15 +2115,8 @@ func (controller *ClickHouseController) GetOpenSessions(c *gin.Context) {
 	var gotError bool
 	sessions, err := clickhouse.GetCkOpenSessions(&conf, limit)
 	if err != nil {
-		gotError = true
-		err = common.ClikHouseExceptionDecode(err)
-		var exception *client.Exception
-		if errors.As(err, &exception) {
-			if exception.Code == 60 {
-				// we do not return error when system.query_log is not exist
-				gotError = false
-			}
-		}
+		// we do not return error when system.query_log is not exist
+		gotError = !common.ExceptionAS(err, common.UNKNOWN_TABLE)
 	}
 	if gotError {
 		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
@@ -2129,15 +2203,8 @@ func (controller *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	var gotError bool
 	sessions, err := clickhouse.GetCkSlowSessions(&conf, cond)
 	if err != nil {
-		gotError = true
-		err = common.ClikHouseExceptionDecode(err)
-		var exception *client.Exception
-		if errors.As(err, &exception) {
-			if exception.Code == 60 {
-				// we do not return error when system.query_log is not exist
-				gotError = false
-			}
-		}
+		// we do not return error when system.query_log is not exist
+		gotError = !common.ExceptionAS(err, common.UNKNOWN_TABLE)
 	}
 	if gotError {
 		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
@@ -2169,15 +2236,8 @@ func (controller *ClickHouseController) GetDistDDLQueue(c *gin.Context) {
 	var gotError bool
 	ddlQueue, err := clickhouse.GetDistibutedDDLQueue(&conf)
 	if err != nil {
-		gotError = true
-		err = common.ClikHouseExceptionDecode(err)
-		var exception *client.Exception
-		if errors.As(err, &exception) {
-			if exception.Code == 60 {
-				// we do not return error when system.query_log is not exist
-				gotError = false
-			}
-		}
+		// we do not return error when system.query_log is not exist
+		gotError = !common.ExceptionAS(err, common.UNKNOWN_TABLE)
 	}
 	if gotError {
 		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
@@ -2519,7 +2579,7 @@ func (controller *ClickHouseController) ClusterSetting(c *gin.Context) {
 		return
 	}
 
-	restart, err := mergeClickhouseConfig(&conf, force)
+	restart, cc, err := mergeClickhouseConfig(&conf, force)
 	if err != nil {
 		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
@@ -2528,6 +2588,8 @@ func (controller *ClickHouseController) ClusterSetting(c *gin.Context) {
 	d := deploy.NewCkDeploy(conf)
 	d.Ext.Restart = restart
 	d.Ext.Policy = policy
+	d.Ext.ChangeCk = cc
+	d.Ext.CurClusterOnly = true
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKSetting, d)
 	if err != nil {
 		controller.wrapfunc(c, model.E_DATA_INSERT_FAILED, err)
@@ -2810,11 +2872,12 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool, error) {
+func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool, bool, error) {
 	restart := false
+	config := false
 	cluster, err := repository.Ps.GetClusterbyName(conf.Cluster)
 	if err != nil {
-		return false, errors.Errorf("cluster %s is not exist", conf.Cluster)
+		return false, false, errors.Errorf("cluster %s is not exist", conf.Cluster)
 	}
 	conf.UnPack(cluster)
 	storageChanged := !reflect.DeepEqual(cluster.Storage, conf.Storage)
@@ -2822,38 +2885,27 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	userconfChanged := !reflect.DeepEqual(cluster.UsersConf, conf.UsersConf)
 	logicChaned := !reflect.DeepEqual(cluster.LogicCluster, conf.LogicCluster)
 	zkChanged := !reflect.DeepEqual(cluster.ZkNodes, conf.ZkNodes)
+	keeperChanged := !reflect.DeepEqual(cluster.KeeperConf, conf.KeeperConf)
 
 	noChangedFn := func() bool {
 		return cluster.Port == conf.Port &&
+			cluster.Comment == conf.Comment &&
 			cluster.AuthenticateType == conf.AuthenticateType &&
 			cluster.SshUser == conf.SshUser &&
 			cluster.SshPassword == conf.SshPassword &&
 			cluster.SshPort == conf.SshPort &&
 			cluster.Password == conf.Password && !storageChanged && !expertChanged &&
 			cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
-			cluster.ZkPort == conf.ZkPort && cluster.ZkStatusPort == conf.ZkStatusPort &&
-			!userconfChanged && !logicChaned && !zkChanged
+			cluster.ZkPort == conf.ZkPort &&
+			!userconfChanged && !logicChaned && !zkChanged && !keeperChanged
 	}
 
 	if !force {
 		if noChangedFn() {
-			return false, errors.Errorf("all config are the same, it's no need to update")
+			return false, false, errors.Errorf("all config are the same, it's no need to update")
 		}
 	}
 
-	if zkChanged {
-		zknodes := append(cluster.ZkNodes, conf.ZkNodes...)
-		zknodes = common.ArrayDistinct(zknodes)
-		zkclusters, err := zookeeper.GetZkClusterNodes(cluster.ZkNodes[0], cluster.ZkStatusPort)
-		if err != nil {
-			return false, err
-		}
-		for _, node := range zknodes {
-			if !common.ArraySearch(node, zkclusters) {
-				return false, fmt.Errorf("node %s not in zookeeper cluster", node)
-			}
-		}
-	}
 	if storageChanged {
 		srcDisks := make(common.Map)
 		dstDisks := make(common.Map)
@@ -2882,21 +2934,21 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 				log.Logger.Debug(query)
 				rows, err := svr.Conn.Query(query)
 				if err != nil {
-					return false, err
+					return false, false, err
 				}
 				for rows.Next() {
 					var policy string
 					if err = rows.Scan(&policy); err == nil {
 						rows.Close()
-						return false, fmt.Errorf("disk %v was refrenced by storage_policy %s, can't delete", disks, policy)
+						return false, false, fmt.Errorf("disk %v was refrenced by storage_policy %s, can't delete", disks, policy)
 					} else {
 						rows.Close()
-						return false, err
+						return false, false, err
 					}
 				}
 				rows.Close()
 			} else if !noChangedFn() {
-				return false, err
+				return false, false, err
 			}
 		}
 
@@ -2927,21 +2979,21 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 				log.Logger.Debug(query)
 				rows, err := svr.Conn.Query(query)
 				if err != nil {
-					return false, err
+					return false, false, err
 				}
 				for rows.Next() {
 					var database, table, policy_name string
 					if err = rows.Scan(&database, &table, &policy_name); err == nil {
 						rows.Close()
-						return false, fmt.Errorf("storage policy %s was refrenced by table %s.%s, can't delete", policy_name, database, table)
+						return false, false, fmt.Errorf("storage policy %s was refrenced by table %s.%s, can't delete", policy_name, database, table)
 					} else {
 						rows.Close()
-						return false, err
+						return false, false, err
 					}
 				}
 				rows.Close()
 			} else if !noChangedFn() {
-				return false, err
+				return false, false, err
 			}
 		}
 
@@ -2954,12 +3006,20 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 		}
 	}
 
+	if force || cluster.Port != conf.Port ||
+		cluster.Password != conf.Password || storageChanged || expertChanged ||
+		cluster.ZkPort != conf.ZkPort ||
+		userconfChanged || logicChaned || zkChanged || keeperChanged {
+		config = true
+	}
+
 	// need restart
-	if cluster.Port != conf.Port || storageChanged || expertChanged {
+	if force || cluster.Port != conf.Port || storageChanged || expertChanged || keeperChanged {
 		restart = true
 	}
 
 	// merge conf
+	cluster.Comment = conf.Comment
 	cluster.Port = conf.Port
 	cluster.AuthenticateType = conf.AuthenticateType
 	cluster.SshUser = conf.SshUser
@@ -2973,18 +3033,18 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	cluster.UsersConf = conf.UsersConf
 	cluster.LogicCluster = conf.LogicCluster
 	cluster.ZkPort = conf.ZkPort
-	cluster.ZkStatusPort = conf.ZkStatusPort
 	cluster.ZkNodes = conf.ZkNodes
+	cluster.KeeperConf = conf.KeeperConf
 	if err = common.DeepCopyByGob(conf, cluster); err != nil {
-		return false, err
+		return false, false, err
 	}
-	return restart, nil
+	return restart, config, nil
 }
 
 func genTTLExpress(ttls []model.CkTableTTL, storage *model.Storage) ([]string, error) {
 	var express []string
 	for _, ttl := range ttls {
-		expr := fmt.Sprintf("toDateTime(`%s`) + INTERVAL %d %s ", ttl.TimeCloumn, ttl.Interval, ttl.Unit)
+		expr := fmt.Sprintf("toDateTime(`%s`) + toInterval%s(%d) ", ttl.TimeCloumn, strings.Title(strings.ToLower(ttl.Unit)), ttl.Interval)
 		if ttl.Action == model.TTLActionDelete {
 			expr += ttl.Action
 		} else if ttl.Action == model.TTLActionToVolume {

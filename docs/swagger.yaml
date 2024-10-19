@@ -54,6 +54,32 @@ definitions:
           $ref: '#/definitions/model.CkTableRename'
         type: array
     type: object
+  model.AlterTblTTL:
+    properties:
+      database:
+        example: default
+        type: string
+      distName:
+        example: distt1
+        type: string
+      tableName:
+        example: t1
+        type: string
+    type: object
+  model.AlterTblsTTLReq:
+    properties:
+      tables:
+        items:
+          $ref: '#/definitions/model.AlterTblTTL'
+        type: array
+      ttl:
+        items:
+          $ref: '#/definitions/model.CkTableTTL'
+        type: array
+      ttl_type:
+        example: MODIFY
+        type: string
+    type: object
   model.ArchiveHdfs:
     properties:
       addr:
@@ -140,6 +166,9 @@ definitions:
       cluster:
         example: test
         type: string
+      comment:
+        example: test
+        type: string
       cwd:
         example: /home/eoi/clickhouse
         type: string
@@ -162,6 +191,11 @@ definitions:
       isReplica:
         example: true
         type: boolean
+      keeper:
+        example: zookeeper
+        type: string
+      keeperConf:
+        $ref: '#/definitions/model.KeeperConf'
       logic_cluster:
         example: logic_test
         type: string
@@ -183,6 +217,8 @@ definitions:
       promHost:
         example: 127.0.0.1
         type: string
+      promMetricPort:
+        $ref: '#/definitions/model.PromMetricPort'
       promPort:
         example: 9090
         type: integer
@@ -218,9 +254,6 @@ definitions:
         type: array
       zkPort:
         example: 2181
-        type: integer
-      zkStatusPort:
-        example: 8080
         type: integer
     type: object
   model.CkImportConfig:
@@ -272,9 +305,6 @@ definitions:
         type: array
       zkPort:
         example: 2181
-        type: integer
-      zkStatusPort:
-        example: 8080
         type: integer
     type: object
   model.CkTableNameType:
@@ -364,6 +394,21 @@ definitions:
         example: true
         type: boolean
     type: object
+  model.Coordination:
+    properties:
+      autoForwarding:
+        type: boolean
+      expert:
+        additionalProperties:
+          type: string
+        type: object
+      forceSync:
+        type: boolean
+      operationTimeoutMs:
+        type: integer
+      sessionTimeoutMs:
+        type: integer
+    type: object
   model.CreateCkTableReq:
     properties:
       database:
@@ -409,6 +454,21 @@ definitions:
         items:
           $ref: '#/definitions/model.CkTableTTL'
         type: array
+    type: object
+  model.DMLOnLogicReq:
+    properties:
+      cond:
+        type: string
+      database:
+        type: string
+      kv:
+        additionalProperties:
+          type: string
+        type: object
+      manipulation:
+        type: string
+      table:
+        type: string
     type: object
   model.Disk:
     properties:
@@ -498,6 +558,36 @@ definitions:
         description: minmax, set, bloom_filter, ngrambf_v1, tokenbf_v1
         type: string
     type: object
+  model.KeeperConf:
+    properties:
+      coordination:
+        $ref: '#/definitions/model.Coordination'
+      expert:
+        additionalProperties:
+          type: string
+        type: object
+      keeperNodes:
+        example:
+        - 192.168.101.102
+        - 192.168.101.105
+        - 192.168.101.107
+        items:
+          type: string
+        type: array
+      logPath:
+        type: string
+      raftPort:
+        example: 9234
+        type: integer
+      runtime:
+        example: standalone
+        type: string
+      snapshotPath:
+        type: string
+      tcpPort:
+        example: 9181
+        type: integer
+    type: object
   model.LoginReq:
     properties:
       password:
@@ -576,6 +666,15 @@ definitions:
       sql:
         type: string
     type: object
+  model.PromMetricPort:
+    properties:
+      clickHouse:
+        type: integer
+      nodeExport:
+        type: integer
+      zooKeeper:
+        type: integer
+    type: object
   model.PurgerTableReq:
     properties:
       begin:
@@ -598,9 +697,15 @@ definitions:
     type: object
   model.RebalanceShardingkey:
     properties:
+      allowLossRate:
+        example: 0.1
+        type: number
       database:
         example: default
         type: string
+      saveTemps:
+        example: true
+        type: boolean
       shardingKey:
         example: _timestamp
         type: string
@@ -790,7 +895,7 @@ paths:
         type: string
       responses:
         "200":
-          description: '{"code":"0000","msg":"ok", "data":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}'
+          description: '{"code":"0000","msg":"ok", "data":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}'
           schema:
             type: string
       security:
@@ -971,7 +1076,7 @@ paths:
         type: string
       responses:
         "200":
-          description: '{"code":"0000","msg":"success","data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"zkStatusPort":8080,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}}'
+          description: '{"code":"0000","msg":"success","data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}}'
           schema:
             type: string
       security:
@@ -1328,6 +1433,34 @@ paths:
       tags:
       - clickhouse
   /api/v2/ck/query/{clusterName}:
+    get:
+      consumes:
+      - application/json
+      description: 查询SQL
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - default: show databases
+        description: sql
+        in: query
+        name: query
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":"0000","msg":"ok","data":[["name"],["default"],["system"]]}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 查询SQL
+      tags:
+      - clickhouse
+  /api/v2/ck/query_export/{clusterName}:
     get:
       consumes:
       - application/json
@@ -1751,6 +1884,34 @@ paths:
       summary: 修改表
       tags:
       - clickhouse
+  /api/v2/ck/table/dml/{clusterName}:
+    post:
+      consumes:
+      - application/json
+      description: 更新/删除表中的数据
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.DMLOnLogicReq'
+      responses:
+        "200":
+          description: '{"code":"5809","msg":"修改表失败","data":null}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 更新/删除表中的数据
+      tags:
+      - clickhouse
   /api/v2/ck/table/group-uniq-array/{clusterName}:
     delete:
       consumes:
@@ -1888,7 +2049,7 @@ paths:
         name: req
         required: true
         schema:
-          $ref: '#/definitions/model.AlterCkTableReq'
+          $ref: '#/definitions/model.AlterTblsTTLReq'
       responses:
         "200":
           description: '{"code":"5809","msg":"修改表失败","data":null}'

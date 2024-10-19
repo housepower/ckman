@@ -111,7 +111,7 @@ func TestGenerateCustomXML(t *testing.T) {
 		Cwd:       "/home/eoi/clickhouse",
 		NeedSudo:  false,
 		Path:      "/data01/",
-		Version:   "22.3.3.44",
+		Version:   "23.3.3.44",
 	}
 	_, err := GenerateCustomXML("custom_fake.xml", conf, true)
 	assert.Nil(t, err)

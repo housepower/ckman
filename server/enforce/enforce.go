@@ -65,18 +65,21 @@ func Enforce(username, url, method string) bool {
 		return true
 	}
 
-	userinfo, err := common.GetUserInfo(username)
-	if err != nil {
-		return false
-	}
 	var policies []Policy
-	switch userinfo.Policy {
-	case common.GUEST:
-		policies = e.guest
-	case common.ORDINARY:
+	if username == common.InternalOrdinaryName {
 		policies = e.orinary
+	} else {
+		userinfo, err := common.GetUserInfo(username)
+		if err != nil {
+			return false
+		}
+		switch userinfo.Policy {
+		case common.GUEST:
+			policies = e.guest
+		case common.ORDINARY:
+			policies = e.orinary
+		}
 	}
-
 	for _, policy := range policies {
 		if e.Match(policy.URL, url) && policy.Method == method {
 			return true

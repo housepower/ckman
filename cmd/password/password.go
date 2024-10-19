@@ -1,4 +1,4 @@
-package main
+package password
 
 import (
 	"crypto/md5"
@@ -11,7 +11,7 @@ import (
 	"golang.org/x/term"
 )
 
-func main() {
+func PasswordHandle() {
 	common.LoadUsers(path.Join(common.GetWorkDirectory(), "conf"))
 	fmt.Println(`Password must be at least 8 characters long.
 Password must contain at least three character categories among the following:

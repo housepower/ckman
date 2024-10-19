@@ -3,7 +3,6 @@ package runner
 import (
 	"encoding/json"
 
-	client "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
@@ -45,6 +44,14 @@ func CKDeployHandle(task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
 		return err
+	}
+
+	if d.Conf.KeeperWithStanalone() {
+		task.TaskType = model.TaskTypeKeeperDeploy
+		if err := DeployKeeperCluster(task, d); err != nil {
+			return err
+		}
+		task.TaskType = model.TaskTypeCKDeploy
 	}
 
 	if err := DeployCkCluster(task, d); err != nil {
@@ -114,6 +121,14 @@ func CKDestoryHandle(task *model.Task) error {
 	common.CloseConns(conf.Hosts)
 	if err = DestroyCkCluster(task, d, &conf); err != nil {
 		return err
+	}
+
+	if d.Conf.KeeperWithStanalone() {
+		task.TaskType = model.TaskTypeKeeperDestory
+		if err = DestroyKeeperCluster(task, d, &conf); err != nil {
+			return err
+		}
+		task.TaskType = model.TaskTypeCKDestory
 	}
 
 	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
@@ -190,6 +205,11 @@ func CKAddNodeHandle(task *model.Task) error {
 		return err
 	}
 
+	if d.Conf.Keeper == model.ClickhouseKeeper && d.Conf.KeeperConf.Runtime == model.KeeperRuntimeInternal {
+		d.Ext.Restart = true
+		d.Conf.KeeperConf.KeeperNodes = append(d.Conf.KeeperConf.KeeperNodes, d.Conf.Hosts...)
+	}
+
 	conf, err := repository.Ps.GetClusterbyName(d.Conf.Cluster)
 	if err != nil {
 		return nil
@@ -215,25 +235,20 @@ func CKAddNodeHandle(task *model.Task) error {
 			return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 		}
 		if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
-			err = common.ClikHouseExceptionDecode(err)
-			var exception *client.Exception
-			if errors.As(err, &exception) {
-				if exception.Code == 253 {
-					//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
-					zkService, err := zookeeper.GetZkService(conf.Cluster)
+			if common.ExceptionAS(err, common.REPLICA_ALREADY_EXISTS) {
+				//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
+				zkService, err := zookeeper.GetZkService(conf.Cluster)
+				if err == nil {
+					err = zkService.CleanZoopath(conf, conf.Cluster, conf.Hosts[0], false)
 					if err == nil {
-						err = zkService.CleanZoopath(conf, conf.Cluster, conf.Hosts[0], false)
-						if err == nil {
-							if err = service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
-								log.Logger.Errorf("fetch schema from other node failed again")
-							}
+						if err = service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
+							log.Logger.Errorf("fetch schema from other node failed again")
 						}
-					} else {
-						log.Logger.Errorf("can't create zookeeper instance:%v", err)
 					}
+				} else {
+					log.Logger.Errorf("can't create zookeeper instance:%v", err)
 				}
-			}
-			if err != nil {
+			} else {
 				return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 			}
 		}
@@ -258,6 +273,14 @@ func CKUpgradeHandle(task *model.Task) error {
 		return nil
 	}
 
+	if d.Conf.KeeperWithStanalone() {
+		task.TaskType = model.TaskTypeKeeperUpgrade
+		if err = UpgradeKeeperCluster(task, d); err != nil {
+			return err
+		}
+		task.TaskType = model.TaskTypeCKUpgrade
+	}
+
 	err = UpgradeCkCluster(task, d)
 	if err != nil {
 		return err
@@ -278,23 +301,25 @@ func CKSettingHandle(task *model.Task) error {
 		return err
 	}
 
-	if err := ConfigCkCluster(task, d); err != nil {
-		return err
+	if !d.Ext.ChangeCk {
+		deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
+		if err := repository.Ps.UpdateCluster(*d.Conf); err != nil {
+			return errors.Wrapf(err, "[%s]", model.NodeStatusStore.EN)
+		}
+		deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
+		return nil
 	}
 
-	// sync table schema when logic cluster exists
-	deploy.SetNodeStatus(task, model.NodeStatusStore, model.ALL_NODES_DEFAULT)
-	if d.Conf.LogicCluster != nil {
-		logics, err := repository.Ps.GetLogicClusterbyName(*d.Conf.LogicCluster)
-		if err == nil && len(logics) > 0 {
-			for _, logic := range logics {
-				if cluster, err := repository.Ps.GetClusterbyName(logic); err == nil {
-					if clickhouse.SyncLogicTable(cluster, *d.Conf) {
-						break
-					}
-				}
-			}
+	if d.Conf.KeeperWithStanalone() {
+		task.TaskType = model.TaskTypeKeeperSetting
+		if err := ConfigKeeperCluster(task, d); err != nil {
+			return err
 		}
+		task.TaskType = model.TaskTypeCKSetting
+	}
+
+	if err := ConfigCkCluster(task, d); err != nil {
+		return err
 	}
 
 	if err := repository.Ps.Begin(); err != nil {

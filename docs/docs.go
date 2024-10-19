@@ -214,7 +214,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"ok\", \"data\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}",
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\", \"data\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}",
                         "schema": {
                             "type": "string"
                         }
@@ -530,7 +530,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"success\",\"data\":{\"test\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"zkStatusPort\":8080,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}}}",
+                        "description": "{\"code\":\"0000\",\"msg\":\"success\",\"data\":{\"test\":{\"mode\":\"import\",\"hosts\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\",\"192.168.0.4\"],\"names\":[\"node1\",\"node2\",\"node3\",\"node4\"],\"port\":9000,\"httpPort\":8123,\"user\":\"ck\",\"password\":\"123456\",\"database\":\"default\",\"cluster\":\"test\",\"zkNodes\":[\"192.168.0.1\",\"192.168.0.2\",\"192.168.0.3\"],\"zkPort\":2181,\"isReplica\":true,\"version\":\"20.8.5.45\",\"sshUser\":\"\",\"sshPassword\":\"\",\"shards\":[{\"replicas\":[{\"ip\":\"192.168.0.1\",\"hostname\":\"node1\"},{\"ip\":\"192.168.0.2\",\"hostname\":\"node2\"}]},{\"replicas\":[{\"ip\":\"192.168.0.3\",\"hostname\":\"node3\"},{\"ip\":\"192.168.0.4\",\"hostname\":\"node4\"}]}],\"path\":\"\"}}}}",
                         "schema": {
                             "type": "string"
                         }
@@ -1123,6 +1123,49 @@ var doc = `{
                 }
             }
         },
+        "/api/v2/ck/query_export/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "查询SQL",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "查询SQL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "show databases",
+                        "description": "sql",
+                        "name": "query",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":[[\"name\"],[\"default\"],[\"system\"]]}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/ck/rebalance/{clusterName}": {
             "put": {
                 "security": [
@@ -1515,6 +1558,50 @@ var doc = `{
                 }
             }
         },
+        "/api/v2/ck/table/dml/{clusterName}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新/删除表中的数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "更新/删除表中的数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DMLOnLogicReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"5809\",\"msg\":\"修改表失败\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/ck/table/group-uniq-array/{clusterName}": {
             "get": {
                 "security": [
@@ -1734,7 +1821,7 @@ var doc = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.AlterCkTableReq"
+                            "$ref": "#/definitions/model.AlterTblsTTLReq"
                         }
                     }
                 ],
@@ -2628,6 +2715,44 @@ var doc = `{
                 }
             }
         },
+        "model.AlterTblTTL": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string",
+                    "example": "default"
+                },
+                "distName": {
+                    "type": "string",
+                    "example": "distt1"
+                },
+                "tableName": {
+                    "type": "string",
+                    "example": "t1"
+                }
+            }
+        },
+        "model.AlterTblsTTLReq": {
+            "type": "object",
+            "properties": {
+                "tables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.AlterTblTTL"
+                    }
+                },
+                "ttl": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.CkTableTTL"
+                    }
+                },
+                "ttl_type": {
+                    "type": "string",
+                    "example": "MODIFY"
+                }
+            }
+        },
         "model.ArchiveHdfs": {
             "type": "object",
             "properties": {
@@ -2747,6 +2872,10 @@ var doc = `{
                     "type": "string",
                     "example": "test"
                 },
+                "comment": {
+                    "type": "string",
+                    "example": "test"
+                },
                 "cwd": {
                     "type": "string",
                     "example": "/home/eoi/clickhouse"
@@ -2777,6 +2906,13 @@ var doc = `{
                     "type": "boolean",
                     "example": true
                 },
+                "keeper": {
+                    "type": "string",
+                    "example": "zookeeper"
+                },
+                "keeperConf": {
+                    "$ref": "#/definitions/model.KeeperConf"
+                },
                 "logic_cluster": {
                     "type": "string",
                     "example": "logic_test"
@@ -2804,6 +2940,9 @@ var doc = `{
                 "promHost": {
                     "type": "string",
                     "example": "127.0.0.1"
+                },
+                "promMetricPort": {
+                    "$ref": "#/definitions/model.PromMetricPort"
                 },
                 "promPort": {
                     "type": "integer",
@@ -2853,10 +2992,6 @@ var doc = `{
                 "zkPort": {
                     "type": "integer",
                     "example": 2181
-                },
-                "zkStatusPort": {
-                    "type": "integer",
-                    "example": 8080
                 }
             }
         },
@@ -2927,10 +3062,6 @@ var doc = `{
                 "zkPort": {
                     "type": "integer",
                     "example": 2181
-                },
-                "zkStatusPort": {
-                    "type": "integer",
-                    "example": 8080
                 }
             }
         },
@@ -3052,6 +3183,29 @@ var doc = `{
                 }
             }
         },
+        "model.Coordination": {
+            "type": "object",
+            "properties": {
+                "autoForwarding": {
+                    "type": "boolean"
+                },
+                "expert": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "forceSync": {
+                    "type": "boolean"
+                },
+                "operationTimeoutMs": {
+                    "type": "integer"
+                },
+                "sessionTimeoutMs": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.CreateCkTableReq": {
             "type": "object",
             "properties": {
@@ -3116,6 +3270,29 @@ var doc = `{
                     "items": {
                         "$ref": "#/definitions/model.CkTableTTL"
                     }
+                }
+            }
+        },
+        "model.DMLOnLogicReq": {
+            "type": "object",
+            "properties": {
+                "cond": {
+                    "type": "string"
+                },
+                "database": {
+                    "type": "string"
+                },
+                "kv": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "manipulation": {
+                    "type": "string"
+                },
+                "table": {
+                    "type": "string"
                 }
             }
         },
@@ -3245,6 +3422,49 @@ var doc = `{
                 }
             }
         },
+        "model.KeeperConf": {
+            "type": "object",
+            "properties": {
+                "coordination": {
+                    "$ref": "#/definitions/model.Coordination"
+                },
+                "expert": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "keeperNodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.101.102",
+                        "192.168.101.105",
+                        "192.168.101.107"
+                    ]
+                },
+                "logPath": {
+                    "type": "string"
+                },
+                "raftPort": {
+                    "type": "integer",
+                    "example": 9234
+                },
+                "runtime": {
+                    "type": "string",
+                    "example": "standalone"
+                },
+                "snapshotPath": {
+                    "type": "string"
+                },
+                "tcpPort": {
+                    "type": "integer",
+                    "example": 9181
+                }
+            }
+        },
         "model.LoginReq": {
             "type": "object",
             "properties": {
@@ -3362,6 +3582,20 @@ var doc = `{
                 }
             }
         },
+        "model.PromMetricPort": {
+            "type": "object",
+            "properties": {
+                "clickHouse": {
+                    "type": "integer"
+                },
+                "nodeExport": {
+                    "type": "integer"
+                },
+                "zooKeeper": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.PurgerTableReq": {
             "type": "object",
             "properties": {
@@ -3393,9 +3627,17 @@ var doc = `{
         "model.RebalanceShardingkey": {
             "type": "object",
             "properties": {
+                "allowLossRate": {
+                    "type": "number",
+                    "example": 0.1
+                },
                 "database": {
                     "type": "string",
                     "example": "default"
+                },
+                "saveTemps": {
+                    "type": "boolean",
+                    "example": true
                 },
                 "shardingKey": {
                     "type": "string",

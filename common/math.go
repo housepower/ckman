@@ -19,15 +19,6 @@ func Decimal(value float64) float64 {
 	return value
 }
 
-func ArraySearch(target string, str_array []string) bool {
-	for _, str := range str_array {
-		if target == str {
-			return true
-		}
-	}
-	return false
-}
-
 func Md5CheckSum(s string) string {
 	sum := md5.Sum([]byte(s))
 	return hex.EncodeToString(sum[:16])

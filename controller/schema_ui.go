@@ -73,6 +73,11 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "不得与本ckman管理的其他集群名重复",
 		DescriptionEN: "not allow to duplicate with exist name",
 	})
+	params.MustRegister(conf, "Comment", &common.Parameter{
+		LabelZH:  "备注",
+		LabelEN:  "Comment",
+		Required: "false",
+	})
 	params.MustRegister(conf, "LogicCluster", &common.Parameter{
 		LabelZH:       "逻辑集群名",
 		LabelEN:       "Logic Name",
@@ -85,6 +90,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionZH: "工作路径，仅tgz部署时需要",
 		DescriptionEN: "Working directory, only required for tgz deployment",
 		Visiable:      "PkgType.indexOf('tgz') !== -1",
+		Regexp:        "^/.+/$",
 	})
 	params.MustRegister(conf, "SshUser", &common.Parameter{
 		LabelZH:       "系统账户名",
@@ -102,7 +108,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 			{Value: "1", LabelEN: "Password(not save)", LabelZH: "密码认证(不保存密码)"},
 			{Value: "2", LabelEN: "Public Key", LabelZH: "公钥认证"},
 		},
-		Default: "2",
+		Default: "0",
 	})
 	params.MustRegister(conf, "SshPassword", &common.Parameter{
 		LabelZH:       "系统账户密码",
@@ -124,18 +130,6 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelEN:   "Default Password",
 		InputType: common.InputPassword,
 	})
-	// params.MustRegister(conf, "IsReplica", &common.Parameter{
-	// 	LabelZH:       "是否为多副本",
-	// 	LabelEN:       "Replica",
-	// 	DescriptionZH: "物理集群的每个shard是否为多副本, 生产环境建议每个shard为两副本",
-	// 	DescriptionEN: "Whether each Shard of the cluster is multiple replication, we suggest each shard have two copies.",
-	// })
-	// params.MustRegister(conf, "Hosts", &common.Parameter{
-	// 	LabelZH:       "集群结点IP地址列表",
-	// 	LabelEN:       "ClickHouse Node List",
-	// 	DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
-	// 	DescriptionEN: "ClickHouse Node ip, support CIDR or Range.designation by ckman automatically",
-	// })
 	params.MustRegister(conf, "Shards", &common.Parameter{
 		LabelZH:       "集群节点配置",
 		LabelEN:       "ClickHouse Cluster Node",
@@ -181,23 +175,114 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		Required: "false",
 		Editable: "false",
 	})
+
+	params.MustRegister(conf, "Keeper", &common.Parameter{
+		Default:       "zookeeper",
+		DescriptionZH: "如果使用clickhouse-keeper， 则默认由ckman托管；如果使用已有zookeeper或已经创建好的keeper集群，都视同zookeeper",
+		Candidates: []common.Candidate{
+			{Value: model.Zookeeper, LabelEN: "Zookeeper", LabelZH: "Zookeeper"},
+			{Value: model.ClickhouseKeeper, LabelEN: "ClickHouse-Keeper", LabelZH: "ClickHouse-Keeper"},
+		},
+	})
+
+	params.MustRegister(conf, "KeeperConf", &common.Parameter{
+		LabelZH:       "Keeper配置",
+		LabelEN:       "KeeperConf",
+		DescriptionZH: "clickhouse-keeper的配置项",
+		Visiable:      "Keeper == 'clickhouse-keeper'",
+	})
+
+	var keeper model.KeeperConf
+	params.MustRegister(keeper, "Runtime", &common.Parameter{
+		LabelZH:       "运行方式",
+		LabelEN:       "Runtime",
+		Default:       model.KeeperRuntimeStandalone,
+		DescriptionZH: "如果单独部署，则和clickhouse-server 分开进程；如果内置，则和clickhouse-server放在一块",
+		Candidates: []common.Candidate{
+			{Value: model.KeeperRuntimeStandalone, LabelEN: "Standalone", LabelZH: "单独部署"},
+			{Value: model.KeeperRuntimeInternal, LabelEN: "Internal", LabelZH: "内置"},
+		},
+	})
+	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
+		LabelZH:  "Keeper节点",
+		LabelEN:  "KeeperNodes",
+		Visiable: "Runtime == 'standalone'",
+	})
+
+	params.MustRegister(keeper, "TcpPort", &common.Parameter{
+		LabelZH: "Keeper端口",
+		LabelEN: "TcpPort",
+		Default: "9181",
+	})
+	params.MustRegister(keeper, "RaftPort", &common.Parameter{
+		LabelZH: "Raft通信端口",
+		LabelEN: "RaftPort",
+		Default: "9234",
+	})
+	params.MustRegister(keeper, "LogPath", &common.Parameter{
+		LabelZH: "Log路径",
+		LabelEN: "LogPath",
+		Default: "/var/lib/",
+		Regexp:  "^/.+/$",
+	})
+	params.MustRegister(keeper, "SnapshotPath", &common.Parameter{
+		LabelZH: "Snapshot路径",
+		LabelEN: "SnapshotPath",
+		Default: "/var/lib/",
+		Regexp:  "^/.+/$",
+	})
+	params.MustRegister(keeper, "Expert", &common.Parameter{
+		LabelZH:  "专家配置",
+		LabelEN:  "Expert",
+		Required: "false",
+	})
+	params.MustRegister(keeper, "Coordination", &common.Parameter{
+		LabelZH:  "协作配置",
+		LabelEN:  "Coordination",
+		Required: "false",
+	})
+
+	var coordination model.Coordination
+	params.MustRegister(coordination, "OperationTimeoutMs", &common.Parameter{
+		LabelZH:  "OperationTimeoutMs",
+		LabelEN:  "OperationTimeoutMs",
+		Default:  "10000",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "SessionTimeoutMs", &common.Parameter{
+		LabelZH:  "SessionTimeoutMs",
+		LabelEN:  "SessionTimeoutMs",
+		Default:  "30000",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "ForceSync", &common.Parameter{
+		LabelZH:  "ForceSync",
+		LabelEN:  "ForceSync",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "AutoForwarding", &common.Parameter{
+		LabelZH:  "AutoForwarding",
+		LabelEN:  "AutoForwarding",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "Expert", &common.Parameter{
+		LabelZH:  "专家配置",
+		LabelEN:  "Expert",
+		Required: "false",
+	})
+
 	params.MustRegister(conf, "ZkNodes", &common.Parameter{
 		LabelZH:       "ZooKeeper集群结点列表",
 		LabelEN:       "Zookeeper Node List",
 		DescriptionZH: "每段为单个IP，或者IP范围，或者网段掩码",
 		DescriptionEN: "Zookeeper Node ip, support CIDR or Range.",
+		Visiable:      "Keeper == 'zookeeper'",
 	})
 	params.MustRegister(conf, "ZkPort", &common.Parameter{
-		LabelZH: "ZooKeeper集群监听端口",
-		LabelEN: "Zookeeper Port",
-		Default: "2181",
-	})
-	params.MustRegister(conf, "ZkStatusPort", &common.Parameter{
-		LabelZH:       "Zookeeper监控端口",
-		LabelEN:       "Zookeeper Status Port",
-		DescriptionZH: "暴露给mntr等四字命令的端口，zookeeper 3.5.0 以上支持",
-		DescriptionEN: "expose to commands/mntr, zookeeper support it after 3.5.0",
-		Default:       "8080",
+		LabelZH:  "ZooKeeper集群监听端口",
+		LabelEN:  "Zookeeper Port",
+		Default:  "2181",
+		Visiable: "Keeper == 'zookeeper'",
 	})
 	params.MustRegister(conf, "PromHost", &common.Parameter{
 		LabelZH:  "Promethues 地址",
@@ -247,6 +332,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelZH:       "数据存储路径",
 		LabelEN:       "Data Path",
 		DescriptionZH: "ClickHouse存储数据的路径，路径需要存在且必须以'/'结尾",
+		Default:       "/var/lib/",
 		DescriptionEN: "path need exist, must end with '/'",
 		Regexp:        "^/.+/$",
 	})
@@ -690,6 +776,11 @@ Non-professionals please do not fill in this`,
 func RegistUpdateConfigSchema() common.ConfigParams {
 	var params common.ConfigParams = make(map[string]*common.Parameter)
 	var conf model.CKManClickHouseConfig
+	params.MustRegister(conf, "Comment", &common.Parameter{
+		LabelZH:  "备注",
+		LabelEN:  "Comment",
+		Required: "false",
+	})
 	params.MustRegister(conf, "Version", &common.Parameter{
 		LabelZH:       "ClickHouse版本",
 		LabelEN:       "Version",
@@ -766,18 +857,6 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:       "SSH Port",
 		DescriptionZH: "不得为空",
 	})
-	// params.MustRegister(conf, "IsReplica", &common.Parameter{
-	// 	LabelZH:       "是否为多副本",
-	// 	LabelEN:       "Replica",
-	// 	DescriptionZH: "物理集群的每个shard是否为多副本, 生产环境建议每个shard为两副本",
-	// 	DescriptionEN: "Whether each Shard of the cluster is multiple replication, we suggest each shard have two copies.",
-	// })
-	// params.MustRegister(conf, "Hosts", &common.Parameter{
-	// 	LabelZH:       "集群结点IP地址列表",
-	// 	LabelEN:       "ClickHouse Node List",
-	// 	DescriptionZH: "由ckman完成各结点分配到shard。每输入框为单个IP，或者IP范围，或者网段掩码",
-	// 	DescriptionEN: "ClickHouse Node ip, support CIDR or Range.designation by ckman automatically",
-	// })
 	params.MustRegister(conf, "Shards", &common.Parameter{
 		LabelZH:       "集群节点配置",
 		LabelEN:       "ClickHouse Cluster Node",
@@ -800,21 +879,108 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:  "Replica Node IP",
 		Editable: "false",
 	})
+	params.MustRegister(conf, "Keeper", &common.Parameter{
+		DescriptionZH: "如果使用clickhouse-keeper， 则默认由ckman托管；如果使用已有zookeeper或已经创建好的keeper集群，都视同zookeeper",
+		Candidates: []common.Candidate{
+			{Value: model.Zookeeper, LabelEN: "Zookeeper", LabelZH: "Zookeeper"},
+			{Value: model.ClickhouseKeeper, LabelEN: "ClickHouse-Keeper", LabelZH: "ClickHouse-Keeper"},
+		},
+		Editable: "false",
+	})
+
+	params.MustRegister(conf, "KeeperConf", &common.Parameter{
+		LabelZH:       "Keeper配置",
+		LabelEN:       "KeeperConf",
+		DescriptionZH: "clickhouse-keeper的配置项",
+		Visiable:      "Keeper == 'clickhouse-keeper'",
+	})
+
+	var keeper model.KeeperConf
+	params.MustRegister(keeper, "Runtime", &common.Parameter{
+		LabelZH:       "运行方式",
+		LabelEN:       "Runtime",
+		DescriptionZH: "如果单独部署，则和clickhouse-server 分开进程；如果内置，则和clickhouse-server放在一块",
+		Candidates: []common.Candidate{
+			{Value: model.KeeperRuntimeStandalone, LabelEN: "Standalone", LabelZH: "单独部署"},
+			{Value: model.KeeperRuntimeInternal, LabelEN: "Internal", LabelZH: "内置"},
+		},
+		Editable: "false",
+	})
+	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
+		LabelZH:  "Keeper节点",
+		LabelEN:  "KeeperNodes",
+		Editable: "false",
+	})
+
+	params.MustRegister(keeper, "TcpPort", &common.Parameter{
+		LabelZH: "Keeper端口",
+		LabelEN: "TcpPort",
+	})
+	params.MustRegister(keeper, "RaftPort", &common.Parameter{
+		LabelZH: "Raft通信端口",
+		LabelEN: "RaftPort",
+	})
+	params.MustRegister(keeper, "LogPath", &common.Parameter{
+		LabelZH:  "Log路径",
+		LabelEN:  "LogPath",
+		Editable: "false",
+	})
+	params.MustRegister(keeper, "SnapshotPath", &common.Parameter{
+		LabelZH:  "Snapshot路径",
+		LabelEN:  "SnapshotPath",
+		Editable: "false",
+	})
+	params.MustRegister(keeper, "Expert", &common.Parameter{
+		LabelZH:  "专家配置",
+		LabelEN:  "Expert",
+		Required: "false",
+	})
+	params.MustRegister(keeper, "Coordination", &common.Parameter{
+		LabelZH:  "协作配置",
+		LabelEN:  "Coordination",
+		Required: "false",
+	})
+
+	var coordination model.Coordination
+	params.MustRegister(coordination, "OperationTimeoutMs", &common.Parameter{
+		LabelZH:  "OperationTimeoutMs",
+		LabelEN:  "OperationTimeoutMs",
+		Default:  "10000",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "SessionTimeoutMs", &common.Parameter{
+		LabelZH:  "SessionTimeoutMs",
+		LabelEN:  "SessionTimeoutMs",
+		Default:  "30000",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "ForceSync", &common.Parameter{
+		LabelZH:  "ForceSync",
+		LabelEN:  "ForceSync",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "AutoForwarding", &common.Parameter{
+		LabelZH:  "AutoForwarding",
+		LabelEN:  "AutoForwarding",
+		Required: "false",
+	})
+	params.MustRegister(coordination, "Expert", &common.Parameter{
+		LabelZH:  "专家配置",
+		LabelEN:  "Expert",
+		Required: "false",
+	})
+
 	params.MustRegister(conf, "ZkNodes", &common.Parameter{
 		LabelZH:       "ZooKeeper集群结点列表",
 		LabelEN:       "Zookeeper Node List",
 		DescriptionZH: "每段为单个IP，或者IP范围，或者网段掩码",
 		DescriptionEN: "Zookeeper Node ip, support CIDR or Range.",
+		Visiable:      "Keeper == 'zookeeper'",
 	})
 	params.MustRegister(conf, "ZkPort", &common.Parameter{
-		LabelZH: "ZooKeeper集群监听端口",
-		LabelEN: "Zookeeper Port",
-	})
-	params.MustRegister(conf, "ZkStatusPort", &common.Parameter{
-		LabelZH:       "Zookeeper监控端口",
-		LabelEN:       "Zookeeper Status Port",
-		DescriptionZH: "暴露给mntr等四字命令的端口，zookeeper 3.5.0 以上支持",
-		DescriptionEN: "expose to commands/mntr, zookeeper support it after 3.5.0",
+		LabelZH:  "ZooKeeper集群监听端口",
+		LabelEN:  "Zookeeper Port",
+		Visiable: "Keeper == 'zookeeper'",
 	})
 	params.MustRegister(conf, "PromHost", &common.Parameter{
 		LabelZH:  "Promethues 地址",
@@ -1367,6 +1533,27 @@ func RegistRebalanceClusterSchema() common.ConfigParams {
 		LabelEN:       "ShardingKey",
 		DescriptionZH: "如果ShardingKey为空，则默认按照partition做数据均衡",
 		DescriptionEN: "if shardingkey is empty, then rebalance by partition default",
+		Required:      "false",
+	})
+
+	params.MustRegister(key, "AllowLossRate", &common.Parameter{
+		LabelZH:       "允许错误率",
+		LabelEN:       "AllowLossRate",
+		DescriptionZH: "均衡数据过程中允许数据的丢失率",
+		DescriptionEN: "Allow the loss rate during the data balancing process",
+		Range: &common.Range{
+			Min:  0,
+			Max:  1,
+			Step: 0.01,
+		},
+		Default:  "0",
+		Required: "false",
+	})
+	params.MustRegister(key, "SaveTemps", &common.Parameter{
+		LabelZH:       "保留临时数据",
+		LabelEN:       "SaveTemps",
+		DescriptionZH: "均衡数据过程中保存原始数据到临时表",
+		DescriptionEN: "Save the original data to a temporary table during data balancing",
 		Required:      "false",
 	})
 

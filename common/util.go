@@ -259,8 +259,8 @@ func Shuffle(value []string) []string {
 	return arr
 }
 
-func ArrayDistinct(arr []string) []string {
-	set := make(map[string]struct{}, len(arr))
+func ArrayDistinct[T string | int | int64 | int32 | uint | uint64 | uint32 | float32 | float64](arr []T) []T {
+	set := make(map[T]struct{}, len(arr))
 	j := 0
 	for _, v := range arr {
 		_, ok := set[v]
@@ -272,6 +272,26 @@ func ArrayDistinct(arr []string) []string {
 		j++
 	}
 	return arr[:j]
+}
+
+func ArrayRemove[T string | int | int64 | int32 | uint | uint64 | uint32 | float32 | float64](arr []T, elem T) []T {
+	var res []T
+	for _, v := range arr {
+		if v == elem {
+			continue
+		}
+		res = append(res, v)
+	}
+	return res
+}
+
+func ArraySearch[T string | int | int64 | int32 | uint | uint64 | uint32 | float32 | float64](target T, str_array []T) bool {
+	for _, str := range str_array {
+		if target == str {
+			return true
+		}
+	}
+	return false
 }
 
 func TernaryExpression(condition bool, texpr, fexpr interface{}) interface{} {

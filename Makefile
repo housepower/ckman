@@ -14,6 +14,7 @@ GOARCH?=$(shell go env GOARCH)
 TARNAME=${PKGDIR}-${VERSION}-${DATE}.${OS}.$(GOARCH).tar.gz
 TAG?=$(shell date +%y%m%d)
 LDFLAGS=-ldflags "-X main.BuildTimeStamp=${TIME} -X main.GitCommitHash=${REVISION} -X main.Version=${VERSION}"
+GCFLAGS=-gcflags "all=-N -l"
 PUB_KEY=$(shell cat resources/eoi_public_key.pub 2>/dev/null)
 export GOPROXY=https://goproxy.cn,direct
 
@@ -28,10 +29,13 @@ frontend:
 backend:
 	@rm -rf ${PKGFULLDIR}
 	go build ${LDFLAGS}
-	go build ${LDFLAGS} -o ckmanpasswd cmd/password/password.go
-	go build ${LDFLAGS} -o migrate cmd/migrate/migrate.go
-	go build ${LDFLAGS} -o znodefix cmd/znodefix/znodefix.go
-	go build ${LDFLAGS} -o znode_count cmd/znodecnt/znodecount.go
+	go build ${LDFLAGS} -o cmd/ckmanctl/ckmanctl cmd/ckmanctl/ckmanctl.go
+
+.PHONY: debug
+debug:
+	@rm -rf ${PKGFULLDIR}
+	go build ${GCFLAGS} ${LDFLAGS}
+	go build ${LDFLAGS} -o cmd/ckmanctl/ckmanctl cmd/ckmanctl/ckmanctl.go
 
 .PHONY: pre
 pre:
@@ -66,10 +70,7 @@ package:build
 	@rm -rf ${PKGFULLDIR_TMP}
 	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package ${PKGFULLDIR_TMP}/dbscript
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
-	@mv ${SHDIR}/ckmanpasswd ${PKGFULLDIR_TMP}/bin
-	@mv ${SHDIR}/migrate ${PKGFULLDIR_TMP}/bin
-	@mv ${SHDIR}/znodefix ${PKGFULLDIR_TMP}/bin
-	@mv ${SHDIR}/znode_count ${PKGFULLDIR_TMP}/bin
+	@mv ${SHDIR}/cmd/ckmanctl/ckmanctl ${PKGFULLDIR_TMP}/binn
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/yaml2json.${GOARCH} ${PKGFULLDIR_TMP}/bin/yaml2json

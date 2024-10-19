@@ -10,9 +10,9 @@ type CmdAdpt interface {
 	StartCmd(svr, cwd string) string
 	StopCmd(svr, cwd string) string
 	RestartCmd(svr, cwd string) string
-	InstallCmd(pkgs Packages) string
-	UpgradeCmd(pkgs Packages) string
-	Uninstall(pkgs Packages, version string) string
+	InstallCmd(svr string, pkgs Packages) string
+	UpgradeCmd(svr string, pkgs Packages) string
+	Uninstall(svr string, pkgs Packages, version string) string
 }
 
 type CmdFactory interface {

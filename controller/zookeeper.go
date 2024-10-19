@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/repository"
 
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/zookeeper"
 	jsoniter "github.com/json-iterator/go"
 )
@@ -46,15 +48,23 @@ func (controller *ZookeeperController) GetStatus(c *gin.Context) {
 		return
 	}
 
-	zkList := make([]model.ZkStatusRsp, len(conf.ZkNodes))
-	for index, node := range conf.ZkNodes {
+	nodes, port := zookeeper.GetZkInfo(&conf)
+
+	zkList := make([]model.ZkStatusRsp, len(nodes))
+	for index, node := range nodes {
 		tmp := model.ZkStatusRsp{
 			Host: node,
 		}
-		body, err := zookeeper.ZkMetric(node, conf.ZkStatusPort, "mntr")
+		body, err := zookeeper.ZkMetric(node, port, "mntr")
 		if err != nil {
-			controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
-			return
+			// controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, fmt.Sprintf("get zookeeper node %s satus fail: %v", node, err))
+			// return
+			log.Logger.Warnf("get zookeeper node %s satus fail: %v", node, err)
+			tmp.Version = "unknown"
+			tmp.ServerState = "unknown"
+			tmp.PeerState = "offline"
+			zkList[index] = tmp
+			continue
 		}
 		_ = json.Unmarshal(body, &tmp)
 		tmp.Version = strings.Split(strings.Split(tmp.Version, ",")[0], "-")[0]
@@ -83,13 +93,7 @@ func (controller *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) 
 		return
 	}
 
-	zkService, err := zookeeper.GetZkService(clusterName)
-	if err != nil {
-		controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, fmt.Sprintf("get zookeeper service fail: %v", err))
-		return
-	}
-
-	tables, err := zkService.GetReplicatedTableStatus(&conf)
+	tables, err := clickhouse.GetReplicatedTableStatus(&conf)
 	if err != nil {
 		controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
 		return

@@ -19,6 +19,7 @@ func OrdinaryPolicies() []Policy {
 		{"/ck/open_sessions/*", PUT},
 		{"/ck/purge_tables/*", POST},
 		{"/ck/archive/*", POST},
+		{"/ck/table/dml/*", POST},
 	}
 	return append(OrdinaryPolicies, GuestPolicies()...)
 }

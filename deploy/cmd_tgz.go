@@ -16,40 +16,53 @@ func (TgzFacotry) Create() CmdAdpt {
 type TgzPkg struct{}
 
 func (p *TgzPkg) StartCmd(svr, cwd string) string {
-	return fmt.Sprintf("%s/bin/%s --config-file=%s/etc/%s/config.xml --pid-file=%s/run/%s.pid --daemon", cwd, svr, cwd, svr, cwd, svr)
+	if svr == KeeperSvrName {
+		return fmt.Sprintf("%sbin/%s --config-file=%setc/%s/keeper_config.xml --pid-file=%srun/%s.pid --daemon", cwd, svr, cwd, svr, cwd, svr)
+	} else {
+		return fmt.Sprintf("%sbin/%s --config-file=%setc/%s/config.xml --pid-file=%srun/%s.pid --daemon", cwd, svr, cwd, svr, cwd, svr)
+	}
 }
 func (p *TgzPkg) StopCmd(svr, cwd string) string {
-	return fmt.Sprintf("ps -ef |grep %s/bin/%s |grep -v grep |awk '{print $2}' |xargs kill", cwd, svr)
+	return fmt.Sprintf("ps -ef |grep %sbin/%s |grep -v grep |awk '{print $2}' |xargs kill", cwd, svr)
 }
 
 func (p *TgzPkg) RestartCmd(svr, cwd string) string {
-	return p.StopCmd(svr, cwd) + ";" + p.StartCmd(svr, cwd)
+	return p.StopCmd(svr, cwd) + "; sleep 5;" + p.StartCmd(svr, cwd)
 }
 
-func (p *TgzPkg) InstallCmd(pkgs Packages) string {
-	content := fmt.Sprintf("mkdir -p %s/bin %s/etc/clickhouse-server/config.d %s/etc/clickhouse-server/users.d %s/log/clickhouse-server %s/run %s/data/clickhouse;", pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd)
-	for _, pkg := range pkgs.PkgLists {
+func (p *TgzPkg) InstallCmd(svr string, pkgs Packages) string {
+	content := ""
+	if svr == CkSvrName {
+		content = fmt.Sprintf("mkdir -p %sbin %setc/clickhouse-server/config.d %setc/clickhouse-server/users.d %slog/clickhouse-server %srun;",
+			pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd)
+		for _, pkg := range pkgs.PkgLists {
+			lastIndex := strings.LastIndex(pkg, "-")
+			extractDir := pkg[:lastIndex]
+			content += fmt.Sprintf("tar -xf /tmp/%s -C /tmp;", pkg)
+			content += fmt.Sprintf("cp -rf /tmp/%s/usr/bin/* %sbin;", extractDir, pkgs.Cwd)
+			if strings.Contains(extractDir, common.PkgModuleClient) {
+				content += fmt.Sprintf("cp -rf /tmp/%s/etc/clickhouse-client %setc/;", extractDir, pkgs.Cwd)
+			} else if strings.Contains(extractDir, common.PkgModuleServer) {
+				content += fmt.Sprintf("cp -rf /tmp/%s/etc/clickhouse-server %setc/;", extractDir, pkgs.Cwd)
+			}
+		}
+	} else if svr == KeeperSvrName {
+		content = fmt.Sprintf("mkdir -p %sbin %s/etc/clickhouse-keeper %slog/clickhouse-keeper %srun;",
+			pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd)
+		pkg := pkgs.Keeper
 		lastIndex := strings.LastIndex(pkg, "-")
 		extractDir := pkg[:lastIndex]
-		content += fmt.Sprintf("tar -xvf /tmp/%s -C /tmp;", pkg)
-		content += fmt.Sprintf("cp -rf /tmp/%s/usr/bin/* %s/bin;", extractDir, pkgs.Cwd)
-		if !strings.Contains(extractDir, common.PkgModuleCommon) {
-			content += fmt.Sprintf("cp -rf /tmp/%s/etc/clickhouse-* %s/etc/;", extractDir, pkgs.Cwd)
-		}
+		content += fmt.Sprintf("tar -xf /tmp/%s -C /tmp;", pkg)
+		content += fmt.Sprintf("cp -rf /tmp/%s/usr/bin/* %sbin;", extractDir, pkgs.Cwd)
+		content += fmt.Sprintf("cp -rf /tmp/%s/etc/clickhouse-keeper/* %setc/clickhouse-keeper/;", extractDir, pkgs.Cwd)
 	}
-	//content += fmt.Sprintf(`echo "PATH=$PATH:%s/bin" > %s/.profile;`, pkgs.Cwd, pkgs.Cwd)
-	//content += fmt.Sprintf(`echo source %s/.profile >> ${HOME}/.bash_profile;`, pkgs.Cwd)
-	//content += fmt.Sprintf("source ${HOME}/.bash_profile;")
-	//content += "useradd clickhouse;"
-	//content += "groupadd clickhouse;"
-	//content += fmt.Sprintf("chown -R clickhouse:clickhouse %s", pkgs.Cwd)
 	return strings.TrimSuffix(content, ";")
 }
 
-func (p *TgzPkg) UpgradeCmd(pkgs Packages) string {
-	return p.InstallCmd(pkgs)
+func (p *TgzPkg) UpgradeCmd(svr string, pkgs Packages) string {
+	return p.InstallCmd(svr, pkgs)
 }
 
-func (p *TgzPkg) Uninstall(pkgs Packages, version string) string {
-	return fmt.Sprintf("rm -rf %s/*", pkgs.Cwd)
+func (p *TgzPkg) Uninstall(svr string, pkgs Packages, version string) string {
+	return fmt.Sprintf("rm -rf %s*", pkgs.Cwd)
 }

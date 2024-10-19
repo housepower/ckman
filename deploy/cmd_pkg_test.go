@@ -37,7 +37,7 @@ func TestTgzPkg_InstallCmd(t *testing.T) {
 		Cwd: "/home/eoi/clickhouse",
 	}
 	p := TgzFacotry{}.Create()
-	out := p.InstallCmd(pkgs)
+	out := p.InstallCmd(CkSvrName, pkgs)
 	expect := `mkdir -p /home/eoi/clickhouse/bin /home/eoi/clickhouse/etc/clickhouse-server/config.d /home/eoi/clickhouse/etc/clickhouse-server/users.d /home/eoi/clickhouse/log/clickhouse-server /home/eoi/clickhouse/run /home/eoi/clickhouse/data/clickhouse;tar -xvf /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-common-static-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;tar -xvf /tmp/clickhouse-server-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-server-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-server-22.3.6.5/etc/clickhouse-* /home/eoi/clickhouse/etc/;tar -xvf /tmp/clickhouse-client-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-client-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-client-22.3.6.5/etc/clickhouse-* /home/eoi/clickhouse/etc/`
 	assert.Equal(t, expect, out)
 }
@@ -53,7 +53,7 @@ func TestTgzPkg_UninstallCmd(t *testing.T) {
 	}
 	p := TgzFacotry{}.Create()
 	expect := "rm -rf /home/eoi/clickhouse/*"
-	out := p.Uninstall(pkgs, "22.3.6.5")
+	out := p.Uninstall(CkSvrName, pkgs, "22.3.6.5")
 	assert.Equal(t, expect, out)
 }
 
@@ -67,7 +67,7 @@ func TestTgzPkg_UpgradeCmd(t *testing.T) {
 		Cwd: "/home/eoi/clickhouse",
 	}
 	p := TgzFacotry{}.Create()
-	out := p.UpgradeCmd(pkgs)
+	out := p.UpgradeCmd(CkSvrName, pkgs)
 	expect := `mkdir -p /home/eoi/clickhouse/bin /home/eoi/clickhouse/etc/clickhouse-server/config.d /home/eoi/clickhouse/etc/clickhouse-server/users.d /home/eoi/clickhouse/log/clickhouse-server /home/eoi/clickhouse/run /home/eoi/clickhouse/data/clickhouse;tar -xvf /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-common-static-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;tar -xvf /tmp/clickhouse-server-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-server-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-server-22.3.6.5/etc/clickhouse-* /home/eoi/clickhouse/etc/;tar -xvf /tmp/clickhouse-client-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-client-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-client-22.3.6.5/etc/clickhouse-* /home/eoi/clickhouse/etc/`
 	assert.Equal(t, expect, out)
 }
@@ -102,7 +102,7 @@ func TestRpmPkg_InstallCmd(t *testing.T) {
 		},
 	}
 	p := RpmFacotry{}.Create()
-	out := p.InstallCmd(pkgs)
+	out := p.InstallCmd(CkSvrName, pkgs)
 	expect := `DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -ivh /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz;DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -ivh /tmp/clickhouse-server-22.3.6.5-amd64.tgz;DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -ivh /tmp/clickhouse-client-22.3.6.5-amd64.tgz`
 	assert.Equal(t, expect, out)
 }
@@ -116,7 +116,7 @@ func TestRpmPkg_UninstallCmd(t *testing.T) {
 		},
 	}
 	p := RpmFacotry{}.Create()
-	out := p.Uninstall(pkgs, "22.3.6.5")
+	out := p.Uninstall(CkSvrName, pkgs, "22.3.6.5")
 	expect := `rpm -e $(rpm -qa |grep clickhouse |grep 22.3.6.5)`
 	assert.Equal(t, expect, out)
 }
@@ -130,7 +130,7 @@ func TestRpmPkg_UpgradeCmd(t *testing.T) {
 		},
 	}
 	p := RpmFacotry{}.Create()
-	out := p.UpgradeCmd(pkgs)
+	out := p.UpgradeCmd(CkSvrName, pkgs)
 	expect := `DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -Uvh /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz;DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -Uvh /tmp/clickhouse-server-22.3.6.5-amd64.tgz;DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -Uvh /tmp/clickhouse-client-22.3.6.5-amd64.tgz`
 	assert.Equal(t, expect, out)
 }
@@ -165,7 +165,7 @@ func TestDebPkg_InstallCmd(t *testing.T) {
 		},
 	}
 	p := DebFacotry{}.Create()
-	out := p.InstallCmd(pkgs)
+	out := p.InstallCmd(CkSvrName, pkgs)
 	expect := `DEBIAN_FRONTEND=noninteractive dpkg -i /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz /tmp/clickhouse-server-22.3.6.5-amd64.tgz /tmp/clickhouse-client-22.3.6.5-amd64.tgz`
 	assert.Equal(t, expect, out)
 }
@@ -179,7 +179,7 @@ func TestDebPkg_UninstallCmd(t *testing.T) {
 		},
 	}
 	p := DebFacotry{}.Create()
-	out := p.Uninstall(pkgs, "22.3.6.5")
+	out := p.Uninstall(CkSvrName, pkgs, "22.3.6.5")
 	expect := `dpkg -P clickhouse-client clickhouse-common-static  clickhouse-server`
 	assert.Equal(t, expect, out)
 }
@@ -194,7 +194,7 @@ func TestDebPkg_UpgradeCmd(t *testing.T) {
 		Cwd: "/home/eoi/clickhouse",
 	}
 	p := DebFacotry{}.Create()
-	out := p.UpgradeCmd(pkgs)
+	out := p.UpgradeCmd(CkSvrName, pkgs)
 	expect := `DEBIAN_FRONTEND=noninteractive dpkg -i /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz /tmp/clickhouse-server-22.3.6.5-amd64.tgz /tmp/clickhouse-client-22.3.6.5-amd64.tgz`
 	assert.Equal(t, expect, out)
 }

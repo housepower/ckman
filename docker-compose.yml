@@ -1,7 +1,7 @@
 version: "3"
 services:
   node1:
-    image: eoitek/ckman-clickhouse:centos-7
+    image: ckman-clickhouse:centos-7
     hostname: node1
     privileged: true
     extra_hosts:
@@ -16,7 +16,7 @@ services:
         ipv4_address: 192.168.122.101
     
   node2:
-    image: eoitek/ckman-clickhouse:centos-7
+    image: ckman-clickhouse:centos-7
     hostname: node2
     privileged: true
     extra_hosts:
@@ -31,7 +31,7 @@ services:
         ipv4_address: 192.168.122.102
   
   node3:
-    image: eoitek/ckman-clickhouse:centos-7
+    image: ckman-clickhouse:centos-7
     hostname: node3
     privileged: true
     extra_hosts:
@@ -46,7 +46,7 @@ services:
         ipv4_address: 192.168.122.103
 
   node4:
-    image: eoitek/ckman-clickhouse:centos-7
+    image: ckman-clickhouse:centos-7
     hostname: node4
     privileged: true
     extra_hosts:
@@ -61,7 +61,7 @@ services:
         ipv4_address: 192.168.122.104
   
   node5:
-    image: eoitek/ckman-clickhouse:centos-7
+    image: ckman-clickhouse:centos-7
     hostname: node5
     privileged: true
     extra_hosts:
@@ -76,7 +76,7 @@ services:
         ipv4_address: 192.168.122.105
   
   node6:
-    image: eoitek/ckman-clickhouse:centos-7
+    image: ckman-clickhouse:centos-7
     hostname: node6
     privileged: true
     extra_hosts:

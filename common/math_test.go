@@ -131,3 +131,18 @@ func TestArraySearch(t *testing.T) {
 		"aaa", "bbb", "ccc", "kkk",
 	}))
 }
+
+func TestArrayRemove(t *testing.T) {
+	assert.Equal(t, []string{"aaa", "ccc", "kkk"}, ArrayRemove([]string{
+		"aaa", "bbb", "ccc", "kkk",
+	}, "bbb"))
+	assert.Equal(t, []int{1, 2, 3, 4}, ArrayRemove([]int{
+		1, 2, 3, 4, 5,
+	}, 5))
+
+	arr := []string{
+		"aaa", "bbb", "ccc", "kkk",
+	}
+	ArrayRemove(arr, "bbb")
+	assert.Equal(t, []string{"aaa", "bbb", "ccc", "kkk"}, arr)
+}

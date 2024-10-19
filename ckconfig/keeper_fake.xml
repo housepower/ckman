@@ -1,0 +1,37 @@
+<clickhouse>
+    <keeper_server>
+        <coordination_settings>
+            <auto_forwarding>false</auto_forwarding>
+            <force_sync>true</force_sync>
+            <operation_timeout_ms>10000</operation_timeout_ms>
+            <raft_log_level>Information</raft_log_level>
+            <session_timeout_ms>30000</session_timeout_ms>
+        </coordination_settings>
+        <log_storage_path>/var/lib/clickhouse/coordination/log</log_storage_path>
+        <raft_configuration>
+            <server>
+                <hostname>192.168.101.102</hostname>
+                <id>1</id>
+                <port>9181</port>
+            </server>
+            <server>
+                <hostname>192.168.101.105</hostname>
+                <id>2</id>
+                <port>9181</port>
+            </server>
+            <server>
+                <hostname>192.168.101.107</hostname>
+                <id>3</id>
+                <port>9181</port>
+            </server>
+        </raft_configuration>
+        <server_id>2</server_id>
+        <snapshot_storage_path>/var/lib/clickhouse/coordination/snapshots</snapshot_storage_path>
+        <tcp_port>9181</tcp_port>
+    </keeper_server>
+    <listen_host>::</listen_host>
+    <logger>
+        <level>debug</level>
+    </logger>
+    <max_connections>4096</max_connections>
+</clickhouse>

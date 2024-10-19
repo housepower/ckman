@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -156,7 +155,7 @@ func GetMergeTreeTables(engine string, database string, conn *Conn) ([]string, m
 	var databases []string
 	var err error
 	dbtables := make(map[string][]string)
-	query := fmt.Sprintf("SELECT DISTINCT  database, name FROM system.tables WHERE (match(engine, '%s')) AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA'))", engine)
+	query := fmt.Sprintf("SELECT DISTINCT  database, name FROM system.tables WHERE (match(engine, '%s')) AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA') AND name NOT LIKE '.inner%%')", engine)
 	if database != "" {
 		query += fmt.Sprintf(" AND database = '%s'", database)
 	}
@@ -209,7 +208,7 @@ func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig) ([]string, error)
 	}
 	if len(hosts) < len(conf.Shards) {
 		log.Logger.Errorf("not all shard avaliable: %v", lastErr)
-		return []string{}, nil
+		return []string{}, lastErr
 	}
 	log.Logger.Debugf("hosts: %v", hosts)
 	return hosts, nil
@@ -340,35 +339,6 @@ WHERE match(engine, 'Distributed') AND (database = '%s') AND ((dist = '%s') OR (
 
 	return local, dist, nil
 }
-
-func ClikHouseExceptionDecode(err error) error {
-	var e *clickhouse.Exception
-	// TCP protocol
-	if errors.As(err, &e) {
-		return e
-	}
-	// HTTP protocol
-	if strings.HasPrefix(err.Error(), "clickhouse [execute]::") {
-		r := regexp.MustCompile(`.*Code:\s+(\d+)\.\s+(.*)`)
-		matchs := r.FindStringSubmatch(err.Error())
-		if len(matchs) != 3 {
-			return err
-		}
-		code, err2 := strconv.Atoi(matchs[1])
-		if err2 != nil {
-			return err
-		}
-		message := matchs[2]
-		e = &clickhouse.Exception{
-			Code:    int32(code),
-			Message: message,
-		}
-		return e
-	}
-
-	return err
-}
-
 func Execute(conf *model.CKManClickHouseConfig, sql string) error {
 	var wg sync.WaitGroup
 	var lastErr error
@@ -400,14 +370,10 @@ func WithAlterSync(version string) string {
 }
 
 func CheckTable(conn *Conn, database, table string) error {
-	query := fmt.Sprintf("CHECK TABLE `%s`.`%s`", database, table)
-	var res uint8
-	err := conn.QueryRow(query).Scan(&res)
-	if err != nil {
+	query := fmt.Sprintf("DESC `%s`.`%s`", database, table)
+	_, err := conn.Query(query)
+	if err != nil && ExceptionAS(err, UNKNOWN_TABLE) {
 		return err
-	}
-	if res != 1 {
-		return errors.Errorf("check table %s.%s failed", database, table)
 	}
 	return nil
 }

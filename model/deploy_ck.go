@@ -33,12 +33,21 @@ const (
 	SshPasswordUsePubkey int = 2
 
 	MaxTimeOut int = 3600
+
+	ClickhouseKeeper string = "clickhouse-keeper"
+	Zookeeper        string = "zookeeper"
+	ClickHouse       string = "clickhouse"
+
+	KeeperRuntimeStandalone = "standalone"
+	KeeperRuntimeInternal   = "internal"
 )
 
 type CkDeployExt struct {
-	Policy     string
-	Ipv6Enable bool
-	Restart    bool
+	Policy         string
+	Ipv6Enable     bool
+	Restart        bool
+	ChangeCk       bool
+	CurClusterOnly bool //仅修改当前集群的配置
 }
 
 type CkShard struct {
@@ -63,7 +72,6 @@ type CkImportConfig struct {
 	LogicCluster string   `json:"logic_cluster" example:"logic_test"`
 	ZkNodes      []string `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
 	ZkPort       int      `json:"zkPort" example:"2181"`
-	ZkStatusPort int      `json:"zkStatusPort" example:"8080"`
 	PromHost     string   `json:"prom_host" example:"127.0.01"`
 	PromPort     int      `json:"prom_port" example:"9090"`
 }
@@ -76,6 +84,7 @@ type PromMetricPort struct {
 
 type CKManClickHouseConfig struct {
 	Cluster          string    `json:"cluster" example:"test"`
+	Comment          string    `json:"comment" example:"test"`
 	PkgType          string    `json:"pkgType" example:"x86_64.rpm"`
 	PkgName          string    `json:"pkgName" example:"clickhouse-common-static-22.3.3.44.noarch.rpm"`
 	Version          string    `json:"version" example:"21.9.1.7647"`
@@ -88,11 +97,12 @@ type CKManClickHouseConfig struct {
 	Secure           bool      `json:"secure"`
 	IsReplica        bool      `json:"isReplica" example:"true"`
 	Hosts            []string  `json:"hosts" example:"192.168.0.1,192.168.0.2,192.168.0.3,192.168.0.4"`
-	ZkNodes          []string  `json:"zkNodes" example:"192.168.0.1,192.168.0.2,192.168.0.3"`
-	ZkPort           int       `json:"zkPort" example:"2181"`
-	ZkStatusPort     int       `json:"zkStatusPort" example:"8080"`
-	PromHost         string    `json:"promHost" example:"127.0.0.1"`
-	PromPort         int       `json:"promPort" example:"9090"`
+	Keeper           string    `json:"keeper" example:"zookeeper"`
+	KeeperConf       *KeeperConf
+	ZkNodes          []string `json:"zkNodes" example:"192.168.0.1,192.168.0.2,192.168.0.3"`
+	ZkPort           int      `json:"zkPort" example:"2181"`
+	PromHost         string   `json:"promHost" example:"127.0.0.1"`
+	PromPort         int      `json:"promPort" example:"9090"`
 	PromMetricPort   PromMetricPort
 	User             string `json:"user" example:"ck"`
 	Password         string `json:"password" example:"123456"`
@@ -106,9 +116,27 @@ type CKManClickHouseConfig struct {
 	Expert           map[string]string
 
 	// don't need to regist to schema
-	Mode     string            `json:"mode" swaggerignore:"true"`
-	ZooPath  map[string]string `json:"zooPath" swaggerignore:"true"`
-	NeedSudo bool              `json:"needSudo" swaggerignore:"true"`
+	Mode     string `json:"mode" swaggerignore:"true"`
+	NeedSudo bool   `json:"needSudo" swaggerignore:"true"`
+}
+
+type Coordination struct {
+	OperationTimeoutMs int
+	SessionTimeoutMs   int
+	ForceSync          bool
+	AutoForwarding     bool
+	Expert             map[string]string
+}
+
+type KeeperConf struct {
+	Runtime      string   `json:"runtime" example:"standalone"`
+	KeeperNodes  []string `json:"keeperNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
+	TcpPort      int      `json:"tcpPort" example:"9181"`
+	RaftPort     int      `json:"raftPort" example:"9234"`
+	LogPath      string
+	SnapshotPath string
+	Coordination Coordination
+	Expert       map[string]string
 }
 
 // Refers to https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/#table_engine-mergetree-multiple-volumes
@@ -233,9 +261,6 @@ func (config *CKManClickHouseConfig) Normalize() {
 	if config.ZkPort == 0 {
 		config.ZkPort = ClickHouseDefaultZkPort
 	}
-	if config.ZkStatusPort == 0 {
-		config.ZkStatusPort = ZkStatusDefaultPort
-	}
 	if config.SshPort == 0 {
 		config.SshPort = SshDefaultPort
 	}
@@ -258,6 +283,10 @@ func (config *CKManClickHouseConfig) Normalize() {
 
 	if config.PkgType == "" {
 		config.PkgType = PkgTypeDefault
+	}
+
+	if config.Keeper == "" {
+		config.Keeper = Zookeeper
 	}
 
 	if !strings.HasSuffix(config.PkgType, "tgz") {
@@ -300,7 +329,6 @@ func (config *CKManClickHouseConfig) UnWatch(host string) {
 }
 
 func (config *CKManClickHouseConfig) Pack() {
-	config.ZooPath = make(map[string]string)
 	config.Password = strings.Repeat("*", len(config.Password))
 	if config.SshPassword != "" {
 		config.SshPassword = strings.Repeat("*", len(config.SshPassword))
@@ -354,4 +382,11 @@ func (config *CKManClickHouseConfig) GetConnOption() ConnetOption {
 	opt.User = config.User
 	opt.Password = config.Password
 	return opt
+}
+
+func (config *CKManClickHouseConfig) KeeperWithStanalone() bool {
+	if config.Keeper == ClickhouseKeeper {
+		return config.KeeperConf != nil && config.KeeperConf.Runtime == KeeperRuntimeStandalone
+	}
+	return false
 }

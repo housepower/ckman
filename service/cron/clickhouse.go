@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	client "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
@@ -63,14 +62,10 @@ AND (cluster != '%s')`, cluster)
 				_ = rows.Scan(&database, &table, &logic, &local)
 				err = syncLogicbyTable(clusters, database, local)
 				if err != nil {
-					err = common.ClikHouseExceptionDecode(err)
-					var exception *client.Exception
-					if errors.As(err, &exception) {
-						if exception.Code == 60 {
-							//means local table is not exist, will auto sync schema
-							needCreateTable[cluster] = clusters
-							log.Logger.Infof("[%s]table %s.%s may not exists on one of cluster %v, need to auto create", cluster, database, local, clusters)
-						}
+					if common.ExceptionAS(err, common.UNKNOWN_TABLE) {
+						//means local table is not exist, will auto sync schema
+						needCreateTable[cluster] = clusters
+						log.Logger.Infof("[%s]table %s.%s may not exists on one of cluster %v, need to auto create", cluster, database, local, clusters)
 					} else {
 						log.Logger.Errorf("logic %s table %s.%s sync logic table failed: %v", cluster, database, local, err)
 						continue
@@ -319,25 +314,15 @@ func syncDistTable(distTable, localTable, database string, conf model.CKManClick
 		logicTable := common.ClickHouseDistTableOnLogicPrefix + localTable
 		logicCols, err := getColumns(conn, database, logicTable)
 		if err != nil {
-			err = common.ClikHouseExceptionDecode(err)
-			var exception *client.Exception
-			if errors.As(err, &exception) {
-				// 逻辑表不存在没关系，不报错
-				if exception.Code == 60 {
-					continue
-				}
+			if common.ExceptionAS(err, common.UNKNOWN_TABLE) {
+				continue
 			}
 			return errors.Wrap(err, host)
 		}
 
 		if err = syncSchema(conn, allCols, logicCols, database, logicTable, onCluster, conf.Version); err != nil {
-			err = common.ClikHouseExceptionDecode(err)
-			var exception *client.Exception
-			if errors.As(err, &exception) {
-				// 逻辑表不存在没关系，不报错
-				if exception.Code == 60 {
-					continue
-				}
+			if common.ExceptionAS(err, common.UNKNOWN_TABLE) {
+				continue
 			}
 			return errors.Wrap(err, "logic table")
 		}

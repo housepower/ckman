@@ -80,7 +80,7 @@ func (controller *PackageController) Upload(c *gin.Context) {
 		}
 	}
 
-	err = common.GetPackages()
+	err = common.LoadPackages()
 	if err != nil {
 		controller.wrapfunc(c, model.E_UPLOAD_FAILED, err)
 		return
@@ -181,6 +181,7 @@ func (controller *PackageController) List(c *gin.Context) {
 	if pkgType == "" {
 		pkgType = model.PkgTypeDefault
 	}
+
 	pkgs := common.GetAllPackages()
 	var resp []model.PkgInfo
 	if pkgType == "all" {
@@ -242,14 +243,14 @@ func (controller *PackageController) Delete(c *gin.Context) {
 		for _, peer := range config.GetClusterPeers() {
 			peerUrl := ""
 			if controller.config.Server.Https {
-				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package?packageVersion=%s", peer.Ip, peer.Port, packageVersion)
+				peerUrl = fmt.Sprintf("https://%s:%d/api/v1/package?packageVersion=%s&packageType=%s", peer.Ip, peer.Port, packageVersion, packageType)
 				err := DeleteFileByURL(peerUrl)
 				if err != nil {
 					controller.wrapfunc(c, model.E_DATA_DELETE_FAILED, err)
 					return
 				}
 			} else {
-				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package?packageVersion=%s", peer.Ip, peer.Port, packageVersion)
+				peerUrl = fmt.Sprintf("http://%s:%d/api/v1/package?packageVersion=%s&packageType=%s", peer.Ip, peer.Port, packageVersion, packageType)
 				err := DeleteFileByURL(peerUrl)
 				if err != nil {
 					controller.wrapfunc(c, model.E_DATA_DELETE_FAILED, err)
@@ -258,7 +259,8 @@ func (controller *PackageController) Delete(c *gin.Context) {
 			}
 		}
 	}
-	err := common.GetPackages()
+
+	err := common.LoadPackages()
 	if err != nil {
 		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
 		return

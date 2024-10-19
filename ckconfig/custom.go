@@ -19,6 +19,7 @@ func root(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interfa
 	output["default_replica_path"] = "/clickhouse/tables/{cluster}/{database}/{table}/{shard}"
 	output["default_replica_name"] = "{replica}"
 	output["tcp_port"] = conf.Port
+	output["http_port"] = conf.HttpPort
 	if ipv6Enable {
 		output["listen_host"] = "::"
 	} else {
@@ -173,6 +174,25 @@ func expert(exp map[string]string) map[string]interface{} {
 	return common.ConvertMapping(output)
 }
 
+func query_cache() map[string]interface{} {
+	output := make(map[string]interface{})
+	output["query_cache"] = map[string]interface{}{
+		"max_size_in_bytes":       1073741824,
+		"max_entries":             1024,
+		"max_entry_size_in_bytes": 1048576,
+		"max_entry_size_in_rows":  30000000,
+	}
+	return output
+}
+func merge_tree_metadata_cache() map[string]interface{} {
+	output := make(map[string]interface{})
+	output["merge_tree_metadata_cache"] = map[string]interface{}{
+		"lru_cache_size":        1073741824,
+		"continue_if_corrupted": true,
+	}
+	return output
+}
+
 func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ipv6Enable bool) (string, error) {
 	rootTag := "yandex"
 	if common.CompareClickHouseVersion(conf.Version, "22.x") >= 0 {
@@ -185,6 +205,12 @@ func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ipv6E
 	mergo.Merge(&custom, system_log())
 	mergo.Merge(&custom, distributed_ddl(conf.Cluster))
 	mergo.Merge(&custom, prometheus())
+	if common.CompareClickHouseVersion(conf.Version, "22.4.x") >= 0 {
+		mergo.Merge(&custom, merge_tree_metadata_cache())
+	}
+	if common.CompareClickHouseVersion(conf.Version, "23.4.x") >= 0 {
+		mergo.Merge(&custom, query_cache())
+	}
 	storage_configuration, backups := storage(conf.Storage)
 	mergo.Merge(&custom, storage_configuration)
 	mergo.Merge(&custom, backups)
