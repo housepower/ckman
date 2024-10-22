@@ -39,7 +39,7 @@ func NewZkService(nodes []string, port int) (*ZkService, error) {
 		servers[index] = fmt.Sprintf("%s:%d", node, port)
 	}
 
-	c, e, err := zk.Connect(servers, time.Second)
+	c, e, err := zk.Connect(servers, 30*time.Second)
 	if err != nil {
 		return nil, errors.Wrap(err, "")
 	}

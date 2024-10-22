@@ -3,6 +3,7 @@ package cron
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-zookeeper/zk"
 	"github.com/housepower/ckman/log"
@@ -18,6 +19,7 @@ func ClearZnodes() error {
 		return err
 	}
 	for _, cluster := range clusters {
+		start := time.Now()
 		ckService := clickhouse.NewCkService(&cluster)
 		if err = ckService.InitCkService(); err != nil {
 			log.Logger.Warnf("[%s]init clickhouse service failed: %v", cluster.Cluster, err)
@@ -38,13 +40,14 @@ func ClearZnodes() error {
 		// deleted, notexist := RemoveZnodes(zkService, znodes)
 		// log.Logger.Warnf("[%s]remove [%d] block_number from zookeeper success, %d already deleted", cluster.Cluster, deleted, notexist)
 
-		// remove replica_queue in zookeeper
+		// remove replica_queue in zookeeper, will remove 100w znodes at most in one time
 		znodes, err := GetReplicaQueueZnodes(ckService, 100)
 		if err != nil {
 			log.Logger.Infof("[%s]remove replica_queue from zookeeper failed: %v", cluster.Cluster, err)
 		}
 		deleted, notexist := RemoveZnodes(zkService, znodes)
-		log.Logger.Infof("[%s]remove [%d] replica_queue from zookeeper success, [%d] already deleted", cluster.Cluster, deleted, notexist)
+		log.Logger.Infof("[%s]remove [%d] replica_queue from zookeeper success, [%d] already deleted,[%d] failed. elapsed: %v",
+			cluster.Cluster, deleted, notexist, len(znodes)-deleted-notexist, time.Since(start))
 
 	}
 	return nil
@@ -127,7 +130,7 @@ func GetReplicaQueueZnodes(ckService *clickhouse.CkService, numtries int) ([]str
 			last_exception_time,
 			num_tries
 		FROM clusterAllReplicas('%s', system.replication_queue)
-		WHERE (num_postponed > 0) AND (num_tries > %d OR create_time > addSeconds(now(), -86400))
+		WHERE (num_postponed > 0) AND (num_tries >= %d OR create_time > addSeconds(now(), -86400))
 	) AS t1
 	WHERE (t0.database = t1.database) AND (t0.table = t1.table) AND (t0.replica_name = t1.replica_name)`,
 		ckService.Config.Cluster, ckService.Config.Cluster, numtries)
@@ -136,14 +139,18 @@ func GetReplicaQueueZnodes(ckService *clickhouse.CkService, numtries int) ([]str
 		return nil, err
 	}
 	defer rows.Close()
-	var znodes []string
+	znodes := make([]string, 1048576)
+	var cnt int
 	for rows.Next() {
 		var path string
 		if err = rows.Scan(&path); err != nil {
 			return nil, err
 		}
 		znodes = append(znodes, path)
-
+		cnt++
+		if cnt >= 1048576 {
+			break
+		}
 	}
 	log.Logger.Debugf("[%s]remove replica_queue from zookeeper: %v", ckService.Config.Cluster, len(znodes))
 	return znodes, nil

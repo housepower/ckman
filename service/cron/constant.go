@@ -16,7 +16,7 @@ const (
 
 	SCHEDULE_WATCH_DEFAULT = "0 */3 * * * ?"
 	SCHEDULE_SYNC_DIST     = "30 */10 * * * ?"
-	SCHEDULE_CLEAR_ZNODES  = "0 0 */6 * * ?"
+	SCHEDULE_CLEAR_ZNODES  = "0 0 * * * ?"
 
 	SCHEDULE_DISABLED = "disabled"
 )
