@@ -6,8 +6,8 @@ import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
-	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/cron"
 	"github.com/housepower/ckman/service/zookeeper"
 )
@@ -39,34 +39,41 @@ func ReplicaQueueHandle(opts ZReplicaQueueOpts) {
 	if err != nil {
 		log.Logger.Fatalf("get cluster %s failed:%v", opts.ClusterName, err)
 	}
-
-	ckService := clickhouse.NewCkService(&cluster)
-	if err = ckService.InitCkService(); err != nil {
-		log.Logger.Fatalf("[%s]init clickhouse service failed: %v", cluster.Cluster, err)
-	}
 	nodes, port := zookeeper.GetZkInfo(&cluster)
 	zkService, err := zookeeper.NewZkService(nodes, port)
 	if err != nil {
 		log.Logger.Fatalf("can't create zookeeper instance:%v", err)
 	}
-	// remove replica_queue in zookeeper
-	znodes, err := cron.GetReplicaQueueZnodes(ckService, opts.NumTries)
-	if err != nil {
-		log.Logger.Infof("[%s]remove replica_queue from zookeeper failed: %v", cluster.Cluster, err)
+	n := 0
+	var allZnodes []string
+	for _, host := range cluster.Hosts {
+		conn, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, cluster.GetConnOption())
+		if err != nil {
+			log.Logger.Warnf("can't connect to clickhouse:%s", host)
+			continue
+		}
+		// remove replica_queue in zookeeper
+		znodes, err := cron.GetReplicaQueueZnodes(conn)
+		if err != nil {
+			log.Logger.Infof("[%s]remove replica_queue from zookeeper failed: %v", cluster.Cluster, err)
+		}
+		if opts.Dryrun {
+			n += len(znodes)
+			if len(allZnodes) <= 1000 {
+				allZnodes = append(allZnodes, znodes...)
+			}
+		} else {
+			deleted, notexist := cron.RemoveZnodes(zkService, znodes)
+			fmt.Printf("[%s]remove [%d] replica_queue from zookeeper success, [%d] already deleted\n", cluster.Cluster, deleted, notexist)
+		}
 	}
-	fmt.Println()
 	if opts.Dryrun {
-		for i, znode := range znodes {
-			if i == 1000 {
+		for i, znode := range allZnodes {
+			if i >= 1000 {
 				break
 			}
-			fmt.Printf("[%4d]%s\n", i, znode)
+			fmt.Printf("[%4d]%s\n", i+1, znode)
 		}
-		if len(znodes) > 1000 {
-			fmt.Printf("\n %d znodes, only show first 1000", len(znodes))
-		}
-	} else {
-		deleted, notexist := cron.RemoveZnodes(zkService, znodes)
-		fmt.Printf("[%s]remove [%d] replica_queue from zookeeper success, [%d] already deleted\n", cluster.Cluster, deleted, notexist)
+		fmt.Printf("\n%d znodes, only show first 1000 rows\n", n)
 	}
 }

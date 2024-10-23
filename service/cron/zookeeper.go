@@ -2,11 +2,12 @@ package cron
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/go-zookeeper/zk"
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/service/clickhouse"
 	"github.com/housepower/ckman/service/zookeeper"
@@ -19,36 +20,27 @@ func ClearZnodes() error {
 		return err
 	}
 	for _, cluster := range clusters {
-		start := time.Now()
-		ckService := clickhouse.NewCkService(&cluster)
-		if err = ckService.InitCkService(); err != nil {
-			log.Logger.Warnf("[%s]init clickhouse service failed: %v", cluster.Cluster, err)
-			continue
-		}
-		nodes, port := zookeeper.GetZkInfo(&cluster)
-		zkService, err := zookeeper.NewZkService(nodes, port)
+		zkService, err := zookeeper.GetZkService(cluster.Cluster)
 		if err != nil {
 			log.Logger.Warnf("can't create zookeeper instance:%v", err)
 			continue
 		}
-		// remove block_numbers in zookeeper
-		// znodes, err := GetBlockNumberZnodes(ckService)
-		// if err != nil {
-		// 	log.Logger.Warnf("[%s]remove block_number from zookeeper failed: %v", cluster.Cluster, err)
-		// }
+		for _, host := range cluster.Hosts {
+			start := time.Now()
+			conn, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, cluster.GetConnOption())
+			if err != nil {
+				log.Logger.Warnf("can't connect to clickhouse:%s", host)
+				continue
+			}
 
-		// deleted, notexist := RemoveZnodes(zkService, znodes)
-		// log.Logger.Warnf("[%s]remove [%d] block_number from zookeeper success, %d already deleted", cluster.Cluster, deleted, notexist)
-
-		// remove replica_queue in zookeeper, will remove 100w znodes at most in one time
-		znodes, err := GetReplicaQueueZnodes(ckService, 100)
-		if err != nil {
-			log.Logger.Infof("[%s]remove replica_queue from zookeeper failed: %v", cluster.Cluster, err)
+			znodes, err := GetReplicaQueueZnodes(conn)
+			if err != nil {
+				log.Logger.Infof("[%s][%s]remove replica_queue from zookeeper failed: %v", cluster.Cluster, host, err)
+			}
+			deleted, notexist := RemoveZnodes(zkService, znodes)
+			log.Logger.Infof("[%s][%s]remove [%d] replica_queue from zookeeper success, [%d] already deleted,[%d] failed. elapsed: %v",
+				cluster.Cluster, host, deleted, notexist, len(znodes)-deleted-notexist, time.Since(start))
 		}
-		deleted, notexist := RemoveZnodes(zkService, znodes)
-		log.Logger.Infof("[%s]remove [%d] replica_queue from zookeeper success, [%d] already deleted,[%d] failed. elapsed: %v",
-			cluster.Cluster, deleted, notexist, len(znodes)-deleted-notexist, time.Since(start))
-
 	}
 	return nil
 }
@@ -117,29 +109,25 @@ func GetBlockNumberZnodes(ckService *clickhouse.CkService) ([]string, error) {
 	return znodes, nil
 }
 
-func GetReplicaQueueZnodes(ckService *clickhouse.CkService, numtries int) ([]string, error) {
-	query := fmt.Sprintf(`SELECT DISTINCT concat(t0.replica_path, '/queue/', t1.node_name)
-	FROM clusterAllReplicas('%s', system.replicas) AS t0,
+func GetReplicaQueueZnodes(conn *common.Conn) ([]string, error) {
+	query := `SELECT DISTINCT concat(t0.replica_path, '/queue/', t1.node_name)
+	FROM system.replicas AS t0,
 	(
 		SELECT
 			database,
 			table,
 			replica_name,
-			node_name,
-			create_time,
-			last_exception_time,
-			num_tries
-		FROM clusterAllReplicas('%s', system.replication_queue)
-		WHERE (num_postponed > 0) AND (num_tries >= %d OR create_time > addSeconds(now(), -86400))
+			node_name
+		FROM system.replication_queue
+		WHERE (num_postponed > 0) AND (num_tries >= 0 OR create_time > addSeconds(now(), -86400))
 	) AS t1
-	WHERE (t0.database = t1.database) AND (t0.table = t1.table) AND (t0.replica_name = t1.replica_name)`,
-		ckService.Config.Cluster, ckService.Config.Cluster, numtries)
-	rows, err := ckService.Conn.Query(query)
+	WHERE (t0.database = t1.database) AND (t0.table = t1.table) AND (t0.replica_name = t1.replica_name)`
+	rows, err := conn.Query(query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	znodes := make([]string, 1048576)
+	var znodes []string
 	var cnt int
 	for rows.Next() {
 		var path string
@@ -148,10 +136,10 @@ func GetReplicaQueueZnodes(ckService *clickhouse.CkService, numtries int) ([]str
 		}
 		znodes = append(znodes, path)
 		cnt++
-		if cnt >= 1048576 {
+		if cnt >= 1<<18 {
 			break
 		}
 	}
-	log.Logger.Debugf("[%s]remove replica_queue from zookeeper: %v", ckService.Config.Cluster, len(znodes))
+	log.Logger.Debugf("remove replica_queue from zookeeper: %v", len(znodes))
 	return znodes, nil
 }
