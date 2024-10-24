@@ -70,7 +70,7 @@ package:build
 	@rm -rf ${PKGFULLDIR_TMP}
 	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package ${PKGFULLDIR_TMP}/dbscript
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
-	@mv ${SHDIR}/cmd/ckmanctl/ckmanctl ${PKGFULLDIR_TMP}/binn
+	@mv ${SHDIR}/cmd/ckmanctl/ckmanctl ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/yaml2json.${GOARCH} ${PKGFULLDIR_TMP}/bin/yaml2json
