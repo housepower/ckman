@@ -123,12 +123,6 @@ func main() {
 	runnerServ.Start()
 	defer runnerServ.Stop()
 
-	cronSvr := cron.NewCronService(config.GlobalConfig.Cron)
-	if err = cronSvr.Start(); err != nil {
-		log.Logger.Fatalf("Failed to start cron service, %v", err)
-	}
-	defer cronSvr.Stop()
-
 	// start http server
 	svr := server.NewApiServer(&config.GlobalConfig, signalCh, fs)
 	if err := svr.Start(); err != nil {
@@ -137,6 +131,25 @@ func main() {
 	defer svr.Stop()
 	log.Logger.Infof("start http server %s:%d success", config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
 
+	cronSvr := cron.NewCronService(config.GlobalConfig.Cron)
+	if err = cronSvr.Start(); err != nil {
+		log.Logger.Fatalf("Failed to start cron service, %v", err)
+	}
+	defer cronSvr.Stop()
+	since := time.Now()
+	for config.IsMasterNode() == config.ELECTION_LOOKING {
+		if time.Since(since) > 10*time.Second {
+			log.Logger.Warnf("Failed to elect master node")
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	if !cronSvr.IsStarted() {
+		if err = cronSvr.Start(); err != nil {
+			log.Logger.Fatalf("Failed to start cron service, %v", err)
+		}
+	}
 	//block here, waiting for terminal signal
 	handleSignal(signalCh)
 }
