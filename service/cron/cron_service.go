@@ -11,7 +11,6 @@ type CronService struct {
 	config       config.CronJob
 	jobSchedules map[int16]string
 	cron         *cron.Cron
-	started      bool
 }
 
 var JobList = map[int16]func() error{
@@ -26,7 +25,6 @@ func NewCronService(config config.CronJob) *CronService {
 		config:       config,
 		jobSchedules: make(map[int16]string),
 		cron:         cron.New(cron.WithSeconds()),
-		started:      false,
 	}
 }
 
@@ -38,16 +36,6 @@ func (job *CronService) schedulePadding() {
 }
 
 func (job *CronService) Start() error {
-	//Ensure that only one node in the same cluster executes scheduled tasks
-	electionState := config.IsMasterNode()
-	if electionState != config.ELECTION_MASTER {
-		log.Logger.Debugf("node %s:%d is not master, skip all cron jobs", config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
-		return nil
-	}
-	defer func() {
-		job.started = true
-	}()
-
 	if !job.config.Enabled {
 		return nil
 	}
@@ -69,12 +57,6 @@ func (job *CronService) Start() error {
 }
 
 func (job *CronService) Stop() {
-	if job.started {
-		job.cron.Stop()
-	}
+	job.cron.Stop()
 	log.Logger.Infof("cron service stopped")
-}
-
-func (job *CronService) IsStarted() bool {
-	return job.started
 }

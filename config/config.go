@@ -200,25 +200,16 @@ func GetClusterPeers() []ClusterNode {
 	return list
 }
 
-const (
-	ELECTION_MASTER = iota
-	ELECTION_SLAVE
-	ELECTION_LOOKING
-)
-
-func IsMasterNode() int {
+func IsMasterNode() bool {
 	//if disabled nacos, always consider the current node to be the master node
 	if !GlobalConfig.Nacos.Enabled {
-		return ELECTION_MASTER
+		return true
 	}
 	ClusterMutex.RLock()
 	defer ClusterMutex.RUnlock()
 	if len(ClusterNodes) == 0 {
-		return ELECTION_LOOKING
+		return false
 	}
 	master := ClusterNodes[0]
-	if master.Ip == GlobalConfig.Server.Ip && master.Port == GlobalConfig.Server.Port {
-		return ELECTION_MASTER
-	}
-	return ELECTION_SLAVE
+	return master.Ip == GlobalConfig.Server.Ip && master.Port == GlobalConfig.Server.Port
 }

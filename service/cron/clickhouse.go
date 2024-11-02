@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -14,6 +15,10 @@ import (
 )
 
 func SyncLogicSchema() error {
+	//Ensure that only one node in the same cluster executes scheduled tasks
+	if !config.IsMasterNode() {
+		return nil
+	}
 	log.Logger.Debugf("sync logic schema task triggered")
 	logics, err := repository.Ps.GetAllLogicClusters()
 	if err != nil {
@@ -180,6 +185,9 @@ func syncLogicbyTable(clusters []string, database, localTable string) error {
 }
 
 func WatchClusterStatus() error {
+	if !config.IsMasterNode() {
+		return nil
+	}
 	log.Logger.Debugf("watch cluster status task triggered")
 	clusters, err := repository.Ps.GetAllClusters()
 	if err != nil {
@@ -211,6 +219,9 @@ func WatchClusterStatus() error {
 }
 
 func SyncDistSchema() error {
+	if !config.IsMasterNode() {
+		return nil
+	}
 	log.Logger.Debugf("sync distributed schema task triggered")
 	clusters, err := repository.Ps.GetAllClusters()
 	if err != nil {

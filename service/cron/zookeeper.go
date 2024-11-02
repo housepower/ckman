@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-zookeeper/zk"
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
@@ -14,6 +15,9 @@ import (
 )
 
 func ClearZnodes() error {
+	if !config.IsMasterNode() {
+		return nil
+	}
 	log.Logger.Debugf("clear znodes task triggered")
 	clusters, err := repository.Ps.GetAllClusters()
 	if err != nil {

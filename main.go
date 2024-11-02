@@ -136,20 +136,6 @@ func main() {
 		log.Logger.Fatalf("Failed to start cron service, %v", err)
 	}
 	defer cronSvr.Stop()
-	since := time.Now()
-	for config.IsMasterNode() == config.ELECTION_LOOKING {
-		if time.Since(since) > 10*time.Second {
-			log.Logger.Warnf("Failed to elect master node")
-			break
-		}
-		time.Sleep(time.Second)
-	}
-
-	if !cronSvr.IsStarted() {
-		if err = cronSvr.Start(); err != nil {
-			log.Logger.Fatalf("Failed to start cron service, %v", err)
-		}
-	}
 	//block here, waiting for terminal signal
 	handleSignal(signalCh)
 }
