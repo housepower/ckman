@@ -13,10 +13,10 @@ import (
 )
 
 type ZReplicaQueueOpts struct {
-	ClusterName string
-	ConfigFile  string
-	Dryrun      bool
-	NumTries    int
+	ClusterName    string
+	ConfigFile     string
+	Dryrun         bool
+	SessionTimeout int
 }
 
 func ReplicaQueueHandle(opts ZReplicaQueueOpts) {
@@ -40,7 +40,7 @@ func ReplicaQueueHandle(opts ZReplicaQueueOpts) {
 		log.Logger.Fatalf("get cluster %s failed:%v", opts.ClusterName, err)
 	}
 	nodes, port := zookeeper.GetZkInfo(&cluster)
-	zkService, err := zookeeper.NewZkService(nodes, port)
+	zkService, err := zookeeper.NewZkService(nodes, port, 300)
 	if err != nil {
 		log.Logger.Fatalf("can't create zookeeper instance:%v", err)
 	}

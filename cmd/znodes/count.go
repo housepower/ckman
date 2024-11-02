@@ -44,7 +44,7 @@ func ZCntHandle(opts ZCntOpts) {
 		zkPort, _ = strconv.Atoi(port)
 	}
 
-	service, err := zookeeper.NewZkService(hosts, zkPort)
+	service, err := zookeeper.NewZkService(hosts, zkPort, 300)
 	if err != nil {
 		log.Logger.Fatalf("can't create zookeeper instance:%v", err)
 	}

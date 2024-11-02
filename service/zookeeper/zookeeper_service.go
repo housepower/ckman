@@ -22,24 +22,26 @@ import (
 var ZkServiceCache *cache.Cache
 
 type ZkService struct {
-	ZkNodes []string
-	ZkPort  int
-	Conn    *zk.Conn
-	Event   <-chan zk.Event
+	ZkNodes        []string
+	ZkPort         int
+	SessionTimeout int
+	Conn           *zk.Conn
+	Event          <-chan zk.Event
 }
 
-func NewZkService(nodes []string, port int) (*ZkService, error) {
+func NewZkService(nodes []string, port int, sessionTimeout int) (*ZkService, error) {
 	zkService := &ZkService{
-		ZkNodes: nodes,
-		ZkPort:  port,
+		ZkNodes:        nodes,
+		ZkPort:         port,
+		SessionTimeout: sessionTimeout,
 	}
 
 	servers := make([]string, len(nodes))
 	for index, node := range nodes {
-		servers[index] = fmt.Sprintf("%s:%d", node, port)
+		servers[index] = net.JoinHostPort(node, fmt.Sprint(port))
 	}
 
-	c, e, err := zk.Connect(servers, 30*time.Second)
+	c, e, err := zk.Connect(servers, time.Duration(sessionTimeout)*time.Second)
 	if err != nil {
 		return nil, errors.Wrap(err, "")
 	}
@@ -50,6 +52,22 @@ func NewZkService(nodes []string, port int) (*ZkService, error) {
 	return zkService, nil
 }
 
+func (z *ZkService) Reconnect() error {
+
+	servers := make([]string, len(z.ZkNodes))
+	for index, node := range z.ZkNodes {
+		servers[index] = net.JoinHostPort(node, fmt.Sprint(z.ZkPort))
+	}
+	c, e, err := zk.Connect(servers, time.Duration(z.SessionTimeout)*time.Second)
+	if err != nil {
+		return err
+	}
+
+	z.Conn = c
+	z.Event = e
+	return nil
+}
+
 func GetZkService(clusterName string) (*ZkService, error) {
 	zkService, ok := ZkServiceCache.Get(clusterName)
 	if ok {
@@ -58,7 +76,7 @@ func GetZkService(clusterName string) (*ZkService, error) {
 		conf, err := repository.Ps.GetClusterbyName(clusterName)
 		if err == nil {
 			nodes, port := GetZkInfo(&conf)
-			service, err := NewZkService(nodes, port)
+			service, err := NewZkService(nodes, port, 300)
 			if err != nil {
 				return nil, err
 			}

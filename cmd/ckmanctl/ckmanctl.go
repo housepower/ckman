@@ -43,11 +43,11 @@ var (
 	dzs_conf    = dz_suball.Flag("conf", "config file path").Short('c').Default("/etc/ckman/conf/ckman.hjson").String()
 
 	// ckmanctl delete znodes queue abc
-	dz_queue     = d_znodes.Command("queue", "delete replica queue")
-	dzq_cluster  = dz_queue.Arg("cluster", "cluster").String()
-	dzq_dryrun   = dz_queue.Flag("dryrun", "dryrun").Short('d').Bool()
-	dzq_numtries = dz_queue.Flag("trynum", "num_tries").Short('n').Default("100").Int()
-	dzq_conf     = dz_queue.Flag("conf", "config file path").Short('c').Default("/etc/ckman/conf/ckman.hjson").String()
+	dz_queue           = d_znodes.Command("queue", "delete replica queue")
+	dzq_cluster        = dz_queue.Arg("cluster", "cluster").String()
+	dzq_dryrun         = dz_queue.Flag("dryrun", "dryrun").Short('d').Bool()
+	dzq_sessionTimeout = dz_queue.Flag("session_timeout", "timeout").Short('t').Default("300").Int()
+	dzq_conf           = dz_queue.Flag("conf", "config file path").Short('c').Default("/etc/ckman/conf/ckman.hjson").String()
 
 	setCmd         = kingpin.Command("set", "set options")
 	s_metacacheCmd = setCmd.Command("metacache", "set metacache options")
@@ -83,10 +83,10 @@ func main() {
 			})
 		} else if thirdCmd == "queue" {
 			znodes.ReplicaQueueHandle(znodes.ZReplicaQueueOpts{
-				ClusterName: *dzq_cluster,
-				Dryrun:      *dzq_dryrun,
-				NumTries:    *dzq_numtries,
-				ConfigFile:  *dzq_conf,
+				ClusterName:    *dzq_cluster,
+				Dryrun:         *dzq_dryrun,
+				SessionTimeout: *dzq_sessionTimeout,
+				ConfigFile:     *dzq_conf,
 			})
 		}
 	case "set":

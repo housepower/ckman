@@ -48,10 +48,24 @@ func ClearZnodes() error {
 func RemoveZnodes(zkService *zookeeper.ZkService, znodes []string) (int, int) {
 	var deleted, notexist int
 	for _, znode := range znodes {
+		retried := false
+	RETRY:
 		err := zkService.Delete(znode)
 		if err != nil {
 			if errors.Is(err, zk.ErrNoNode) {
 				notexist++
+			} else if errors.Is(err, zk.ErrConnectionClosed) || errors.Is(err, zk.ErrSessionExpired) {
+				log.Logger.Debugf("zk service session expired, should reconnect")
+				if !retried {
+					log.Logger.Debugf("[%s]zookeeper session expired, try to reconnect", znode)
+					zkService.Conn.Close()
+					if err = zkService.Reconnect(); err == nil {
+						log.Logger.Debugf("reconnect zookeeper successfully")
+						retried = true
+						goto RETRY
+					}
+				}
+				log.Logger.Debugf("[%s]reconnect zookeeper failed: %v", znode, err)
 			} else {
 				log.Logger.Debugf("[%s]remove replica_queue from zookeeper failed: %v", znode, err)
 			}
