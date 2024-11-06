@@ -41,7 +41,7 @@ func ClearZnodes() error {
 			if err != nil {
 				log.Logger.Infof("[%s][%s]remove replica_queue from zookeeper failed: %v", cluster.Cluster, host, err)
 			}
-			deleted, notexist := RemoveZnodes(zkService, znodes)
+			deleted, notexist := RemoveZnodes(zkService, znodes, false)
 			log.Logger.Infof("[%s][%s]remove [%d] replica_queue from zookeeper success, [%d] already deleted,[%d] failed. elapsed: %v",
 				cluster.Cluster, host, deleted, notexist, len(znodes)-deleted-notexist, time.Since(start))
 		}
@@ -49,7 +49,7 @@ func ClearZnodes() error {
 	return nil
 }
 
-func RemoveZnodes(zkService *zookeeper.ZkService, znodes []string) (int, int) {
+func RemoveZnodes(zkService *zookeeper.ZkService, znodes []string, debug bool) (int, int) {
 	var deleted, notexist int
 	for i, znode := range znodes {
 		retried := false
@@ -57,7 +57,9 @@ func RemoveZnodes(zkService *zookeeper.ZkService, znodes []string) (int, int) {
 		err := zkService.Delete(znode)
 		if err != nil {
 			if errors.Is(err, zk.ErrNoNode) {
-				log.Logger.Debugf("[%d][%s]zookeeper node not exist: %v", i, znode, err)
+				if debug {
+					log.Logger.Debugf("[%d][%s]zookeeper node not exist: %v", i, znode, err)
+				}
 				notexist++
 			} else if errors.Is(err, zk.ErrConnectionClosed) || errors.Is(err, zk.ErrSessionExpired) {
 				log.Logger.Debugf("zk service session expired, should reconnect")
@@ -75,7 +77,9 @@ func RemoveZnodes(zkService *zookeeper.ZkService, znodes []string) (int, int) {
 				log.Logger.Debugf("[%d][%s]remove replica_queue from zookeeper failed: %v", i, znode, err)
 			}
 		} else {
-			log.Logger.Debugf("[%d][%s]remove replica_queue from zookeeper success", i, znode)
+			if debug {
+				log.Logger.Debugf("[%d][%s]remove replica_queue from zookeeper success", i, znode)
+			}
 			deleted++
 		}
 	}
