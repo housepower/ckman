@@ -37,7 +37,7 @@ func ClearZnodes() error {
 				continue
 			}
 
-			znodes, err := GetReplicaQueueZnodes(conn)
+			znodes, err := GetReplicaQueueZnodes(host, conn)
 			if err != nil {
 				log.Logger.Infof("[%s][%s]remove replica_queue from zookeeper failed: %v", cluster.Cluster, host, err)
 			}
@@ -51,12 +51,13 @@ func ClearZnodes() error {
 
 func RemoveZnodes(zkService *zookeeper.ZkService, znodes []string) (int, int) {
 	var deleted, notexist int
-	for _, znode := range znodes {
+	for i, znode := range znodes {
 		retried := false
 	RETRY:
 		err := zkService.Delete(znode)
 		if err != nil {
 			if errors.Is(err, zk.ErrNoNode) {
+				log.Logger.Debugf("[%d][%s]zookeeper node not exist: %v", i, znode, err)
 				notexist++
 			} else if errors.Is(err, zk.ErrConnectionClosed) || errors.Is(err, zk.ErrSessionExpired) {
 				log.Logger.Debugf("zk service session expired, should reconnect")
@@ -69,11 +70,12 @@ func RemoveZnodes(zkService *zookeeper.ZkService, znodes []string) (int, int) {
 						goto RETRY
 					}
 				}
-				log.Logger.Debugf("[%s]reconnect zookeeper failed: %v", znode, err)
+				log.Logger.Debugf("[%d][%s]reconnect zookeeper failed: %v", i, znode, err)
 			} else {
-				log.Logger.Debugf("[%s]remove replica_queue from zookeeper failed: %v", znode, err)
+				log.Logger.Debugf("[%d][%s]remove replica_queue from zookeeper failed: %v", i, znode, err)
 			}
 		} else {
+			log.Logger.Debugf("[%d][%s]remove replica_queue from zookeeper success", i, znode)
 			deleted++
 		}
 	}
@@ -127,7 +129,7 @@ func GetBlockNumberZnodes(ckService *clickhouse.CkService) ([]string, error) {
 	return znodes, nil
 }
 
-func GetReplicaQueueZnodes(conn *common.Conn) ([]string, error) {
+func GetReplicaQueueZnodes(host string, conn *common.Conn) ([]string, error) {
 	query := `SELECT DISTINCT concat(t0.replica_path, '/queue/', t1.node_name)
 	FROM system.replicas AS t0,
 	(
@@ -140,6 +142,7 @@ func GetReplicaQueueZnodes(conn *common.Conn) ([]string, error) {
 		WHERE (num_postponed > 0) AND (num_tries >= 0 OR create_time > addSeconds(now(), -86400))
 	) AS t1
 	WHERE (t0.database = t1.database) AND (t0.table = t1.table) AND (t0.replica_name = t1.replica_name)`
+	log.Logger.Debugf("[%s]query:%s", host, query)
 	rows, err := conn.Query(query)
 	if err != nil {
 		return nil, err
@@ -158,6 +161,6 @@ func GetReplicaQueueZnodes(conn *common.Conn) ([]string, error) {
 			break
 		}
 	}
-	log.Logger.Debugf("remove replica_queue from zookeeper: %v", len(znodes))
+	log.Logger.Debugf("[%s]remove replica_queue from zookeeper: %v", host, len(znodes))
 	return znodes, nil
 }

@@ -53,7 +53,7 @@ func ReplicaQueueHandle(opts ZReplicaQueueOpts) {
 			continue
 		}
 		// remove replica_queue in zookeeper
-		znodes, err := cron.GetReplicaQueueZnodes(conn)
+		znodes, err := cron.GetReplicaQueueZnodes(host, conn)
 		if err != nil {
 			log.Logger.Infof("[%s]remove replica_queue from zookeeper failed: %v", cluster.Cluster, err)
 		}

@@ -34,7 +34,7 @@ var (
 	gz_sort      = g_znodes.Flag("sort", "sort number").Short('s').Int()
 	gz_path      = g_znodes.Arg("path", "path").Default("/clickhouse").String()
 
-	deleteCmd   = kingpin.Command("delete", "delete options")
+	deleteCmd   = kingpin.Command("cleanup", "cleanup options")
 	d_znodes    = deleteCmd.Command("znodes", "delete znodes")
 	dz_suball   = d_znodes.Command("suball", "delete all subnodes")
 	dzs_cluster = dz_suball.Arg("cluster", "cluster").String()
@@ -72,7 +72,7 @@ func main() {
 			SortNumber: *gz_sort,
 			Zkhosts:    *gz_host,
 		})
-	case "delete":
+	case "cleanup":
 		thirdCmd := strings.Split(command, " ")[2]
 		if thirdCmd == "suball" {
 			znodes.SuballHandle(znodes.ZSuballOpts{
