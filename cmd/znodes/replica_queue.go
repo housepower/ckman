@@ -64,7 +64,7 @@ func ReplicaQueueHandle(opts ZReplicaQueueOpts) {
 			}
 		} else {
 			deleted, notexist := cron.RemoveZnodes(zkService, znodes)
-			fmt.Printf("[%s]remove [%d] replica_queue from zookeeper success, [%d] already deleted\n", cluster.Cluster, deleted, notexist)
+			fmt.Printf("[%s][%s]remove [%d] replica_queue from zookeeper success, [%d] already deleted\n", host, cluster.Cluster, deleted, notexist)
 		}
 	}
 	if opts.Dryrun {
