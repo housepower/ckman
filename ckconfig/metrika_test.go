@@ -21,11 +21,14 @@ func TestMetrika(t *testing.T) {
 				{HostName: "ck04", Ip: "192.168.0.4"},
 			}},
 		},
+		Port:         9000,
 		ZkNodes:      []string{"192.168.0.1", "192.168.0.2", "192.168.0.3"},
 		ZkPort:       2181,
 		IsReplica:    true,
 		LogicCluster: &logic,
 		Version:      "22.8.8.3",
+		User:         "default",
+		Password:     "123456",
 	}
 	_, err := GenerateMetrikaXML("metrika_fake.xml", &conf)
 	assert.Nil(t, err)

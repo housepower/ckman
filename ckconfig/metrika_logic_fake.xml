@@ -26,22 +26,22 @@
                 <internal_replication>true</internal_replication>
                 <replica>
                     <host>192.168.0.1</host>
-                    <port>0</port>
+                    <port>9000</port>
                 </replica>
                 <replica>
                     <host>192.168.0.2</host>
-                    <port>0</port>
+                    <port>9000</port>
                 </replica>
             </shard>
             <shard>
                 <internal_replication>true</internal_replication>
                 <replica>
                     <host>192.168.0.3</host>
-                    <port>0</port>
+                    <port>9000</port>
                 </replica>
                 <replica>
                     <host>192.168.0.4</host>
-                    <port>0</port>
+                    <port>9000</port>
                 </replica>
             </shard>
         </test>
