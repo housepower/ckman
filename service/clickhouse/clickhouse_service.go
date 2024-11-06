@@ -148,7 +148,7 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 	}
 	if len(settings) > 0 {
 		create += " SETTINGS "
-		idx := 0
+		idx := 1
 		for k, v := range settings {
 			if idx == len(settings) {
 				create += fmt.Sprintf("%s = '%v'", k, v)
