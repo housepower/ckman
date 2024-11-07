@@ -133,9 +133,9 @@ func (ck *CkService) CreateTable(params *model.CreateCkTableParams, dryrun bool)
 	}
 
 	settings := make(map[string]interface{})
-	if common.CompareClickHouseVersion(ck.Config.Version, "22.4.x") > 0 {
-		settings["use_metadata_cache"] = true
-	}
+	// if common.CompareClickHouseVersion(ck.Config.Version, "22.4.x") > 0 {
+	// 	settings["use_metadata_cache"] = true
+	// }
 
 	create := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`.`%s` ON CLUSTER `%s` (%s%s%s) ENGINE = %s() PARTITION BY %s ORDER BY (%s)",
 		params.DB, params.Name, params.Cluster, strings.Join(columns, ", "), params.IndexExpr, projections, params.Engine,
