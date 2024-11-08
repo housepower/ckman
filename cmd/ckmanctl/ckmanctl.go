@@ -24,7 +24,7 @@ var (
 	migrateCmd = kingpin.Command("migrate", "migrate cluster config from old repersistence to new persistence")
 	m_conf     = migrateCmd.Flag("conf", "migrate config file path").Default("/etc/ckman/conf/migrate.hjson").Short('c').String()
 
-	//passwordCmd = kingpin.Command("password", "encrypt password")
+	_ = kingpin.Command("password", "encrypt password")
 
 	// ckmanctl get znodes /clickhouse/tables/chenyc1 -r -s 20
 	getCmd       = kingpin.Command("get", "get options")

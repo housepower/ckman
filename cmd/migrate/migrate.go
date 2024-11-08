@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -135,19 +136,23 @@ func Migrate() error {
 func MigrateHandle(conf string) {
 	config, err := ParseConfig(conf)
 	if err != nil {
-		log.Logger.Fatalf("parse config file %s failed: %v", conf, err)
+		fmt.Printf("parse config file %s failed: %v\n", conf, err)
+		return
 	}
 	psrc, err = PersistentCheck(config, config.Source)
 	if err != nil {
-		log.Logger.Fatalf("source [%s] err: %v", config.Source, err)
+		fmt.Printf("source [%s] err: %v\n", config.Source, err)
+		return
 	}
 	pdst, err = PersistentCheck(config, config.Target)
 	if err != nil {
-		log.Logger.Fatalf("target [%s] err: %v", config.Target, err)
+		fmt.Printf("target [%s] err: %v\n", config.Target, err)
+		return
 	}
 
 	if err = Migrate(); err != nil {
-		log.Logger.Fatalf("migrate failed: %v", err)
+		fmt.Printf("migrate failed: %v\n", err)
+		return
 	}
-	log.Logger.Infof("Form [%s] migrate to [%s] success!", config.Source, config.Target)
+	fmt.Printf("Form [%s] migrate to [%s] success!\n", config.Source, config.Target)
 }
