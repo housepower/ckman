@@ -32,7 +32,7 @@ func (job *CronService) schedulePadding() {
 	job.jobSchedules[JOB_SYNC_LOGIC_SCHEMA] = common.GetStringwithDefault(job.config.SyncLogicSchema, SCHEDULE_EVERY_MIN)
 	job.jobSchedules[JOB_WATCH_CLUSTER_STATUS] = common.GetStringwithDefault(job.config.WatchClusterStatus, SCHEDULE_WATCH_DEFAULT)
 	job.jobSchedules[JOB_SYNC_DIST_SCHEMA] = common.GetStringwithDefault(job.config.SyncDistSchema, SCHEDULE_SYNC_DIST)
-	job.jobSchedules[JOB_CLEAR_ZNODES] = common.GetStringwithDefault(job.config.ClearZnodes, SCHEDULE_CLEAR_ZNODES)
+	job.jobSchedules[JOB_CLEAR_ZNODES] = common.GetStringwithDefault(job.config.ClearZnodes, SCHEDULE_DISABLED)
 }
 
 func (job *CronService) Start() error {
