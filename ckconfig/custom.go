@@ -11,7 +11,7 @@ import (
 	"github.com/imdario/mergo"
 )
 
-func root(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interface{} {
+func root(conf *model.CKManClickHouseConfig, ext model.CkDeployExt) map[string]interface{} {
 	output := make(map[string]interface{})
 	output["max_table_size_to_drop"] = 0
 	output["max_table_size_to_drop"] = 0
@@ -20,7 +20,7 @@ func root(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interfa
 	output["default_replica_name"] = "{replica}"
 	output["tcp_port"] = conf.Port
 	output["http_port"] = conf.HttpPort
-	if ipv6Enable {
+	if ext.Ipv6Enable {
 		output["listen_host"] = "::"
 	} else {
 		output["listen_host"] = "0.0.0.0"
@@ -47,6 +47,13 @@ func root(conf *model.CKManClickHouseConfig, ipv6Enable bool) map[string]interfa
 	output["max_concurrent_queries"] = max_concurrent_queries
 	// at least leave 10% to insert
 	output["max_concurrent_select_queries"] = int(max_concurrent_queries * 9 / 10)
+	if common.CompareClickHouseVersion(conf.Version, "22.5.1.2079") >= 0 {
+		// if common.CompareClickHouseVersion(conf.Version, "23.11.1.2711") >= 0 {
+		output["background_fetches_pool_size"] = common.MaxInt(ext.NumCPU/4, 16)
+		// } else {
+		// 	output["background_fetches_pool_size"] = common.MaxInt(ext.NumCPU/4, 8)
+		// }
+	}
 	return output
 }
 
@@ -193,14 +200,14 @@ func merge_tree_metadata_cache() map[string]interface{} {
 	return output
 }
 
-func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ipv6Enable bool) (string, error) {
+func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ext model.CkDeployExt) (string, error) {
 	rootTag := "yandex"
 	if common.CompareClickHouseVersion(conf.Version, "22.x") >= 0 {
 		rootTag = "clickhouse"
 	}
 	custom := make(map[string]interface{})
 	mergo.Merge(&custom, expert(conf.Expert)) //expert have the highest priority
-	mergo.Merge(&custom, root(conf, ipv6Enable))
+	mergo.Merge(&custom, root(conf, ext))
 	mergo.Merge(&custom, logger(conf))
 	mergo.Merge(&custom, system_log())
 	mergo.Merge(&custom, distributed_ddl(conf.Cluster))

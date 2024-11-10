@@ -15,9 +15,12 @@ func GenerateHostXML(filename string, conf *model.CKManClickHouseConfig, host st
 			}
 		}
 	}
-
+	rootTag := "yandex"
+	if common.CompareClickHouseVersion(conf.Version, "22.x") >= 0 {
+		rootTag = "clickhouse"
+	}
 	xml := common.NewXmlFile(filename)
-	xml.Begin("yandex")
+	xml.Begin(rootTag)
 	xml.Comment("This xml file contains every node's special configuration self.")
 	xml.Write("interserver_http_host", host)
 	xml.Begin("macros")
@@ -25,7 +28,7 @@ func GenerateHostXML(filename string, conf *model.CKManClickHouseConfig, host st
 	xml.Write("shard", shardIndex)
 	xml.Write("replica", host)
 	xml.End("macros")
-	xml.End("yandex")
+	xml.End(rootTag)
 	err := xml.Dump()
 	if err != nil {
 		return "", err

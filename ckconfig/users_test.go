@@ -84,7 +84,7 @@ func TestProfiles(t *testing.T) {
 
 	xml := common.NewXmlFile("profiles_fake.xml")
 	xml.Begin("clickhouse")
-	xml.Merge(profiles(profile, info))
+	xml.Merge(profiles(profile, info, "23.8.9.54"))
 	xml.End("clickhouse")
 	err := xml.Dump()
 	assert.Nil(t, err)

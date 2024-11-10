@@ -70,14 +70,27 @@ func (d *CKDeploy) Init() error {
 				return
 			}
 			memory := strings.Trim(output, "\n")
-			total, err := strconv.Atoi(memory)
+			totalMem, err := strconv.Atoi(memory)
+			if err != nil {
+				lastError = err
+				return
+			}
+			cmd = "cat /proc/cpuinfo  |grep processor |wc -l"
+			output, err = common.RemoteExecute(sshOpts, cmd)
+			if err != nil {
+				lastError = err
+				return
+			}
+			cpu := strings.Trim(output, "\n")
+			cpuNum, err := strconv.Atoi(cpu)
 			if err != nil {
 				lastError = err
 				return
 			}
 
 			info := ckconfig.HostInfo{
-				MemoryTotal: total,
+				MemoryTotal: totalMem,
+				NumCPU:      cpuNum,
 			}
 			d.HostInfos[innerIndex] = info
 			if d.Ext.Ipv6Enable {
@@ -100,6 +113,12 @@ func (d *CKDeploy) Init() error {
 	if lastError != nil {
 		return lastError
 	}
+	numCPU := 0
+	for _, v := range d.HostInfos {
+		numCPU = common.MaxInt(numCPU, v.NumCPU)
+	}
+	d.Ext.NumCPU = numCPU
+
 	lastError = nil
 	for shardIndex, shard := range d.Conf.Shards {
 		for replicaIndex, replica := range shard.Replicas {
@@ -328,7 +347,7 @@ func (d *CKDeploy) Config() error {
 		confFiles = append(confFiles, metrika)
 	}
 
-	custom, err := ckconfig.GenerateCustomXML(path.Join(config.GetWorkDirectory(), "package", "custom.xml"), d.Conf, d.Ext.Ipv6Enable)
+	custom, err := ckconfig.GenerateCustomXML(path.Join(config.GetWorkDirectory(), "package", "custom.xml"), d.Conf, d.Ext)
 	if err != nil {
 		return err
 	}

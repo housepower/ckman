@@ -48,6 +48,7 @@ type CkDeployExt struct {
 	Restart        bool
 	ChangeCk       bool
 	CurClusterOnly bool //仅修改当前集群的配置
+	NumCPU         int
 }
 
 type CkShard struct {

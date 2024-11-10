@@ -8,6 +8,8 @@ import (
 
 type HostInfo struct {
 	MemoryTotal int
+	NumCPU      int
+	//Ipv6Enable  bool
 }
 
 func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
@@ -70,7 +72,7 @@ func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
 	return output
 }
 
-func profiles(userProfiles []model.Profile, info HostInfo) map[string]interface{} {
+func profiles(userProfiles []model.Profile, info HostInfo, version string) map[string]interface{} {
 	output := make(map[string]interface{})
 	profileMap := make(map[string]interface{})
 	//default
@@ -86,6 +88,9 @@ func profiles(userProfiles []model.Profile, info HostInfo) map[string]interface{
 	defaultProfile["use_uncompressed_cache"] = 0
 	defaultProfile["max_execution_time"] = 3600 // 1 hour
 	defaultProfile["max_partitions_per_insert_block"] = 500
+	if common.CompareClickHouseVersion("22.5.1.2079", version) > 0 {
+		defaultProfile["background_fetches_pool_size"] = common.MaxInt(info.NumCPU/4, 16)
+	}
 	profileMap["default"] = defaultProfile
 
 	//normal
@@ -147,7 +152,7 @@ func GenerateUsersXML(filename string, conf *model.CKManClickHouseConfig, info H
 	userconf := make(map[string]interface{})
 	mergo.Merge(&userconf, expert(conf.UsersConf.Expert))
 	mergo.Merge(&userconf, users(conf))
-	mergo.Merge(&userconf, profiles(conf.UsersConf.Profiles, info))
+	mergo.Merge(&userconf, profiles(conf.UsersConf.Profiles, info, conf.Version))
 	mergo.Merge(&userconf, quotas(conf.UsersConf.Quotas))
 	xml := common.NewXmlFile(filename)
 	xml.Begin(rootTag)

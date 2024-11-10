@@ -113,6 +113,9 @@ func TestGenerateCustomXML(t *testing.T) {
 		Path:      "/data01/",
 		Version:   "23.3.3.44",
 	}
-	_, err := GenerateCustomXML("custom_fake.xml", conf, true)
+	_, err := GenerateCustomXML("custom_fake.xml", conf, model.CkDeployExt{
+		NumCPU:     48,
+		Ipv6Enable: true,
+	})
 	assert.Nil(t, err)
 }

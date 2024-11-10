@@ -5,6 +5,7 @@
         <partition_by>toYYYYMMDD(event_date)</partition_by>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
     </asynchronous_metric_log>
+    <background_fetches_pool_size>12</background_fetches_pool_size>
     <backups>
         <allowed_disk>hdfs1</allowed_disk>
         <allowed_disk>s3</allowed_disk>
@@ -16,6 +17,7 @@
         <path>/clickhouse/task_queue/ddl/abc</path>
     </distributed_ddl>
     <format_schema_path>/data01/clickhouse/format_schemas/</format_schema_path>
+    <http_port>0</http_port>
     <listen_host>::</listen_host>
     <logger>
         <errorlog>/home/eoi/clickhouse/log/clickhouse-server/clickhouse-server.err.log</errorlog>
