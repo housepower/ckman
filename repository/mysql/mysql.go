@@ -321,12 +321,12 @@ func (mp *MysqlPersistent) UpdateQueryHistory(qh model.QueryHistory) error {
 		QuerySql:   qh.QuerySql,
 		CreateTime: time.Now(),
 	}
-	tx := mp.Client.Model(TblLogic{}).Where("checksum = ?", qh.CheckSum).Updates(&table)
+	tx := mp.Client.Model(TblQueryHistory{}).Where("checksum = ?", qh.CheckSum).Updates(&table)
 	return wrapError(tx.Error)
 }
 
 func (mp *MysqlPersistent) DeleteQueryHistory(checksum string) error {
-	tx := mp.Client.Where("checksum = ?", checksum).Unscoped().Delete(&TblLogic{})
+	tx := mp.Client.Where("checksum = ?", checksum).Unscoped().Delete(&TblQueryHistory{})
 	return wrapError(tx.Error)
 }
 

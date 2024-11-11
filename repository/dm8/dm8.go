@@ -322,12 +322,12 @@ func (mp *DM8Persistent) UpdateQueryHistory(qh model.QueryHistory) error {
 		Query:       dmSchema.Clob(qh.QuerySql),
 		CreateTime:  time.Now(),
 	}
-	tx := mp.Client.Model(TblLogic{}).Where("checksum = ?", qh.CheckSum).Updates(&table)
+	tx := mp.Client.Model(TblQueryHistory{}).Where("checksum = ?", qh.CheckSum).Updates(&table)
 	return wrapError(tx.Error)
 }
 
 func (mp *DM8Persistent) DeleteQueryHistory(checksum string) error {
-	tx := mp.Client.Where("checksum = ?", checksum).Unscoped().Delete(&TblLogic{})
+	tx := mp.Client.Where("checksum = ?", checksum).Unscoped().Delete(&TblQueryHistory{})
 	return wrapError(tx.Error)
 }
 
