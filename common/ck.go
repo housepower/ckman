@@ -84,11 +84,13 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 	orderId := hex.EncodeToString(hashInBytes[:])
 	if v, ok := ConnectPool.Load(host); ok {
 		c := v.(Connection)
-		err := c.conn.Ping()
-		if err == nil {
-			return c.conn, nil
-			// } else {
-			//_ = c.conn.Close()
+		if c.orderId == orderId {
+			err := c.conn.Ping()
+			if err == nil {
+				return c.conn, nil
+				// } else {
+				//_ = c.conn.Close()
+			}
 		}
 	}
 	conn := Conn{

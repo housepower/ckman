@@ -2280,6 +2280,8 @@ func (controller *ClickHouseController) PingCluster(c *gin.Context) {
 	}
 
 	shardAvailable := true
+	conf.Password = req.Password
+	conf.User = req.User
 	for _, shard := range conf.Shards {
 		failNum := 0
 		for _, replica := range shard.Replicas {
