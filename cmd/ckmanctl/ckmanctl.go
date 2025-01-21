@@ -24,8 +24,8 @@ var (
 	migrateCmd = kingpin.Command("migrate", "migrate cluster config from old repersistence to new persistence")
 	m_conf     = migrateCmd.Flag("conf", "migrate config file path").Default("/etc/ckman/conf/migrate.hjson").Short('c').String()
 
-	_ = kingpin.Command("password", "encrypt password")
-
+	passCmd = kingpin.Command("password", "encrypt password")
+	p_cwd   = passCmd.Flag("cwd", "current working directory").Short('p').Default("/etc/ckman").String()
 	// ckmanctl get znodes /clickhouse/tables/chenyc1 -r -s 20
 	getCmd       = kingpin.Command("get", "get options")
 	g_znodes     = getCmd.Command("znodes", "get znodes")
@@ -64,7 +64,7 @@ func main() {
 	case "migrate":
 		migrate.MigrateHandle(*m_conf)
 	case "password":
-		password.PasswordHandle()
+		password.PasswordHandle(*p_cwd)
 	case "get":
 		znodes.ZCntHandle(znodes.ZCntOpts{
 			Path:       *gz_path,
