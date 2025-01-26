@@ -130,6 +130,18 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelEN:   "Default Password",
 		InputType: common.InputPassword,
 	})
+	params.MustRegister(conf, "EncryptType", &common.Parameter{
+		LabelZH:       "密码加密算法",
+		LabelEN:       "EncryptType",
+		DescriptionZH: "密码保存时使用什么加密方式，默认明文",
+		DescriptionEN: "What encryption method is used when the password is saved, the default is plaintext",
+		Candidates: []common.Candidate{
+			{Value: "0", LabelEN: "PLAINTEXT", LabelZH: "PLAINTEXT"},
+			{Value: "1", LabelEN: "SHA256_HEX", LabelZH: "SHA256_HEX"},
+			{Value: "2", LabelEN: "DOUBLE_SHA1_HEX", LabelZH: "DOUBLE_SHA1_HEX"},
+		},
+		Default: "0",
+	})
 	params.MustRegister(conf, "Shards", &common.Parameter{
 		LabelZH:       "集群节点配置",
 		LabelEN:       "ClickHouse Cluster Node",
@@ -515,6 +527,11 @@ Non-professionals please do not fill in this`,
 		LabelEN:  "Quotas",
 		Required: "false",
 	})
+	params.MustRegister(userconf, "Roles", &common.Parameter{
+		LabelZH:  "角色管理",
+		LabelEN:  "Roles",
+		Required: "false",
+	})
 	params.MustRegister(userconf, "Expert", &common.Parameter{
 		LabelZH: "用户高级配置",
 		LabelEN: "User Custom Config",
@@ -571,6 +588,13 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "Quota",
 		DescriptionZH: "配额允许您在一段时间内跟踪或限制资源使用情况",
 		DescriptionEN: "Quotas allow you to track or limit resource usage over a period of time. ",
+		Required:      "false",
+	})
+	params.MustRegister(user, "Roles", &common.Parameter{
+		LabelZH:       "角色",
+		LabelEN:       "Roles",
+		DescriptionZH: "角色可以通过SQL的方式定义某类用户对数据库的访问权限",
+		DescriptionEN: "Roles can define the access rights of certain types of users to the database by means of SQL.",
 		Required:      "false",
 	})
 	params.MustRegister(user, "Networks", &common.Parameter{
@@ -716,6 +740,23 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "Interval",
 		DescriptionZH: "配额生效的周期时段",
 		DescriptionEN: "Restrictions for a time period. You can set many intervals with different restrictions.",
+	})
+
+	var role model.Role
+	params.MustRegister(role, "Name", &common.Parameter{
+		LabelZH: "角色名称",
+		LabelEN: "Name",
+	})
+	params.MustRegister(role, "Grants", &common.Parameter{
+		LabelZH: "授权",
+		LabelEN: "Grants",
+	})
+	var grants model.Grants
+	params.MustRegister(grants, "Query", &common.Parameter{
+		LabelZH:       "授权 SQL",
+		LabelEN:       "Grant SQL",
+		DescriptionEN: "write SQL like `GRANT CREATE ON *.* WITH GRANT OPTION`",
+		DescriptionZH: "通过SQL编写GRANT语句定义， 如： `GRANT CREATE ON *.* WITH GRANT OPTION`",
 	})
 
 	var interval model.Interval
@@ -1031,6 +1072,18 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN:   "Default Password",
 		InputType: common.InputPassword,
 	})
+	params.MustRegister(conf, "EncryptType", &common.Parameter{
+		LabelZH:       "密码加密算法",
+		LabelEN:       "EncryptType",
+		DescriptionZH: "密码保存时使用什么加密方式，默认明文",
+		DescriptionEN: "What encryption method is used when the password is saved, the default is plaintext",
+		Candidates: []common.Candidate{
+			{Value: "0", LabelEN: "PLAINTEXT", LabelZH: "PLAINTEXT"},
+			{Value: "1", LabelEN: "SHA256_HEX", LabelZH: "SHA256_HEX"},
+			{Value: "2", LabelEN: "DOUBLE_SHA1_HEX", LabelZH: "DOUBLE_SHA1_HEX"},
+		},
+		Default: "0",
+	})
 	params.MustRegister(conf, "Protocol", &common.Parameter{
 		LabelZH: "连接协议",
 		LabelEN: "Protocol",
@@ -1234,6 +1287,11 @@ Non-professionals please do not fill in this`,
 		LabelEN:  "Quotas",
 		Required: "false",
 	})
+	params.MustRegister(userconf, "Roles", &common.Parameter{
+		LabelZH:  "角色管理",
+		LabelEN:  "Roles",
+		Required: "false",
+	})
 	params.MustRegister(userconf, "Expert", &common.Parameter{
 		LabelZH: "用户高级配置",
 		LabelEN: "User Custom Config",
@@ -1290,6 +1348,13 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "Quota",
 		DescriptionZH: "配额允许您在一段时间内跟踪或限制资源使用情况",
 		DescriptionEN: "Quotas allow you to track or limit resource usage over a period of time. ",
+		Required:      "false",
+	})
+	params.MustRegister(user, "Roles", &common.Parameter{
+		LabelZH:       "角色",
+		LabelEN:       "Roles",
+		DescriptionZH: "角色可以通过SQL的方式定义某类用户对数据库的访问权限",
+		DescriptionEN: "Roles can define the access rights of certain types of users to the database by means of SQL.",
 		Required:      "false",
 	})
 	params.MustRegister(user, "Networks", &common.Parameter{
@@ -1435,6 +1500,23 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "Interval",
 		DescriptionZH: "配额生效的周期时段",
 		DescriptionEN: "Restrictions for a time period. You can set many intervals with different restrictions.",
+	})
+
+	var role model.Role
+	params.MustRegister(role, "Name", &common.Parameter{
+		LabelZH: "角色名称",
+		LabelEN: "Name",
+	})
+	params.MustRegister(role, "Grants", &common.Parameter{
+		LabelZH: "授权",
+		LabelEN: "Grants",
+	})
+	var grants model.Grants
+	params.MustRegister(grants, "Query", &common.Parameter{
+		LabelZH:       "授权 SQL",
+		LabelEN:       "Grant SQL",
+		DescriptionEN: "write SQL like `GRANT CREATE ON *.* WITH GRANT OPTION`",
+		DescriptionZH: "通过SQL编写GRANT语句定义， 如： `GRANT CREATE ON *.* WITH GRANT OPTION`",
 	})
 
 	var interval model.Interval

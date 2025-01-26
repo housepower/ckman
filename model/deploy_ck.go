@@ -107,6 +107,7 @@ type CKManClickHouseConfig struct {
 	PromMetricPort   PromMetricPort
 	User             string `json:"user" example:"ck"`
 	Password         string `json:"password" example:"123456"`
+	EncryptType      int
 	Path             string `json:"path" example:"/var/lib/"`
 	SshUser          string `json:"sshUser" example:"root"`
 	AuthenticateType int    `json:"authenticateType" example:"0"`
@@ -192,6 +193,7 @@ type UsersConf struct {
 	Users    []User
 	Profiles []Profile
 	Quotas   []Quota
+	Roles    []Role
 	Expert   map[string]string
 }
 
@@ -201,8 +203,19 @@ type User struct {
 	EncryptType  int
 	Profile      string        // shall be in Profiles
 	Quota        string        // shall be in Quotas
+	Roles        string        // shall be in Roles
 	Networks     Networks      // List of networks from which the user can connect to the ClickHouse server.
 	DbRowPolices []DbRowPolicy // For the given database.table, only rows pass the filter are granted. For other database. tables, all rows are granted.
+}
+
+// https://clickhouse.com/docs/en/operations/settings/settings-users#roles
+type Role struct {
+	Name   string
+	Grants Grants
+}
+
+type Grants struct {
+	Query []string
 }
 
 type Networks struct {

@@ -2,14 +2,16 @@
     <profiles>
         <default>
             <allow_drop_detached>1</allow_drop_detached>
+            <background_fetches_pool_size>16</background_fetches_pool_size>
             <distributed_aggregation_memory_efficient>1</distributed_aggregation_memory_efficient>
-            <distributed_ddl_task_timeout>15</distributed_ddl_task_timeout>
+            <distributed_ddl_task_timeout>60</distributed_ddl_task_timeout>
             <joined_subquery_requires_alias>0</joined_subquery_requires_alias>
             <max_bytes_before_external_group_by>261644000000</max_bytes_before_external_group_by>
-            <max_execution_time>300</max_execution_time>
+            <max_execution_time>3600</max_execution_time>
             <max_memory_usage>523288000000</max_memory_usage>
             <max_memory_usage_for_all_queries>784932000000</max_memory_usage_for_all_queries>
             <max_partitions_insert_block>500</max_partitions_insert_block>
+            <max_partitions_per_insert_block>500</max_partitions_per_insert_block>
             <max_query_size>1073741824</max_query_size>
             <use_uncompressed_cache>0</use_uncompressed_cache>
         </default>
@@ -72,13 +74,23 @@
             </interval>
         </foo>
     </quotas>
+    <roles>
+        <eoitek>
+            <grants>
+                <query>GRANT SHOW ON *.*</query>
+                <query>GRANT CREATE ON *.* WITH GRANT OPTION</query>
+                <query>GRANT SELECT ON system.*</query>
+            </grants>
+        </eoitek>
+    </roles>
     <users>
         <default>
             <access_management>1</access_management>
             <networks>
                 <ip>::/0</ip>
             </networks>
-            <password>123456</password>
+            <password remove="remove"></password>
+            <password_double_sha1_hex>6bb4837eb74329105ee4568dda7dc67ed2ca2ad9</password_double_sha1_hex>
             <profile>default</profile>
             <quota>default</quota>
         </default>

@@ -13,7 +13,8 @@
             <networks>
                 <ip>::/0</ip>
             </networks>
-            <password>qaz-wsx</password>
+            <password remove="remove"></password>
+            <password_sha256_hex>e10d07a176f5cc884ee6961da5b6260977c05b3de7e120579ed2f2e50947c063</password_sha256_hex>
             <profile>default</profile>
             <quota>default</quota>
         </default>

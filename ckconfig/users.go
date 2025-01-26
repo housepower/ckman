@@ -18,7 +18,12 @@ func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
 
 	//default
 	defaultUser := make(map[string]interface{})
-	defaultUser["password"] = conf.Password
+	if conf.EncryptType == common.PLAINTEXT {
+		defaultUser["password"] = conf.Password
+	} else {
+		defaultUser["password[@remove=\"remove\"]"] = ""
+		defaultUser[common.CkPasswdLabel(conf.EncryptType)] = common.CkPassword(conf.Password, conf.EncryptType)
+	}
 	defaultUser["profile"] = model.ClickHouseUserProfileDefault
 	defaultUser["quota"] = model.ClickHouseUserQuotaDefault
 	defaultUser["access_management"] = 1
@@ -144,6 +149,22 @@ func quotas(userQuotas []model.Quota) map[string]interface{} {
 	return output
 }
 
+func roles(userRoles []model.Role) map[string]interface{} {
+	output := make(map[string]interface{})
+	if len(userRoles) > 0 {
+		quotasMap := make(map[string]interface{})
+		for _, role := range userRoles {
+			quotasMap[role.Name] = map[string]interface{}{
+				"grants": map[string]interface{}{
+					"query": role.Grants.Query,
+				},
+			}
+		}
+		output["roles"] = quotasMap
+	}
+	return output
+}
+
 func GenerateUsersXML(filename string, conf *model.CKManClickHouseConfig, info HostInfo) (string, error) {
 	rootTag := "yandex"
 	if common.CompareClickHouseVersion(conf.Version, "22.x") >= 0 {
@@ -154,6 +175,7 @@ func GenerateUsersXML(filename string, conf *model.CKManClickHouseConfig, info H
 	mergo.Merge(&userconf, users(conf))
 	mergo.Merge(&userconf, profiles(conf.UsersConf.Profiles, info, conf.Version))
 	mergo.Merge(&userconf, quotas(conf.UsersConf.Quotas))
+	mergo.Merge(&userconf, roles(conf.UsersConf.Roles))
 	xml := common.NewXmlFile(filename)
 	xml.Begin(rootTag)
 	xml.Merge(userconf)

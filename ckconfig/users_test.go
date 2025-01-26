@@ -43,7 +43,8 @@ func TestUsers(t *testing.T) {
 		},
 	}
 	conf := model.CKManClickHouseConfig{
-		Password: "qaz-wsx",
+		Password:    "qaz-wsx",
+		EncryptType: common.SHA256_HEX,
 		UsersConf: model.UsersConf{
 			Users: user,
 		},
@@ -154,7 +155,8 @@ func TestQuotas(t *testing.T) {
 
 func TestUsersXML(t *testing.T) {
 	GenerateUsersXML("users.xml", &model.CKManClickHouseConfig{
-		Password: "123456",
+		Password:    "123456",
+		EncryptType: common.DOUBLE_SHA1_HEX,
 		UsersConf: model.UsersConf{
 			Users: []model.User{
 				{
@@ -255,6 +257,18 @@ func TestUsersXML(t *testing.T) {
 							ResultRows:    99999999,
 							ReadRows:      100000000,
 							ExecutionTime: 10000,
+						},
+					},
+				},
+			},
+			Roles: []model.Role{
+				model.Role{
+					Name: "eoitek",
+					Grants: model.Grants{
+						Query: []string{
+							"GRANT SHOW ON *.*",
+							"GRANT CREATE ON *.* WITH GRANT OPTION",
+							"GRANT SELECT ON system.*",
 						},
 					},
 				},
