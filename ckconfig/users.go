@@ -1,6 +1,8 @@
 package ckconfig
 
 import (
+	"fmt"
+
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
 	"github.com/imdario/mergo"
@@ -39,6 +41,11 @@ func users(conf *model.CKManClickHouseConfig) map[string]interface{} {
 			normal[common.CkPasswdLabel(normalUser.EncryptType)] = common.CkPassword(normalUser.Password, normalUser.EncryptType)
 			normal["profile"] = common.GetStringwithDefault(normalUser.Profile, model.ClickHouseUserProfileDefault)
 			normal["quota"] = common.GetStringwithDefault(normalUser.Quota, model.ClickHouseUserQuotaDefault)
+			if normalUser.Roles != "" {
+				normal["grants"] = map[string]interface{}{
+					"query": fmt.Sprintf("GRANT %s", normalUser.Roles),
+				}
+			}
 			networks := make(map[string]interface{})
 			if len(normalUser.Networks.IPs) > 0 {
 				var ips []string
