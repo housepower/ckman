@@ -103,7 +103,7 @@ func (d *KeeperDeploy) Init() error {
 
 func (d *KeeperDeploy) Prepare() error {
 	d.Conf.Normalize()
-	file := path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory, d.Packages.Keeper)
+	file := path.Join(common.GetPkgPath(), common.DefaultPackageDirectory, d.Packages.Keeper)
 
 	var lastError error
 	var wg sync.WaitGroup
@@ -140,9 +140,9 @@ func (d *KeeperDeploy) Install() error {
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmds := make([]string, 0)
 	cmds = append(cmds, cmdIns.InstallCmd(KeeperSvrName, d.Packages))
-	cmds = append(cmds, fmt.Sprintf("rm -rf %s/* %s/*", d.Conf.KeeperConf.LogPath, d.Conf.KeeperConf.SnapshotPath))
+	cmds = append(cmds, fmt.Sprintf("rm -rf %s/*", d.Conf.KeeperConf.Path))
 	if d.Conf.NeedSudo {
-		cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s %s -R", d.Conf.KeeperConf.LogPath, d.Conf.KeeperConf.SnapshotPath))
+		cmds = append(cmds, fmt.Sprintf("chown clickhouse.clickhouse %s -R", d.Conf.KeeperConf.Path))
 	}
 	var lastError error
 	var wg sync.WaitGroup
@@ -198,7 +198,7 @@ func (d *KeeperDeploy) Uninstall() error {
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)
 	cmds := make([]string, 0)
 	cmds = append(cmds, cmdIns.Uninstall(KeeperSvrName, d.Packages, d.Conf.Version))
-	cmds = append(cmds, fmt.Sprintf("rm -rf %s/* %s/*", d.Conf.KeeperConf.LogPath, d.Conf.KeeperConf.SnapshotPath))
+	cmds = append(cmds, fmt.Sprintf("rm -rf %s/*", d.Conf.KeeperConf.Path))
 	if d.Conf.NeedSudo {
 		cmds = append(cmds, "rm -rf /etc/clickhouse-keeper")
 	}

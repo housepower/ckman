@@ -231,15 +231,9 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelEN: "RaftPort",
 		Default: "9234",
 	})
-	params.MustRegister(keeper, "LogPath", &common.Parameter{
-		LabelZH: "Log路径",
-		LabelEN: "LogPath",
-		Default: "/var/lib/",
-		Regexp:  "^/.+/$",
-	})
-	params.MustRegister(keeper, "SnapshotPath", &common.Parameter{
-		LabelZH: "Snapshot路径",
-		LabelEN: "SnapshotPath",
+	params.MustRegister(keeper, "Path", &common.Parameter{
+		LabelZH: "Keeper数据路径",
+		LabelEN: "KeeperPath",
 		Default: "/var/lib/",
 		Regexp:  "^/.+/$",
 	})
@@ -961,14 +955,9 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelZH: "Raft通信端口",
 		LabelEN: "RaftPort",
 	})
-	params.MustRegister(keeper, "LogPath", &common.Parameter{
-		LabelZH:  "Log路径",
-		LabelEN:  "LogPath",
-		Editable: "false",
-	})
-	params.MustRegister(keeper, "SnapshotPath", &common.Parameter{
-		LabelZH:  "Snapshot路径",
-		LabelEN:  "SnapshotPath",
+	params.MustRegister(keeper, "Path", &common.Parameter{
+		LabelZH:  "Keeper数据路径",
+		LabelEN:  "KeeperPath",
 		Editable: "false",
 	})
 	params.MustRegister(keeper, "Expert", &common.Parameter{

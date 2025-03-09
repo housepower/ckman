@@ -152,16 +152,10 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 		} else {
 			return errors.Errorf("keeper runtime %s is not supported", conf.KeeperConf.Runtime)
 		}
-		if !strings.HasSuffix(conf.KeeperConf.LogPath, "/") {
-			return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.KeeperConf.LogPath))
+		if !strings.HasSuffix(conf.KeeperConf.Path, "/") {
+			return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.KeeperConf.Path))
 		}
-		if !strings.HasSuffix(conf.KeeperConf.SnapshotPath, "/") {
-			return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.KeeperConf.SnapshotPath))
-		}
-		if err := checkAccess(conf.KeeperConf.LogPath, conf); err != nil {
-			return errors.Wrapf(err, "check access error")
-		}
-		if err := checkAccess(conf.KeeperConf.SnapshotPath, conf); err != nil {
+		if err := checkAccess(conf.KeeperConf.Path, conf); err != nil {
 			return errors.Wrapf(err, "check access error")
 		}
 	} else {

@@ -160,7 +160,7 @@ func (d *CKDeploy) Prepare() error {
 	d.Conf.Normalize()
 	files := make([]string, 0)
 	for _, file := range d.Packages.PkgLists {
-		files = append(files, path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory, file))
+		files = append(files, path.Join(common.GetPkgPath(), common.DefaultPackageDirectory, file))
 	}
 
 	var lastError error

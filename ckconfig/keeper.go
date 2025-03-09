@@ -8,7 +8,7 @@ import (
 	"github.com/imdario/mergo"
 )
 
-func keeper_root(ipv6Enable bool) map[string]interface{} {
+func keeper_root(ipv6Enable bool, keeperPath string) map[string]interface{} {
 	output := make(map[string]interface{})
 	if ipv6Enable {
 		output["listen_host"] = "::"
@@ -16,18 +16,24 @@ func keeper_root(ipv6Enable bool) map[string]interface{} {
 		output["listen_host"] = "0.0.0.0"
 	}
 	output["max_connections"] = 4096
+	/*
+		src/Coordination/KeeperContext.cpp:getRocksDBPathFromConfig:L141
+		return create_local_disk(std::filesystem::path{config.getString("path", DBMS_DEFAULT_PATH)} / "coordination/rocksdb");
+		DBMS_DEFAULT_PATH => static constexpr auto DBMS_DEFAULT_PATH = "/var/lib/clickhouse/";
+	*/
+	output["path"] = keeperPath + "clickhouse-keeper"
 	return output
 }
 
 func keeper_server(conf *model.CKManClickHouseConfig, ipv6Enable bool, idx int) map[string]interface{} {
-	output := keeper_root(ipv6Enable)
+	output := keeper_root(ipv6Enable, conf.KeeperConf.Path)
 	output["logger"] = keeper_logger(conf)
 	keeper_server := make(map[string]interface{})
 	mergo.Merge(&keeper_server, conf.KeeperConf.Expert)
 	keeper_server["tcp_port"] = conf.KeeperConf.TcpPort
 	keeper_server["server_id"] = idx
-	keeper_server["log_storage_path"] = conf.KeeperConf.LogPath + "clickhouse/coordination/logs"
-	keeper_server["snapshot_storage_path"] = conf.KeeperConf.SnapshotPath + "clickhouse/coordination/snapshots"
+	keeper_server["log_storage_path"] = conf.KeeperConf.Path + "clickhouse-keeper/coordination/logs"
+	keeper_server["snapshot_storage_path"] = conf.KeeperConf.Path + "clickhouse-keeper/coordination/snapshots"
 	keeper_server["coordination_settings"] = coordination_settings(conf.KeeperConf.Coordination)
 	keeper_server["raft_configuration"] = raft_configuration(conf.KeeperConf)
 	output["keeper_server"] = keeper_server

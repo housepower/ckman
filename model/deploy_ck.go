@@ -135,8 +135,7 @@ type KeeperConf struct {
 	KeeperNodes  []string `json:"keeperNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
 	TcpPort      int      `json:"tcpPort" example:"9181"`
 	RaftPort     int      `json:"raftPort" example:"9234"`
-	LogPath      string
-	SnapshotPath string
+	Path         string
 	Coordination Coordination
 	Expert       map[string]string
 }
