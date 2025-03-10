@@ -94,6 +94,7 @@ func main() {
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
 	//dump config to log must ensure the password not be decode
 	DumpConfig(conf)
+	common.SetPkgPath(config.GlobalConfig.Server.PkgPath)
 	if config.GlobalConfig.Server.Ip == "" {
 		config.GlobalConfig.Server.Ip = common.GetOutboundIP().String()
 	}

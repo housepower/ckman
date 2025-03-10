@@ -68,6 +68,7 @@ type CKManServerConfig struct {
 	PublicKey        string `yaml:"public_key" json:"public_key"`
 	PersistentPolicy string `yaml:"persistent_policy" json:"persistent_policy"`
 	TaskInterval     int    `yaml:"task_interval" json:"task_interval"`
+	PkgPath          string `yaml:"pkg_path" json:"pkg_path"`
 }
 
 type CKManLogConfig struct {
@@ -102,6 +103,7 @@ func fillDefault(c *CKManConfig) {
 	c.Nacos.DataID = "ckman"
 	c.Server.CertFile = path.Join(GetWorkDirectory(), "conf", "server.crt")
 	c.Server.KeyFile = path.Join(GetWorkDirectory(), "conf", "server.key")
+	c.Server.PkgPath = GetWorkDirectory()
 	c.Server.TaskInterval = 5
 	c.Cron.Enabled = true
 	c.ClickHouse.MaxOpenConns = 10

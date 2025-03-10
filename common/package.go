@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/housepower/ckman/config"
 	"github.com/pkg/errors"
 )
 
@@ -25,6 +24,16 @@ const (
 	PkgSuffixTgz string = "tgz"
 	PkgSuffixDeb string = "deb"
 )
+
+var _pkgPath string
+
+func SetPkgPath(path string) {
+	_pkgPath = path
+}
+
+func GetPkgPath() string {
+	return _pkgPath
+}
 
 type CkPackageFile struct {
 	PkgName string
@@ -140,7 +149,7 @@ func LoadPackages() error {
 		CkPackages.Delete(k)
 		return true
 	})
-	dir, err := os.ReadDir(path.Join(config.GetWorkDirectory(), DefaultPackageDirectory))
+	dir, err := os.ReadDir(path.Join(GetPkgPath(), DefaultPackageDirectory))
 	if err != nil {
 		return errors.Wrap(err, "")
 	}

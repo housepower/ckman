@@ -101,7 +101,7 @@ func ParserFormData(request *http.Request) (string, error) {
 
 	log.Logger.Infof("Upload File: %s", handler.Filename)
 	log.Logger.Infof("File Size: %d", handler.Size)
-	dir := path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory)
+	dir := path.Join(common.GetPkgPath(), common.DefaultPackageDirectory)
 	_, err = os.Stat(dir)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0777)
@@ -227,7 +227,7 @@ func (controller *PackageController) Delete(c *gin.Context) {
 	packageType := c.Query("pkgType")
 	packages := deploy.BuildPackages(packageVersion, packageType, "")
 	for _, packageName := range packages.PkgLists {
-		if err := os.Remove(path.Join(config.GetWorkDirectory(), common.DefaultPackageDirectory, packageName)); err != nil {
+		if err := os.Remove(path.Join(common.GetPkgPath(), common.DefaultPackageDirectory, packageName)); err != nil {
 			controller.wrapfunc(c, model.E_FILE_NOT_EXIST, err)
 			return
 		}
