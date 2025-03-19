@@ -172,6 +172,8 @@ definitions:
       cwd:
         example: /home/eoi/clickhouse
         type: string
+      encryptType:
+        type: integer
       expert:
         additionalProperties:
           type: string
@@ -574,15 +576,13 @@ definitions:
         items:
           type: string
         type: array
-      logPath:
+      path:
         type: string
       raftPort:
         example: 9234
         type: integer
       runtime:
         example: standalone
-        type: string
-      snapshotPath:
         type: string
       tcpPort:
         example: 9181

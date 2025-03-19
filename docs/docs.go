@@ -2880,6 +2880,9 @@ var doc = `{
                     "type": "string",
                     "example": "/home/eoi/clickhouse"
                 },
+                "encryptType": {
+                    "type": "integer"
+                },
                 "expert": {
                     "type": "object",
                     "additionalProperties": {
@@ -3445,7 +3448,7 @@ var doc = `{
                         "192.168.101.107"
                     ]
                 },
-                "logPath": {
+                "path": {
                     "type": "string"
                 },
                 "raftPort": {
@@ -3455,9 +3458,6 @@ var doc = `{
                 "runtime": {
                     "type": "string",
                     "example": "standalone"
-                },
-                "snapshotPath": {
-                    "type": "string"
                 },
                 "tcpPort": {
                     "type": "integer",

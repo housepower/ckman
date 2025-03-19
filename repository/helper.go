@@ -20,10 +20,12 @@ func EncodePasswd(conf *model.CKManClickHouseConfig) {
 	for idx, user := range conf.UsersConf.Users {
 		conf.UsersConf.Users[idx].Password = common.AesEncryptECB(user.Password)
 	}
-	for idx, disk := range conf.Storage.Disks {
-		if disk.Type == "s3" {
-			conf.Storage.Disks[idx].DiskS3.AccessKeyID = common.AesEncryptECB(disk.DiskS3.AccessKeyID)
-			conf.Storage.Disks[idx].DiskS3.SecretAccessKey = common.AesEncryptECB(disk.DiskS3.SecretAccessKey)
+	if conf.Storage != nil {
+		for idx, disk := range conf.Storage.Disks {
+			if disk.Type == "s3" && disk.DiskS3 != nil {
+				conf.Storage.Disks[idx].DiskS3.AccessKeyID = common.AesEncryptECB(disk.DiskS3.AccessKeyID)
+				conf.Storage.Disks[idx].DiskS3.SecretAccessKey = common.AesEncryptECB(disk.DiskS3.SecretAccessKey)
+			}
 		}
 	}
 }
@@ -42,15 +44,17 @@ func DecodePasswd(conf *model.CKManClickHouseConfig) {
 		user.Password = common.AesDecryptECB(user.Password)
 		users = append(users, user)
 	}
-
-	var disks []model.Disk
-	for _, disk := range conf.Storage.Disks {
-		if disk.Type == "s3" {
-			disk.DiskS3.AccessKeyID = common.AesDecryptECB(disk.DiskS3.AccessKeyID)
-			disk.DiskS3.SecretAccessKey = common.AesDecryptECB(disk.DiskS3.SecretAccessKey)
-		}
-		disks = append(disks, disk)
-	}
 	conf.UsersConf.Users = users
-	conf.Storage.Disks = disks
+
+	if conf.Storage != nil {
+		var disks []model.Disk
+		for _, disk := range conf.Storage.Disks {
+			if disk.Type == "s3" && disk.DiskS3 != nil {
+				disk.DiskS3.AccessKeyID = common.AesDecryptECB(disk.DiskS3.AccessKeyID)
+				disk.DiskS3.SecretAccessKey = common.AesDecryptECB(disk.DiskS3.SecretAccessKey)
+			}
+			disks = append(disks, disk)
+		}
+		conf.Storage.Disks = disks
+	}
 }
