@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"syscall"
 
 	"github.com/housepower/ckman/common"
@@ -28,14 +27,14 @@ func PasswordHandle(cwd string) {
 		return
 	}
 	// list all users
-	users := listUsers()
+	users, maxIndex := listUsers()
 	fmt.Printf("\nPlease enter the user index:")
 	var index int
 	if _, err = fmt.Scanf("%d", &index); err != nil {
 		fmt.Printf("\nEnter index fail: %v\n", err)
 		return
 	}
-	if index < 0 || index >= len(users) {
+	if index < 0 || index >= maxIndex {
 		fmt.Printf("\nInvalid index: %d\n", index)
 		return
 	}
@@ -45,6 +44,13 @@ func PasswordHandle(cwd string) {
 		var username string
 		fmt.Scanf("%s", &username)
 
+		for _, user := range users {
+			if username == user.Name {
+				fmt.Printf("\nUser [%s] already exists\n", username)
+				return
+			}
+		}
+
 		fmt.Printf("\nEnter policy(ordinary|guest):")
 		var policy string
 		fmt.Scanf("%s", &policy)
@@ -53,10 +59,10 @@ func PasswordHandle(cwd string) {
 			return
 		}
 		users[index].Policy = policy
-		users[index].UserFile = path.Join(cwd, "conf", "users", fmt.Sprintf("%s.%s", username, policy))
+		users[index].UserFile = path.Join(cwd, "conf", "users", common.AesEncryptECB(fmt.Sprintf("%s.%s", username, policy)))
 	}
 	userinfo := users[index]
-	username := path.Base(strings.Split(userinfo.UserFile, ".")[0])
+	username := userinfo.Name
 	fmt.Println(`Password must be at least 8 characters long.
 Password must contain at least three character categories among the following:
 * Uppercase characters (A-Z)
@@ -94,6 +100,13 @@ Password must contain at least three character categories among the following:
 		fmt.Printf("\nHash password fail: %v\n", err)
 		return
 	}
+	userDisr := path.Dir(userinfo.UserFile)
+	if _, err := os.Stat(userDisr); os.IsNotExist(err) {
+		if err := os.MkdirAll(userDisr, 0755); err != nil {
+			fmt.Printf("\nCreate user directory %s fail: %v\n", userDisr, err)
+			return
+		}
+	}
 
 	fileFd, err := os.OpenFile(userinfo.UserFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
@@ -121,7 +134,7 @@ func login(bytePassword []byte) error {
 	return nil
 }
 
-func listUsers() []common.UserInfo {
+func listUsers() ([]common.UserInfo, int) {
 	i := 0
 	var users []common.UserInfo
 	fmt.Printf("\n%d. Create a New User\n", i)
@@ -132,9 +145,11 @@ func listUsers() []common.UserInfo {
 	})
 	i++
 	for name, info := range common.UserMap {
-		fmt.Printf("%d. %s(%s)\n", i, name, info.Policy)
+		if name != common.InternalOrdinaryName {
+			fmt.Printf("%d. %s(%s)\n", i, name, info.Policy)
+			i++
+		}
 		users = append(users, info)
-		i++
 	}
-	return users
+	return users, i
 }

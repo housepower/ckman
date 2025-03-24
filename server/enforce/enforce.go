@@ -61,7 +61,7 @@ func (e *Enforcer) Match(url1, url2 string) bool {
 }
 
 func Enforce(username, url, method string) bool {
-	if username == e.model.Admin {
+	if username == common.DefaultAdminName {
 		return true
 	}
 

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ADMIN    string = "ckman"
+	ADMIN    string = "admin"
 	GUEST    string = "guest"
 	ORDINARY string = "ordinary"
 
@@ -18,6 +18,7 @@ const (
 )
 
 type UserInfo struct {
+	Name     string
 	Policy   string
 	Password string
 	UserFile string
@@ -40,7 +41,8 @@ func LoadUsers(configPath string) {
 			}
 
 			userfile := path.Join(userPath, entry.Name())
-			userinfos := strings.Split(entry.Name(), ".")
+			name := AesDecryptECB(entry.Name())
+			userinfos := strings.Split(name, ".")
 			if len(userinfos) != 2 {
 				continue
 			}
@@ -52,6 +54,7 @@ func LoadUsers(configPath string) {
 			password, err := os.ReadFile(userfile)
 			if err == nil {
 				UserMap[username] = UserInfo{
+					Name:     username,
 					Policy:   policy,
 					Password: string(password),
 					UserFile: userfile,
@@ -67,12 +70,14 @@ func LoadUsers(configPath string) {
 	}
 
 	UserMap[DefaultAdminName] = UserInfo{
+		Name:     DefaultAdminName,
 		Policy:   ADMIN,
 		Password: string(password),
 		UserFile: passwordFile,
 	}
 
 	UserMap[InternalOrdinaryName] = UserInfo{
+		Name:   InternalOrdinaryName,
 		Policy: ORDINARY,
 		//Password: "change me",	// InternalOrdinaryName 专门给userToken方式的用户使用，无需密码
 	}
