@@ -1252,7 +1252,7 @@ func (controller *ClickHouseController) QueryExport(c *gin.Context) {
 	fileName := fmt.Sprintf("ckman_query_%s_%s.csv", clusterName, time.Now().Format("2006-01-02T15:04:05"))
 
 	buf := &bytes.Buffer{}
-	buf.WriteString("\xEF\xBB\xBE")
+	buf.WriteString("\xEF\xBB\xBF")
 	writer := csv.NewWriter(buf)
 	for _, row := range data {
 		var cells []string
@@ -1329,6 +1329,13 @@ func (controller *ClickHouseController) UpgradeCluster(c *gin.Context) {
 	d.Ext.Policy = req.Policy
 	d.Ext.CurClusterOnly = true
 	d.Conf.Hosts = chHosts
+
+	if conf.Keeper == model.ClickhouseKeeper {
+		if d.Packages.Keeper == "" {
+			controller.wrapfunc(c, model.E_INVALID_VARIABLE, errors.New("keeper is empty"))
+			return
+		}
+	}
 
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKUpgrade, d)
 	if err != nil {
