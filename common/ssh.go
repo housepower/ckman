@@ -207,9 +207,6 @@ func SSHRun(client *ssh.Client, password, shell string) (result string, err erro
 	}(in, out, &buf)
 
 	_, err = session.CombinedOutput(shell)
-	if err != nil {
-		return "", errors.Wrap(err, "")
-	}
 	wg.Wait()
 	result = strings.TrimSpace(string(buf))
 	result = result[strings.Index(result, "i love china")+12:]
