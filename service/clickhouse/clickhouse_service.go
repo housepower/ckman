@@ -538,7 +538,26 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 		m := make([]interface{}, len(cols))
 		for i := range columnPointers {
 			val := reflect.ValueOf(columnPointers[i]).Elem()
-			m[i] = val.Interface()
+			currentValue := val.Interface()
+			if currentValue == nil {
+				switch val.Kind() {
+				case reflect.Slice:
+					currentValue = reflect.MakeSlice(val.Type(), 0, 0).Interface()
+				case reflect.Map:
+					currentValue = reflect.MakeMap(val.Type()).Interface()
+				case reflect.Ptr:
+					elemType := val.Type().Elem()
+					zeroVal := reflect.Zero(elemType)
+					ptr := reflect.New(elemType)
+					ptr.Elem().Set(zeroVal)
+					currentValue = ptr.Interface()
+				case reflect.Interface, reflect.Chan, reflect.Func:
+				default:
+					currentValue = reflect.Zero(val.Type()).Interface()
+				}
+			}
+
+			m[i] = currentValue
 			if val.CanSet() {
 				val.SetZero()
 			}
