@@ -38,17 +38,26 @@ var json = jsoniter.ConfigCompatibleWithStandardLibrary
 const ENV_CKMAN_SWAGGER string = "ENV_CKMAN_SWAGGER"
 
 type ApiServer struct {
-	config *config.CKManConfig
-	svr    *http.Server
-	signal chan os.Signal
-	fs     embed.FS
+	config  *config.CKManConfig
+	svr     *http.Server
+	signal  chan os.Signal
+	fs      embed.FS
+	modTime time.Time
 }
 
-func NewApiServer(config *config.CKManConfig, signal chan os.Signal, fs embed.FS) *ApiServer {
+func NewApiServer(config *config.CKManConfig, signal chan os.Signal, fs embed.FS, buildTime string) *ApiServer {
 	server := &ApiServer{}
 	server.config = config
 	server.signal = signal
 	server.fs = fs
+	modTime := time.Now()
+	if buildTime != "" {
+		parsedTime, err := time.Parse(time.RFC3339, buildTime)
+		if err == nil {
+			modTime = parsedTime
+		}
+	}
+	server.modTime = modTime
 	return server
 }
 
@@ -62,7 +71,7 @@ func (server *ApiServer) Start() error {
 	controller.TokenCache = cache.New(time.Duration(server.config.Server.SessionTimeout)*time.Second, time.Minute)
 	userController := controller.NewUserController(server.config, router.WrapMsg)
 
-	r.Use(Serve("/", EmbedFolder(server.fs, "static/dist")))
+	r.Use(Serve("/", EmbedFolder(server.fs, "static/dist"), server.modTime))
 	r.NoRoute(func(c *gin.Context) {
 		data, err := server.fs.ReadFile("static/dist/index.html")
 		if err != nil {

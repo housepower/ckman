@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -53,18 +54,23 @@ func (l *localFileSystem) Exists(prefix string, filepath string) bool {
 	return false
 }
 
-func ServeRoot(urlPrefix, root string) gin.HandlerFunc {
-	return Serve(urlPrefix, LocalFile(root, false))
+func ServeRoot(urlPrefix, root string, modTime time.Time) gin.HandlerFunc {
+	return Serve(urlPrefix, LocalFile(root, false), modTime)
 }
 
 // Static returns a middleware handler that serves static files in the given directory.
-func Serve(urlPrefix string, fs ServeFileSystem) gin.HandlerFunc {
+func Serve(urlPrefix string, fs ServeFileSystem, modTime time.Time) gin.HandlerFunc {
 	fileserver := http.FileServer(fs)
 	if urlPrefix != "" {
 		fileserver = http.StripPrefix(urlPrefix, fileserver)
 	}
 	return func(c *gin.Context) {
 		if fs.Exists(urlPrefix, c.Request.URL.Path) {
+			c.Header("Cache-Control", "public, max-age=31536000")
+			if !modTime.IsZero() {
+				c.Header("Last-Modified", modTime.UTC().Format(http.TimeFormat))
+			}
+
 			fileserver.ServeHTTP(c.Writer, c.Request)
 			c.Abort()
 		}
@@ -77,10 +83,7 @@ type embedFileSystem struct {
 
 func (e embedFileSystem) Exists(prefix string, path string) bool {
 	_, err := e.Open(path)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func EmbedFolder(fsEmbed embed.FS, targetPath string) ServeFileSystem {

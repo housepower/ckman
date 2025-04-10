@@ -125,7 +125,7 @@ func main() {
 	defer runnerServ.Stop()
 
 	// start http server
-	svr := server.NewApiServer(&config.GlobalConfig, signalCh, fs)
+	svr := server.NewApiServer(&config.GlobalConfig, signalCh, fs, BuildTimeStamp)
 	if err := svr.Start(); err != nil {
 		log.Logger.Fatalf("start http server fail: %v", err)
 	}
