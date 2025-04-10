@@ -413,7 +413,7 @@ func (mp *DM8Persistent) GetAllTasks() ([]model.Task, error) {
 
 func (mp *DM8Persistent) GetEffectiveTaskCount() int64 {
 	var count int64
-	tx := mp.Client.Model(&TblQueryHistory{}).Where("status in ?", []int{model.TaskStatusRunning, model.TaskStatusWaiting}).Count(&count)
+	tx := mp.Client.Model(&TblTask{}).Where("status in ?", []int{model.TaskStatusRunning, model.TaskStatusWaiting}).Count(&count)
 	if tx.Error != nil {
 		count = 0
 	}
