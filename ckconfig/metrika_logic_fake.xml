@@ -3,21 +3,17 @@
         <node index="1">
             <host>192.168.0.1</host>
             <port>2181</port>
-            <!-- Required for correct timing in current case -->
-            <session_timeout_ms replace="1">300000</session_timeout_ms>
         </node>
         <node index="2">
             <host>192.168.0.2</host>
             <port>2181</port>
-            <!-- Required for correct timing in current case -->
-            <session_timeout_ms replace="1">300000</session_timeout_ms>
         </node>
         <node index="3">
             <host>192.168.0.3</host>
             <port>2181</port>
-            <!-- Required for correct timing in current case -->
-            <session_timeout_ms replace="1">300000</session_timeout_ms>
         </node>
+        <operation_timeout_ms>30000</operation_timeout_ms>
+        <session_timeout_ms>60000</session_timeout_ms>
     </zookeeper>
     <remote_servers>
         <test>

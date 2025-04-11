@@ -46,11 +46,10 @@ func GenZookeeperMetrika(indent int, conf *model.CKManClickHouseConfig) string {
 		xml.BeginwithAttr("node", []common.XMLAttr{{Key: "index", Value: index + 1}})
 		xml.Write("host", zk)
 		xml.Write("port", port)
-		//https://github.com/ClickHouse/ClickHouse/blob/4bfce22caaa2afdb86ca034e33c94cc6dc454527/tests/integration/test_distributed_ddl/configs/config.d/zookeeper_session_timeout.xml#L4
-		xml.Comment("Required for correct timing in current case")
-		xml.WritewithAttr("session_timeout_ms", 300000, []common.XMLAttr{{Key: "replace", Value: "1"}})
 		xml.End("node")
 	}
+	xml.Write("operation_timeout_ms", 30000)
+	xml.Write("session_timeout_ms", 60000)
 	xml.End("zookeeper")
 	return xml.GetContext()
 }
