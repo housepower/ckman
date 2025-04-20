@@ -940,7 +940,56 @@ func RestoreReplicaTable(conf *model.CKManClickHouseConfig, host, database, tabl
 	return nil
 }
 
-func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceShardingkey, allTable, exceptMaxShard bool) error {
+func GetRebalanceInfo(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables) ([]*model.RebalanceInfo, error) {
+	var err error
+	service := NewCkService(conf)
+	if err = service.InitCkService(); err != nil {
+		return nil, err
+	}
+
+	//check the full scale, if table not in the request, rebalance by partition
+	rtables, err = paddingKeys(rtables, service)
+	if err != nil {
+		return nil, err
+	}
+
+	hosts, err := common.GetShardAvaliableHosts(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	var infos []*model.RebalanceInfo
+	for _, rt := range rtables {
+		query := fmt.Sprintf("SELECT sum(rows), formatReadableSize(sum(data_uncompressed_bytes)) FROM system.parts WHERE active AND database = '%s' AND table = '%s'",
+			rt.Database, rt.Table)
+		log.Logger.Debugf(query)
+		for idx, host := range hosts {
+			conn := common.GetConnection(host)
+			if conn == nil {
+				return nil, errors.Errorf("can't connect to %s", host)
+			}
+			var rows uint64
+			var size string
+			err := conn.QueryRow(query).Scan(&rows, &size)
+			if err != nil {
+				return nil, errors.Wrapf(err, "query %s failed", query)
+			}
+
+			info := &model.RebalanceInfo{
+				Database: rt.Database,
+				Table:    rt.Table,
+				Host:     host,
+				ShardNum: idx + 1,
+				Rows:     rows,
+				Size:     size,
+			}
+			infos = append(infos, info)
+		}
+	}
+	return infos, nil
+}
+
+func RebalanceCluster(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool) error {
 	var err error
 	var exceptHost, target string
 	service := NewCkService(conf)
@@ -949,7 +998,7 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 	}
 
 	//check the full scale, if table not in the request, rebalance by partition
-	keys, err = paddingKeys(keys, service, allTable)
+	rtables, err = paddingKeys(rtables, service)
 	if err != nil {
 		return err
 	}
@@ -958,7 +1007,7 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 	if err != nil {
 		return err
 	}
-	if err = checkBasicTools(conf, hosts, keys); err != nil {
+	if err = checkBasicTools(conf, hosts, rtables); err != nil {
 		return err
 	}
 
@@ -971,45 +1020,45 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 		}
 	}
 
-	log.Logger.Debugf("keys: %d, %#v", len(keys), keys)
-	for _, key := range keys {
+	log.Logger.Debugf("rebalance tables: %d, %#v", len(rtables), rtables)
+	for _, rt := range rtables {
 		if exceptMaxShard {
-			if err = MoveExceptToOthers(conf, exceptHost, target, key.Database, key.Table); err != nil {
+			if err = MoveExceptToOthers(conf, exceptHost, target, rt.Database, rt.Table); err != nil {
 				return err
 			}
 		}
 		rebalancer := &CKRebalance{
 			Cluster:       conf.Cluster,
 			Hosts:         hosts,
-			Database:      key.Database,
-			Table:         key.Table,
-			TmpTable:      "tmp_" + key.Table,
-			DistTable:     key.DistTable,
+			Database:      rt.Database,
+			Table:         rt.Table,
+			TmpTable:      "tmp_" + rt.Table,
+			DistTable:     rt.DistTable,
 			DataDir:       conf.Path,
 			OsUser:        conf.SshUser,
 			OsPassword:    conf.SshPassword,
 			OsPort:        conf.SshPort,
 			RepTables:     make(map[string]string),
 			ConnOpt:       conf.GetConnOption(),
-			AllowLossRate: key.AllowLossRate,
-			SaveTemps:     key.SaveTemps,
+			AllowLossRate: rt.AllowLossRate,
+			SaveTemps:     rt.SaveTemps,
 			IsReplica:     conf.IsReplica,
 		}
 		defer rebalancer.Close()
 
-		if key.ShardingKey != "" {
+		if rt.Policy == model.RebalancePolicyShardingKey {
 			//rebalance by shardingkey
-			log.Logger.Infof("[rebalance]table %s.%s rebalance by shardingkey", key.Database, key.Table)
-			if err = getShardingType(&key, service.Conn); err != nil {
+			log.Logger.Infof("[rebalance]table %s.%s rebalance by shardingkey", rt.Database, rt.Table)
+			if err = getShardingType(&rt, service.Conn); err != nil {
 				return err
 			}
-			rebalancer.Shardingkey = key
+			rebalancer.Shardingkey = rt
 			if err = RebalanceByShardingkey(conf, rebalancer); err != nil {
 				return err
 			}
 		} else {
 			//rebalance by partition
-			log.Logger.Infof("[rebalance]table %s.%s rebalance by partition", key.Database, key.Table)
+			log.Logger.Infof("[rebalance]table %s.%s rebalance by partition", rt.Database, rt.Table)
 			err = RebalanceByPartition(conf, rebalancer)
 			if err != nil {
 				return err
@@ -1021,7 +1070,7 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, keys []model.RebalanceS
 	return nil
 }
 
-func checkBasicTools(conf *model.CKManClickHouseConfig, hosts []string, keys []model.RebalanceShardingkey) error {
+func checkBasicTools(conf *model.CKManClickHouseConfig, hosts []string, keys []model.RebalanceTables) error {
 	var chkrsync, chkawk bool
 	for _, key := range keys {
 		if chkawk && chkrsync {
@@ -1105,50 +1154,55 @@ SETTINGS skip_unavailable_shards = 1`
 	return target, nil
 }
 
-func paddingKeys(keys []model.RebalanceShardingkey, service *CkService, allTable bool) ([]model.RebalanceShardingkey, error) {
-	var results []model.RebalanceShardingkey
+func paddingKeys(rtables []model.RebalanceTables, service *CkService) ([]model.RebalanceTables, error) {
+	var results []model.RebalanceTables
 	resps, err := service.GetRebalanceTables()
 	if err != nil {
-		return keys, err
+		return rtables, err
 	}
 	//k: database, v:tables
-	for _, rt := range resps {
-		key := model.RebalanceShardingkey{
-			Database:  rt.Database,
-			Table:     rt.Table,
-			DistTable: rt.DistTable,
+	for _, elem := range rtables {
+		reg, err := regexp.Compile(elem.Table)
+		if err != nil {
+			return rtables, err
 		}
-		found := false
-		for _, elem := range keys {
-			elem.Table = common.TernaryExpression(strings.HasPrefix(elem.Table, "^"), elem.Table, "^"+elem.Table).(string)
-			elem.Table = common.TernaryExpression(strings.HasSuffix(elem.Table, "$"), elem.Table, elem.Table+"$").(string)
-			reg, err := regexp.Compile(elem.Table)
-			if err != nil {
-				return keys, err
+		for _, rt := range resps {
+			rtable := model.RebalanceTables{
+				Database:  rt.Database,
+				Table:     rt.Table,
+				DistTable: rt.DistTable,
 			}
-			if key.Database == elem.Database && (reg.MatchString(key.Table)) {
-				if found {
-					return keys, fmt.Errorf("table %s matches more than one regexp expression", key.Table)
+			if rtable.Database == elem.Database && (reg.MatchString(rtable.Table)) {
+				duplicated := false
+				for _, r := range results {
+					if r.Database == rtable.Database && r.Table == rtable.Table {
+						duplicated = true
+						break
+					}
 				}
-				if common.ArraySearch(elem.ShardingKey, rt.Columns) {
-					found = true
-					key.ShardingKey = elem.ShardingKey
-					results = append(results, key)
-					//break
+				if duplicated {
+					continue
+				}
+				if rtable.Policy == model.RebalancePolicyShardingKey {
+					if common.ArraySearch(elem.ShardingKey, rt.Columns) {
+						rtable.ShardingKey = elem.ShardingKey
+						results = append(results, rtable)
+						//break
+					} else {
+						return rtables, fmt.Errorf("shardingKey %s not found in table %s.%s", elem.ShardingKey, rtable.Database, rtable.Table)
+					}
 				} else {
-					return keys, fmt.Errorf("shardingkey %s not found in %s.%s", elem.ShardingKey, elem.Database, key.Table)
+					//return rtables, nil
+					results = append(results, rtable)
 				}
 			}
-		}
-		if allTable && !found {
-			results = append(results, key)
 		}
 	}
 
 	return results, nil
 }
 
-func getShardingType(key *model.RebalanceShardingkey, conn *common.Conn) error {
+func getShardingType(key *model.RebalanceTables, conn *common.Conn) error {
 	query := fmt.Sprintf("SELECT type FROM system.columns WHERE (database = '%s') AND (table = '%s') AND (name = '%s') ",
 		key.Database, key.Table, key.ShardingKey)
 	rows, err := conn.Query(query)

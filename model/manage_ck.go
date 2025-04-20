@@ -91,9 +91,15 @@ type ArchiveTableReq struct {
 	S3          ArchiveS3    `json:"s3"`
 }
 
-type RebalanceShardingkey struct {
+const (
+	RebalancePolicyPartition   = "partition"
+	RebalancePolicyShardingKey = "shardingkey"
+)
+
+type RebalanceTables struct {
 	Database      string   `json:"database" example:"default"`
 	Table         string   `json:"table" example:"t123"`
+	Policy        string   `json:"policy" example:"patition, shardingkey"`
 	ShardingKey   string   `json:"shardingKey" example:"_timestamp"`
 	AllowLossRate float64  `json:"allowLossRate" example:"0.1"`
 	SaveTemps     bool     `json:"saveTemps" example:"true"`
@@ -101,9 +107,18 @@ type RebalanceShardingkey struct {
 	DistTable     string   `json:"-"`
 }
 
+type RebalanceInfo struct {
+	Database string `json:"database" example:"default"`
+	Table    string `json:"table" example:"t123"`
+	Host     string `json:"host" example:"192.168.0.1"`
+	ShardNum int    `json:"shard_num" example:"1"`
+	Rows     uint64 `json:"rows" example:"10000000000"`
+	Size     string `json:"size" example:"10000000000"`
+}
+
 type RebalanceTableReq struct {
-	Keys           []RebalanceShardingkey `json:"keys"`
-	ExceptMaxShard bool                   `json:"except_max_shard"` // remove the max shard's data to other shards
+	RTables        []RebalanceTables `json:"tables"`
+	ExceptMaxShard bool              `json:"except_max_shard"` // remove the max shard's data to other shards
 }
 
 type TypeInfo struct {

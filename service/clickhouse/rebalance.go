@@ -32,7 +32,7 @@ type CKRebalance struct {
 	OsUser        string
 	OsPassword    string
 	OsPort        int
-	Shardingkey   model.RebalanceShardingkey
+	Shardingkey   model.RebalanceTables
 	ExceptHost    string
 	ConnOpt       model.ConnetOption
 	Engine        string
@@ -291,8 +291,8 @@ func (r *CKRebalance) ExecutePartPlan(tbl *TblPartitions) (err error) {
 				return fmt.Errorf("[rebalance]can't get connection: %s", tbl.Host)
 			}
 			query := fmt.Sprintf("ALTER TABLE %s DROP PARTITION '%s'", tbl.Table, patt)
+			log.Logger.Infof("[rebalance]host %s: query: %s", tbl.Host, query)
 			if err = srcChConn.Exec(query); err != nil {
-				log.Logger.Infof("[rebalance]host %s: query: %s", tbl.Host, query)
 				err = errors.Wrapf(err, "")
 				return
 			}

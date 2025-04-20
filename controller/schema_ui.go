@@ -1567,10 +1567,10 @@ Non-professionals please do not fill in this`,
 func RegistRebalanceClusterSchema() common.ConfigParams {
 	var params common.ConfigParams = make(map[string]*common.Parameter)
 	var req model.RebalanceTableReq
-	params.MustRegister(req, "Keys", &common.Parameter{
-		LabelZH:  "Keys",
-		LabelEN:  "Keys",
-		Required: "false",
+	params.MustRegister(req, "RTables", &common.Parameter{
+		LabelZH:  "均衡表配置",
+		LabelEN:  "Tables",
+		Required: "true",
 	})
 
 	params.MustRegister(req, "ExceptMaxShard", &common.Parameter{
@@ -1578,36 +1578,42 @@ func RegistRebalanceClusterSchema() common.ConfigParams {
 		LabelEN: "ExceptMaxShard",
 	})
 
-	var key model.RebalanceShardingkey
-	params.MustRegister(key, "Database", &common.Parameter{
+	var rtable model.RebalanceTables
+	params.MustRegister(rtable, "Database", &common.Parameter{
 		LabelZH: "数据库名",
 		LabelEN: "Database",
 	})
 
-	params.MustRegister(key, "Table", &common.Parameter{
+	params.MustRegister(rtable, "Table", &common.Parameter{
 		LabelZH:       "表名",
 		LabelEN:       "Table",
 		DescriptionZH: "支持正则表达式",
 		DescriptionEN: "support regexp pattern",
 	})
 
-	params.MustRegister(key, "Table", &common.Parameter{
-		LabelZH:       "表名",
-		LabelEN:       "Table",
-		DescriptionZH: "支持正则表达式",
-		DescriptionEN: "support regexp pattern",
-		Regexp:        "^\\^.*\\$$",
+	params.MustRegister(rtable, "Policy", &common.Parameter{
+		LabelZH:       "均衡策略",
+		LabelEN:       "Policy",
+		DescriptionZH: "均衡策略",
+		DescriptionEN: "rebalance policy",
+		Candidates: []common.Candidate{
+			{Value: "partition", LabelEN: "partition", LabelZH: "partition"},
+			{Value: "shardingkey", LabelEN: "shardingkey", LabelZH: "shardingkey"},
+		},
+		Default:  "partition",
+		Required: "true",
 	})
 
-	params.MustRegister(key, "ShardingKey", &common.Parameter{
+	params.MustRegister(rtable, "ShardingKey", &common.Parameter{
 		LabelZH:       "ShardingKey",
 		LabelEN:       "ShardingKey",
 		DescriptionZH: "如果ShardingKey为空，则默认按照partition做数据均衡",
 		DescriptionEN: "if shardingkey is empty, then rebalance by partition default",
-		Required:      "false",
+		Required:      "true",
+		Visiable:      "Policy == 'shardingkey'",
 	})
 
-	params.MustRegister(key, "AllowLossRate", &common.Parameter{
+	params.MustRegister(rtable, "AllowLossRate", &common.Parameter{
 		LabelZH:       "允许错误率",
 		LabelEN:       "AllowLossRate",
 		DescriptionZH: "均衡数据过程中允许数据的丢失率",
@@ -1619,13 +1625,15 @@ func RegistRebalanceClusterSchema() common.ConfigParams {
 		},
 		Default:  "0",
 		Required: "false",
+		Visiable: "Policy == 'shardingkey'",
 	})
-	params.MustRegister(key, "SaveTemps", &common.Parameter{
+	params.MustRegister(rtable, "SaveTemps", &common.Parameter{
 		LabelZH:       "保留临时数据",
 		LabelEN:       "SaveTemps",
 		DescriptionZH: "均衡数据过程中保存原始数据到临时表",
 		DescriptionEN: "Save the original data to a temporary table during data balancing",
 		Required:      "false",
+		Visiable:      "Policy == 'shardingkey'",
 	})
 
 	return params

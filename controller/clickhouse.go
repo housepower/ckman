@@ -1470,6 +1470,50 @@ func (controller *ClickHouseController) DestroyCluster(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, taskId)
 }
 
+func (controller *ClickHouseController) GetRebalanceInfo(c *gin.Context) {
+	var err error
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	var req model.RebalanceTableReq
+	if c.Request.Body != http.NoBody {
+		params, ok := SchemaUIMapping[GET_SCHEMA_UI_REBALANCE]
+		if !ok {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, "")
+			return
+		}
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+			return
+		}
+		err = params.UnmarshalConfig(string(body), &req)
+		if err != nil {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+			return
+		}
+		data, err := json.MarshalIndent(req, "", "  ")
+		if err != nil {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+			return
+		}
+		log.Logger.Debugf("[request] | %s | %s | %s \n%v ", c.Request.Host, c.Request.Method, c.Request.URL, string(data))
+	}
+
+	rebalanceInfo, err := clickhouse.GetRebalanceInfo(&conf, req.RTables)
+	if err != nil {
+		controller.wrapfunc(c, model.E_TBL_ALTER_FAILED, err)
+		return
+	}
+
+	controller.wrapfunc(c, model.E_SUCCESS, rebalanceInfo)
+}
+
 // @Summary 均衡集群
 // @Description 均衡集群，可以按照partition和shardingkey均衡，如果没有指定shardingkey，默认按照
 // @version 1.0
@@ -1500,31 +1544,33 @@ func (controller *ClickHouseController) RebalanceCluster(c *gin.Context) {
 		return
 	}
 
+	var req model.RebalanceTableReq
+	if c.Request.Body != http.NoBody {
+		params, ok := SchemaUIMapping[GET_SCHEMA_UI_REBALANCE]
+		if !ok {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, "")
+			return
+		}
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+			return
+		}
+		err = params.UnmarshalConfig(string(body), &req)
+		if err != nil {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+			return
+		}
+		data, err := json.MarshalIndent(req, "", "  ")
+		if err != nil {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+			return
+		}
+		log.Logger.Debugf("[request] | %s | %s | %s \n%v ", c.Request.Host, c.Request.Method, c.Request.URL, string(data))
+	}
 	// if shard == 1, there is no need to rebalance
 	if len(conf.Shards) > 1 {
-		var req model.RebalanceTableReq
-		if c.Request.Body != http.NoBody {
-			params, ok := SchemaUIMapping[GET_SCHEMA_UI_REBALANCE]
-			if !ok {
-				controller.wrapfunc(c, model.E_INVALID_PARAMS, "")
-				return
-			}
-			body, err := io.ReadAll(c.Request.Body)
-			if err != nil {
-				controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
-				return
-			}
-			err = params.UnmarshalConfig(string(body), &req)
-			if err != nil {
-				controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
-				return
-			}
-		}
-		allTable := common.TernaryExpression(c.Query("all") == "false", false, true).(bool)
-		if req.ExceptMaxShard {
-			allTable = true
-		}
-		err = clickhouse.RebalanceCluster(&conf, req.Keys, allTable, req.ExceptMaxShard)
+		err = clickhouse.RebalanceCluster(&conf, req.RTables, req.ExceptMaxShard)
 		if err != nil {
 			controller.wrapfunc(c, model.E_TBL_ALTER_FAILED, err)
 			return
