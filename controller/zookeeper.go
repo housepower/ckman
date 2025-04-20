@@ -74,6 +74,32 @@ func (controller *ZookeeperController) GetStatus(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, zkList)
 }
 
+func (controller *ZookeeperController) GetReplicatedQueue(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+	dbTable := c.Query("table")
+	if dbTable == "" {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, "table is empty")
+		return
+	}
+	tables := strings.Split(dbTable, ".")
+	database := tables[0]
+	table := tables[1]
+
+	node := c.Query("node")
+
+	queueInfo, err := clickhouse.GetReplicatedQueue(&conf, database, table, node)
+	if err != nil {
+		controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
+		return
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, queueInfo)
+}
+
 // @Summary 获取复制表状态
 // @Description 获取ReplicatedMergeTree表的log_pointer状态
 // @version 1.0
@@ -107,7 +133,7 @@ func (controller *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) 
 		}
 		header[shardIndex] = replicas
 	}
-	resp := model.ZkReplicatedTableStatusRsp{
+	resp := model.ReplicatedTableStatusRsp{
 		Header: header,
 		Tables: tables,
 	}

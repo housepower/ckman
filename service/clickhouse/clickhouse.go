@@ -1594,7 +1594,7 @@ func delGuaViewOnLogic(conf *model.CKManClickHouseConfig, database, table string
 	return nil
 }
 
-func GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.ZkReplicatedTableStatus, error) {
+func GetReplicatedQueue(conf *model.CKManClickHouseConfig, database, table, node string) ([]model.ReplicatedQueueRsp, error) {
 	if !conf.IsReplica {
 		return nil, nil
 	}
@@ -1602,51 +1602,82 @@ func GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.ZkRepl
 	if err := service.InitCkService(); err != nil {
 		return nil, err
 	}
-	query := fmt.Sprintf("select database, table, is_leader, replica_name, log_pointer from clusterAllReplicas('%s', system.replicas) order by database, table", conf.Cluster)
+	query := fmt.Sprintf(`SELECT
+    node_name,
+    type,
+    create_time,
+    num_tries,
+    postpone_reason,
+	last_exception
+FROM system.replication_queue
+WHERE (database = '%s') AND (table = '%s') AND (replica_name = '%s') ORDE BY create_time DESC`, database, table, node)
 	data, err := service.QueryInfo(query)
 	if err != nil {
 		return nil, err
 	}
-	tblReplicaStatus := make(map[string]model.ZkReplicatedTableStatus)
+	var queueInfo []model.ReplicatedQueueRsp
+	for i := 1; i < len(data); i++ {
+		node_name := data[i][0].(string)
+		type_ := data[i][1].(string)
+		create_time := data[i][2].(string)
+		num_tries := data[i][3].(uint32)
+		postpone_reason := data[i][4].(string)
+		last_exception := data[i][5].(string)
+		queueInfo = append(queueInfo, model.ReplicatedQueueRsp{
+			NodeName:       node_name,
+			Type:           type_,
+			CreateTime:     create_time,
+			NumTries:       num_tries,
+			PostponeReason: postpone_reason,
+			LastException:  last_exception,
+		})
+	}
+	return queueInfo, nil
+}
+
+func GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.ReplicatedTableStatus, error) {
+	if !conf.IsReplica {
+		return nil, nil
+	}
+	service := NewCkService(conf)
+	if err := service.InitCkService(); err != nil {
+		return nil, err
+	}
+	query := fmt.Sprintf("select database, table, replica_name, queue_size, absolute_delay from clusterAllReplicas('%s', system.replicas) where absolute_delay > 0 order by absolute_delay desc", conf.Cluster)
+	data, err := service.QueryInfo(query)
+	if err != nil {
+		return nil, err
+	}
+	tblReplicaStatus := make(map[string]model.ReplicatedTableStatus)
 	for i := 1; i < len(data); i++ {
 		database := data[i][0].(string)
 		table := data[i][1].(string)
-		is_leader := data[i][2].(uint8)
-		replica_name := data[i][3].(string)
-		log_pointer := data[i][4].(uint64)
+		replica_name := data[i][2].(string)
+		queue_size := data[i][3].(uint32)
+		//absolute_delay := data[i][4].(uint64)
 		key := database + "." + table
 		if _, ok := tblReplicaStatus[key]; !ok {
-			value := make([][]string, len(conf.Shards))
+			value := make([][]uint32, len(conf.Shards))
 			for shardIndex, shard := range conf.Shards {
-				value[shardIndex] = make([]string, len(shard.Replicas))
+				value[shardIndex] = make([]uint32, len(shard.Replicas))
 			}
-			tblReplicaStatus[key] = model.ZkReplicatedTableStatus{
+			tblReplicaStatus[key] = model.ReplicatedTableStatus{
 				Name:   key,
 				Values: value,
 			}
 		}
 
-		logPointer := ""
-		if common.CompareClickHouseVersion(conf.Version, "20.5.x") >= 0 {
-			logPointer = fmt.Sprintf("[ML]%d", log_pointer)
-		} else {
-			if is_leader == 1 {
-				logPointer = fmt.Sprintf("[L]%d", log_pointer)
-			} else {
-				logPointer = fmt.Sprintf("[F]%d", log_pointer)
-			}
-		}
 	OUTER_LOOP:
 		for shardIndex, shard := range conf.Shards {
 			for replicaIndex, replica := range shard.Replicas {
 				if replica_name == replica.Ip {
-					tblReplicaStatus[key].Values[shardIndex][replicaIndex] = logPointer
+					tblReplicaStatus[key].Values[shardIndex][replicaIndex] = queue_size
 					break OUTER_LOOP
 				}
 			}
 		}
 	}
-	var replicaStatus []model.ZkReplicatedTableStatus
+	var replicaStatus []model.ReplicatedTableStatus
 	for _, value := range tblReplicaStatus {
 		replicaStatus = append(replicaStatus, value)
 	}

@@ -128,6 +128,7 @@ func InitRouterV2(groupV2 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV2.POST(fmt.Sprintf("/ck/config/:%s", controller.ClickHouseClusterPath), ckController.ClusterSetting)
 	groupV2.GET(fmt.Sprintf("/zk/status/:%s", controller.ClickHouseClusterPath), zkController.GetStatus)
 	groupV2.GET(fmt.Sprintf("/zk/replicated-table/:%s", controller.ClickHouseClusterPath), zkController.GetReplicatedTableStatus)
+	groupV2.GET(fmt.Sprintf("/zk/replicated-queue/:%s", controller.ClickHouseClusterPath), zkController.GetReplicatedQueue)
 	groupV2.POST("/package", packageController.Upload)
 	groupV2.GET("/package", packageController.List)
 	groupV2.DELETE("/package", packageController.Delete)
