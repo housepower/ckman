@@ -15,10 +15,7 @@ func GenerateHostXML(filename string, conf *model.CKManClickHouseConfig, host st
 			}
 		}
 	}
-	rootTag := "yandex"
-	if common.CompareClickHouseVersion(conf.Version, "22.x") >= 0 {
-		rootTag = "clickhouse"
-	}
+	rootTag := GetRootTag(conf.Version)
 	xml := common.NewXmlFile(filename)
 	xml.Begin(rootTag)
 	xml.Comment("This xml file contains every node's special configuration self.")

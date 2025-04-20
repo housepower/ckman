@@ -1,4 +1,4 @@
-<yandex>
+<clickhouse>
     <zookeeper>
         <node index="1">
             <host>192.168.0.1</host>
@@ -42,4 +42,4 @@
             </shard>
         </test>
     </remote_servers>
-</yandex>
+</clickhouse>

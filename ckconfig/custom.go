@@ -200,11 +200,15 @@ func merge_tree_metadata_cache() map[string]interface{} {
 	return output
 }
 
-func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ext model.CkDeployExt) (string, error) {
-	rootTag := "yandex"
-	if common.CompareClickHouseVersion(conf.Version, "22.x") >= 0 {
-		rootTag = "clickhouse"
+func GetRootTag(version string) string {
+	if common.CompareClickHouseVersion(version, "22.x") >= 0 {
+		return "clickhouse"
 	}
+	return "yandex"
+}
+
+func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ext model.CkDeployExt) (string, error) {
+	rootTag := GetRootTag(conf.Version)
 	custom := make(map[string]interface{})
 	mergo.Merge(&custom, expert(conf.Expert)) //expert have the highest priority
 	mergo.Merge(&custom, root(conf, ext))

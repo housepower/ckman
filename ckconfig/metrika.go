@@ -8,12 +8,13 @@ import (
 
 func GenerateMetrikaXML(filename string, conf *model.CKManClickHouseConfig) (string, error) {
 	xml := common.NewXmlFile(filename)
-	xml.Begin("yandex")
+	rootTag := GetRootTag(conf.Version)
+	xml.Begin(rootTag)
 	xml.Append(GenZookeeperMetrika(xml.GetIndent(), conf))
 	xml.Begin("remote_servers")
 	xml.Append(GenLocalMetrika(xml.GetIndent(), conf))
 	xml.End("remote_servers")
-	xml.End("yandex")
+	xml.End(rootTag)
 	err := xml.Dump()
 	if err != nil {
 		return "", err
@@ -23,13 +24,14 @@ func GenerateMetrikaXML(filename string, conf *model.CKManClickHouseConfig) (str
 
 func GenerateMetrikaXMLwithLogic(filename string, conf *model.CKManClickHouseConfig, logicMrtrika string) (string, error) {
 	xml := common.NewXmlFile(filename)
-	xml.Begin("yandex")
+	rootTag := GetRootTag(conf.Version)
+	xml.Begin(rootTag)
 	xml.Append(GenZookeeperMetrika(xml.GetIndent(), conf))
 	xml.Begin("remote_servers")
 	xml.Append(GenLocalMetrika(xml.GetIndent(), conf))
 	xml.Append(logicMrtrika)
 	xml.End("remote_servers")
-	xml.End("yandex")
+	xml.End(rootTag)
 	err := xml.Dump()
 	if err != nil {
 		return "", err

@@ -173,10 +173,7 @@ func roles(userRoles []model.Role) map[string]interface{} {
 }
 
 func GenerateUsersXML(filename string, conf *model.CKManClickHouseConfig, info HostInfo) (string, error) {
-	rootTag := "yandex"
-	if common.CompareClickHouseVersion(conf.Version, "22.x") >= 0 {
-		rootTag = "clickhouse"
-	}
+	rootTag := GetRootTag(conf.Version)
 	userconf := make(map[string]interface{})
 	mergo.Merge(&userconf, expert(conf.UsersConf.Expert))
 	mergo.Merge(&userconf, users(conf))
