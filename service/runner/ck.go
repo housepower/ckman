@@ -2,6 +2,7 @@ package runner
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
@@ -279,8 +280,14 @@ func UpgradeCkCluster(task *model.Task, d deploy.CKDeploy) error {
 	case model.PolicyRolling:
 		var rd deploy.CKDeploy
 		common.DeepCopyByGob(&rd, d)
-		for _, host := range d.Conf.Hosts {
-			rd.Conf.Hosts = []string{host}
+		rolling := Rolling{
+			Shards: d.Conf.Shards,
+		}
+		for nodes := rolling.Next(); nodes != nil; nodes = rolling.Next() {
+			if len(nodes) == 0 {
+				continue
+			}
+			rd.Conf.Hosts = nodes
 			if err := upgradePackage(task, rd, model.MaxTimeOut); err != nil {
 				return err
 			}
@@ -300,7 +307,7 @@ func UpgradeCkCluster(task *model.Task, d deploy.CKDeploy) error {
 func upgradePackage(task *model.Task, d deploy.CKDeploy, timeout int) error {
 	var node string
 	if d.Ext.Policy == model.PolicyRolling {
-		node = d.Conf.Hosts[0]
+		node = strings.Join(d.Conf.Hosts, ",")
 	} else {
 		node = model.ALL_NODES_DEFAULT
 	}
@@ -358,9 +365,19 @@ func ConfigCkCluster(task *model.Task, d deploy.CKDeploy) error {
 		case model.PolicyRolling:
 			var rd deploy.CKDeploy
 			common.DeepCopyByGob(&rd, d)
-			for _, host := range d.Conf.Hosts {
+			rolling := Rolling{
+				Shards: d.Conf.Shards,
+			}
+			for nodes := rolling.Next(); nodes != nil; nodes = rolling.Next() {
+				if len(nodes) == 0 {
+					continue
+				}
+				rd.Conf.Hosts = nodes
+				if err := rd.Restart(); err != nil {
+					return err
+				}
+				host := strings.Join(nodes, ",")
 				deploy.SetNodeStatus(task, model.NodeStatusRestart, host)
-				rd.Conf.Hosts = []string{host}
 				if err := rd.Restart(); err != nil {
 					return err
 				}

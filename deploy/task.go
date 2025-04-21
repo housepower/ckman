@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-basic/uuid"
@@ -92,8 +93,15 @@ func SetTaskStatus(task *model.Task, status int, msg string) error {
 
 func SetNodeStatus(task *model.Task, status model.Internationalization, host string) {
 	for idx, node := range task.NodeStatus {
-		if host == node.Host || host == model.ALL_NODES_DEFAULT {
+		if host == model.ALL_NODES_DEFAULT {
 			task.NodeStatus[idx].Status = status
+		} else {
+			for _, h := range strings.Split(host, ",") {
+				if node.Host == h {
+					task.NodeStatus[idx].Status = status
+					break
+				}
+			}
 		}
 	}
 	err := repository.Ps.UpdateTask(*task)
