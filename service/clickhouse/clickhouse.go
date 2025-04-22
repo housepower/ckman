@@ -1652,6 +1652,7 @@ func GetReplicatedQueue(conf *model.CKManClickHouseConfig, database, table, node
 	if !conf.IsReplica {
 		return nil, nil
 	}
+	conf.Hosts = []string{node}
 	service := NewCkService(conf)
 	if err := service.InitCkService(); err != nil {
 		return nil, err
@@ -1664,7 +1665,7 @@ func GetReplicatedQueue(conf *model.CKManClickHouseConfig, database, table, node
     postpone_reason,
 	last_exception
 FROM system.replication_queue
-WHERE (database = '%s') AND (table = '%s') AND (replica_name = '%s') ORDE BY create_time DESC`, database, table, node)
+WHERE (database = '%s') AND (table = '%s')  ORDER BY create_time DESC`, database, table)
 	data, err := service.QueryInfo(query)
 	if err != nil {
 		return nil, err
@@ -1673,7 +1674,7 @@ WHERE (database = '%s') AND (table = '%s') AND (replica_name = '%s') ORDE BY cre
 	for i := 1; i < len(data); i++ {
 		node_name := data[i][0].(string)
 		type_ := data[i][1].(string)
-		create_time := data[i][2].(string)
+		create_time := data[i][2].(time.Time)
 		num_tries := data[i][3].(uint32)
 		postpone_reason := data[i][4].(string)
 		last_exception := data[i][5].(string)
@@ -1689,7 +1690,7 @@ WHERE (database = '%s') AND (table = '%s') AND (replica_name = '%s') ORDE BY cre
 	return queueInfo, nil
 }
 
-func GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.ReplicatedTableStatus, error) {
+func GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.ReplicatedTableRsp, error) {
 	if !conf.IsReplica {
 		return nil, nil
 	}
@@ -1697,43 +1698,61 @@ func GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.Replic
 	if err := service.InitCkService(); err != nil {
 		return nil, err
 	}
-	query := fmt.Sprintf("select database, table, replica_name, queue_size, absolute_delay from clusterAllReplicas('%s', system.replicas) where absolute_delay > 0 order by absolute_delay desc", conf.Cluster)
+	query := fmt.Sprintf(`SELECT
+    concat(database, '.', table) AS table,
+    replica_name,
+    queue_size,
+    inserts_in_queue,
+    merges_in_queue,
+	last_queue_update_exception,
+    log_pointer,
+    IF(log_pointer = 0, 100, (log_pointer - queue_size) * 100 / log_pointer) AS progress
+FROM clusterAllReplicas('%s', system.replicas)
+ORDER BY
+    database ASC,
+    table ASC,
+    queue_size ASC`, conf.Cluster)
 	data, err := service.QueryInfo(query)
 	if err != nil {
 		return nil, err
 	}
-	tblReplicaStatus := make(map[string]model.ReplicatedTableStatus)
+	var tblReplicaStatus []model.ReplicatedTableRsp
 	for i := 1; i < len(data); i++ {
-		database := data[i][0].(string)
-		table := data[i][1].(string)
-		replica_name := data[i][2].(string)
-		queue_size := data[i][3].(uint32)
-		//absolute_delay := data[i][4].(uint64)
-		key := database + "." + table
-		if _, ok := tblReplicaStatus[key]; !ok {
-			value := make([][]uint32, len(conf.Shards))
-			for shardIndex, shard := range conf.Shards {
-				value[shardIndex] = make([]uint32, len(shard.Replicas))
+		table := data[i][0].(string)
+		replica_name := data[i][1].(string)
+		queue_size := data[i][2].(uint32)
+		inserts := data[i][3].(uint32)
+		merges := data[i][4].(uint32)
+		last_exception := data[i][5].(string)
+		log_pointer := data[i][6].(uint64)
+		progress := data[i][7].(float64)
+
+		shard_replica := ""
+		var found bool
+		for i, shard := range conf.Shards {
+			for j, replica := range shard.Replicas {
+				if replica_name == replica.Ip {
+					shard_replica = fmt.Sprintf("%d-%d", i+1, j+1)
+					found = true
+					break
+				}
 			}
-			tblReplicaStatus[key] = model.ReplicatedTableStatus{
-				Name:   key,
-				Values: value,
+			if found {
+				break
 			}
 		}
 
-	OUTER_LOOP:
-		for shardIndex, shard := range conf.Shards {
-			for replicaIndex, replica := range shard.Replicas {
-				if replica_name == replica.Ip {
-					tblReplicaStatus[key].Values[shardIndex][replicaIndex] = queue_size
-					break OUTER_LOOP
-				}
-			}
-		}
+		tblReplicaStatus = append(tblReplicaStatus, model.ReplicatedTableRsp{
+			Table:         table,
+			Node:          replica_name,
+			ShardReplica:  shard_replica,
+			QueueSize:     queue_size,
+			Inserts:       inserts,
+			Merges:        merges,
+			LastException: last_exception,
+			LogPointer:    log_pointer,
+			Progress:      progress,
+		})
 	}
-	var replicaStatus []model.ReplicatedTableStatus
-	for _, value := range tblReplicaStatus {
-		replicaStatus = append(replicaStatus, value)
-	}
-	return replicaStatus, nil
+	return tblReplicaStatus, nil
 }

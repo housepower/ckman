@@ -119,24 +119,10 @@ func (controller *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) 
 		return
 	}
 
-	tables, err := clickhouse.GetReplicatedTableStatus(&conf)
+	rts, err := clickhouse.GetReplicatedTableStatus(&conf)
 	if err != nil {
 		controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
 		return
 	}
-
-	header := make([][]string, len(conf.Shards))
-	for shardIndex, shard := range conf.Shards {
-		replicas := make([]string, len(shard.Replicas))
-		for replicaIndex, replica := range shard.Replicas {
-			replicas[replicaIndex] = replica.Ip
-		}
-		header[shardIndex] = replicas
-	}
-	resp := model.ReplicatedTableStatusRsp{
-		Header: header,
-		Tables: tables,
-	}
-
-	controller.wrapfunc(c, model.E_SUCCESS, resp)
+	controller.wrapfunc(c, model.E_SUCCESS, rts)
 }
