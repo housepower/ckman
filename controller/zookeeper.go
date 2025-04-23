@@ -66,7 +66,10 @@ func (controller *ZookeeperController) GetStatus(c *gin.Context) {
 			zkList[index] = tmp
 			continue
 		}
-		_ = json.Unmarshal(body, &tmp)
+		err = json.Unmarshal(body, &tmp)
+		if err != nil {
+			log.Logger.Warnf("get zookeeper node %s satus fail: %v", node, err)
+		}
 		tmp.Version = strings.Split(strings.Split(tmp.Version, ",")[0], "-")[0]
 		zkList[index] = tmp
 	}
@@ -94,7 +97,7 @@ func (controller *ZookeeperController) GetReplicatedQueue(c *gin.Context) {
 
 	queueInfo, err := clickhouse.GetReplicatedQueue(&conf, database, table, node)
 	if err != nil {
-		controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
 		return
 	}
 	controller.wrapfunc(c, model.E_SUCCESS, queueInfo)
@@ -121,7 +124,7 @@ func (controller *ZookeeperController) GetReplicatedTableStatus(c *gin.Context) 
 
 	rts, err := clickhouse.GetReplicatedTableStatus(&conf)
 	if err != nil {
-		controller.wrapfunc(c, model.E_ZOOKEEPER_ERROR, err)
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
 		return
 	}
 	controller.wrapfunc(c, model.E_SUCCESS, rts)

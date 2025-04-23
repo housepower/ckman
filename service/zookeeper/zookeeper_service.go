@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -206,7 +207,13 @@ func ZkMetric(host string, port int, metric string) ([]byte, error) {
 	for _, line := range lines {
 		matches := re.FindStringSubmatch(line)
 		if len(matches) >= 3 {
-			resp[matches[1]] = matches[2]
+			value, err := strconv.ParseFloat(matches[2], 64)
+			if err == nil {
+				resp[matches[1]] = value
+			} else {
+				// If conversion fails, store the original string
+				resp[matches[1]] = matches[2]
+			}
 		}
 	}
 	if len(resp) == 0 {

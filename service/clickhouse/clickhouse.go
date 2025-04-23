@@ -1709,9 +1709,7 @@ func GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.Replic
     IF(log_pointer = 0, 100, (log_pointer - queue_size) * 100 / log_pointer) AS progress
 FROM clusterAllReplicas('%s', system.replicas)
 ORDER BY
-    database ASC,
-    table ASC,
-    queue_size ASC`, conf.Cluster)
+    queue_size DESC`, conf.Cluster)
 	data, err := service.QueryInfo(query)
 	if err != nil {
 		return nil, err
