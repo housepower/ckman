@@ -31,9 +31,9 @@
     <listen_host>::</listen_host>
     <logger>
         <count>10</count>
-        <errorlog>log/clickhouse-keeper/clickhouse-keeper.err.log</errorlog>
+        <errorlog>/var/log/clickhouse-keeper/clickhouse-keeper.err.log</errorlog>
         <level>debug</level>
-        <log>log/clickhouse-keeper/clickhouse-keeper.log</log>
+        <log>/var/log/clickhouse-keeper/clickhouse-keeper.log</log>
         <size>1000M</size>
     </logger>
     <max_connections>4096</max_connections>

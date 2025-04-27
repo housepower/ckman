@@ -67,6 +67,9 @@ func keeper_logger(conf *model.CKManClickHouseConfig) map[string]interface{} {
 	if !conf.NeedSudo {
 		output["log"] = path.Join(conf.Cwd, "log", "clickhouse-keeper", "clickhouse-keeper.log")
 		output["errorlog"] = path.Join(conf.Cwd, "log", "clickhouse-keeper", "clickhouse-keeper.err.log")
+	} else {
+		output["log"] = "/var/log/clickhouse-keeper/clickhouse-keeper.log"
+		output["errorlog"] = "/var/log/clickhouse-keeper/clickhouse-keeper.err.log"
 	}
 	return output
 

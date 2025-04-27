@@ -9,6 +9,7 @@ import (
 
 func TestGenerateKeeperXML(t *testing.T) {
 	conf := model.CKManClickHouseConfig{
+		NeedSudo: true,
 		KeeperConf: &model.KeeperConf{
 			KeeperNodes: []string{"192.168.101.102", "192.168.101.105", "192.168.101.107"},
 			TcpPort:     9181,
