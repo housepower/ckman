@@ -57,8 +57,13 @@ func (controller *TaskController) GetTaskStatusById(c *gin.Context) {
 		ClusterName: task.ClusterName,
 		Type:        strings.Split(task.TaskType, ".")[0],
 		Option:      model.TaskOptionMap[task.TaskType],
-		NodeStatus:  task.NodeStatus,
 	}
+
+	resp.NodeStatus = common.TernaryExpression(
+		resp.Type == "keeper",
+		task.ZKNodes,
+		task.CKNodes,
+	).([]model.NodeStatus)
 
 	controller.wrapfunc(c, model.E_SUCCESS, resp)
 }

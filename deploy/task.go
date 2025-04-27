@@ -20,10 +20,14 @@ func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, er
 	}
 
 	var hosts []string
+	var zknodes []string
 	switch d := deploy.(type) {
 	case *CKDeploy:
 		repository.EncodePasswd(deploy.(*CKDeploy).Conf)
 		hosts = d.Conf.Hosts
+		if d.Conf.KeeperWithStanalone() {
+			zknodes = d.Conf.KeeperConf.KeeperNodes
+		}
 	case *model.ArchiveTableReq:
 		conf, _ := repository.Ps.GetClusterbyName(clusterName)
 		hosts = conf.Hosts
@@ -41,6 +45,17 @@ func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, er
 		nodeStatus = append(nodeStatus, node)
 	}
 
+	var knodeStatus []model.NodeStatus
+	if len(zknodes) > 0 {
+		for _, host := range zknodes {
+			node := model.NodeStatus{
+				Host:   host,
+				Status: model.NodeStatusWating,
+			}
+			knodeStatus = append(knodeStatus, node)
+		}
+	}
+
 	//uuid will generate a global primary key like: 2169dde9-f417-8ddb-a524-0354b3eb4dc2
 	taskId := uuid.New()
 	task := model.Task{
@@ -51,6 +66,8 @@ func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, er
 		Status:       model.TaskStatusWaiting,
 		Message:      model.TaskStatusMap[model.TaskStatusWaiting],
 		TaskType:     taskType,
+		ZKNodes:      knodeStatus,
+		CKNodes:      nodeStatus,
 		NodeStatus:   nodeStatus,
 		CreateTime:   time.Now(),
 		UpdateTime:   time.Now(),
@@ -92,14 +109,31 @@ func SetTaskStatus(task *model.Task, status int, msg string) error {
 }
 
 func SetNodeStatus(task *model.Task, status model.Internationalization, host string) {
-	for idx, node := range task.NodeStatus {
-		if host == model.ALL_NODES_DEFAULT {
-			task.NodeStatus[idx].Status = status
-		} else {
-			for _, h := range strings.Split(host, ",") {
-				if node.Host == h {
-					task.NodeStatus[idx].Status = status
-					break
+	t := strings.Split(task.TaskType, ".")[0]
+	switch t {
+	case "keeper":
+		for idx, node := range task.ZKNodes {
+			if host == model.ALL_NODES_DEFAULT {
+				task.ZKNodes[idx].Status = status
+			} else {
+				for _, h := range strings.Split(host, ",") {
+					if node.Host == h {
+						task.ZKNodes[idx].Status = status
+						break
+					}
+				}
+			}
+		}
+	default:
+		for idx, node := range task.CKNodes {
+			if host == model.ALL_NODES_DEFAULT {
+				task.CKNodes[idx].Status = status
+			} else {
+				for _, h := range strings.Split(host, ",") {
+					if node.Host == h {
+						task.CKNodes[idx].Status = status
+						break
+					}
 				}
 			}
 		}

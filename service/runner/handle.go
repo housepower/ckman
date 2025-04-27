@@ -53,7 +53,7 @@ func CKDeployHandle(task *model.Task) error {
 		}
 		task.TaskType = model.TaskTypeCKDeploy
 	}
-
+	deploy.SetNodeStatus(task, model.NodeStatusWating, model.ALL_NODES_DEFAULT)
 	if err := DeployCkCluster(task, d); err != nil {
 		return err
 	}
@@ -280,7 +280,7 @@ func CKUpgradeHandle(task *model.Task) error {
 		}
 		task.TaskType = model.TaskTypeCKUpgrade
 	}
-
+	deploy.SetNodeStatus(task, model.NodeStatusWating, model.ALL_NODES_DEFAULT)
 	err = UpgradeCkCluster(task, d)
 	if err != nil {
 		return err
@@ -317,6 +317,8 @@ func CKSettingHandle(task *model.Task) error {
 		}
 		task.TaskType = model.TaskTypeCKSetting
 	}
+
+	deploy.SetNodeStatus(task, model.NodeStatusWating, model.ALL_NODES_DEFAULT)
 
 	if err := ConfigCkCluster(task, d); err != nil {
 		return err

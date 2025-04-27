@@ -62,6 +62,8 @@ type Task struct {
 	DeployConfig interface{}
 	TaskType     string
 	Status       int
+	CKNodes      []NodeStatus
+	ZKNodes      []NodeStatus
 	NodeStatus   []NodeStatus
 	Message      string
 	CreateTime   time.Time
@@ -112,6 +114,8 @@ var TaskOptionMap = map[string]Internationalization{
 	TaskTypeCKArchive:     TaskOptionArchive,
 	TaskTypeKeeperDeploy:  TaskOptionDeploy,
 	TaskTypeKeeperUpgrade: TaskOptionUpgrade,
+	TaskTypeKeeperDestory: TaskOptionDestory,
+	TaskTypeKeeperSetting: TaskOptionSetting,
 }
 
 type TaskStatusResp struct {
