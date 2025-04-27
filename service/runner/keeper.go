@@ -1,9 +1,6 @@
 package runner
 
 import (
-	"fmt"
-
-	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -12,6 +9,7 @@ import (
 
 func DeployKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
 	kd := deploy.NewKeeperDeploy(*d.Conf, d.Packages)
+	kd.Ext = d.Ext
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
 	if err := kd.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
@@ -60,23 +58,10 @@ func DestroyKeeperCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKMan
 
 func UpgradeKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
 	kd := deploy.NewKeeperDeploy(*d.Conf, d.Packages)
-	switch d.Ext.Policy {
-	case model.PolicyRolling:
-		var rd deploy.KeeperDeploy
-		common.DeepCopyByGob(&rd, kd)
-		for _, host := range d.Conf.KeeperConf.KeeperNodes {
-			rd.Conf.KeeperConf.KeeperNodes = []string{host}
-			if err := upgradeKeeperPackage(task, rd, model.MaxTimeOut); err != nil {
-				return err
-			}
-		}
-	case model.PolicyFull:
-		err := upgradeKeeperPackage(task, *kd, 30)
-		if err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("not support policy %s yet", d.Ext.Policy)
+	kd.Ext = d.Ext
+	err := upgradeKeeperPackage(task, *kd, 30)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -130,6 +115,7 @@ func upgradeKeeperPackage(task *model.Task, d deploy.KeeperDeploy, timeout int) 
 
 func ConfigKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
 	kd := deploy.NewKeeperDeploy(*d.Conf, d.Packages)
+	kd.Ext = d.Ext
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
 	if err := kd.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
@@ -140,32 +126,12 @@ func ConfigKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
 	}
 
 	if kd.Ext.Restart {
-		switch d.Ext.Policy {
-		case model.PolicyRolling:
-			var rd deploy.CKDeploy
-			common.DeepCopyByGob(&rd, kd)
-			for _, host := range rd.Conf.KeeperConf.KeeperNodes {
-				deploy.SetNodeStatus(task, model.NodeStatusRestart, host)
-				rd.Conf.KeeperConf.KeeperNodes = []string{host}
-				if err := rd.Restart(); err != nil {
-					return err
-				}
-				if err := rd.Check(model.MaxTimeOut); err != nil {
-					return err
-				}
-				deploy.SetNodeStatus(task, model.NodeStatusDone, host)
-			}
-		case model.PolicyFull:
-			deploy.SetNodeStatus(task, model.NodeStatusRestart, model.ALL_NODES_DEFAULT)
-			err := kd.Restart()
-			if err != nil && err != model.CheckTimeOutErr {
-				return err
-			}
-			_ = d.Check(30)
-		default:
-			return fmt.Errorf("not support policy %s yet", d.Ext.Policy)
+		deploy.SetNodeStatus(task, model.NodeStatusRestart, model.ALL_NODES_DEFAULT)
+		err := kd.Restart()
+		if err != nil && err != model.CheckTimeOutErr {
+			return err
 		}
-
+		_ = kd.Check(30)
 	}
 	return nil
 }
