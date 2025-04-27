@@ -372,10 +372,8 @@ func ConfigCkCluster(task *model.Task, d deploy.CKDeploy) error {
 				if len(nodes) == 0 {
 					continue
 				}
+
 				rd.Conf.Hosts = nodes
-				if err := rd.Restart(); err != nil {
-					return err
-				}
 				host := strings.Join(nodes, ",")
 				deploy.SetNodeStatus(task, model.NodeStatusRestart, host)
 				if err := rd.Restart(); err != nil {
