@@ -660,6 +660,10 @@ func (controller *ClickHouseController) DMLOnLogic(c *gin.Context) {
 		return
 	}
 
+	if cluster.LogicCluster == nil {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, fmt.Sprintf("cluster %s not belong any logic cluster", clusterName))
+		return
+	}
 	logics, err := repository.Ps.GetLogicClusterbyName(*cluster.LogicCluster)
 
 	if err != nil {
