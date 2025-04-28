@@ -200,6 +200,16 @@ func merge_tree_metadata_cache() map[string]interface{} {
 	return output
 }
 
+func merge_tree(conf *model.CKManClickHouseConfig) map[string]interface{} {
+	output := make(map[string]interface{})
+	if conf.IsReplica {
+		output["replicated_merge_tree"] = map[string]interface{}{
+			"deduplicate_merge_projection_mode": "drop",
+		}
+	}
+	return output
+}
+
 func GetRootTag(version string) string {
 	if common.CompareClickHouseVersion(version, "22.x") >= 0 {
 		return "clickhouse"
@@ -221,6 +231,9 @@ func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ext m
 	}
 	if common.CompareClickHouseVersion(conf.Version, "23.4.x") >= 0 {
 		mergo.Merge(&custom, query_cache())
+	}
+	if common.CompareClickHouseVersion(conf.Version, "24.8.1.2684") >= 0 {
+		mergo.Merge(&custom, merge_tree(conf))
 	}
 	storage_configuration, backups := storage(conf.Storage)
 	mergo.Merge(&custom, storage_configuration)

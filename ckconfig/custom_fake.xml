@@ -5,7 +5,7 @@
         <partition_by>toYYYYMMDD(event_date)</partition_by>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
     </asynchronous_metric_log>
-    <background_fetches_pool_size>12</background_fetches_pool_size>
+    <background_fetches_pool_size>16</background_fetches_pool_size>
     <backups>
         <allowed_disk>hdfs1</allowed_disk>
         <allowed_disk>s3</allowed_disk>
@@ -75,6 +75,12 @@
         <port>9363</port>
         <status_info>true</status_info>
     </prometheus>
+    <query_cache>
+        <max_entries>1024</max_entries>
+        <max_entry_size_in_bytes>1048576</max_entry_size_in_bytes>
+        <max_entry_size_in_rows>30000000</max_entry_size_in_rows>
+        <max_size_in_bytes>1073741824</max_size_in_bytes>
+    </query_cache>
     <query_log>
         <flush_interval_milliseconds>30000</flush_interval_milliseconds>
         <partition_by>toYYYYMMDD(event_date)</partition_by>
@@ -90,6 +96,9 @@
         <partition_by>toYYYYMMDD(event_date)</partition_by>
         <ttl>event_date + INTERVAL 30 DAY DELETE</ttl>
     </query_views_log>
+    <replicated_merge_tree>
+        <deduplicate_merge_projection_mode>drop</deduplicate_merge_projection_mode>
+    </replicated_merge_tree>
     <storage_configuration>
         <disks>
             <hdfs1>
