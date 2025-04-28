@@ -574,6 +574,49 @@ func MaterializedView(conf *model.CKManClickHouseConfig, req model.MaterializedV
 	return statement, nil
 }
 
+func GetVmStatus(conf *model.CKManClickHouseConfig) (map[string]*model.CkVmStatus, error) {
+	service := NewCkService(conf)
+	err := service.InitCkService()
+	if err != nil {
+		return nil, err
+	}
+	query := fmt.Sprintf(`SELECT
+    database,
+    name,
+    sum(parts),
+    sum(total_rows),
+    sum(total_bytes),
+    sum(total_bytes_uncompressed),
+    (extractAllGroups(as_select, 'FROM ([\\w\\d_]+\\.[\\w+\\d_]+)')[1])[1] AS source_table,
+    as_select
+FROM cluster('%s', system.tables)
+WHERE (engine = 'MaterializedView')
+GROUP BY
+    database,
+    name,
+    source_table,
+    as_select`, conf.Cluster)
+
+	data, err := service.QueryInfo(query)
+	if err != nil {
+		return nil, err
+	}
+	vmStatus := make(map[string]*model.CkVmStatus)
+	for i := 1; i < len(data); i++ {
+		database := data[i][0].(string)
+		name := data[i][1].(string)
+		vmStatus[database+"."+name] = &model.CkVmStatus{
+			Parts:        data[i][2].(uint64),
+			Rows:         data[i][3].(uint64),
+			Compressed:   data[i][4].(uint64),
+			Uncompressed: data[i][5].(uint64),
+			SourceTable:  data[i][6].(string),
+			AsSelect:     data[i][7].(string),
+		}
+	}
+	return vmStatus, nil
+}
+
 func GetPartitions(conf *model.CKManClickHouseConfig, table string) (map[string]model.PartitionInfo, error) {
 	partInfo := make(map[string]model.PartitionInfo)
 

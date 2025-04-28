@@ -314,3 +314,12 @@ type GroupUniqArrayReq struct {
 	Table     string                //原始表名
 	Populate  bool                  //是否要同步存量数据
 }
+
+type CkVmStatus struct {
+	Parts        uint64 `json:"parts"`
+	Rows         uint64 `json:"rows"`
+	Compressed   uint64 `json:"compressed"`
+	Uncompressed uint64 `json:"uncompressed"`
+	SourceTable  string `json:"source_table"`
+	AsSelect     string `json:"as_select"`
+}

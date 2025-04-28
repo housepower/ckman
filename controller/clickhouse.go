@@ -868,6 +868,23 @@ func (controller *ClickHouseController) MaterializedView(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, statement)
 }
 
+func (controller *Controller) GetMaterializedViewStatus(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	resp, err := clickhouse.GetVmStatus(&conf)
+	if err != nil {
+		controller.wrapfunc(c, model.E_TBL_ALTER_FAILED, err)
+		return
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, resp)
+}
+
 // @Summary 使用groupUniqArray创建本地聚合表，本地物化视图，分布式聚合表，分布式视图
 // @Description 使用groupUniqArray创建本地聚合表，本地物化视图，分布式聚合表，分布式视图
 // @version 1.0

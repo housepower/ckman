@@ -90,6 +90,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.PUT(fmt.Sprintf("/ck/table/readonly/:%s", controller.ClickHouseClusterPath), ckController.RestoreReplica)
 	groupV1.PUT(fmt.Sprintf("/ck/table/orderby/:%s", controller.ClickHouseClusterPath), ckController.SetOrderby)
 	groupV1.PUT(fmt.Sprintf("/ck/table/view/:%s", controller.ClickHouseClusterPath), ckController.MaterializedView)
+	groupV1.GET(fmt.Sprintf("/ck/vm/:%s", controller.ClickHouseClusterPath), ckController.GetMaterializedViewStatus)
 	groupV1.POST(fmt.Sprintf("/ck/table/group_uniq_array/:%s", controller.ClickHouseClusterPath), ckController.GroupUniqArray)
 	groupV1.GET(fmt.Sprintf("/ck/table/group_uniq_array/:%s", controller.ClickHouseClusterPath), ckController.GetGroupUniqArray)
 	groupV1.DELETE(fmt.Sprintf("/ck/table/group_uniq_array/:%s", controller.ClickHouseClusterPath), ckController.DelGroupUniqArray)
