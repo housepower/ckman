@@ -580,13 +580,17 @@ func GetVmStatus(conf *model.CKManClickHouseConfig) (map[string]*model.CkVmStatu
 	if err != nil {
 		return nil, err
 	}
+	uncompressed := "sum(0)"
+	if common.CompareClickHouseVersion(conf.Version, "24.8.x") >= 0 {
+		uncompressed = "sum(total_bytes_uncompressed)"
+	}
 	query := fmt.Sprintf(`SELECT
     database,
     name,
     sum(parts),
     sum(total_rows),
     sum(total_bytes),
-    sum(total_bytes_uncompressed),
+    %s,
     (extractAllGroups(as_select, 'FROM ([\\w\\d_]+\\.[\\w+\\d_]+)')[1])[1] AS source_table,
     as_select
 FROM cluster('%s', system.tables)
@@ -595,7 +599,7 @@ GROUP BY
     database,
     name,
     source_table,
-    as_select`, conf.Cluster)
+    as_select`, uncompressed, conf.Cluster)
 
 	data, err := service.QueryInfo(query)
 	if err != nil {
