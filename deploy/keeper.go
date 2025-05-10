@@ -327,6 +327,7 @@ func (d *KeeperDeploy) Config() error {
 			cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, keeperFile.BaseName), path.Join(remotePath, "keeper_config.xml")))
 			if d.Conf.NeedSudo {
 				cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-keeper")
+				cmds = append(cmds, "chown -R clickhouse:clickhouse /var/log/clickhouse-keeper")
 			}
 			cmds = append(cmds, "rm -rf /tmp/keeper_config*")
 			cmd := strings.Join(cmds, ";")
