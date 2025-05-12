@@ -104,6 +104,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.DELETE(fmt.Sprintf("/ck/query_history/:%s", controller.ClickHouseClusterPath), ckController.DeleteQuery)
 	groupV1.GET(fmt.Sprintf("/ck/table_lists/:%s", controller.ClickHouseClusterPath), ckController.GetTableLists)
 	groupV1.GET(fmt.Sprintf("/ck/table_schema/:%s", controller.ClickHouseClusterPath), ckController.ShowSchema)
+	groupV1.GET(fmt.Sprintf("/ck/backgroundpool/:%s", controller.ClickHouseClusterPath), ckController.GetBackgroundPool)
 	groupV1.PUT(fmt.Sprintf("/ck/upgrade/:%s", controller.ClickHouseClusterPath), ckController.UpgradeCluster)
 	groupV1.PUT(fmt.Sprintf("/ck/start/:%s", controller.ClickHouseClusterPath), ckController.StartCluster)
 	groupV1.PUT(fmt.Sprintf("/ck/stop/:%s", controller.ClickHouseClusterPath), ckController.StopCluster)

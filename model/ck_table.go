@@ -323,3 +323,14 @@ type CkVmStatus struct {
 	SourceTable  string `json:"source_table"`
 	AsSelect     string `json:"as_select"`
 }
+
+type BackgroundPool struct {
+	Task  int64   `json:"task"`
+	Size  int64   `json:"size"`
+	Usage float64 `json:"usage"`
+}
+
+type BackgroundPoolRsp struct {
+	Host string                    `json:"host"`
+	Pool map[string]BackgroundPool `json:"background_pool"`
+}

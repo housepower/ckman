@@ -621,6 +621,56 @@ GROUP BY
 	return vmStatus, nil
 }
 
+func GetBackgroundPool(conf *model.CKManClickHouseConfig) ([]model.BackgroundPoolRsp, error) {
+	var resp []model.BackgroundPoolRsp
+	for _, host := range conf.Hosts {
+		tmp := conf
+		tmp.Hosts = []string{host}
+		service := NewCkService(tmp)
+		if err := service.InitCkService(); err != nil {
+			return nil, err
+		}
+		var merges, fetches, schedule, move, comm model.BackgroundPool
+		merges.Task, merges.Size, merges.Usage = getPoolMetric(service, "MergesAndMutations")
+		fetches.Task, fetches.Size, fetches.Usage = getPoolMetric(service, "Fetches")
+		schedule.Task, schedule.Size, schedule.Usage = getPoolMetric(service, "Schedule")
+		move.Task, move.Size, move.Usage = getPoolMetric(service, "Move")
+		comm.Task, comm.Size, comm.Usage = getPoolMetric(service, "Common")
+		resp = append(resp, model.BackgroundPoolRsp{
+			Host: host,
+			Pool: map[string]model.BackgroundPool{
+				"MergesAndMutations": merges,
+				"Feches":             fetches,
+				"Schedule":           schedule,
+				"Move":               move,
+				"Common":             comm,
+			},
+		})
+
+	}
+	return resp, nil
+}
+
+func getPoolMetric(service *CkService, name string) (int64, int64, float64) {
+	var task, size int64
+	var usage float64
+	query := fmt.Sprintf("SELECT value FROM system.metrics WHERE name in ('Background%sPoolTask', 'Background%sPoolSize')", name, name)
+
+	data, err := service.QueryInfo(query)
+	if err != nil {
+		log.Logger.Errorf("get pool metric error: %s", err.Error())
+		return 0, 0, 0
+	}
+	task = data[1][0].(int64)
+	size = data[2][0].(int64)
+	if size == 0 {
+		usage = 0
+	} else {
+		usage = float64(task) / float64(size)
+	}
+	return task, size, usage
+}
+
 func GetPartitions(conf *model.CKManClickHouseConfig, table string) (map[string]model.PartitionInfo, error) {
 	partInfo := make(map[string]model.PartitionInfo)
 

@@ -32,5 +32,10 @@ func GuestPolicies() []Policy {
 		{"/task/*", GET},
 		{"/task/lists", GET},
 		{"/task/running", GET},
+		{"/ck/backgroundpool/*", GET},
+		{"/zk/replicated_queue/*", GET},
+		{"/ck/rebalance_info/*", GET},
+		{"/ck/rebalance_status/*", GET},
+		{"/ck/vm/*", GET},
 	}
 }

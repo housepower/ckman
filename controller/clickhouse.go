@@ -2816,6 +2816,22 @@ func (controller *ClickHouseController) DeleteQuery(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, nil)
 }
 
+func (controller *ClickHouseController) GetBackgroundPool(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, clusterName)
+		return
+	}
+
+	resp, err := clickhouse.GetBackgroundPool(&conf)
+	if err != nil {
+		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, resp)
+}
+
 func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	con, err := repository.Ps.GetClusterbyName(conf.Cluster)
 	conf.UnPack(con)
