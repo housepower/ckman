@@ -695,13 +695,26 @@ definitions:
           type: string
         type: array
     type: object
-  model.RebalanceShardingkey:
+  model.RebalanceTableReq:
+    properties:
+      except_max_shard:
+        description: remove the max shard's data to other shards
+        type: boolean
+      tables:
+        items:
+          $ref: '#/definitions/model.RebalanceTables'
+        type: array
+    type: object
+  model.RebalanceTables:
     properties:
       allowLossRate:
         example: 0.1
         type: number
       database:
         example: default
+        type: string
+      policy:
+        example: patition, shardingkey
         type: string
       saveTemps:
         example: true
@@ -712,16 +725,6 @@ definitions:
       table:
         example: t123
         type: string
-    type: object
-  model.RebalanceTableReq:
-    properties:
-      except_max_shard:
-        description: remove the max shard's data to other shards
-        type: boolean
-      keys:
-        items:
-          $ref: '#/definitions/model.RebalanceShardingkey'
-        type: array
     type: object
   model.Storage:
     properties:

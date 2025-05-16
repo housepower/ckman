@@ -2759,7 +2759,7 @@ func (controller *ClickHouseController) GetTableLists(c *gin.Context) {
 func (controller *ClickHouseController) QueryExplain(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
-	query = fmt.Sprintf("EXPLAIN PLAN description = 1, actions = 1 %s", query)
+	query = fmt.Sprintf("EXPLAIN PLAN description = 1, actions = 1, indexes=1 %s", query)
 	ckService, err := clickhouse.GetCkService(clusterName)
 	if err != nil {
 		controller.wrapfunc(c, model.E_CH_CONNECT_FAILED, err)

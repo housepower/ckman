@@ -3624,7 +3624,22 @@ var doc = `{
                 }
             }
         },
-        "model.RebalanceShardingkey": {
+        "model.RebalanceTableReq": {
+            "type": "object",
+            "properties": {
+                "except_max_shard": {
+                    "description": "remove the max shard's data to other shards",
+                    "type": "boolean"
+                },
+                "tables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.RebalanceTables"
+                    }
+                }
+            }
+        },
+        "model.RebalanceTables": {
             "type": "object",
             "properties": {
                 "allowLossRate": {
@@ -3634,6 +3649,10 @@ var doc = `{
                 "database": {
                     "type": "string",
                     "example": "default"
+                },
+                "policy": {
+                    "type": "string",
+                    "example": "patition, shardingkey"
                 },
                 "saveTemps": {
                     "type": "boolean",
@@ -3646,21 +3665,6 @@ var doc = `{
                 "table": {
                     "type": "string",
                     "example": "t123"
-                }
-            }
-        },
-        "model.RebalanceTableReq": {
-            "type": "object",
-            "properties": {
-                "except_max_shard": {
-                    "description": "remove the max shard's data to other shards",
-                    "type": "boolean"
-                },
-                "keys": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.RebalanceShardingkey"
-                    }
                 }
             }
         },
