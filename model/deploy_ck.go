@@ -78,9 +78,9 @@ type CkImportConfig struct {
 }
 
 type PromMetricPort struct {
-	ClickHouse int
-	ZooKeeper  int
-	NodeExport int
+	ClickHouse int `json:"clickhouse,omitempty" example:"9363"`
+	ZooKeeper  int `json:"zookeeper,omitempty" example:"7000"`
+	NodeExport int `json:"node_export,omitempty" example:"9100"`
 }
 
 type CKManClickHouseConfig struct {
@@ -100,13 +100,13 @@ type CKManClickHouseConfig struct {
 	Hosts            []string  `json:"hosts" example:"192.168.0.1,192.168.0.2,192.168.0.3,192.168.0.4"`
 	Keeper           string    `json:"keeper" example:"zookeeper"`
 	KeeperConf       *KeeperConf
-	ZkNodes          []string `json:"zkNodes" example:"192.168.0.1,192.168.0.2,192.168.0.3"`
-	ZkPort           int      `json:"zkPort" example:"2181"`
-	PromHost         string   `json:"promHost" example:"127.0.0.1"`
-	PromPort         int      `json:"promPort" example:"9090"`
-	PromMetricPort   PromMetricPort
-	User             string `json:"user" example:"ck"`
-	Password         string `json:"password" example:"123456"`
+	ZkNodes          []string       `json:"zkNodes" example:"192.168.0.1,192.168.0.2,192.168.0.3"`
+	ZkPort           int            `json:"zkPort" example:"2181"`
+	PromHost         string         `json:"promHost,omitempty" example:"127.0.0.1"`
+	PromPort         int            `json:"promPort,omitempty" example:"9090"`
+	PromMetricPort   PromMetricPort `json:"promMetricPort,omitempty"`
+	User             string         `json:"user" example:"ck"`
+	Password         string         `json:"password" example:"123456"`
 	EncryptType      int
 	Path             string `json:"path" example:"/var/lib/"`
 	SshUser          string `json:"sshUser" example:"root"`
