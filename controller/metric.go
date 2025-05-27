@@ -163,7 +163,7 @@ func (controller *MetricController) QueryMetric(c *gin.Context) {
 		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return
 	}
-	title := c.Query("title")
+	metric := c.Query("metric")
 	start, err := strconv.ParseInt(c.Query("start"), 10, 64)
 	if err != nil {
 		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
@@ -179,23 +179,31 @@ func (controller *MetricController) QueryMetric(c *gin.Context) {
 		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
-	m, ok := model.MetricMap[title]
+	m, ok := model.MetricMap[metric]
 	if !ok {
-		controller.wrapfunc(c, model.E_INVALID_PARAMS, fmt.Errorf("title %s not found", title))
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, fmt.Errorf("metric %s not found", metric))
 	}
-	query := fmt.Sprintf(`SELECT toStartOfInterval(event_time, INTERVAL %d SECOND) AS t, %s
-	FROM %s
-	WHERE event_date >= %d AND event_time >= %d
-	AND event_date <= %d AND event_time <= %d 
-	GROUP BY t
-	ORDER BY t WITH FILL STEP %d`, step, m.Field, m.Table, start, start, end, end, step)
+	var query string
+	if m.Table == "metric_log" {
+		query = fmt.Sprintf(`SELECT CAST(toStartOfInterval(event_time, toIntervalSecond(_CAST(%d, 'UInt32'))), 'INT') AS timestamp, %s/%d AS value
+	FROM system.metric_log
+	WHERE  event_time >= toDateTime(%d) AND event_time <= toDateTime(%d) 
+	GROUP BY timestamp
+	ORDER BY timestamp WITH FILL STEP %d`, step, m.Field, m.Unit, start, end, step)
+	} else if m.Table == "asynchronous_metric_log" {
+		query = fmt.Sprintf(`SELECT CAST(toStartOfInterval(event_time, toIntervalSecond(_CAST(%d, 'UInt32'))), 'INT') AS timestamp, avg(value)/%d AS value
+	FROM system.asynchronous_metric_log 
+	WHERE  event_time >= toDateTime(%d) AND event_time <= toDateTime(%d)  
+	AND (metric = '%s') GROUP BY timestamp ORDER BY timestamp ASC WITH FILL STEP %d`,
+			step, m.Unit, start, end, m.Field, step)
+	}
 	log.Logger.Debugf("query: %v", query)
 	var rsps []model.MetricRsp
 	for _, host := range conf.Hosts {
 		rsp := model.MetricRsp{
 			Metric: model.Metric{
 				Job:      "ckman",
-				Name:     m.Field,
+				Name:     metric,
 				Instance: host,
 			},
 		}
@@ -210,7 +218,7 @@ func (controller *MetricController) QueryMetric(c *gin.Context) {
 		if err != nil {
 			return
 		}
-		rsp.Value = data[1:]
+		rsp.Values = data[1:]
 		rsps = append(rsps, rsp)
 	}
 	controller.wrapfunc(c, model.E_SUCCESS, rsps)

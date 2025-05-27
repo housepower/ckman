@@ -37,5 +37,6 @@ func GuestPolicies() []Policy {
 		{"/ck/rebalance_info/*", GET},
 		{"/ck/rebalance_status/*", GET},
 		{"/ck/vm/*", GET},
+		{"/metric/query_metric/*", GET},
 	}
 }

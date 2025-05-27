@@ -137,6 +137,7 @@ func InitRouterV2(groupV2 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV2.POST("/deploy/ck", deployController.DeployCk)
 	groupV2.GET(fmt.Sprintf("/metric/query/:%s", controller.ClickHouseClusterPath), metricController.Query)
 	groupV2.GET(fmt.Sprintf("/metric/query-range/:%s", controller.ClickHouseClusterPath), metricController.QueryRange)
+	groupV2.GET(fmt.Sprintf("/metric/query_metric/:%s", controller.ClickHouseClusterPath), metricController.QueryMetric)
 	groupV2.GET("/version", configController.GetVersion)
 	groupV2.GET("/ui/schema", uiController.GetUISchema)
 	groupV2.GET(fmt.Sprintf("/task/:%s", controller.TaskIdPath), taskController.GetTaskStatusById)

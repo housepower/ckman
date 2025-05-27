@@ -587,7 +587,7 @@ func (ck *CkService) FetchSchemerFromOtherNode(host string) error {
 		log.Logger.Debugf("statement: %s", statements[i])
 		if err := ck.Conn.Exec(statements[i]); err != nil {
 			log.Logger.Warnf("execute [%s] failed: %v", statements[i], err)
-			return err
+			continue
 		}
 	}
 
