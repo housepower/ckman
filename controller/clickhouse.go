@@ -83,8 +83,8 @@ func (controller *ClickHouseController) ImportCluster(c *gin.Context) {
 	conf.Password = req.Password
 	conf.ZkNodes = req.ZkNodes
 	conf.ZkPort = req.ZkPort
-	conf.PromHost = req.PromHost
-	conf.PromPort = req.PromPort
+	// conf.PromHost = req.PromHost
+	// conf.PromPort = req.PromPort
 	conf.AuthenticateType = model.SshPasswordNotSave
 	conf.Mode = model.CkClusterImport
 	conf.Normalize()
