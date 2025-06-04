@@ -600,6 +600,9 @@ func (ck *CkService) ShowCreateTable(tbname, database string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if len(value) < 2 {
+		return "", errors.Errorf("table %s.%s not found in all cluster node", database, tbname)
+	}
 	schema := value[1][0].(string)
 	return schema, nil
 }

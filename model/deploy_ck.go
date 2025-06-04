@@ -49,6 +49,7 @@ type CkDeployExt struct {
 	ChangeCk       bool
 	CurClusterOnly bool //仅修改当前集群的配置
 	NumCPU         int
+	SkipKeeper     bool
 }
 
 type CkShard struct {

@@ -123,7 +123,7 @@ func CKDestoryHandle(task *model.Task) error {
 		return err
 	}
 
-	if d.Conf.KeeperWithStanalone() {
+	if d.Conf.KeeperWithStanalone() && !d.Ext.SkipKeeper {
 		task.TaskType = model.TaskTypeKeeperDestory
 		if err = DestroyKeeperCluster(task, d, &conf); err != nil {
 			return err
@@ -273,7 +273,7 @@ func CKUpgradeHandle(task *model.Task) error {
 		return nil
 	}
 
-	if d.Conf.KeeperWithStanalone() {
+	if d.Conf.KeeperWithStanalone() && !d.Ext.SkipKeeper {
 		task.TaskType = model.TaskTypeKeeperUpgrade
 		if err = UpgradeKeeperCluster(task, d); err != nil {
 			return err
@@ -310,7 +310,7 @@ func CKSettingHandle(task *model.Task) error {
 		return nil
 	}
 
-	if d.Conf.KeeperWithStanalone() {
+	if d.Conf.KeeperWithStanalone() && !d.Ext.SkipKeeper {
 		task.TaskType = model.TaskTypeKeeperSetting
 		if err := ConfigKeeperCluster(task, d); err != nil {
 			return err

@@ -1349,6 +1349,7 @@ func (controller *ClickHouseController) UpgradeCluster(c *gin.Context) {
 	d.Packages = deploy.BuildPackages(req.PackageVersion, conf.PkgType, conf.Cwd)
 	d.Ext.Policy = req.Policy
 	d.Ext.CurClusterOnly = true
+	d.Ext.SkipKeeper = req.SkipKeeper
 	d.Conf.Hosts = chHosts
 
 	if conf.Keeper == model.ClickhouseKeeper {
@@ -2655,7 +2656,7 @@ func (controller *ClickHouseController) ClusterSetting(c *gin.Context) {
 		return
 	}
 
-	restart, cc, err := mergeClickhouseConfig(&conf, force)
+	restart, cc, kc, err := mergeClickhouseConfig(&conf, force)
 	if err != nil {
 		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
@@ -2665,6 +2666,7 @@ func (controller *ClickHouseController) ClusterSetting(c *gin.Context) {
 	d.Ext.Restart = restart
 	d.Ext.Policy = policy
 	d.Ext.ChangeCk = cc
+	d.Ext.SkipKeeper = !kc
 	d.Ext.CurClusterOnly = true
 	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKSetting, d)
 	if err != nil {
@@ -2964,12 +2966,11 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
-func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool, bool, error) {
-	restart := false
-	config := false
+func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (restart bool, cc bool, kc bool, lerr error) {
 	cluster, err := repository.Ps.GetClusterbyName(conf.Cluster)
 	if err != nil {
-		return false, false, errors.Errorf("cluster %s is not exist", conf.Cluster)
+		lerr = errors.Errorf("cluster %s is not exist", conf.Cluster)
+		return
 	}
 	conf.UnPack(cluster)
 	storageChanged := !reflect.DeepEqual(cluster.Storage, conf.Storage)
@@ -2992,9 +2993,12 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 			!userconfChanged && !logicChaned && !zkChanged && !keeperChanged
 	}
 
+	kc = keeperChanged
+
 	if !force {
 		if noChangedFn() {
-			return false, false, errors.Errorf("all config are the same, it's no need to update")
+			lerr = errors.Errorf("all config are the same, it's no need to update")
+			return
 		}
 	}
 
@@ -3026,21 +3030,25 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 				log.Logger.Debug(query)
 				rows, err := svr.Conn.Query(query)
 				if err != nil {
-					return false, false, err
+					lerr = err
+					return
 				}
 				for rows.Next() {
 					var policy string
 					if err = rows.Scan(&policy); err == nil {
 						rows.Close()
-						return false, false, fmt.Errorf("disk %v was refrenced by storage_policy %s, can't delete", disks, policy)
+						lerr = fmt.Errorf("disk %v was refrenced by storage_policy %s, can't delete", disks, policy)
+						return
 					} else {
 						rows.Close()
-						return false, false, err
+						lerr = err
+						return
 					}
 				}
 				rows.Close()
 			} else if !noChangedFn() {
-				return false, false, err
+				lerr = err
+				return
 			}
 		}
 
@@ -3071,21 +3079,25 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 				log.Logger.Debug(query)
 				rows, err := svr.Conn.Query(query)
 				if err != nil {
-					return false, false, err
+					lerr = err
+					return
 				}
 				for rows.Next() {
 					var database, table, policy_name string
 					if err = rows.Scan(&database, &table, &policy_name); err == nil {
 						rows.Close()
-						return false, false, fmt.Errorf("storage policy %s was refrenced by table %s.%s, can't delete", policy_name, database, table)
+						lerr = fmt.Errorf("storage policy %s was refrenced by table %s.%s, can't delete", policy_name, database, table)
+						return
 					} else {
 						rows.Close()
-						return false, false, err
+						lerr = err
+						return
 					}
 				}
 				rows.Close()
 			} else if !noChangedFn() {
-				return false, false, err
+				lerr = err
+				return
 			}
 		}
 
@@ -3102,7 +3114,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 		cluster.Password != conf.Password || storageChanged || expertChanged ||
 		cluster.ZkPort != conf.ZkPort ||
 		userconfChanged || logicChaned || zkChanged || keeperChanged {
-		config = true
+		cc = true
 	}
 
 	// need restart
@@ -3128,9 +3140,10 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (bool,
 	cluster.ZkNodes = conf.ZkNodes
 	cluster.KeeperConf = conf.KeeperConf
 	if err = common.DeepCopyByGob(conf, cluster); err != nil {
-		return false, false, err
+		lerr = err
+		return
 	}
-	return restart, config, nil
+	return
 }
 
 func genTTLExpress(ttls []model.CkTableTTL, storage *model.Storage) ([]string, error) {

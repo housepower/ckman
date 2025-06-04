@@ -411,7 +411,7 @@ func (d *CKDeploy) Config() error {
 			confFiles = append(confFiles, hostXml)
 
 			var keeperFile common.TempFile
-			if d.Conf.Keeper == model.ClickhouseKeeper && !d.Conf.KeeperWithStanalone() {
+			if !d.Conf.KeeperWithStanalone() {
 				var err error
 				keeperFile, err = common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "keeper_config")
 				if err != nil {
@@ -446,7 +446,7 @@ func (d *CKDeploy) Config() error {
 			cmds := make([]string, 0)
 			cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "config.d", hostFile.BaseName), path.Join(remotePath, "config.d", "host.xml")))
 			cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "users.d", usersFile.BaseName), path.Join(remotePath, "users.d", "users.xml")))
-			if d.Conf.Keeper == model.ClickhouseKeeper && !d.Conf.KeeperWithStanalone() {
+			if !d.Conf.KeeperWithStanalone() {
 				cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "config.d", keeperFile.BaseName), path.Join(remotePath, "config.d", "keeper_config.xml")))
 			}
 			cmds = append(cmds, "rm -rf /tmp/host* /tmp/users*")

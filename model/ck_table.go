@@ -253,6 +253,7 @@ type CkUpgradeCkReq struct {
 	PackageVersion  string `json:"packageVersion" example:"22.3.6.5"`
 	Policy          string `json:"policy" example:"Rolling"`
 	SkipSameVersion bool   `json:"skip" example:"true"`
+	SkipKeeper      bool   `json:"skipKeeper" example:"true"`
 }
 
 type ShowSchemaRsp struct {
