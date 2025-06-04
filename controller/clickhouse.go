@@ -2649,6 +2649,11 @@ func (controller *ClickHouseController) ClusterSetting(c *gin.Context) {
 		return
 	}
 
+	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
+		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, err)
+		return
+	}
+
 	force := common.TernaryExpression(c.Query("force") == "true", true, false).(bool)
 	policy := common.TernaryExpression(c.Query("policy") == model.PolicyFull, model.PolicyFull, model.PolicyRolling).(string)
 	if err := checkConfigParams(&conf); err != nil {
