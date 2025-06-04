@@ -2855,6 +2855,9 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 		logics, err := repository.Ps.GetLogicClusterbyName(*conf.LogicCluster)
 		if err == nil {
 			for _, logic := range logics {
+				if logic == conf.Cluster {
+					continue
+				}
 				clus, err1 := repository.Ps.GetClusterbyName(logic)
 				if err1 == nil {
 					if clus.Password != conf.Password {
