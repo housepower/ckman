@@ -330,18 +330,18 @@ func (mp *PostgresPersistent) DeleteQueryHistory(checksum string) error {
 	return wrapError(tx.Error)
 }
 
-func (mp *PostgresPersistent) GetQueryHistoryCount() int64 {
+func (mp *PostgresPersistent) GetQueryHistoryCount(cluster string) int64 {
 	var count int64
-	tx := mp.Client.Model(&TblQueryHistory{}).Count(&count)
+	tx := mp.Client.Model(&TblQueryHistory{}).Where("cluster = ?", cluster).Count(&count)
 	if tx.Error != nil {
 		return 0
 	}
 	return count
 }
 
-func (mp *PostgresPersistent) GetEarliestQuery() (model.QueryHistory, error) {
+func (mp *PostgresPersistent) GetEarliestQuery(cluster string) (model.QueryHistory, error) {
 	var table TblQueryHistory
-	tx := mp.Client.Order("create_time").First(&table)
+	tx := mp.Client.Order("create_time").Where("cluster = ?", cluster).First(&table)
 	if tx.Error != nil {
 		return model.QueryHistory{}, wrapError(tx.Error)
 	}

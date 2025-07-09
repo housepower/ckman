@@ -1221,10 +1221,13 @@ func (controller *ClickHouseController) QueryInfo(c *gin.Context) {
 		_ = repository.Ps.UpdateQueryHistory(history)
 	}
 
-	if repository.Ps.GetQueryHistoryCount() > 100 {
-		earliest, err := repository.Ps.GetEarliestQuery()
+	for cnt := repository.Ps.GetQueryHistoryCount(clusterName); cnt > 100; cnt-- {
+		log.Logger.Infof("query history count: %d", cnt)
+		earliest, err := repository.Ps.GetEarliestQuery(clusterName)
 		if err == nil && earliest.CheckSum != "" {
 			_ = repository.Ps.DeleteQueryHistory(earliest.CheckSum)
+		} else {
+			log.Logger.Infof("delete earliest query failed: %v", err)
 		}
 	}
 

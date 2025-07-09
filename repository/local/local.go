@@ -233,7 +233,8 @@ func (lp *LocalPersistent) GetQueryHistoryByCluster(cluster string) ([]model.Que
 		}
 	}
 	sort.Sort(sort.Reverse(historys))
-	return historys, nil
+	n := common.TernaryExpression(len(historys) > 100, 100, len(historys)).(int)
+	return historys[:n], nil
 }
 
 func (lp *LocalPersistent) GetQueryHistoryByCheckSum(checksum string) (model.QueryHistory, error) {
@@ -287,17 +288,29 @@ func (lp *LocalPersistent) DeleteQueryHistory(checksum string) error {
 	return nil
 }
 
-func (lp *LocalPersistent) GetQueryHistoryCount() int64 {
+func (lp *LocalPersistent) GetQueryHistoryCount(cluster string) int64 {
 	lp.lock.RLock()
 	defer lp.lock.RUnlock()
-	return int64(len(lp.Data.QueryHistory))
+	var qhLists Historys
+	for _, v := range lp.Data.QueryHistory {
+		if v.Cluster == cluster {
+			qhLists = append(qhLists, v)
+		}
+	}
+	return int64(len(qhLists))
 }
 
-func (lp *LocalPersistent) GetEarliestQuery() (model.QueryHistory, error) {
+func (lp *LocalPersistent) GetEarliestQuery(cluster string) (model.QueryHistory, error) {
 	lp.lock.RLock()
 	defer lp.lock.RUnlock()
 	var historys Historys
-	if err := common.DeepCopyByGob(&historys, &lp.Data.QueryHistory); err != nil {
+	var qhLists Historys
+	for _, v := range lp.Data.QueryHistory {
+		if v.Cluster == cluster {
+			qhLists = append(qhLists, v)
+		}
+	}
+	if err := common.DeepCopyByGob(&historys, &qhLists); err != nil {
 		return model.QueryHistory{}, err
 	}
 	if len(historys) == 0 {

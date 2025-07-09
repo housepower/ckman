@@ -49,8 +49,8 @@ type PersistentQueryHistoryService interface {
 	CreateQueryHistory(qh model.QueryHistory) error
 	UpdateQueryHistory(qh model.QueryHistory) error
 	DeleteQueryHistory(checksum string) error
-	GetQueryHistoryCount() int64
-	GetEarliestQuery() (model.QueryHistory, error)
+	GetQueryHistoryCount(cluster string) int64
+	GetEarliestQuery(cluster string) (model.QueryHistory, error)
 }
 
 type PersistentTaskService interface {
@@ -58,7 +58,7 @@ type PersistentTaskService interface {
 	UpdateTask(task model.Task) error
 	DeleteTask(id string) error
 	GetAllTasks() ([]model.Task, error)
-	GetPengdingTasks(serverIp string)([]model.Task, error)
+	GetPengdingTasks(serverIp string) ([]model.Task, error)
 	GetEffectiveTaskCount() int64
 	GetTaskbyTaskId(id string) (model.Task, error)
 }
