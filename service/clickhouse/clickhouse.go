@@ -1265,9 +1265,11 @@ func paddingKeys(rtables []model.RebalanceTables, service *CkService) ([]model.R
 		}
 		for _, rt := range resps {
 			rtable := model.RebalanceTables{
-				Database:  rt.Database,
-				Table:     rt.Table,
-				DistTable: rt.DistTable,
+				Database:    rt.Database,
+				Table:       rt.Table,
+				DistTable:   rt.DistTable,
+				Policy:      elem.Policy,
+				ShardingKey: elem.ShardingKey,
 			}
 			if rtable.Database == elem.Database && (reg.MatchString(rtable.Table)) {
 				duplicated := false
