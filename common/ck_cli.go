@@ -130,6 +130,29 @@ func (c *Conn) Query(query string, args ...any) (*Rows, error) {
 	return &rs, nil
 }
 
+func (c *Conn) QueryWithQueryID(query, query_id string, args ...any) (*Rows, error) {
+	var rs Rows
+	//log.Logger.Debugf("[%s]%s", c.addr, query)
+	ctx := clickhouse.Context(c.ctx, clickhouse.WithQueryID(query_id))
+	rs.protocol = c.protocol
+	if c.protocol == clickhouse.HTTP {
+		rows, err := c.db.QueryContext(ctx, query, args...)
+		if err != nil {
+			return &rs, err
+		} else {
+			rs.rs1 = rows
+		}
+	} else {
+		rows, err := c.c.Query(ctx, query, args...)
+		if err != nil {
+			return &rs, err
+		} else {
+			rs.rs2 = rows
+		}
+	}
+	return &rs, nil
+}
+
 func (c *Conn) QueryRow(query string, args ...any) *Row {
 	var row Row
 	//log.Logger.Debugf("[%s]%s", c.addr, query)
@@ -142,6 +165,19 @@ func (c *Conn) QueryRow(query string, args ...any) *Row {
 	return &row
 }
 
+func (c *Conn) QueryRowWithQueryID(query, query_id string, args ...any) *Row {
+	var row Row
+	//log.Logger.Debugf("[%s]%s", c.addr, query)
+	ctx := clickhouse.Context(c.ctx, clickhouse.WithQueryID(query_id))
+	row.proto = c.protocol
+	if c.protocol == clickhouse.HTTP {
+		row.r1 = c.db.QueryRowContext(ctx, query, args...)
+	} else {
+		row.r2 = c.c.QueryRow(ctx, query, args...)
+	}
+	return &row
+}
+
 func (c *Conn) Exec(query string, args ...any) error {
 	//log.Logger.Debugf("[%s]%s", c.addr, query)
 	if c.protocol == clickhouse.HTTP {
@@ -149,6 +185,17 @@ func (c *Conn) Exec(query string, args ...any) error {
 		return err
 	} else {
 		return c.c.Exec(c.ctx, query, args...)
+	}
+}
+
+func (c *Conn) ExecWithQueryID(query, query_id string, args ...any) error {
+	//log.Logger.Debugf("[%s]%s", c.addr, query)
+	ctx := clickhouse.Context(c.ctx, clickhouse.WithQueryID(query_id))
+	if c.protocol == clickhouse.HTTP {
+		_, err := c.db.ExecContext(ctx, query, args...)
+		return err
+	} else {
+		return c.c.Exec(ctx, query, args...)
 	}
 }
 
