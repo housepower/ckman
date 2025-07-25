@@ -31,3 +31,10 @@ type TblTask struct {
 	Status int
 	Task   dmSchema.Clob `gorm:"size:1024000"`
 }
+
+type TblBackup struct {
+	BackupId    string        `gorm:"column:backup_id,primaryKey"`
+	ClusterName string        `gorm:"column:cluster_name,index:idx_name"`
+	UpdateTime  string        `gorm:"column:update_time"`
+	Backup      dmSchema.Clob `gorm:"size:1024000"`
+}

@@ -406,6 +406,94 @@ func (lp *LocalPersistent) GetTaskbyTaskId(id string) (model.Task, error) {
 	return task, nil
 }
 
+func (lp *LocalPersistent) CreateBackup(backup model.Backup) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	backup.CreateTime = time.Now()
+	backup.UpdateTime = backup.CreateTime
+	if _, ok := lp.Data.Task[backup.BackupId]; ok {
+		return repository.ErrRecordExists
+	}
+	lp.Data.Backup[backup.BackupId] = backup
+	if !lp.InTransAction {
+		return lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) UpdateBackup(backup model.Backup) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	backup.UpdateTime = time.Now()
+	if _, ok := lp.Data.Task[backup.BackupId]; ok {
+		lp.Data.Backup[backup.BackupId] = backup
+	} else {
+		return repository.ErrRecordNotFound
+	}
+
+	if !lp.InTransAction {
+		return lp.dump()
+	}
+	return nil
+}
+func (lp *LocalPersistent) DeleteBackup(id string) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.Backup[id]; !ok {
+		return repository.ErrRecordExists
+	}
+	delete(lp.Data.Backup, id)
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+func (lp *LocalPersistent) GetAllBackups(cluster string) ([]model.Backup, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var backups Backups
+	for _, value := range lp.Data.Backup {
+		if value.ClusterName == cluster {
+			backups = append(backups, value)
+		}
+	}
+	sort.Sort(backups)
+	return backups, nil
+
+}
+func (lp *LocalPersistent) GetBackupById(id string) (model.Backup, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	if backup, ok := lp.Data.Backup[id]; ok {
+		return backup, nil
+	}
+	return model.Backup{}, repository.ErrRecordNotFound
+}
+
+func (lp *LocalPersistent) GetBackupByTable(cluster, database, table string) (model.Backup, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	for _, value := range lp.Data.Backup {
+		if value.ClusterName == cluster && value.Database == database && value.Table == table {
+			return value, nil
+		}
+	}
+	return model.Backup{}, repository.ErrRecordNotFound
+}
+
+func (lp *LocalPersistent) GetbackupByOperation(operation string) ([]model.Backup, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var backups Backups
+	for _, value := range lp.Data.Backup {
+		if value.Operation == operation {
+			backups = append(backups, value)
+		}
+	}
+	sort.Sort(backups)
+	return backups, nil
+}
+
 func (lp *LocalPersistent) marshal() ([]byte, error) {
 	var data []byte
 	var err error

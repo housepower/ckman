@@ -13,4 +13,5 @@ const (
 	PG_TBL_LOGIC         string = "tbl_logic"
 	PG_TBL_QUERY_HISTORY string = "tbl_query_history"
 	PG_TBL_TASK          string = "tbl_task"
+	PG_TBL_BACKUP        string = "tbl_backup"
 )

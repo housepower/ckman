@@ -9,6 +9,7 @@ type PersistentData struct {
 	Logics       map[string][]string                    `json:"logics" yaml:"logics"`
 	QueryHistory map[string]model.QueryHistory          `json:"query_history" yaml:"query_history"`
 	Task         map[string]model.Task                  `json:"tasks" yaml:"tasks"`
+	Backup       map[string]model.Backup                `json:"backup" yaml:"backup"`
 }
 
 type Historys []model.QueryHistory
@@ -20,3 +21,12 @@ func CompareHistory(v1, v2 model.QueryHistory) bool {
 func (v Historys) Len() int           { return len(v) }
 func (v Historys) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (v Historys) Less(i, j int) bool { return CompareHistory(v[i], v[j]) }
+
+type Backups []model.Backup
+
+func CompareBackup(v1, v2 model.Backup) bool {
+	return v1.UpdateTime.Before(v2.CreateTime)
+}
+func (v Backups) Len() int           { return len(v) }
+func (v Backups) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
+func (v Backups) Less(i, j int) bool { return CompareBackup(v[i], v[j]) }

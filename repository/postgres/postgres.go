@@ -453,6 +453,115 @@ func (mp *PostgresPersistent) GetTaskbyTaskId(id string) (model.Task, error) {
 	return task, nil
 }
 
+func (mp *PostgresPersistent) CreateBackup(backup model.Backup) error {
+	backup.CreateTime = time.Now()
+	backup.UpdateTime = backup.CreateTime
+
+	var tbackup TblBackup
+	tbackup.BackupId = backup.BackupId
+	tbackup.ClusterName = backup.ClusterName
+	tbackup.UpdateTime = backup.UpdateTime.Format("2006-01-02 15:04:05.999")
+	raw, err := json.Marshal(backup)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tbackup.Backup = string(raw)
+	tx := mp.Client.Create(&tbackup)
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	return nil
+}
+func (mp *PostgresPersistent) UpdateBackup(backup model.Backup) error {
+	backup.UpdateTime = time.Now()
+
+	var tbackup TblBackup
+	tbackup.BackupId = backup.BackupId
+	tbackup.ClusterName = backup.ClusterName
+	tbackup.UpdateTime = backup.UpdateTime.Format("2006-01-02 15:04:05.999")
+	raw, err := json.Marshal(backup)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tbackup.Backup = string(raw)
+	tx := mp.Client.Model(TblBackup{}).Where("backup_id =?", backup.BackupId).Updates(&tbackup)
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	return nil
+}
+func (mp *PostgresPersistent) DeleteBackup(id string) error {
+	var tbackup TblBackup
+	tx := mp.Client.Where("backup_id =?", id).Delete(&tbackup)
+	return wrapError(tx.Error)
+}
+func (mp *PostgresPersistent) GetAllBackups(cluster string) ([]model.Backup, error) {
+	var tbackups []TblBackup
+	tx := mp.Client.Where("cluster_name =?", cluster).Order("update_time").Find(&tbackups)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	var backups []model.Backup
+	for _, tbackup := range tbackups {
+		var backup model.Backup
+		err := json.Unmarshal([]byte(tbackup.Backup), &backup)
+		if err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		backups = append(backups, backup)
+	}
+	return backups, nil
+}
+func (mp *PostgresPersistent) GetBackupById(id string) (model.Backup, error) {
+	var tbackup TblBackup
+	tx := mp.Client.Where("backup_id =?", id).First(&tbackup)
+	if tx.Error != nil {
+		return model.Backup{}, wrapError(tx.Error)
+	}
+	var backup model.Backup
+	if err := json.Unmarshal([]byte(tbackup.Backup), &backup); err != nil {
+		return model.Backup{}, errors.Wrap(err, "")
+	}
+	return backup, nil
+}
+func (mp *PostgresPersistent) GetBackupByTable(cluster, database, table string) (model.Backup, error) {
+	var tbackups []TblBackup
+	tx := mp.Client.Where("cluster_name =?", cluster).Order("update_time").Find(&tbackups)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return model.Backup{}, errors.Wrap(tx.Error, "")
+	}
+	for _, tbackup := range tbackups {
+		var backup model.Backup
+		err := json.Unmarshal([]byte(tbackup.Backup), &backup)
+		if err != nil {
+			return model.Backup{}, errors.Wrap(err, "")
+		}
+		if backup.Database == database && backup.Table == table {
+			return backup, nil
+		}
+	}
+	return model.Backup{}, repository.ErrRecordNotFound
+}
+func (mp *PostgresPersistent) GetbackupByOperation(operation string) ([]model.Backup, error) {
+	var tbackups []TblBackup
+	tx := mp.Client.Order("update_time").Find(&tbackups)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	var backups []model.Backup
+	for _, tbackup := range tbackups {
+		var backup model.Backup
+		err := json.Unmarshal([]byte(tbackup.Backup), &backup)
+		if err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		if backup.Operation == operation {
+			backups = append(backups, backup)
+		}
+	}
+	return backups, nil
+}
+
 func wrapError(err error) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		err = repository.ErrRecordNotFound

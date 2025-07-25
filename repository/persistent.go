@@ -63,12 +63,23 @@ type PersistentTaskService interface {
 	GetTaskbyTaskId(id string) (model.Task, error)
 }
 
+type PersistentBackupService interface {
+	CreateBackup(backup model.Backup) error
+	UpdateBackup(backup model.Backup) error
+	DeleteBackup(id string) error
+	GetAllBackups(cluster string) ([]model.Backup, error)
+	GetBackupById(id string) (model.Backup, error)
+	GetBackupByTable(cluster, database, table string) (model.Backup, error)
+	GetbackupByOperation(operation string) ([]model.Backup, error)
+}
+
 type PersistentMgr interface {
 	PersistentBase
 	PersistentClusterService
 	PersistentLogicService
 	PersistentQueryHistoryService
 	PersistentTaskService
+	PersistentBackupService
 }
 
 func RegistePersistent(fn func() PersistentFactory) {

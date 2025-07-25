@@ -46,3 +46,14 @@ type TblTask struct {
 func (v TblTask) TableName() string {
 	return PG_TBL_TASK
 }
+
+type TblBackup struct {
+	BackupId    string `gorm:"column:backup_id"`
+	ClusterName string `gorm:"column:cluster_name"`
+	UpdateTime  string `gorm:"column:update_time"`
+	Backup      string `gorm:"column:backup"`
+}
+
+func (v TblBackup) TableName() string {
+	return PG_TBL_BACKUP
+}
