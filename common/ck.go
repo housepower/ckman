@@ -59,7 +59,7 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 		Protocol:         opt.Protocol,
 		DialTimeout:      time.Duration(10) * time.Second,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
-		ReadTimeout:      time.Second * time.Duration(3600),
+		ReadTimeout:      time.Second * time.Duration(opt.MaxRead),
 	}
 
 	if opt.Secure {
@@ -94,6 +94,7 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 		}
 	}
 	conn := Conn{
+		h:        host,
 		addr:     net.JoinHostPort(host, fmt.Sprint(opt.Port)),
 		protocol: opt.Protocol,
 		ctx:      context.Background(),

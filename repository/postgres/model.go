@@ -48,7 +48,7 @@ func (v TblTask) TableName() string {
 }
 
 type TblBackup struct {
-	BackupId    string `gorm:"column:backup_id"`
+	BackupId    string `gorm:"primaryKey;column:backup_id"`
 	ClusterName string `gorm:"column:cluster_name"`
 	UpdateTime  string `gorm:"column:update_time"`
 	Backup      string `gorm:"column:backup"`

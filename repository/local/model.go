@@ -25,7 +25,7 @@ func (v Historys) Less(i, j int) bool { return CompareHistory(v[i], v[j]) }
 type Backups []model.Backup
 
 func CompareBackup(v1, v2 model.Backup) bool {
-	return v1.UpdateTime.Before(v2.CreateTime)
+	return v1.CreateTime.After(v2.CreateTime)
 }
 func (v Backups) Len() int           { return len(v) }
 func (v Backups) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }

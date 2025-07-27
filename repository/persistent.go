@@ -71,6 +71,7 @@ type PersistentBackupService interface {
 	GetBackupById(id string) (model.Backup, error)
 	GetBackupByTable(cluster, database, table string) (model.Backup, error)
 	GetbackupByOperation(operation string) ([]model.Backup, error)
+	GetBackupByShechuleType(scheduleType string) ([]model.Backup, error)
 }
 
 type PersistentMgr interface {

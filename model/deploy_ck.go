@@ -380,9 +380,30 @@ type ConnetOption struct {
 	Port               int
 	User               string
 	Password           string
+	MaxRead            int
 }
 
-func (config *CKManClickHouseConfig) GetConnOption() ConnetOption {
+type CkOption func(*ConnetOption)
+
+func WithProtocol(protocol clickhouse.Protocol) CkOption {
+	return func(opt *ConnetOption) {
+		opt.Protocol = protocol
+	}
+}
+
+func WithSecure(secure bool) CkOption {
+	return func(opt *ConnetOption) {
+		opt.Secure = secure
+	}
+}
+
+func WithMaxRead(maxRead int) CkOption {
+	return func(opt *ConnetOption) {
+		opt.MaxRead = maxRead
+	}
+}
+
+func (config *CKManClickHouseConfig) GetConnOption(opts ...CkOption) ConnetOption {
 	var opt ConnetOption
 	if config.Protocol == clickhouse.HTTP.String() {
 		opt.Protocol = clickhouse.HTTP
@@ -395,6 +416,10 @@ func (config *CKManClickHouseConfig) GetConnOption() ConnetOption {
 	opt.InsecureSkipVerify = true // hard code
 	opt.User = config.User
 	opt.Password = config.Password
+	opt.MaxRead = 3600
+	for _, o := range opts {
+		o(&opt)
+	}
 	return opt
 }
 

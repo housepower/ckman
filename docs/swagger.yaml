@@ -395,6 +395,9 @@ definitions:
       skip:
         example: true
         type: boolean
+      skipKeeper:
+        example: true
+        type: boolean
     type: object
   model.Coordination:
     properties:
@@ -668,11 +671,14 @@ definitions:
     type: object
   model.PromMetricPort:
     properties:
-      clickHouse:
+      clickhouse:
+        example: 9363
         type: integer
-      nodeExport:
+      node_export:
+        example: 9100
         type: integer
-      zooKeeper:
+      zookeeper:
+        example: 7000
         type: integer
     type: object
   model.PurgerTableReq:

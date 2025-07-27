@@ -101,11 +101,16 @@ func (r *Rows) ColumnTypes() ([]*ColumnType, error) {
 }
 
 type Conn struct {
+	h        string
 	addr     string
 	protocol clickhouse.Protocol
 	c        driver.Conn
 	db       *sql.DB
 	ctx      context.Context
+}
+
+func (c *Conn) Host() string {
+	return c.h
 }
 
 func (c *Conn) Query(query string, args ...any) (*Rows, error) {

@@ -3183,6 +3183,10 @@ var doc = `{
                 "skip": {
                     "type": "boolean",
                     "example": true
+                },
+                "skipKeeper": {
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },
@@ -3585,14 +3589,17 @@ var doc = `{
         "model.PromMetricPort": {
             "type": "object",
             "properties": {
-                "clickHouse": {
-                    "type": "integer"
+                "clickhouse": {
+                    "type": "integer",
+                    "example": 9363
                 },
-                "nodeExport": {
-                    "type": "integer"
+                "node_export": {
+                    "type": "integer",
+                    "example": 9100
                 },
-                "zooKeeper": {
-                    "type": "integer"
+                "zookeeper": {
+                    "type": "integer",
+                    "example": 7000
                 }
             }
         },

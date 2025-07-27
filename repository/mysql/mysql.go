@@ -497,7 +497,7 @@ func (mp *MysqlPersistent) DeleteBackup(id string) error {
 }
 func (mp *MysqlPersistent) GetAllBackups(cluster string) ([]model.Backup, error) {
 	var tbackups []TblBackup
-	tx := mp.Client.Where("cluster_name =?", cluster).Order("update_time").Find(&tbackups)
+	tx := mp.Client.Where("cluster_name =?", cluster).Order("update_time DESC").Find(&tbackups)
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
 		return nil, errors.Wrap(tx.Error, "")
 	}
@@ -556,6 +556,26 @@ func (mp *MysqlPersistent) GetbackupByOperation(operation string) ([]model.Backu
 			return nil, errors.Wrap(err, "")
 		}
 		if backup.Operation == operation {
+			backups = append(backups, backup)
+		}
+	}
+	return backups, nil
+}
+
+func (mp *MysqlPersistent) GetBackupByShechuleType(scheduleType string) ([]model.Backup, error) {
+	var tbackups []TblBackup
+	tx := mp.Client.Order("update_time").Find(&tbackups)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	var backups []model.Backup
+	for _, tbackup := range tbackups {
+		var backup model.Backup
+		err := json.Unmarshal([]byte(tbackup.Backup), &backup)
+		if err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		if backup.ScheduleType == scheduleType {
 			backups = append(backups, backup)
 		}
 	}

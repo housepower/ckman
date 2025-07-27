@@ -75,6 +75,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	uiController := controller.NewSchemaUIController(WrapMsg)
 	uiController.RegistSchemaInstance()
 	taskController := controller.NewTaskController(WrapMsg)
+	dataManageController := controller.NewDataManageController(WrapMsg)
 
 	groupV1.POST("/ck/cluster", ckController.ImportCluster)
 	groupV1.GET("/ck/cluster", ckController.GetClusters)
@@ -146,4 +147,9 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.GET("/task/running", taskController.GetRunningTaskCount)
 	groupV1.DELETE(fmt.Sprintf("/task/:%s", controller.TaskIdPath), taskController.DeleteTask)
 	groupV1.PUT(fmt.Sprintf("/task/:%s", controller.TaskIdPath), taskController.StopTask)
+	groupV1.POST(fmt.Sprintf("/data_manage/backup/:%s", controller.ClickHouseClusterPath), dataManageController.BackupData)
+	groupV1.POST(fmt.Sprintf("/data_manage/restore/:%s", controller.ClickHouseClusterPath), dataManageController.RestoreData)
+	groupV1.GET(fmt.Sprintf("/data_manage/backup/:%s", controller.ClickHouseClusterPath), dataManageController.GetBackupHistory)
+	groupV1.DELETE("/data_manage/backup/:backupId", dataManageController.DeleteBackup)
+	groupV1.GET("/data_manage/backup_history/:backupId", dataManageController.GetBackupById)
 }

@@ -41,6 +41,8 @@ func (lp *LocalPersistent) Init(config interface{}) error {
 	lp.Snapshot.QueryHistory = make(map[string]model.QueryHistory)
 	lp.Data.Task = make(map[string]model.Task)
 	lp.Snapshot.Task = make(map[string]model.Task)
+	lp.Data.Backup = make(map[string]model.Backup)
+	lp.Snapshot.Backup = make(map[string]model.Backup)
 
 	return lp.load()
 }
@@ -411,7 +413,7 @@ func (lp *LocalPersistent) CreateBackup(backup model.Backup) error {
 	defer lp.lock.Unlock()
 	backup.CreateTime = time.Now()
 	backup.UpdateTime = backup.CreateTime
-	if _, ok := lp.Data.Task[backup.BackupId]; ok {
+	if _, ok := lp.Data.Backup[backup.BackupId]; ok {
 		return repository.ErrRecordExists
 	}
 	lp.Data.Backup[backup.BackupId] = backup
@@ -425,7 +427,7 @@ func (lp *LocalPersistent) UpdateBackup(backup model.Backup) error {
 	lp.lock.Lock()
 	defer lp.lock.Unlock()
 	backup.UpdateTime = time.Now()
-	if _, ok := lp.Data.Task[backup.BackupId]; ok {
+	if _, ok := lp.Data.Backup[backup.BackupId]; ok {
 		lp.Data.Backup[backup.BackupId] = backup
 	} else {
 		return repository.ErrRecordNotFound
@@ -487,6 +489,19 @@ func (lp *LocalPersistent) GetbackupByOperation(operation string) ([]model.Backu
 	var backups Backups
 	for _, value := range lp.Data.Backup {
 		if value.Operation == operation {
+			backups = append(backups, value)
+		}
+	}
+	sort.Sort(backups)
+	return backups, nil
+}
+
+func (lp *LocalPersistent) GetBackupByShechuleType(scheduleType string) ([]model.Backup, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var backups Backups
+	for _, value := range lp.Data.Backup {
+		if value.ScheduleType == scheduleType {
 			backups = append(backups, value)
 		}
 	}
