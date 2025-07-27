@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	v2 "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -513,12 +514,16 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 	var columnPointers []interface{}
 	ctps, _ := rows.ColumnTypes()
 	for _, ctp := range ctps {
-		if ctp.ScanType().Kind() == reflect.Ptr {
-			column := reflect.New(ctp.ScanType().Elem()).Interface()
-			columnPointers = append(columnPointers, column)
+		if ck.Config.Protocol == v2.HTTP.String() {
+			columnPointers = append(columnPointers, reflect.New(ctp.ScanType()).Interface())
 		} else {
-			column := reflect.New(ctp.ScanType()).Interface()
-			columnPointers = append(columnPointers, column)
+			if ctp.ScanType().Kind() == reflect.Ptr {
+				column := reflect.New(ctp.ScanType().Elem()).Interface()
+				columnPointers = append(columnPointers, column)
+			} else {
+				column := reflect.New(ctp.ScanType()).Interface()
+				columnPointers = append(columnPointers, column)
+			}
 		}
 	}
 
