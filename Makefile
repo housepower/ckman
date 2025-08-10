@@ -121,8 +121,8 @@ test-ci:package
 .PHONY: docker-image
 docker-image:build
 	docker build -t ckman:${VERSION} .
-	docker tag ckman:${VERSION} quay.io/housepower/ckman:${VERSION}
-	docker tag ckman:${VERSION} quay.io/housepower/ckman:latest
+	docker tag ckman:${VERSION hub.eoitek.net/housepower/ckman:${VERSION}
+	docker tag ckman:${VERSION} hub.eoitek.net/housepower/ckman:latest
 	docker rmi ckman:${VERSION}
 
 
