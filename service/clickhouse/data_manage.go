@@ -376,7 +376,10 @@ func (b *Back) BackupData() error {
 					sql += fmt.Sprintf(" TO File('%s/%s')", b.b.Local.Path, key)
 				}
 
-				sql += fmt.Sprintf(" SETTINGS compression_method='%s', compression_level=6, deduplicate_files = 0", b.b.Compression)
+				sql += fmt.Sprintf(" SETTINGS compression_method='%s', compression_level=6", b.b.Compression)
+				if common.CompareClickHouseVersion(b.conf.Version, "23.1.1.3077") >= 0 {
+					sql += ", deduplicate_files = 0"
+				}
 				log.Logger.Infof("query[%s]: %s", conn.Host(), sql)
 				if err := conn.Exec(sql); err != nil {
 					b.lock.Lock()
