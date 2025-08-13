@@ -139,8 +139,8 @@ internel-release:
 .PHONY: release
 release: internel-release
 	make docker-image VERSION=${VERSION}
-	docker push quay.io/housepower/ckman:${VERSION}
-	docker push quay.io/housepower/ckman:latest
+	docker push hub.eoitek.net/housepower/ckman:${VERSION}
+	docker push hub.eoitek.net/housepower/ckman:latest
 
 .PHONY: lint
 lint:

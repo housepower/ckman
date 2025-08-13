@@ -42,6 +42,16 @@ CREATE TABLE "tbl_task" (
 );
 
 
+DROP TABLE IF EXISTS "tbl_backup";
+CREATE TABLE "tbl_backup" (
+    "backup_id" varchar(382) ,
+    "cluster_name" varchar(382) ,
+    "update_time" timestamp with time zone ,
+    "backup" text ,
+    PRIMARY KEY ("task_id")
+);
+
+
 -- Post-data save --
 COMMIT;
 START TRANSACTION;

@@ -65,6 +65,7 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 		&TblLogic{},
 		&TblQueryHistory{},
 		&TblTask{},
+		&TblBackup{},
 	)
 	if err != nil {
 		return errors.Wrap(err, "")
