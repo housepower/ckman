@@ -24,4 +24,5 @@ func TestAes(t *testing.T) {
 	assert.Equal(t, "Eoi123456!", AesDecryptECB("9E0D1254D6C31AAFEEF413197471BC16"))
 	assert.Equal(t, "", AesEncryptECB(""))
 	assert.Equal(t, "", AesDecryptECB(""))
+	assert.Equal(t, "VdmPbwvMlH8ryeqW", AesDecryptECB("VdmPbwvMlH8ryeqW"))
 }
