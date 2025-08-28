@@ -1929,7 +1929,7 @@ func (controller *ClickHouseController) StartNode(c *gin.Context) {
 	}
 	conf.Watch(ip)
 	if host != "" {
-		ckService := clickhouse.NewCkService(&conf)
+		ckService := clickhouse.NewCkService(&con)
 		ckService.InitCkService()
 		err := ckService.FetchSchemerFromOtherNode(host)
 		if err != nil {

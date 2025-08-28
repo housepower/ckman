@@ -36,7 +36,7 @@ func SuballHandle(opts ZSuballOpts) {
 		log.Logger.Fatalf("get cluster %s failed:%v", opts.ClusterName, err)
 	}
 	nodes, port := zookeeper.GetZkInfo(&cluster)
-	service, err := zookeeper.NewZkService(nodes, port, 300)
+	service, err := zookeeper.NewZkService(nodes, port, 10)
 	if err != nil {
 		log.Logger.Fatalf("can't create zookeeper instance:%v", err)
 	}

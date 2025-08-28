@@ -588,15 +588,17 @@ func (ck *CkService) FetchSchemerFromOtherNode(host string) error {
 	}
 
 	num := len(names)
+	var lastErr error
 	for i := 0; i < num; i++ {
 		log.Logger.Debugf("statement: %s", statements[i])
 		if err := ck.Conn.Exec(statements[i]); err != nil {
 			log.Logger.Warnf("execute [%s] failed: %v", statements[i], err)
+			lastErr = err
 			continue
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 func (ck *CkService) ShowCreateTable(tbname, database string) (string, error) {

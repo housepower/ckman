@@ -37,10 +37,27 @@ func NewZkService(nodes []string, port int, sessionTimeout int) (*ZkService, err
 		SessionTimeout: sessionTimeout,
 	}
 
-	servers := make([]string, len(nodes))
-	for index, node := range nodes {
-		servers[index] = net.JoinHostPort(node, fmt.Sprint(port))
+	var leader string
+	for _, node := range nodes {
+		tmp := model.ZkStatusRsp{
+			Host: node,
+		}
+		body, err := ZkMetric(node, port, "mntr")
+		if err != nil {
+			continue
+		}
+		err = json.Unmarshal(body, &tmp)
+		if err == nil {
+			if tmp.ServerState == "leader" {
+				leader = node
+				break
+			}
+		}
 	}
+	if leader == "" {
+		return nil, errors.New("no leader zookeeper node")
+	}
+	servers := []string{net.JoinHostPort(leader, fmt.Sprint(port))}
 
 	c, e, err := zk.Connect(servers, time.Duration(sessionTimeout)*time.Second)
 	if err != nil {
