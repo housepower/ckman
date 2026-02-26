@@ -7,6 +7,7 @@ import (
 
 	"github.com/hjson/hjson-go/v4"
 	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	_ "github.com/housepower/ckman/repository/dm8"
 	_ "github.com/housepower/ckman/repository/local"
@@ -95,6 +96,15 @@ func Migrate() error {
 		return err
 	}
 
+	var backups []model.Backup
+	for _, conf := range clusters {
+		b, err := psrc.GetAllBackups(conf.Cluster)
+		if err != nil {
+			return err
+		}
+		backups = append(backups, b...)
+	}
+
 	if err = pdst.Begin(); err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -123,6 +133,14 @@ func Migrate() error {
 
 	for _, v := range tasks {
 		err = pdst.CreateTask(v)
+		if err != nil {
+			_ = pdst.Rollback()
+			return errors.Wrap(err, "")
+		}
+	}
+
+	for _, v := range backups {
+		err = pdst.CreateBackup(v)
 		if err != nil {
 			_ = pdst.Rollback()
 			return errors.Wrap(err, "")
