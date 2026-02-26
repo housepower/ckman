@@ -713,8 +713,94 @@ Non-professionals please do not fill in this`,
 	params.MustRegister(profile, "MaxExecutionTime", &common.Parameter{
 		LabelZH:       "SQL超时时间",
 		LabelEN:       "MaxExecutionTime",
-		DescriptionZH: "如果查询运行时间超过指定的秒数，则行为将由“timeout_overflow_mode”确定，默认情况下为 - 引发异常。请注意，在数据处理过程中，将检查超时，查询只能在指定位置停止。它目前无法在聚合状态合并或查询分析期间停止，实际运行时间将高于此设置的值。",
+		DescriptionZH: "如果查询运行时间超过指定的秒数，则行为将由 'timeout_overflow_mode' 确定，默认情况下为 - 引发异常。请注意，在数据处理过程中，将检查超时，查询只能在指定位置停止。它目前无法在聚合状态合并或查询分析期间停止，实际运行时间将高于此设置的值。",
 		DescriptionEN: "If query run time exceeded the specified number of seconds, the behavior will be determined by the 'timeout_overflow_mode' which by default is - throw an exception. Note that the timeout is checked and query can stop only in designated places during data processing. It currently cannot stop during merging of aggregation states or during query analysis, and the actual run time will be higher than the value of this setting.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxBackupBandwidth", &common.Parameter{
+		LabelZH:       "最大备份带宽",
+		LabelEN:       "MaxBackupBandwidth",
+		DescriptionZH: "服务器上特定备份的最大读取速率（以每秒字节数计）。0 表示不受限制。",
+		DescriptionEN: "The maximum read speed in bytes per second for a specific backup on the server. 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxBytesToRead", &common.Parameter{
+		LabelZH:       "最大读取字节数",
+		LabelEN:       "MaxBytesToRead",
+		DescriptionZH: "在执行查询时，从表中可读取的未压缩数据的最大字节数。该限制会在每个处理的数据块上进行检查，仅适用于最深层的表表达式；在从远程服务器读取时，该限制仅在远程服务器上进行检查。",
+		DescriptionEN: "The maximum number of bytes of uncompressed data that can be read from a table when executing a query. This limit is checked on each processed data block and only applies to the deepest table expression; when reading from remote servers, this limit is only checked on the remote servers.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxConcurrentQueriesForUser", &common.Parameter{
+		LabelZH:       "用户最大并发查询数",
+		LabelEN:       "MaxConcurrentQueriesForUser",
+		DescriptionZH: "用户并发查询的最大数量。0 表示不限制。",
+		DescriptionEN: "The maximum number of concurrent queries for a user. 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxDownloadThreads", &common.Parameter{
+		LabelZH:       "最大下载线程数",
+		LabelEN:       "MaxDownloadThreads",
+		DescriptionZH: "用于下载数据的最大线程数（例如 URL 引擎）。",
+		DescriptionEN: "The maximum number of threads for downloading data (e.g., URL engine).",
+		Default:       "4",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxExecutionSpeed", &common.Parameter{
+		LabelZH:       "最大执行速度",
+		LabelEN:       "MaxExecutionSpeed",
+		DescriptionZH: "最大查询执行速度（以每秒行数计）。0 表示不受限制。",
+		DescriptionEN: "Maximum query execution speed in rows per second. 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxExecutionSpeedBytes", &common.Parameter{
+		LabelZH:       "最大执行速度(字节)",
+		LabelEN:       "MaxExecutionSpeedBytes",
+		DescriptionZH: "最大查询执行速度（以每秒字节数计）。0 表示不受限制。",
+		DescriptionEN: "Maximum query execution speed in bytes per second. 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxNetworkBandwidth", &common.Parameter{
+		LabelZH:       "最大网络带宽",
+		LabelEN:       "MaxNetworkBandwidth",
+		DescriptionZH: "限制通过网络进行数据交换的速度，单位为字节/秒。此设置对每个查询生效。",
+		DescriptionEN: "Limits the speed of data exchange over the network in bytes per second. This setting applies to each query.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxRemoteReadNetworkBandwidth", &common.Parameter{
+		LabelZH:       "最大远程读取网络带宽",
+		LabelEN:       "MaxRemoteReadNetworkBandwidth",
+		DescriptionZH: "读取时网络数据交换的最大速率（以字节/秒计）。",
+		DescriptionEN: "The maximum rate of network data exchange for reading in bytes per second.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxNetworkBandwidthForUser", &common.Parameter{
+		LabelZH:       "用户最大网络带宽",
+		LabelEN:       "MaxNetworkBandwidthForUser",
+		DescriptionZH: "限制通过网络进行数据交换的速率，以每秒字节数为单位。此设置适用于单个用户执行的所有并发查询。",
+		DescriptionEN: "Limits the rate of data exchange over the network in bytes per second. This setting applies to all concurrent queries executed by a single user.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxPartitionsToRead", &common.Parameter{
+		LabelZH:       "最大读取分区数",
+		LabelEN:       "MaxPartitionsToRead",
+		DescriptionZH: "限制在单个查询中可访问的最大分区数量。-1 表示没有限制。",
+		DescriptionEN: "Limits the maximum number of partitions that can be accessed in a single query. -1 means no limit.",
+		Default:       "-1",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxResultBytes", &common.Parameter{
+		LabelZH:       "最大结果字节数",
+		LabelEN:       "MaxResultBytes",
+		DescriptionZH: "限制结果的大小（以字节数计，未压缩）。如果达到该阈值，查询在处理完一个数据块后会停止，但不会截断结果的最后一个数据块，因此最终结果的大小可能会大于该阈值。",
+		DescriptionEN: "Limits the size of the result in bytes (uncompressed). If the threshold is reached, the query stops after processing a data block, but does not truncate the last data block of the result, so the final result size may be larger than the threshold.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxResultRows", &common.Parameter{
+		LabelZH:       "最大结果行数",
+		LabelEN:       "MaxResultRows",
+		DescriptionZH: "限制结果中的行数。对子查询，以及在远程服务器上执行分布式查询的部分时也会进行检查。当值为 0 时，不施加任何限制。",
+		DescriptionEN: "Limits the number of rows in the result. Also checked for subqueries and when executing distributed query parts on remote servers. When the value is 0, no limit is imposed.",
 		Required:      "false",
 	})
 	params.MustRegister(profile, "Expert", &common.Parameter{
@@ -1468,8 +1554,94 @@ Non-professionals please do not fill in this`,
 	params.MustRegister(profile, "MaxExecutionTime", &common.Parameter{
 		LabelZH:       "SQL超时时间",
 		LabelEN:       "MaxExecutionTime",
-		DescriptionZH: "如果查询运行时间超过指定的秒数，则行为将由“timeout_overflow_mode”确定，默认情况下为 - 引发异常。请注意，在数据处理过程中，将检查超时，查询只能在指定位置停止。它目前无法在聚合状态合并或查询分析期间停止，实际运行时间将高于此设置的值。",
+		DescriptionZH: "如果查询运行时间超过指定的秒数，则行为将由 'timeout_overflow_mode' 确定，默认情况下为 - 引发异常。请注意，在数据处理过程中，将检查超时，查询只能在指定位置停止。它目前无法在聚合状态合并或查询分析期间停止，实际运行时间将高于此设置的值。",
 		DescriptionEN: "If query run time exceeded the specified number of seconds, the behavior will be determined by the 'timeout_overflow_mode' which by default is - throw an exception. Note that the timeout is checked and query can stop only in designated places during data processing. It currently cannot stop during merging of aggregation states or during query analysis, and the actual run time will be higher than the value of this setting.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxBackupBandwidth", &common.Parameter{
+		LabelZH:       "最大备份带宽",
+		LabelEN:       "MaxBackupBandwidth",
+		DescriptionZH: "服务器上特定备份的最大读取速率（以每秒字节数计）。0 表示不受限制。",
+		DescriptionEN: "The maximum read speed in bytes per second for a specific backup on the server. 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxBytesToRead", &common.Parameter{
+		LabelZH:       "最大读取字节数",
+		LabelEN:       "MaxBytesToRead",
+		DescriptionZH: "在执行查询时，从表中可读取的未压缩数据的最大字节数。该限制会在每个处理的数据块上进行检查，仅适用于最深层的表表达式；在从远程服务器读取时，该限制仅在远程服务器上进行检查。",
+		DescriptionEN: "The maximum number of bytes of uncompressed data that can be read from a table when executing a query. This limit is checked on each processed data block and only applies to the deepest table expression; when reading from remote servers, this limit is only checked on the remote servers.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxConcurrentQueriesForUser", &common.Parameter{
+		LabelZH:       "用户最大并发查询数",
+		LabelEN:       "MaxConcurrentQueriesForUser",
+		DescriptionZH: "用户并发查询的最大数量。0 表示不限制。",
+		DescriptionEN: "The maximum number of concurrent queries for a user. 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxDownloadThreads", &common.Parameter{
+		LabelZH:       "最大下载线程数",
+		LabelEN:       "MaxDownloadThreads",
+		DescriptionZH: "用于下载数据的最大线程数（例如 URL 引擎）。",
+		DescriptionEN: "The maximum number of threads for downloading data (e.g., URL engine).",
+		Default:       "4",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxExecutionSpeed", &common.Parameter{
+		LabelZH:       "最大执行速度",
+		LabelEN:       "MaxExecutionSpeed",
+		DescriptionZH: "最大查询执行速度（以每秒行数计）。0 表示不受限制。",
+		DescriptionEN: "Maximum query execution speed in rows per second. 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxExecutionSpeedBytes", &common.Parameter{
+		LabelZH:       "最大执行速度(字节)",
+		LabelEN:       "MaxExecutionSpeedBytes",
+		DescriptionZH: "最大查询执行速度（以每秒字节数计）。0 表示不受限制。",
+		DescriptionEN: "Maximum query execution speed in bytes per second. 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxNetworkBandwidth", &common.Parameter{
+		LabelZH:       "最大网络带宽",
+		LabelEN:       "MaxNetworkBandwidth",
+		DescriptionZH: "限制通过网络进行数据交换的速度，单位为字节/秒。此设置对每个查询生效。",
+		DescriptionEN: "Limits the speed of data exchange over the network in bytes per second. This setting applies to each query.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxRemoteReadNetworkBandwidth", &common.Parameter{
+		LabelZH:       "最大远程读取网络带宽",
+		LabelEN:       "MaxRemoteReadNetworkBandwidth",
+		DescriptionZH: "读取时网络数据交换的最大速率（以字节/秒计）。",
+		DescriptionEN: "The maximum rate of network data exchange for reading in bytes per second.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxNetworkBandwidthForUser", &common.Parameter{
+		LabelZH:       "用户最大网络带宽",
+		LabelEN:       "MaxNetworkBandwidthForUser",
+		DescriptionZH: "限制通过网络进行数据交换的速率，以每秒字节数为单位。此设置适用于单个用户执行的所有并发查询。",
+		DescriptionEN: "Limits the rate of data exchange over the network in bytes per second. This setting applies to all concurrent queries executed by a single user.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxPartitionsToRead", &common.Parameter{
+		LabelZH:       "最大读取分区数",
+		LabelEN:       "MaxPartitionsToRead",
+		DescriptionZH: "限制在单个查询中可访问的最大分区数量。-1 表示没有限制。",
+		DescriptionEN: "Limits the maximum number of partitions that can be accessed in a single query. -1 means no limit.",
+		Default:       "-1",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxResultBytes", &common.Parameter{
+		LabelZH:       "最大结果字节数",
+		LabelEN:       "MaxResultBytes",
+		DescriptionZH: "限制结果的大小（以字节数计，未压缩）。如果达到该阈值，查询在处理完一个数据块后会停止，但不会截断结果的最后一个数据块，因此最终结果的大小可能会大于该阈值。",
+		DescriptionEN: "Limits the size of the result in bytes (uncompressed). If the threshold is reached, the query stops after processing a data block, but does not truncate the last data block of the result, so the final result size may be larger than the threshold.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxResultRows", &common.Parameter{
+		LabelZH:       "最大结果行数",
+		LabelEN:       "MaxResultRows",
+		DescriptionZH: "限制结果中的行数。对子查询，以及在远程服务器上执行分布式查询的部分时也会进行检查。当值为 0 时，不施加任何限制。",
+		DescriptionEN: "Limits the number of rows in the result. Also checked for subqueries and when executing distributed query parts on remote servers. When the value is 0, no limit is imposed.",
 		Required:      "false",
 	})
 	params.MustRegister(profile, "Expert", &common.Parameter{

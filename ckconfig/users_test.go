@@ -199,6 +199,9 @@ func TestUsersXML(t *testing.T) {
 					MaxMemoryUsage:              2147483648,
 					MaxMemoryUsageForAllQueries: 2576980377,
 					MaxExecutionTime:            30,
+					MaxBackupBandwidth:          1048576,
+					MaxConcurrentQueriesForUser: 100,
+					MaxPartitionsToRead:         3600,
 				},
 				{
 					Name: "readonly",

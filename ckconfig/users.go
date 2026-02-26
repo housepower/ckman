@@ -121,6 +121,22 @@ func profiles(userProfiles []model.Profile, info HostInfo, version string) map[s
 			}
 			normalProfile["max_memory_usage_for_all_queries"] = prof.MaxMemoryUsageForAllQueries
 			normalProfile["max_execution_time"] = prof.MaxExecutionTime
+			normalProfile["max_backup_bandwidth"] = prof.MaxBackupBandwidth
+			normalProfile["max_bytes_to_read"] = prof.MaxBytesToRead
+			normalProfile["max_concurrent_queries_for_user"] = prof.MaxConcurrentQueriesForUser
+			if prof.MaxDownloadThreads > 0 {
+				normalProfile["max_download_threads"] = prof.MaxDownloadThreads
+			}
+			normalProfile["max_execution_speed"] = prof.MaxExecutionSpeed
+			normalProfile["max_execution_speed_bytes"] = prof.MaxExecutionSpeedBytes
+			normalProfile["max_network_bandwidth"] = prof.MaxNetworkBandwidth
+			normalProfile["max_remote_read_network_bandwidth"] = prof.MaxRemoteReadNetworkBandwidth
+			normalProfile["max_network_bandwidth_for_user"] = prof.MaxNetworkBandwidthForUser
+			if prof.MaxPartitionsToRead != 0 {
+				normalProfile["max_partitions_to_read"] = prof.MaxPartitionsToRead
+			}
+			normalProfile["max_result_bytes"] = prof.MaxResultBytes
+			normalProfile["max_result_rows"] = prof.MaxResultRows
 			mergo.Merge(&normalProfile, expert(prof.Expert))
 			profileMap[prof.Name] = normalProfile
 		}
