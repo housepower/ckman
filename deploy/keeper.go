@@ -63,15 +63,15 @@ func (d *KeeperDeploy) Init() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
-			kpath := ""
-			changeuser := ""
+			kpath := path.Join(d.Conf.Path, "clickhouse-keeper")
+			ext := ""
 			if !d.Conf.NeedSudo {
-				kpath = path.Join(d.Conf.Cwd, d.Conf.Path, "clickhouse-keeper")
+				kwpath := path.Join(d.Conf.Cwd, "clickhouse-keeper")
+				ext = fmt.Sprintf("; mkdir -p %s", kwpath)
 			} else {
-				kpath = path.Join(d.Conf.Path, "clickhouse-keeper")
-				changeuser = fmt.Sprintf("; chown -R clickhouse:clickhouse %s", kpath)
+				ext = fmt.Sprintf("; chown -R clickhouse:clickhouse %s", kpath)
 			}
-			cmd1 := fmt.Sprintf("mkdir -p %s %s", kpath, changeuser)
+			cmd1 := fmt.Sprintf("mkdir -p %s %s", kpath, ext)
 			_, err := common.RemoteExecute(sshOpts, cmd1)
 			if err != nil {
 				lastError = err
