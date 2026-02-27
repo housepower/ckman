@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"fmt"
 	"net"
+	"path"
 	"regexp"
 	"runtime"
 	"sort"
@@ -909,6 +910,7 @@ func GetPartitions(conf *model.CKManClickHouseConfig, database, tableName string
 	if limit > 0 {
 		limitN = fmt.Sprintf("LIMIT %d", limit)
 	}
+
 	query := fmt.Sprintf(`SELECT 
     partition,
 	count(name),
@@ -944,6 +946,26 @@ ORDER BY partition DESC %s`, conf.Cluster, database, tableName, limitN)
 			MaxTime:      value[i][6].(time.Time),
 			DiskName:     value[i][7].(string),
 			PartitionId:  value[i][8].(string),
+			Status:       true,
+		}
+		partInfo[partitionId] = part
+	}
+
+	query = fmt.Sprintf("SELECT distinct partition_id, disk from cluster('%s', system.detached_parts) where database = '%s' and table = '%s'",
+		conf.Cluster, database, tableName)
+	log.Logger.Infof("query: %s", query)
+	value, err = service.QueryInfo(query)
+	if err != nil {
+		return nil, err
+	}
+	for i := 1; i < len(value); i++ {
+		partitionId := value[i][0].(string)
+		part := model.PartitionInfo{
+			Database:    database,
+			Table:       tableName,
+			DiskName:    value[i][1].(string),
+			PartitionId: value[i][0].(string),
+			Status:      false,
 		}
 		partInfo[partitionId] = part
 	}
@@ -2081,4 +2103,156 @@ ORDER BY
 		})
 	}
 	return tblReplicaStatus, nil
+}
+
+func OperatePartition(conf *model.CKManClickHouseConfig, req model.OperatePartitionReq) error {
+	var queries []string
+	switch req.Op {
+	case model.OP_PARTITION_DROP:
+		if req.Status {
+			query := fmt.Sprintf("ALTER TABLE `%s`.`%s`  DROP PARTITION ID '%s'", req.Database, req.Table, req.PartitionId)
+			queries = append(queries, query)
+		} else {
+			query := fmt.Sprintf("ALTER TABLE `%s`.`%s`  DROP DETACHED PARTITION ID '%s'", req.Database, req.Table, req.PartitionId)
+			queries = append(queries, query)
+		}
+	case model.OP_PARTITION_ATTACH:
+		if req.Status {
+			return fmt.Errorf("partition is already attached")
+		}
+		if err := fixBrokenParts(conf, req.Database, req.Table, req.PartitionId); err != nil {
+			return err
+		}
+		query := fmt.Sprintf("ALTER TABLE `%s`.`%s` ATTACH PARTITION ID '%s'", req.Database, req.Table, req.PartitionId)
+		queries = append(queries, query)
+	case model.OP_PARTITION_DETACH:
+		if !req.Status {
+			return fmt.Errorf("partition is already detached")
+		}
+		query := fmt.Sprintf("ALTER TABLE `%s`.`%s`  DETACH PARTITION ID '%s'", req.Database, req.Table, req.PartitionId)
+		queries = append(queries, query)
+	default:
+		return fmt.Errorf("unsupported partition operation: %v", req.Op)
+	}
+
+	for _, host := range conf.Hosts {
+		for _, query := range queries {
+			log.Logger.Debugf("[%s]%s", host, query)
+			conn, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
+			if err != nil {
+				return err
+			}
+			err = conn.Exec(query)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+type DetachedInfo struct {
+	PartitionId string
+	Name        string
+	Disk        string
+	Reason      string
+}
+
+func getDetachedParts(conf *model.CKManClickHouseConfig, database, table, partitionId string) map[string][]DetachedInfo {
+	result := make(map[string][]DetachedInfo)
+	for _, host := range conf.Hosts {
+		conn, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
+		if err != nil {
+			log.Logger.Errorf("connect clickhouse failed: %s", err)
+			return result
+		}
+		query := fmt.Sprintf(`SELECT partition_id, name, disk, reason FROM system.detached_parts WHERE database = '%s' AND table = '%s' AND partition_id = '%s'`, database, table, partitionId)
+		rows, err := conn.Query(query)
+		if err != nil {
+			log.Logger.Errorf("query failed: %s", err)
+			return result
+		}
+		defer rows.Close()
+		var parts []DetachedInfo
+		for rows.Next() {
+			var partitionId, name, diskName, reason string
+			if err := rows.Scan(&partitionId, &name, &diskName, &reason); err != nil {
+				log.Logger.Errorf("scan failed: %s", err)
+				return result
+			}
+			parts = append(parts, DetachedInfo{
+				PartitionId: partitionId,
+				Name:        name,
+				Disk:        diskName,
+				Reason:      reason,
+			})
+		}
+		result[host] = parts
+	}
+
+	return result
+}
+
+func fixBrokenParts(conf *model.CKManClickHouseConfig, database, table, partitionId string) error {
+	detachedParts := getDetachedParts(conf, database, table, partitionId)
+
+	query := fmt.Sprintf("SELECT data_paths FROM system.tables WHERE database = '%s' AND name = '%s'", database, table)
+	for host, parts := range detachedParts {
+		var cmds []string
+		var dataPaths []string
+		conn := common.GetConnection(host)
+		if conn == nil {
+			log.Logger.Errorf("get connection failed: %s", host)
+			continue
+		}
+		err := conn.QueryRow(query).Scan(&dataPaths)
+		if err != nil {
+			log.Logger.Errorf("query failed: %s", err)
+			continue
+		}
+		type pathInfo struct {
+			srcPaths []string
+			dstPaths []string
+		}
+		var pi pathInfo
+		for _, part := range parts {
+			for _, dp := range dataPaths {
+				if part.Reason != "" {
+					dstName := strings.TrimPrefix(part.Name, part.Reason+"_")
+					if part.Disk == "default" {
+						if !strings.Contains(dp, "/disks/") {
+							pi.srcPaths = append(pi.srcPaths, path.Join(dp, "detached", part.Name))
+							pi.dstPaths = append(pi.dstPaths, path.Join(dp, "detached", dstName))
+							break
+						}
+					} else {
+						if strings.Contains(dp, fmt.Sprintf("/disks/%s/", part.Disk)) {
+							pi.srcPaths = append(pi.srcPaths, path.Join(dp, "detached", part.Name))
+							pi.dstPaths = append(pi.dstPaths, path.Join(dp, "detached", dstName))
+							break
+						}
+					}
+				}
+			}
+		}
+		for i := 0; i < len(pi.srcPaths); i++ {
+			cmd := fmt.Sprintf("mv %s %s; chown -R clickhouse:clickhouse %s", pi.srcPaths[i], pi.dstPaths[i], pi.dstPaths[i])
+			cmds = append(cmds, cmd)
+		}
+		if len(cmds) == 0 {
+			_, err = common.RemoteExecute(common.SshOptions{
+				Host:             host,
+				User:             conf.SshUser,
+				Port:             conf.SshPort,
+				Password:         conf.SshPassword,
+				NeedSudo:         conf.NeedSudo,
+				AuthenticateType: conf.AuthenticateType,
+			}, strings.Join(cmds, ";"))
+			if err != nil {
+				log.Logger.Errorf("execute failed: %s", err)
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -2486,6 +2486,41 @@ func (controller *ClickHouseController) DropPartitions(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, nil)
 }
 
+// @Summary 操作分区
+// @Description 对指定表的分区进行操作，例如冻结、解冻、删除等
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "集群名称" default(test)
+// @Param req body model.OperatePartitionReq true "请求体，包含操作类型和分区信息"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
+// @Failure 200 {string} json "{"code":"5000","msg":"参数不合法","data":""}"
+// @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Failure 200 {string} json "{"code":"5809","msg":"修改表失败","data":""}"
+// @Router /api/v2/ck/partition/operate/{clusterName} [put]
+func (controller *ClickHouseController) OperatePartition(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	var req model.OperatePartitionReq
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+		return
+	}
+
+	if err := clickhouse.OperatePartition(&conf, req); err != nil {
+		controller.wrapfunc(c, model.E_DATA_UPDATE_FAILED, err)
+		return
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, nil)
+}
+
 // @Summary 获取分区信息
 // @Description 获取分区信息
 // @version 1.0

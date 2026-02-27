@@ -248,12 +248,21 @@ type PartitionInfo struct {
 	MaxTime      time.Time `json:"max_time"`
 	DiskName     string    `json:"disk_name"`
 	PartitionId  string    `json:"partition_id"`
+	Status       bool      `json:"status"`
 }
 
-type CkTableCost struct {
-	Middle       float64 `json:"middle"`
-	SecondaryMax float64 `json:"secondaryMax"`
-	Max          float64 `json:"max"`
+const (
+	OP_PARTITION_DETACH int = 1
+	OP_PARTITION_ATTACH int = 2
+	OP_PARTITION_DROP   int = 3
+)
+
+type OperatePartitionReq struct {
+	Op          int // 1- detach  2- attach 3- drop
+	Database    string
+	Table       string
+	PartitionId string
+	Status      bool
 }
 
 type CkUpgradeCkReq struct {

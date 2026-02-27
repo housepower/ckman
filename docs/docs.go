@@ -854,6 +854,50 @@ var doc = `{
                 }
             }
         },
+        "/api/v2/ck/partition/operate/{clusterName}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "对指定表的分区进行操作，例如冻结、解冻、删除等",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "操作分区",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "集群名称",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "请求体，包含操作类型和分区信息",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.OperatePartitionReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"5809\",\"msg\":\"修改表失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/ck/partition/{clusterName}": {
             "get": {
                 "security": [
@@ -3579,6 +3623,27 @@ var doc = `{
                     "type": "boolean"
                 },
                 "statement": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.OperatePartitionReq": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string"
+                },
+                "op": {
+                    "description": "1- detach  2- attach 3- drop",
+                    "type": "integer"
+                },
+                "partitionId": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "boolean"
+                },
+                "table": {
                     "type": "string"
                 }
             }
