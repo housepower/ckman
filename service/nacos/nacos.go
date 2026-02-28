@@ -5,12 +5,12 @@ import (
 
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
-	"github.com/nacos-group/nacos-sdk-go/clients"
-	"github.com/nacos-group/nacos-sdk-go/clients/config_client"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	"github.com/nacos-group/nacos-sdk-go/common/constant"
-	"github.com/nacos-group/nacos-sdk-go/model"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/config_client"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 	"github.com/pkg/errors"
 )
 
@@ -35,6 +35,7 @@ func InitNacosClient(config *config.CKManNacosConfig, log string) (*NacosClient,
 
 	if config.Enabled {
 		clientConfig := constant.ClientConfig{
+			BeatInterval:        config.BeatInterval,
 			NamespaceId:         config.NamespaceId,
 			TimeoutMs:           5000,
 			NotLoadCacheAtStart: true,
@@ -251,7 +252,7 @@ func (c *NacosClient) Subscribe() error {
 	}
 }
 
-func (c *NacosClient) SubscribeCallback(services []model.SubscribeService, err error) {
+func (c *NacosClient) SubscribeCallback(services []model.Instance, err error) {
 	log.Logger.Infof("service %s group %s changed", c.ServiceName, c.GroupName)
 	instances, err1 := c.GetAllInstances()
 	if err1 != nil {

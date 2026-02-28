@@ -81,14 +81,15 @@ type CKManLogConfig struct {
 }
 
 type CKManNacosConfig struct {
-	Enabled     bool
-	Hosts       []string
-	Port        uint64
-	UserName    string `yaml:"user_name" json:"user_name"`
-	Password    string
-	NamespaceId string `yaml:"namespace_id" json:"namespace_id"`
-	Group       string
-	DataID      string `yaml:"data_id" json:"data_id"`
+	Enabled      bool
+	Hosts        []string
+	Port         uint64
+	UserName     string `yaml:"user_name" json:"user_name"`
+	Password     string
+	NamespaceId  string `yaml:"namespace_id" json:"namespace_id"`
+	Group        string
+	DataID       string `yaml:"data_id" json:"data_id"`
+	BeatInterval int64  `yaml:"beat_interval" json:"beat_interval"`
 }
 
 func fillDefault(c *CKManConfig) {
@@ -113,6 +114,7 @@ func fillDefault(c *CKManConfig) {
 	c.ClickHouse.MaxOpenConns = 10
 	c.ClickHouse.MaxIdleConns = 2
 	c.ClickHouse.ConnMaxIdleTime = 10
+	c.Nacos.BeatInterval = 5000
 }
 
 func MergeEnv() {
