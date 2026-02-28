@@ -398,6 +398,7 @@ Non-professionals please do not fill in this`,
 		Candidates: []common.Candidate{
 			{Value: "local", LabelEN: "Local", LabelZH: "本地磁盘"},
 			{Value: "s3", LabelEN: "AWS S3", LabelZH: "AWS S3"},
+			{Value: "cache", LabelEN: "Cache", LabelZH: "缓存"},
 			//{Value: "hdfs", LabelEN: "HDFS", LabelZH: "HDFS"},
 		},
 	})
@@ -422,6 +423,73 @@ Non-professionals please do not fill in this`,
 		LabelZH:  "HDFS",
 		LabelEN:  "HDFS",
 		Visiable: "Type == 'hdfs'",
+	})
+	params.MustRegister(disk, "DiskCache", &common.Parameter{
+		LabelZH:  "磁盘缓存",
+		LabelEN:  "Disk Cache",
+		Visiable: "Type == 'cache'",
+	})
+
+	var diskcache model.DiskCache
+	params.MustRegister(diskcache, "Path", &common.Parameter{
+		LabelZH:       "缓存路径",
+		LabelEN:       "Cache Path",
+		DescriptionZH: "缓存数据存储的路径，必须以'/'开头和结尾",
+		DescriptionEN: "Path for cached data, must begin and end with '/'",
+		Regexp:        "^/.+/$",
+		Required:      "true",
+	})
+	params.MustRegister(diskcache, "MaxSize", &common.Parameter{
+		LabelZH:       "最大缓存大小",
+		LabelEN:       "Max Size",
+		DescriptionZH: "缓存的最大大小（字节）, 默认大小为10G",
+		DescriptionEN: "Maximum size of cache in bytes， default is 10G",
+		Required:      "true",
+		Default:       "10737418240",
+	})
+	params.MustRegister(diskcache, "Disk", &common.Parameter{
+		LabelZH:       "底层磁盘",
+		LabelEN:       "Backend Disk",
+		DescriptionZH: "用于存储缓存数据的底层磁盘名称",
+		DescriptionEN: "Name of the backend disk for storing cached data",
+		Required:      "true",
+	})
+	params.MustRegister(diskcache, "CacheOnWriteOperations", &common.Parameter{
+		LabelZH:       "写操作时缓存",
+		LabelEN:       "Cache On Write Operations",
+		DescriptionZH: "在写入操作时是否启用缓存， 如果不是直写底层磁盘，不建议打开",
+		DescriptionEN: "Enable caching on write operations",
+		Default:       "false",
+		Required:      "false",
+	})
+	params.MustRegister(diskcache, "CachePolicy", &common.Parameter{
+		LabelZH:       "缓存策略",
+		LabelEN:       "Cache Policy",
+		DescriptionZH: "缓存淘汰策略: SLRU 或 LRU",
+		DescriptionEN: "Cache eviction policy: SLRU or LRU",
+		Candidates: []common.Candidate{
+			{Value: "SLRU", LabelEN: "SLRU", LabelZH: "SLRU"},
+			{Value: "LRU", LabelEN: "LRU", LabelZH: "LRU"},
+		},
+		Default:  "SLRU",
+		Required: "true",
+	})
+	params.MustRegister(diskcache, "SLRUSizeRatio", &common.Parameter{
+		LabelZH:       "SLRU大小比例",
+		LabelEN:       "SLRU Size Ratio",
+		DescriptionZH: "SLRU 缓存中试用部分的比例",
+		DescriptionEN: "Ratio of probationary part in SLRU cache",
+		Range:         &common.Range{Min: 0.0, Max: 1.0, Step: 0.1},
+		Required:      "false",
+		Visiable:      "CachePolicy == 'SLRU'",
+		Default:       "0.6",
+	})
+	params.MustRegister(diskcache, "Expert", &common.Parameter{
+		LabelZH:       "专家配置",
+		LabelEN:       "Expert",
+		DescriptionZH: "缓存高级配置，参考: https://github.com/ClickHouse/ClickHouse/blob/master/src/Interpreters/Cache/FileCacheSettings.cpp",
+		DescriptionEN: "Advanced cache configuration, refer to: https://github.com/ClickHouse/ClickHouse/blob/master/src/Interpreters/Cache/FileCacheSettings.cpp",
+		Required:      "false",
 	})
 
 	var disklocal model.DiskLocal
@@ -1239,6 +1307,7 @@ Non-professionals please do not fill in this`,
 		Candidates: []common.Candidate{
 			{Value: "local", LabelEN: "Local", LabelZH: "本地磁盘"},
 			{Value: "s3", LabelEN: "AWS S3", LabelZH: "AWS S3"},
+			{Value: "cache", LabelEN: "Cache", LabelZH: "缓存"},
 			//{Value: "hdfs", LabelEN: "HDFS", LabelZH: "HDFS"},
 		},
 	})
@@ -1263,6 +1332,73 @@ Non-professionals please do not fill in this`,
 		LabelZH:  "HDFS",
 		LabelEN:  "HDFS",
 		Visiable: "Type == 'hdfs'",
+	})
+	params.MustRegister(disk, "DiskCache", &common.Parameter{
+		LabelZH:  "磁盘缓存",
+		LabelEN:  "Disk Cache",
+		Visiable: "Type == 'cache'",
+	})
+
+	var diskcache model.DiskCache
+	params.MustRegister(diskcache, "Path", &common.Parameter{
+		LabelZH:       "缓存路径",
+		LabelEN:       "Cache Path",
+		DescriptionZH: "缓存数据存储的路径，必须以'/'开头和结尾",
+		DescriptionEN: "Path for cached data, must begin and end with '/'",
+		Regexp:        "^/.+/$",
+		Editable:      "false",
+		Required:      "true",
+	})
+	params.MustRegister(diskcache, "MaxSize", &common.Parameter{
+		LabelZH:       "最大缓存大小",
+		LabelEN:       "Max Size",
+		DescriptionZH: "缓存的最大大小（字节）",
+		DescriptionEN: "Maximum size of cache in bytes",
+		Required:      "true",
+		Default:       "10737418240",
+	})
+	params.MustRegister(diskcache, "Disk", &common.Parameter{
+		LabelZH:       "底层磁盘",
+		LabelEN:       "Backend Disk",
+		DescriptionZH: "用于存储缓存数据的底层磁盘名称",
+		DescriptionEN: "Name of the backend disk for storing cached data",
+		Editable:      "true",
+		Required:      "true",
+	})
+	params.MustRegister(diskcache, "CacheOnWriteOperations", &common.Parameter{
+		LabelZH:       "写操作时缓存",
+		LabelEN:       "Cache On Write Operations",
+		DescriptionZH: "在写入操作时是否启用缓存",
+		DescriptionEN: "Enable caching on write operations",
+		Default:       "false",
+		Required:      "false",
+	})
+	params.MustRegister(diskcache, "CachePolicy", &common.Parameter{
+		LabelZH:       "缓存策略",
+		LabelEN:       "Cache Policy",
+		DescriptionZH: "缓存淘汰策略:SLRU 或 LRU",
+		DescriptionEN: "Cache eviction policy: SLRU or LRU",
+		Candidates: []common.Candidate{
+			{Value: "SLRU", LabelEN: "SLRU", LabelZH: "SLRU"},
+			{Value: "LRU", LabelEN: "LRU", LabelZH: "LRU"},
+		},
+		Default:  "SLRU",
+		Required: "true",
+	})
+	params.MustRegister(diskcache, "SLRUSizeRatio", &common.Parameter{
+		LabelZH:       "SLRU大小比例",
+		LabelEN:       "SLRU Size Ratio",
+		DescriptionZH: "SLRU 缓存中试用部分的比例",
+		DescriptionEN: "Ratio of probationary part in SLRU cache",
+		Range:         &common.Range{Min: 0.0, Max: 1.0, Step: 0.1},
+		Required:      "false",
+	})
+	params.MustRegister(diskcache, "Expert", &common.Parameter{
+		LabelZH:       "专家配置",
+		LabelEN:       "Expert",
+		DescriptionZH: "缓存高级配置，参考: https://github.com/ClickHouse/ClickHouse/blob/master/src/Interpreters/Cache/FileCacheSettings.cpp",
+		DescriptionEN: "Advanced cache configuration, refer to: https://github.com/ClickHouse/ClickHouse/blob/master/src/Interpreters/Cache/FileCacheSettings.cpp",
+		Required:      "false",
 	})
 
 	var disklocal model.DiskLocal

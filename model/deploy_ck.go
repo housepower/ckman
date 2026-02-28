@@ -153,7 +153,8 @@ type Disk struct {
 	Type          string     `example:"hdfs"`
 	DiskLocal     *DiskLocal `swaggerignore:"true"`
 	DiskHdfs      *DiskHdfs
-	DiskS3        *DiskS3 `swaggerignore:"true"`
+	DiskS3        *DiskS3    `swaggerignore:"true"`
+	DiskCache     *DiskCache `swaggerignore:"true"`
 }
 
 type DiskLocal struct {
@@ -172,6 +173,16 @@ type DiskS3 struct {
 	Region                    *string
 	UseEnvironmentCredentials *bool
 	Expert                    map[string]string
+}
+
+type DiskCache struct {
+	Path                   string
+	MaxSize                int64
+	Disk                   string
+	CacheOnWriteOperations bool
+	CachePolicy            string // SLRU, LRU
+	SLRUSizeRatio          float64
+	Expert                 map[string]string
 }
 
 type Policy struct {

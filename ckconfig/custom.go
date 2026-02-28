@@ -135,8 +135,15 @@ func storage(storage *model.Storage) (map[string]interface{}, map[string]interfa
 				diskMapping["secret_access_key"] = disk.DiskS3.SecretAccessKey
 				diskMapping["region"] = disk.DiskS3.Region
 				mergo.Merge(&diskMapping, expert(disk.DiskS3.Expert))
+			case "cache":
+				diskMapping["cache_on_write_operations"] = disk.DiskCache.CacheOnWriteOperations
+				diskMapping["cache_policy"] = disk.DiskCache.CachePolicy
+				diskMapping["disk"] = disk.DiskCache.Disk
+				diskMapping["max_size"] = disk.DiskCache.MaxSize
+				diskMapping["path"] = disk.DiskCache.Path
+				diskMapping["slru_size_ratio"] = disk.DiskCache.SLRUSizeRatio
+				mergo.Merge(&diskMapping, expert(disk.DiskCache.Expert))
 			}
-			disks[disk.Name] = diskMapping
 		}
 		storage_configuration["disks"] = disks
 		if len(backup_disks) > 0 {
