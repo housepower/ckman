@@ -7,7 +7,6 @@ type CkSessionInfo struct {
 	User          string `json:"user"`
 	QueryId       string `json:"queryId"`
 	Address       string `json:"address"`
-	Threads       int    `json:"threads"`
 	Host          string `json:"host"` //sql running in which node
 }
 
