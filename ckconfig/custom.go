@@ -141,9 +141,12 @@ func storage(storage *model.Storage) (map[string]interface{}, map[string]interfa
 				diskMapping["disk"] = disk.DiskCache.Disk
 				diskMapping["max_size"] = disk.DiskCache.MaxSize
 				diskMapping["path"] = disk.DiskCache.Path
-				diskMapping["slru_size_ratio"] = disk.DiskCache.SLRUSizeRatio
+				if disk.DiskCache.CachePolicy == "slru" {
+					diskMapping["slru_size_ratio"] = disk.DiskCache.SLRUSizeRatio
+				}
 				mergo.Merge(&diskMapping, expert(disk.DiskCache.Expert))
 			}
+			disks[disk.Name] = diskMapping
 		}
 		storage_configuration["disks"] = disks
 		if len(backup_disks) > 0 {
