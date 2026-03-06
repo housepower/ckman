@@ -273,7 +273,7 @@ func (mp *DM8Persistent) GetAllQueryHistory() (map[string]model.QueryHistory, er
 
 func (mp *DM8Persistent) GetQueryHistoryByCluster(cluster string) ([]model.QueryHistory, error) {
 	var tables []TblQueryHistory
-	tx := mp.Client.Where("cluster = ?", cluster).Order("create_time DESC").Limit(100).Find(&tables)
+	tx := mp.Client.Where("cluster_name = ?", cluster).Order("create_time DESC").Limit(100).Find(&tables)
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
 		return nil, errors.Wrap(tx.Error, "")
 	}
@@ -334,7 +334,7 @@ func (mp *DM8Persistent) DeleteQueryHistory(checksum string) error {
 
 func (mp *DM8Persistent) GetQueryHistoryCount(cluster string) int64 {
 	var count int64
-	tx := mp.Client.Model(&TblQueryHistory{}).Where("cluster = ?", cluster).Count(&count)
+	tx := mp.Client.Model(&TblQueryHistory{}).Where("cluster_name = ?", cluster).Count(&count)
 	if tx.Error != nil {
 		return 0
 	}
@@ -343,7 +343,7 @@ func (mp *DM8Persistent) GetQueryHistoryCount(cluster string) int64 {
 
 func (mp *DM8Persistent) GetEarliestQuery(cluster string) (model.QueryHistory, error) {
 	var table TblQueryHistory
-	tx := mp.Client.Where("cluster = ?", cluster).Order("create_time").First(&table)
+	tx := mp.Client.Where("cluster_name = ?", cluster).Order("create_time").First(&table)
 	if tx.Error != nil {
 		return model.QueryHistory{}, wrapError(tx.Error)
 	}
