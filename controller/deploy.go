@@ -37,7 +37,7 @@ func NewDeployController(config *config.CKManConfig, wrapfunc Wrapfunc) *DeployC
 // @Failure 200 {string} json "{"code":"5003","msg":"数据校验失败","data":""}"
 // @Failure 200 {string} json "{"code":"5801","msg":"数据插入失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":nil}"
-// @Router /api/v2/deploy/ck [post]
+// @Router /api/v1/deploy/ck [post]
 func (controller *DeployController) DeployCk(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
 	err := DecodeRequestBody(c.Request, &conf, GET_SCHEMA_UI_DEPLOY)

@@ -123,9 +123,6 @@ func (server *ApiServer) Start() error {
 	groupV1 := groupApi.Group("/v1")
 	router.InitRouterV1(groupV1, server.config, server.signal)
 
-	groupV2 := groupApi.Group("/v2")
-	router.InitRouterV2(groupV2, server.config, server.signal)
-
 	bind := fmt.Sprintf(":%d", server.config.Server.Port)
 	server.svr = &http.Server{
 		Addr:         bind,

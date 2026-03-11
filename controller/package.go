@@ -46,7 +46,7 @@ func NewPackageController(config *config.CKManConfig, wrapfunc Wrapfunc) *Packag
 // @Param package formData file true "package"
 // @Failure 200 {string} json "{"code":"5202","msg":"upload local package failed","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/package [post]
+// @Router /api/v1/package [post]
 func (controller *PackageController) Upload(c *gin.Context) {
 	localFile, err := ParserFormData(c.Request)
 	if err != nil {
@@ -175,7 +175,7 @@ func UploadFileByURL(url string, localFile string) error {
 // @Accept  json
 // @Param pkgType query string true "pkgType" default(all)
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"version":"22.3.9.19","pkgType":"x86_64.rpm","pkgName":"clickhouse-common-static-22.3.9.19.x86_64.rpm"}]}"
-// @Router /api/v2/package [get]
+// @Router /api/v1/package [get]
 func (controller *PackageController) List(c *gin.Context) {
 	pkgType := c.Query("pkgType")
 	if pkgType == "" {
@@ -221,7 +221,7 @@ func (controller *PackageController) List(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5803","msg":"删除数据失败","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"查询数据失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/package [delete]
+// @Router /api/v1/package [delete]
 func (controller *PackageController) Delete(c *gin.Context) {
 	packageVersion := c.Query("packageVersion")
 	packageType := c.Query("pkgType")

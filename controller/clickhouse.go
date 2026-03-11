@@ -57,7 +57,7 @@ func NewClickHouseController(wrapfunc Wrapfunc) *ClickHouseController {
 // @Failure 200 {string} json "{"code":"5801","msg":"数据插入失败","data":""}"
 // @Failure 200 {string} json "{"code":"5802","msg":"数据更新失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":null}"
-// @Router /api/v2/ck/cluster [post]
+// @Router /api/v1/ck/cluster [post]
 func (controller *ClickHouseController) ImportCluster(c *gin.Context) {
 	var req model.CkImportConfig
 	var conf model.CKManClickHouseConfig
@@ -160,7 +160,7 @@ func (controller *ClickHouseController) ImportCluster(c *gin.Context) {
 // @Param clusterName path string true "cluster name" default(test)
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":null}"
 // @Failure 200 {string} json "{"code":"5800","msg":"数据查询失败","data":""}"
-// @Router /api/v2/ck/cluster/{clusterName} [delete]
+// @Router /api/v1/ck/cluster/{clusterName} [delete]
 func (controller *ClickHouseController) DeleteCluster(c *gin.Context) {
 	var err error
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -204,7 +204,7 @@ func (controller *ClickHouseController) DeleteCluster(c *gin.Context) {
 // @Param clusterName path string true "cluster name" default(test)
 // @Failure 200 {string} json "{"code":"5804","msg":"查询数据失败","data":null}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok", "data":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}"
-// @Router /api/v2/ck/cluster/{clusterName} [get]
+// @Router /api/v1/ck/cluster/{clusterName} [get]
 func (controller *ClickHouseController) GetCluster(c *gin.Context) {
 	var err error
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -231,7 +231,7 @@ func (controller *ClickHouseController) GetCluster(c *gin.Context) {
 // @Accept  json
 // @Success 200 {string} json "{"code":"0000","msg":"ok", "data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":null}"
-// @Router /api/v2/ck/cluster [get]
+// @Router /api/v1/ck/cluster [get]
 func (controller *ClickHouseController) GetClusters(c *gin.Context) {
 	var err error
 
@@ -275,7 +275,7 @@ func (controller *ClickHouseController) GetClusters(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5120","msg":"同步zookeeper失败","data":null}"
 // @Failure 200 {string} json "{"code":"5802","msg":"数据更新失败","data":null}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":null}"
-// @Router /api/v2/ck/table/{clusterName} [post]
+// @Router /api/v1/ck/table/{clusterName} [post]
 func (controller *ClickHouseController) CreateTable(c *gin.Context) {
 	var req model.CreateCkTableReq
 	var params model.CreateCkTableParams
@@ -401,7 +401,7 @@ func (controller *ClickHouseController) CreateTable(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":null}"
 // @Failure 200 {string} json "{"code":"5808","msg":"创建表失败","data":null}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":null}"
-// @Router /api/v2/ck/dist-logic-table/{clusterName} [post]
+// @Router /api/v1/ck/dist_logic_table/{clusterName} [post]
 func (controller *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 	var req model.DistLogicTableReq
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
@@ -470,7 +470,7 @@ func (controller *ClickHouseController) CreateDistTableOnLogic(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":null}"
 // @Failure 200 {string} json "{"code":"5810","msg":"删除表失败","data":null}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":null}"
-// @Router /api/v2/ck/dist-logic-table/{clusterName} [delete]
+// @Router /api/v1/ck/dist_logic_table/{clusterName} [delete]
 func (controller *ClickHouseController) DeleteDistTableOnLogic(c *gin.Context) {
 	var req model.DistLogicTableReq
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
@@ -528,7 +528,7 @@ func (controller *ClickHouseController) DeleteDistTableOnLogic(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":null}"
 // @Failure 200 {string} json "{"code":"5803","msg":"数据删除失败","data":null}"
-// @Router /api/v2/ck/truncate-table/{clusterName} [delete]
+// @Router /api/v1/ck/truncate_table/{clusterName} [delete]
 func (controller *ClickHouseController) TruncateTable(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -585,7 +585,7 @@ func (controller *ClickHouseController) TruncateTable(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":null}"
 // @Failure 200 {string} json "{"code":"5809","msg":"修改表失败","data":null}"
-// @Router /api/v2/ck/table/{clusterName} [put]
+// @Router /api/v1/ck/table/{clusterName} [put]
 func (controller *ClickHouseController) AlterTable(c *gin.Context) {
 	var req model.AlterCkTableReq
 	var params model.AlterCkTableParams
@@ -646,7 +646,7 @@ func (controller *ClickHouseController) AlterTable(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":null}"
 // @Failure 200 {string} json "{"code":"5809","msg":"修改表失败","data":null}"
-// @Router /api/v2/ck/table/dml/{clusterName} [post]
+// @Router /api/v1/ck/table/dml/{clusterName} [post]
 func (controller *ClickHouseController) DMLOnLogic(c *gin.Context) {
 	var req model.DMLOnLogicReq
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
@@ -707,7 +707,7 @@ func (controller *ClickHouseController) DMLOnLogic(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5001","msg":"变量不合法","data":""}"
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":null}"
 // @Failure 200 {string} json "{"code":"5809","msg":"修改表失败","data":null}"
-// @Router /api/v2/ck/table/ttl/{clusterName} [put]
+// @Router /api/v1/ck/table/ttl/{clusterName} [put]
 func (controller *ClickHouseController) AlterTableTTL(c *gin.Context) {
 	var req model.AlterTblsTTLReq
 
@@ -761,7 +761,7 @@ func (controller *ClickHouseController) AlterTableTTL(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":""}"
 // @Failure 200 {string} json "{"code":"5814","msg":"恢复表失败","data":""}"
-// @Router /api/v2/ck/table/readonly/{clusterName} [put]
+// @Router /api/v1/ck/table/readonly/{clusterName} [put]
 func (controller *ClickHouseController) RestoreReplica(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -802,7 +802,7 @@ func (controller *ClickHouseController) RestoreReplica(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5809","msg":"修改表失败","data":""}"
-// @Router /api/v2/ck/table/orderby/{clusterName} [put]
+// @Router /api/v1/ck/table/orderby/{clusterName} [put]
 func (controller *ClickHouseController) SetOrderby(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -843,7 +843,7 @@ func (controller *ClickHouseController) SetOrderby(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5809","msg":"修改表失败","data":""}"
-// @Router /api/v2/ck/table/view/{clusterName} [put]
+// @Router /api/v1/ck/table/view/{clusterName} [put]
 func (controller *ClickHouseController) MaterializedView(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -872,6 +872,17 @@ func (controller *ClickHouseController) MaterializedView(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, statement)
 }
 
+// @Summary 获取物化视图状态
+// @Description 获取物化视图状态
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
+// @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Router /api/v1/ck/vm/{clusterName} [get]
 func (controller *Controller) GetMaterializedViewStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -901,7 +912,7 @@ func (controller *Controller) GetMaterializedViewStatus(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5808","msg":"创建表失败","data":""}"
-// @Router /api/v2/ck/table/group-uniq-array/{clusterName} [post]
+// @Router /api/v1/ck/table/group_uniq_array/{clusterName} [post]
 func (controller *ClickHouseController) GroupUniqArray(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -934,7 +945,7 @@ func (controller *ClickHouseController) GroupUniqArray(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
-// @Router /api/v2/ck/table/group-uniq-array/{clusterName} [get]
+// @Router /api/v1/ck/table/group_uniq_array/{clusterName} [get]
 func (controller *ClickHouseController) GetGroupUniqArray(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -970,7 +981,7 @@ func (controller *ClickHouseController) GetGroupUniqArray(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5810","msg":"删除表失败","data":""}"
-// @Router /api/v2/ck/table/group-uniq-array/{clusterName} [delete]
+// @Router /api/v1/ck/table/group_uniq_array/{clusterName} [delete]
 func (controller *ClickHouseController) DelGroupUniqArray(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -1009,7 +1020,7 @@ func (controller *ClickHouseController) DelGroupUniqArray(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5810","msg":"删除表失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":null}"
-// @Router /api/v2/ck/table-all/{clusterName} [delete]
+// @Router /api/v1/ck/table_all/{clusterName} [delete]
 func (controller *ClickHouseController) DeleteTableAll(c *gin.Context) {
 	var params model.DeleteCkTableParams
 
@@ -1092,7 +1103,7 @@ func (controller *ClickHouseController) DeleteTableAll(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5810","msg":"删除表失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":null}"
-// @Router /api/v2/ck/table/{clusterName} [delete]
+// @Router /api/v1/ck/table/{clusterName} [delete]
 func (controller *ClickHouseController) DeleteTable(c *gin.Context) {
 	var params model.DeleteCkTableParams
 
@@ -1145,7 +1156,7 @@ func (controller *ClickHouseController) DeleteTable(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5110","msg":"连接clickhouse失败","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"name":"_timestamp","type":"DateTime","defaultType":"","defaultExpression":"","comment":"","codecExpression":"","ttlExpression":""}]}"
-// @Router /api/v2/ck/table/{clusterName} [get]
+// @Router /api/v1/ck/table/{clusterName} [get]
 func (controller *ClickHouseController) DescTable(c *gin.Context) {
 	var params model.DescCkTableParams
 
@@ -1182,7 +1193,7 @@ func (controller *ClickHouseController) DescTable(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5110","msg":"连接clickhouse失败","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[["name"],["default"],["system"]]}"
-// @Router /api/v2/ck/query/{clusterName} [get]
+// @Router /api/v1/ck/query/{clusterName} [get]
 func (controller *ClickHouseController) QueryInfo(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	host := c.Query("host")
@@ -1249,7 +1260,7 @@ func (controller *ClickHouseController) QueryInfo(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5110","msg":"连接clickhouse失败","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[["name"],["default"],["system"]]}"
-// @Router /api/v2/ck/query_export/{clusterName} [get]
+// @Router /api/v1/ck/query_export/{clusterName} [get]
 func (controller *ClickHouseController) QueryExport(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	host := c.Query("host")
@@ -1309,7 +1320,7 @@ func (controller *ClickHouseController) QueryExport(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5001","msg":"变量不合法","data":""}"
 // @Failure 200 {string} json "{"code":"5801","msg":"数据插入失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/ck/upgrade/{clusterName} [put]
+// @Router /api/v1/ck/upgrade/{clusterName} [put]
 func (controller *ClickHouseController) UpgradeCluster(c *gin.Context) {
 	var req model.CkUpgradeCkReq
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -1387,7 +1398,7 @@ func (controller *ClickHouseController) UpgradeCluster(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5101","msg":"SSH远程执行命令失败","data":""}"
 // @Failure 200 {string} json "{"code":"5802","msg":"数据更新失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/ck/start/{clusterName} [put]
+// @Router /api/v1/ck/start/{clusterName} [put]
 func (controller *ClickHouseController) StartCluster(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -1431,7 +1442,7 @@ func (controller *ClickHouseController) StartCluster(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5802","msg":"数据更新失败","data":""}"
 // @Failure 200 {string} json "{"code":"5120","msg":"同步zookeeper失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/ck/stop/{clusterName} [put]
+// @Router /api/v1/ck/stop/{clusterName} [put]
 func (controller *ClickHouseController) StopCluster(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -1473,7 +1484,7 @@ func (controller *ClickHouseController) StopCluster(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5003","msg":"数据校验失败","data":""}"
 // @Failure 200 {string} json "{"code":"5801","msg":"数据插入失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/ck/destroy/{clusterName} [put]
+// @Router /api/v1/ck/destroy/{clusterName} [put]
 func (controller *ClickHouseController) DestroyCluster(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -1499,6 +1510,18 @@ func (controller *ClickHouseController) DestroyCluster(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, taskId)
 }
 
+// @Summary 获取均衡信息
+// @Description 获取集群均衡信息
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.RebalanceTableReq false "request body"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
+// @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
+// @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
+// @Router /api/v1/ck/rebalance_info/{clusterName} [post]
 func (controller *ClickHouseController) GetRebalanceInfo(c *gin.Context) {
 	var err error
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -1557,7 +1580,7 @@ func (controller *ClickHouseController) GetRebalanceInfo(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5001","msg":"变量不合法","data":""}"
 // @Failure 200 {string} json "{"code":"5809","msg":"均衡集群失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/ck/rebalance/{clusterName} [put]
+// @Router /api/v1/ck/rebalance/{clusterName} [put]
 func (controller *ClickHouseController) RebalanceCluster(c *gin.Context) {
 	var err error
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -1621,7 +1644,7 @@ func (controller *ClickHouseController) RebalanceCluster(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":{"test":{"mode":"import","hosts":["192.168.0.1","192.168.0.2","192.168.0.3","192.168.0.4"],"names":["node1","node2","node3","node4"],"port":9000,"httpPort":8123,"user":"ck","password":"123456","database":"default","cluster":"test","zkNodes":["192.168.0.1","192.168.0.2","192.168.0.3"],"zkPort":2181,"isReplica":true,"version":"20.8.5.45","sshUser":"","sshPassword":"","shards":[{"replicas":[{"ip":"192.168.0.1","hostname":"node1"},{"ip":"192.168.0.2","hostname":"node2"}]},{"replicas":[{"ip":"192.168.0.3","hostname":"node3"},{"ip":"192.168.0.4","hostname":"node4"}]}],"path":""}}}}"
-// @Router /api/v2/ck/get/{clusterName} [get]
+// @Router /api/v1/ck/get/{clusterName} [get]
 func (controller *ClickHouseController) GetClusterStatus(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -1688,7 +1711,7 @@ func (controller *ClickHouseController) GetClusterStatus(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5005","msg":"节点重复","data":""}"
 // @Failure 200 {string} json "{"code":"5002","msg":"数据不匹配","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/ck/node/{clusterName} [post]
+// @Router /api/v1/ck/node/{clusterName} [post]
 func (controller *ClickHouseController) AddNode(c *gin.Context) {
 	var req model.AddNodeReq
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -1802,7 +1825,7 @@ func (controller *ClickHouseController) AddNode(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5801","msg":"数据插入失败","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/ck/node/{clusterName} [delete]
+// @Router /api/v1/ck/node/{clusterName} [delete]
 func (controller *ClickHouseController) DeleteNode(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	ip := c.Query("ip")
@@ -1896,7 +1919,7 @@ SETTINGS skip_unavailable_shards = 1`
 // @Failure 200 {string} json "{"code":"5101","msg":"SSH远程命令执行失败","data":""}"
 // @Failure 200 {string} json "{"code":"5802","msg":"数据更新失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/ck/node/start/{clusterName} [put]
+// @Router /api/v1/ck/node/start/{clusterName} [put]
 func (controller *ClickHouseController) StartNode(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	ip := c.Query("ip")
@@ -1982,7 +2005,7 @@ func (controller *ClickHouseController) StartNode(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5101","msg":"SSH远程命令执行失败","data":""}"
 // @Failure 200 {string} json "{"code":"5802","msg":"数据更新失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/ck/node/stop/{clusterName} [put]
+// @Router /api/v1/ck/node/stop/{clusterName} [put]
 func (controller *ClickHouseController) StopNode(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	ip := c.Query("ip")
@@ -2034,7 +2057,7 @@ func (controller *ClickHouseController) StopNode(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5101","msg":"SSH远程命令执行失败","data":""}"
 // @Failure 200 {string} json "{"code":"5601","msg":"反序列化失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
-// @Router /api/v2/ck/node/log/{clusterName} [post]
+// @Router /api/v1/ck/node/log/{clusterName} [post]
 func (controller *ClickHouseController) GetLog(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	ip := c.Query("ip")
@@ -2108,7 +2131,7 @@ func (controller *ClickHouseController) GetLog(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":{"sensor_dt_result_online":{"columns":22,"rows":1381742496,"parts":192,"space":54967700946,"completedQueries":5,"failedQueries":0,"queryCost":{"middle":130,"secondaryMax":160.76,"max":162}}}}"
-// @Router /api/v2/ck/table-metric/{clusterName} [get]
+// @Router /api/v1/ck/table_metric/{clusterName} [get]
 func (controller *ClickHouseController) GetTableMetric(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -2150,7 +2173,7 @@ func (controller *ClickHouseController) GetTableMetric(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":{"sensor_dt_result_online":{"columns":22,"rows":1381742496,"parts":192,"space":54967700946,"completedQueries":5,"failedQueries":0,"queryCost":{"middle":130,"secondaryMax":160.76,"max":162}}}}"
-// @Router /api/v2/ck/table-merges/{clusterName} [get]
+// @Router /api/v1/ck/table_merges/{clusterName} [get]
 func (controller *ClickHouseController) GetTableMerges(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -2179,7 +2202,7 @@ func (controller *ClickHouseController) GetTableMerges(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"startTime":1609997894,"queryDuration":1,"query":"SELECT DISTINCT name FROM system.tables","user":"eoi","queryId":"62dce71d-9294-4e47-9d9b-cf298f73233d","address":"192.168.21.73","threads":2}]}"
-// @Router /api/v2/ck/open-sessions/{clusterName} [get]
+// @Router /api/v1/ck/open_sessions/{clusterName} [get]
 func (controller *ClickHouseController) GetOpenSessions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	limit := ClickHouseSessionLimit
@@ -2220,7 +2243,7 @@ func (controller *ClickHouseController) GetOpenSessions(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5802","msg":"数据更新失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"startTime":1609997894,"queryDuration":1,"query":"SELECT DISTINCT name FROM system.tables","user":"eoi","queryId":"62dce71d-9294-4e47-9d9b-cf298f73233d","address":"192.168.21.73","threads":2}]}"
-// @Router /api/v2/ck/open-sessions/{clusterName} [put]
+// @Router /api/v1/ck/open_sessions/{clusterName} [put]
 func (controller *ClickHouseController) KillOpenSessions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	host := c.Query("host")
@@ -2254,7 +2277,7 @@ func (controller *ClickHouseController) KillOpenSessions(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"startTime":1609986493,"queryDuration":145,"query":"select * from dist_sensor_dt_result_online limit 10000","user":"default","queryId":"8aa3de08-92c4-4102-a83d-2f5d88569dab","address":"::1","threads":2}]}"
-// @Router /api/v2/ck/slow-sessions/{clusterName} [get]
+// @Router /api/v1/ck/slow_sessions/{clusterName} [get]
 func (controller *ClickHouseController) GetSlowSessions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	now := time.Now().Unix() // second
@@ -2306,7 +2329,7 @@ func (controller *ClickHouseController) GetSlowSessions(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"startTime":1609986493,"queryDuration":145,"query":"select * from dist_sensor_dt_result_online limit 10000","user":"default","queryId":"8aa3de08-92c4-4102-a83d-2f5d88569dab","address":"::1","threads":2}]}"
-// @Router /api/v2/ck/ddl_queue/{clusterName} [get]
+// @Router /api/v1/ck/ddl_queue/{clusterName} [get]
 func (controller *ClickHouseController) GetDistDDLQueue(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -2340,7 +2363,7 @@ func (controller *ClickHouseController) GetDistDDLQueue(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":nil}"
-// @Router /api/v2/ck/ping/{clusterName} [post]
+// @Router /api/v1/ck/ping/{clusterName} [post]
 func (controller *ClickHouseController) PingCluster(c *gin.Context) {
 	var req model.PingClusterReq
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -2401,7 +2424,7 @@ func (controller *ClickHouseController) PingCluster(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5803","msg":"数据删除失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":""}"
-// @Router /api/v2/ck/purge-tables/{clusterName} [post]
+// @Router /api/v1/ck/purge_tables/{clusterName} [post]
 func (controller *ClickHouseController) PurgeTables(c *gin.Context) {
 	var req model.PurgerTableReq
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -2455,7 +2478,7 @@ func (controller *ClickHouseController) PurgeTables(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5803","msg":"数据删除失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":""}"
-// @Router /api/v2/ck/partition/{clusterName} [delete]
+// @Router /api/v1/ck/partition/{clusterName} [delete]
 func (controller *ClickHouseController) DropPartitions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	database := c.Query("database")
@@ -2499,7 +2522,7 @@ func (controller *ClickHouseController) DropPartitions(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Failure 200 {string} json "{"code":"5809","msg":"修改表失败","data":""}"
-// @Router /api/v2/ck/partition/operate/{clusterName} [put]
+// @Router /api/v1/ck/partition/operate/{clusterName} [put]
 func (controller *ClickHouseController) OperatePartition(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -2531,7 +2554,7 @@ func (controller *ClickHouseController) OperatePartition(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":""}"
-// @Router /api/v2/ck/partition/{clusterName} [get]
+// @Router /api/v1/ck/partition/{clusterName} [get]
 func (controller *ClickHouseController) GetPartitions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -2568,7 +2591,7 @@ func (controller *ClickHouseController) GetPartitions(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":""}"
-// @Router /api/v2/ck/partition/{clusterName} [post]
+// @Router /api/v1/ck/partition/{clusterName} [post]
 func (controller *ClickHouseController) GetMultiPartitions(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 
@@ -2613,7 +2636,7 @@ func (controller *ClickHouseController) GetMultiPartitions(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5101","msg":"SSH远程命令执行失败","data":""}"
 // @Failure 200 {string} json "{"code":"5801","msg":"数据插入失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":""}"
-// @Router /api/v2/ck/archive/{clusterName} [post]
+// @Router /api/v1/ck/archive/{clusterName} [post]
 func (controller *ClickHouseController) ArchiveTable(c *gin.Context) {
 	var req model.ArchiveTableReq
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -2712,7 +2735,7 @@ func (controller *ClickHouseController) ArchiveTable(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":"{\"create_table_query\": \"CREATE TABLE default.apache_access_log (`@collectiontime` DateTime, `@hostname` LowCardinality(String), `@ip` LowCardinality(String), `@path` String, `@lineno` Int64, `@message` String, `agent` String, `auth` String, `bytes` Int64, `clientIp` String, `device_family` LowCardinality(String), `httpversion` LowCardinality(String), `ident` String, `os_family` LowCardinality(String), `os_major` LowCardinality(String), `os_minor` LowCardinality(String), `referrer` String, `request` String, `requesttime` Float64, `response` LowCardinality(String), `timestamp` DateTime64(3), `userAgent_family` LowCardinality(String), `userAgent_major` LowCardinality(String), `userAgent_minor` LowCardinality(String), `verb` LowCardinality(String), `xforwardfor` LowCardinality(String)) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, `@hostname`, `@path`, `@lineno`) SETTINGS index_granularity = 8192 │ ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, `@hostname`, `@path`, `@lineno`) SETTINGS index_granularity = 8192\"}"
-// @Router /api/v2/ck/table-schema/{clusterName} [get]
+// @Router /api/v1/ck/table_schema/{clusterName} [get]
 func (controller *ClickHouseController) ShowSchema(c *gin.Context) {
 	var schema model.ShowSchemaRsp
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -2766,7 +2789,7 @@ func verifySshPassword(c *gin.Context, conf *model.CKManClickHouseConfig, sshUse
 // @Failure 200 {string} json "{"code":"5000","msg":"参数不合法","data":""}"
 // @Failure 200 {string} json "{"code":"5801","msg":"数据插入失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":nil}"
-// @Router /api/v2/ck/config/{clusterName} [post]
+// @Router /api/v1/ck/config/{clusterName} [post]
 func (controller *ClickHouseController) ClusterSetting(c *gin.Context) {
 	var conf model.CKManClickHouseConfig
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -2821,7 +2844,7 @@ func (controller *ClickHouseController) ClusterSetting(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Failure 200 {string} json "{"code":"5600","msg":"序列化失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":nil}"
-// @Router /api/v2/ck/config/{clusterName} [get]
+// @Router /api/v1/ck/config/{clusterName} [get]
 func (controller *ClickHouseController) GetConfig(c *gin.Context) {
 	var err error
 	var resp model.GetConfigRsp
@@ -2859,7 +2882,7 @@ func (controller *ClickHouseController) GetConfig(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":{\"default\":{\"dist_centers\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_centers111\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_ckcenters\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_ckcenters2\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_centers\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_centers111\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_ckcenters\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"],\"dist_logic_ckcenters2\":[\"@message\",\"@topic\",\"@@id\",\"@rownumber\",\"@ip\",\"@collectiontime\",\"@hostname\",\"@path\",\"@timestamp\",\"@storageTime\"]}}}"
-// @Router /api/v2/ck/table-lists/{clusterName} [get]
+// @Router /api/v1/ck/table_lists/{clusterName} [get]
 func (controller *ClickHouseController) GetTableLists(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -2890,7 +2913,7 @@ func (controller *ClickHouseController) GetTableLists(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":""}"
-// @Router /api/v2/ck/query-explain/{clusterName} [get]
+// @Router /api/v1/ck/query_explain/{clusterName} [get]
 func (controller *ClickHouseController) QueryExplain(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	query := c.Query("query")
@@ -2919,7 +2942,7 @@ func (controller *ClickHouseController) QueryExplain(c *gin.Context) {
 // @Param clusterName path string true "cluster name" default(test)
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":""}"
-// @Router /api/v2/ck/query-history/{clusterName} [get]
+// @Router /api/v1/ck/query_history/{clusterName} [get]
 func (controller *ClickHouseController) QueryHistory(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	historys, err := repository.Ps.GetQueryHistoryByCluster(clusterName)
@@ -2939,7 +2962,7 @@ func (controller *ClickHouseController) QueryHistory(c *gin.Context) {
 // @Param clusterName path string true "cluster name" default(test)
 // @Failure 200 {string} json "{"code":"5803","msg":"数据删除失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":""}"
-// @Router /api/v2/ck/query-history/{clusterName} [delete]
+// @Router /api/v1/ck/query_history/{clusterName} [delete]
 func (controller *ClickHouseController) DeleteQuery(c *gin.Context) {
 	checksum := c.Query("checksum")
 	err := repository.Ps.DeleteQueryHistory(checksum)
@@ -2951,6 +2974,17 @@ func (controller *ClickHouseController) DeleteQuery(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, nil)
 }
 
+// @Summary 获取后台线程池状态
+// @Description 获取后台线程池状态
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
+// @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Router /api/v1/ck/backgroundpool/{clusterName} [get]
 func (controller *ClickHouseController) GetBackgroundPool(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
@@ -3325,6 +3359,20 @@ func genTTLExpress(ttls []model.CkTableTTL, storage *model.Storage) ([]string, e
 	return express, nil
 }
 
+// @Summary 迁移表
+// @Description 迁移表数据到另一个数据库
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.MigrateTableReq true "request body"
+// @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
+// @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
+// @Failure 200 {string} json "{"code":"5110","msg":"clickhouse连接失败","data":""}"
+// @Failure 200 {string} json "{"code":"5809","msg":"迁移表失败","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
+// @Router /api/v1/ck/table/migrate/{clusterName} [post]
 func (controller *ClickHouseController) MigrateTable(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 

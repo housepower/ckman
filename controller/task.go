@@ -39,7 +39,7 @@ func NewTaskController(wrapfunc Wrapfunc) *TaskController {
 // @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":nil}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":nil}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":{\"TaskId\":\"608e9e83-715e-7448-a149-9bef33f38cfe\",\"ClusterName\":\"usertest\",\"Type\":\"clickhouse\",\"Option\":{\"ZH\":\"升级集群\",\"EN\":\"Upgrade\"},\"NodeStatus\":[{\"Host\":\"192.168.110.10\",\"Status\":{\"ZH\":\"上传安装包\",\"EN\":\"Prepare\"}},{\"Host\":\"192.168.110.12\",\"Status\":{\"ZH\":\"上传安装包\",\"EN\":\"Prepare\"}},{\"Host\":\"192.168.110.14\",\"Status\":{\"ZH\":\"上传安装包\",\"EN\":\"Prepare\"}}]}}"
-// @Router /api/v2/task/{taskId} [get]
+// @Router /api/v1/task/{taskId} [get]
 func (controller *TaskController) GetTaskStatusById(c *gin.Context) {
 	taskId := c.Param(TaskIdPath)
 	if taskId == "" {
@@ -76,7 +76,7 @@ func (controller *TaskController) GetTaskStatusById(c *gin.Context) {
 // @Accept  json
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":nil}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":[{\"TaskId\":\"608e9e83-715e-7448-a149-9bef33f38cfe\",\"ClusterName\":\"usertest\",\"Type\":\"clickhouse\",\"Option\":{\"ZH\":\"升级集群\",\"EN\":\"Upgrade\"},\"Status\":\"Success\",\"Message\":\"Success\",\"CreateTime\":\"2022-08-15T10:38:52.319504494+08:00\",\"UpdateTime\":\"2022-08-15T10:39:22.177215927+08:00\",\"Duration\":\"29s\"},{\"TaskId\":\"c6ee8843-36ba-4c88-94dd-0f226cdf8377\",\"ClusterName\":\"abc\",\"Type\":\"clickhouse\",\"Option\":{\"ZH\":\"设置集群\",\"EN\":\"Setting\"},\"Status\":\"Success\",\"Message\":\"Success\",\"CreateTime\":\"2022-08-09T14:28:00.697211511+08:00\",\"UpdateTime\":\"2022-08-09T14:28:59.887673161+08:00\",\"Duration\":\"59s\"}]}"
-// @Router /api/v2/task/lists [get]
+// @Router /api/v1/task/lists [get]
 func (controller *TaskController) TasksList(c *gin.Context) {
 	tasks, err := repository.Ps.GetAllTasks()
 	if err != nil {
@@ -117,7 +117,7 @@ func (controller *TaskController) TasksList(c *gin.Context) {
 // @Tags task
 // @Accept  json
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":3}"
-// @Router /api/v2/task/running [get]
+// @Router /api/v1/task/running [get]
 func (controller *TaskController) GetRunningTaskCount(c *gin.Context) {
 	count := repository.Ps.GetEffectiveTaskCount()
 	controller.wrapfunc(c, model.E_SUCCESS, count)
@@ -135,7 +135,7 @@ func (controller *TaskController) GetRunningTaskCount(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5003","msg":"数据校验失败","data":nil}"
 // @Failure 200 {string} json "{"code":"5803","msg":"数据删除失败","data":nil}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","msg":nil}"
-// @Router /api/v2/task/{taskId} [delete]
+// @Router /api/v1/task/{taskId} [delete]
 func (controller *TaskController) DeleteTask(c *gin.Context) {
 	taskId := c.Param(TaskIdPath)
 	if taskId == "" {
@@ -174,7 +174,7 @@ func (controller *TaskController) DeleteTask(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5003","msg":"数据校验失败","data":nil}"
 // @Failure 200 {string} json "{"code":"5802","msg":"数据更新失败","data":nil}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","msg":nil}"
-// @Router /api/v2/task/{taskId} [put]
+// @Router /api/v1/task/{taskId} [put]
 func (controller *TaskController) StopTask(c *gin.Context) {
 	taskId := c.Param(TaskIdPath)
 	if taskId == "" {

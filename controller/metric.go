@@ -46,7 +46,7 @@ func NewMetricController(config *config.CKManConfig, wrapfunc Wrapfunc) *MetricC
 // @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"value":[1606290000,"2"]}]}"
-// @Router /api/v2/metric/query/{clusterName} [get]
+// @Router /api/v1/metric/query/{clusterName} [get]
 func (controller *MetricController) Query(c *gin.Context) {
 	var params model.MetricQueryReq
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -87,7 +87,7 @@ func (controller *MetricController) Query(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"values":[[1606290000,"2"],[1606290060,"2"],[1606290120,"2"]]}]}"
-// @Router /api/v2/metric/query-range/{clusterName} [get]
+// @Router /api/v1/metric/query-range/{clusterName} [get]
 func (controller *MetricController) QueryRange(c *gin.Context) {
 	var params model.MetricQueryRangeReq
 	clusterName := c.Param(ClickHouseClusterPath)
@@ -156,6 +156,20 @@ func (controller *MetricController) QueryRange(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, value)
 }
 
+// @Summary 查询单个指标
+// @Description 查询单个指标
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags metric
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Param metric query string true "metric name" default(ClickHouseMetrics_Read)
+// @Param start query string true "start time"
+// @Param end query string true "end time"
+// @Param step query string true "step"
+// @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":[{"metric":{"__name__":"ClickHouseMetrics_Read","instance":"192.168.101.105:9363","job":"clickhouse_exporter"},"value":[1606290000,"2"]}]}"
+// @Router /api/v1/metric/query_metric/{clusterName} [get]
 func (controller *MetricController) QueryMetric(c *gin.Context) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	conf, err := repository.Ps.GetClusterbyName(clusterName)

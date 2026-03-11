@@ -84,7 +84,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/archive/{clusterName}": {
+        "/api/v1/ck/archive/{clusterName}": {
             "post": {
                 "security": [
                     {
@@ -128,7 +128,42 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/cluster": {
+        "/api/v1/ck/backgroundpool/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取后台线程池状态",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "获取后台线程池状态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"5804\",\"msg\":\"数据查询失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/cluster": {
             "get": {
                 "security": [
                     {
@@ -187,7 +222,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/cluster/{clusterName}": {
+        "/api/v1/ck/cluster/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -255,7 +290,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/config/{clusterName}": {
+        "/api/v1/ck/config/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -341,7 +376,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/ddl_queue/{clusterName}": {
+        "/api/v1/ck/ddl_queue/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -376,7 +411,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/destroy/{clusterName}": {
+        "/api/v1/ck/destroy/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -417,7 +452,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/dist-logic-table/{clusterName}": {
+        "/api/v1/ck/dist_logic_table/{clusterName}": {
             "post": {
                 "security": [
                     {
@@ -503,7 +538,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/get/{clusterName}": {
+        "/api/v1/ck/get/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -538,7 +573,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/node/log/{clusterName}": {
+        "/api/v1/ck/node/log/{clusterName}": {
             "post": {
                 "security": [
                     {
@@ -588,7 +623,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/node/start/{clusterName}": {
+        "/api/v1/ck/node/start/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -629,7 +664,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/node/stop/{clusterName}": {
+        "/api/v1/ck/node/stop/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -670,7 +705,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/node/{clusterName}": {
+        "/api/v1/ck/node/{clusterName}": {
             "post": {
                 "security": [
                     {
@@ -767,7 +802,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/open-sessions/{clusterName}": {
+        "/api/v1/ck/open_sessions/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -854,7 +889,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/partition/operate/{clusterName}": {
+        "/api/v1/ck/partition/operate/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -898,7 +933,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/partition/{clusterName}": {
+        "/api/v1/ck/partition/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -999,7 +1034,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/ping/{clusterName}": {
+        "/api/v1/ck/ping/{clusterName}": {
             "post": {
                 "security": [
                     {
@@ -1043,7 +1078,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/purge-tables/{clusterName}": {
+        "/api/v1/ck/purge_tables/{clusterName}": {
             "post": {
                 "security": [
                     {
@@ -1087,7 +1122,50 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/query-explain/{clusterName}": {
+        "/api/v1/ck/query/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "查询SQL",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "查询SQL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "show databases",
+                        "description": "sql",
+                        "name": "query",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":[[\"name\"],[\"default\"],[\"system\"]]}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/query_explain/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -1122,7 +1200,50 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/query-history/{clusterName}": {
+        "/api/v1/ck/query_export/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "查询SQL",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "查询SQL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "show databases",
+                        "description": "sql",
+                        "name": "query",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":[[\"name\"],[\"default\"],[\"system\"]]}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/query_history/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -1190,93 +1311,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/query/{clusterName}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "查询SQL",
-                "consumes": [
-                    "application/json"
-                ],
-                "tags": [
-                    "clickhouse"
-                ],
-                "summary": "查询SQL",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "test",
-                        "description": "cluster name",
-                        "name": "clusterName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "default": "show databases",
-                        "description": "sql",
-                        "name": "query",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":[[\"name\"],[\"default\"],[\"system\"]]}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v2/ck/query_export/{clusterName}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "查询SQL",
-                "consumes": [
-                    "application/json"
-                ],
-                "tags": [
-                    "clickhouse"
-                ],
-                "summary": "查询SQL",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "test",
-                        "description": "cluster name",
-                        "name": "clusterName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "default": "show databases",
-                        "description": "sql",
-                        "name": "query",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":[[\"name\"],[\"default\"],[\"system\"]]}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v2/ck/rebalance/{clusterName}": {
+        "/api/v1/ck/rebalance/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -1327,7 +1362,50 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/slow-sessions/{clusterName}": {
+        "/api/v1/ck/rebalance_info/{clusterName}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取集群均衡信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "获取均衡信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/model.RebalanceTableReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"5000\",\"msg\":\"invalid params\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/slow_sessions/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -1381,7 +1459,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/start/{clusterName}": {
+        "/api/v1/ck/start/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -1422,7 +1500,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/stop/{clusterName}": {
+        "/api/v1/ck/stop/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -1463,212 +1541,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/table-all/{clusterName}": {
-            "delete": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "删除指定表及其所有关联表，包括本地表，分布式表，逻辑表，物化视图，本地聚合表，分布式聚合表，逻辑聚合表，聚合物化视图",
-                "consumes": [
-                    "application/json"
-                ],
-                "tags": [
-                    "clickhouse"
-                ],
-                "summary": "删除指定表及其所有关联表，包括本地表，分布式表，逻辑表，物化视图， 本地聚合表，分布式聚合表，逻辑聚合表，聚合物化视图",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "test",
-                        "description": "cluster name",
-                        "name": "clusterName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "default": "default",
-                        "description": "database name",
-                        "name": "database",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "default": "test_table",
-                        "description": "table name",
-                        "name": "tableName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":null}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v2/ck/table-lists/{clusterName}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "获取所有的分布式表和逻辑表",
-                "consumes": [
-                    "application/json"
-                ],
-                "tags": [
-                    "clickhouse"
-                ],
-                "summary": "获取分布式表List",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "test",
-                        "description": "cluster name",
-                        "name": "clusterName",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":{\\\"default\\\":{\\\"dist_centers\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_centers111\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_ckcenters\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_ckcenters2\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_centers\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_centers111\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_ckcenters\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_ckcenters2\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"]}}}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v2/ck/table-merges/{clusterName}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "获取表merge指标",
-                "consumes": [
-                    "application/json"
-                ],
-                "tags": [
-                    "clickhouse"
-                ],
-                "summary": "获取表merge指标",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "test",
-                        "description": "cluster name",
-                        "name": "clusterName",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":{\"sensor_dt_result_online\":{\"columns\":22,\"rows\":1381742496,\"parts\":192,\"space\":54967700946,\"completedQueries\":5,\"failedQueries\":0,\"queryCost\":{\"middle\":130,\"secondaryMax\":160.76,\"max\":162}}}}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v2/ck/table-metric/{clusterName}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "获取标指标",
-                "consumes": [
-                    "application/json"
-                ],
-                "tags": [
-                    "clickhouse"
-                ],
-                "summary": "获取表指标",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "test",
-                        "description": "cluster name",
-                        "name": "clusterName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "default": "default",
-                        "description": "filtered by database, if database is empty, select all databases",
-                        "name": "database",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "default": "columns,partitions,parts,compressed,uncompressed,is_readonly,queries,cost",
-                        "description": "return columns, if columns is empty, return all columns",
-                        "name": "columns",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":{\"sensor_dt_result_online\":{\"columns\":22,\"rows\":1381742496,\"parts\":192,\"space\":54967700946,\"completedQueries\":5,\"failedQueries\":0,\"queryCost\":{\"middle\":130,\"secondaryMax\":160.76,\"max\":162}}}}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v2/ck/table-schema/{clusterName}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "查看建表语句",
-                "consumes": [
-                    "application/json"
-                ],
-                "tags": [
-                    "clickhouse"
-                ],
-                "summary": "查看建表语句",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "test",
-                        "description": "cluster name",
-                        "name": "clusterName",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":\"{\\\"create_table_query\\\": \\\"CREATE TABLE default.apache_access_log (` + "`" + `@collectiontime` + "`" + ` DateTime, ` + "`" + `@hostname` + "`" + ` LowCardinality(String), ` + "`" + `@ip` + "`" + ` LowCardinality(String), ` + "`" + `@path` + "`" + ` String, ` + "`" + `@lineno` + "`" + ` Int64, ` + "`" + `@message` + "`" + ` String, ` + "`" + `agent` + "`" + ` String, ` + "`" + `auth` + "`" + ` String, ` + "`" + `bytes` + "`" + ` Int64, ` + "`" + `clientIp` + "`" + ` String, ` + "`" + `device_family` + "`" + ` LowCardinality(String), ` + "`" + `httpversion` + "`" + ` LowCardinality(String), ` + "`" + `ident` + "`" + ` String, ` + "`" + `os_family` + "`" + ` LowCardinality(String), ` + "`" + `os_major` + "`" + ` LowCardinality(String), ` + "`" + `os_minor` + "`" + ` LowCardinality(String), ` + "`" + `referrer` + "`" + ` String, ` + "`" + `request` + "`" + ` String, ` + "`" + `requesttime` + "`" + ` Float64, ` + "`" + `response` + "`" + ` LowCardinality(String), ` + "`" + `timestamp` + "`" + ` DateTime64(3), ` + "`" + `userAgent_family` + "`" + ` LowCardinality(String), ` + "`" + `userAgent_major` + "`" + ` LowCardinality(String), ` + "`" + `userAgent_minor` + "`" + ` LowCardinality(String), ` + "`" + `verb` + "`" + ` LowCardinality(String), ` + "`" + `xforwardfor` + "`" + ` LowCardinality(String)) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, ` + "`" + `@hostname` + "`" + `, ` + "`" + `@path` + "`" + `, ` + "`" + `@lineno` + "`" + `) SETTINGS index_granularity = 8192 │ ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, ` + "`" + `@hostname` + "`" + `, ` + "`" + `@path` + "`" + `, ` + "`" + `@lineno` + "`" + `) SETTINGS index_granularity = 8192\\\"}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v2/ck/table/dml/{clusterName}": {
+        "/api/v1/ck/table/dml/{clusterName}": {
             "post": {
                 "security": [
                     {
@@ -1712,7 +1585,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/table/group-uniq-array/{clusterName}": {
+        "/api/v1/ck/table/group_uniq_array/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -1822,7 +1695,51 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/table/orderby/{clusterName}": {
+        "/api/v1/ck/table/migrate/{clusterName}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "迁移表数据到另一个数据库",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "迁移表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MigrateTableReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"success\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/table/orderby/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -1866,7 +1783,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/table/readonly/{clusterName}": {
+        "/api/v1/ck/table/readonly/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -1901,7 +1818,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/table/ttl/{clusterName}": {
+        "/api/v1/ck/table/ttl/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -1945,7 +1862,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/table/view/{clusterName}": {
+        "/api/v1/ck/table/view/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -1989,7 +1906,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/table/{clusterName}": {
+        "/api/v1/ck/table/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -2181,7 +2098,212 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/truncate-table/{clusterName}": {
+        "/api/v1/ck/table_all/{clusterName}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除指定表及其所有关联表，包括本地表，分布式表，逻辑表，物化视图，本地聚合表，分布式聚合表，逻辑聚合表，聚合物化视图",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "删除指定表及其所有关联表，包括本地表，分布式表，逻辑表，物化视图， 本地聚合表，分布式聚合表，逻辑聚合表，聚合物化视图",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "default",
+                        "description": "database name",
+                        "name": "database",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "test_table",
+                        "description": "table name",
+                        "name": "tableName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/table_lists/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取所有的分布式表和逻辑表",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "获取分布式表List",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":{\\\"default\\\":{\\\"dist_centers\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_centers111\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_ckcenters\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_ckcenters2\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_centers\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_centers111\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_ckcenters\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"],\\\"dist_logic_ckcenters2\\\":[\\\"@message\\\",\\\"@topic\\\",\\\"@@id\\\",\\\"@rownumber\\\",\\\"@ip\\\",\\\"@collectiontime\\\",\\\"@hostname\\\",\\\"@path\\\",\\\"@timestamp\\\",\\\"@storageTime\\\"]}}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/table_merges/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取表merge指标",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "获取表merge指标",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":{\"sensor_dt_result_online\":{\"columns\":22,\"rows\":1381742496,\"parts\":192,\"space\":54967700946,\"completedQueries\":5,\"failedQueries\":0,\"queryCost\":{\"middle\":130,\"secondaryMax\":160.76,\"max\":162}}}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/table_metric/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取标指标",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "获取表指标",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "default",
+                        "description": "filtered by database, if database is empty, select all databases",
+                        "name": "database",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "columns,partitions,parts,compressed,uncompressed,is_readonly,queries,cost",
+                        "description": "return columns, if columns is empty, return all columns",
+                        "name": "columns",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":{\"sensor_dt_result_online\":{\"columns\":22,\"rows\":1381742496,\"parts\":192,\"space\":54967700946,\"completedQueries\":5,\"failedQueries\":0,\"queryCost\":{\"middle\":130,\"secondaryMax\":160.76,\"max\":162}}}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/table_schema/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "查看建表语句",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "查看建表语句",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":\"{\\\"create_table_query\\\": \\\"CREATE TABLE default.apache_access_log (` + "`" + `@collectiontime` + "`" + ` DateTime, ` + "`" + `@hostname` + "`" + ` LowCardinality(String), ` + "`" + `@ip` + "`" + ` LowCardinality(String), ` + "`" + `@path` + "`" + ` String, ` + "`" + `@lineno` + "`" + ` Int64, ` + "`" + `@message` + "`" + ` String, ` + "`" + `agent` + "`" + ` String, ` + "`" + `auth` + "`" + ` String, ` + "`" + `bytes` + "`" + ` Int64, ` + "`" + `clientIp` + "`" + ` String, ` + "`" + `device_family` + "`" + ` LowCardinality(String), ` + "`" + `httpversion` + "`" + ` LowCardinality(String), ` + "`" + `ident` + "`" + ` String, ` + "`" + `os_family` + "`" + ` LowCardinality(String), ` + "`" + `os_major` + "`" + ` LowCardinality(String), ` + "`" + `os_minor` + "`" + ` LowCardinality(String), ` + "`" + `referrer` + "`" + ` String, ` + "`" + `request` + "`" + ` String, ` + "`" + `requesttime` + "`" + ` Float64, ` + "`" + `response` + "`" + ` LowCardinality(String), ` + "`" + `timestamp` + "`" + ` DateTime64(3), ` + "`" + `userAgent_family` + "`" + ` LowCardinality(String), ` + "`" + `userAgent_major` + "`" + ` LowCardinality(String), ` + "`" + `userAgent_minor` + "`" + ` LowCardinality(String), ` + "`" + `verb` + "`" + ` LowCardinality(String), ` + "`" + `xforwardfor` + "`" + ` LowCardinality(String)) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, ` + "`" + `@hostname` + "`" + `, ` + "`" + `@path` + "`" + `, ` + "`" + `@lineno` + "`" + `) SETTINGS index_granularity = 8192 │ ReplicatedMergeTree('/clickhouse/tables/{cluster}/{shard}/default/apache_access_log', '{replica}') PARTITION BY toYYYYMMDD(timestamp) ORDER BY (timestamp, ` + "`" + `@hostname` + "`" + `, ` + "`" + `@path` + "`" + `, ` + "`" + `@lineno` + "`" + `) SETTINGS index_granularity = 8192\\\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/truncate_table/{clusterName}": {
             "delete": {
                 "security": [
                     {
@@ -2225,7 +2347,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/ck/upgrade/{clusterName}": {
+        "/api/v1/ck/upgrade/{clusterName}": {
             "put": {
                 "security": [
                     {
@@ -2275,7 +2397,42 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/deploy/ck": {
+        "/api/v1/ck/vm/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取物化视图状态",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "获取物化视图状态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"5804\",\"msg\":\"数据查询失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/deploy/ck": {
             "post": {
                 "security": [
                     {
@@ -2311,7 +2468,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/metric/query-range/{clusterName}": {
+        "/api/v1/metric/query-range/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -2370,7 +2527,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/metric/query/{clusterName}": {
+        "/api/v1/metric/query/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -2413,7 +2570,71 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/package": {
+        "/api/v1/metric/query_metric/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "查询单个指标",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "metric"
+                ],
+                "summary": "查询单个指标",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "ClickHouseMetrics_Read",
+                        "description": "metric name",
+                        "name": "metric",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "start time",
+                        "name": "start",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "end time",
+                        "name": "end",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "step",
+                        "name": "step",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":[{\"metric\":{\"__name__\":\"ClickHouseMetrics_Read\",\"instance\":\"192.168.101.105:9363\",\"job\":\"clickhouse_exporter\"},\"value\":[1606290000,\"2\"]}]}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/package": {
             "get": {
                 "security": [
                     {
@@ -2522,7 +2743,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/task/lists": {
+        "/api/v1/task/lists": {
             "get": {
                 "security": [
                     {
@@ -2547,7 +2768,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/task/running": {
+        "/api/v1/task/running": {
             "get": {
                 "security": [
                     {
@@ -2572,7 +2793,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/task/{taskId}": {
+        "/api/v1/task/{taskId}": {
             "get": {
                 "security": [
                     {
@@ -2673,7 +2894,50 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/zk/replicated-table/{clusterName}": {
+        "/api/v1/zk/replicated_queue/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取Zookeeper复制队列信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "zookeeper"
+                ],
+                "summary": "获取复制队列",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "default.test_table",
+                        "description": "table name",
+                        "name": "table",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"5080\",\"msg\":\"get zk queue fail\",\"data\":null}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/zk/replicated_table/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -2708,7 +2972,7 @@ var doc = `{
                 }
             }
         },
-        "/api/v2/zk/status/{clusterName}": {
+        "/api/v1/zk/status/{clusterName}": {
             "get": {
                 "security": [
                     {
@@ -3623,6 +3887,35 @@ var doc = `{
                     "type": "boolean"
                 },
                 "statement": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.MigrateTableReq": {
+            "type": "object",
+            "properties": {
+                "dryrun": {
+                    "type": "boolean"
+                },
+                "exclude_tables": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "include_tables": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "schema_only": {
+                    "type": "boolean"
+                },
+                "source_db": {
+                    "type": "string"
+                },
+                "target_db": {
                     "type": "string"
                 }
             }
