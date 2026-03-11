@@ -115,11 +115,19 @@ func profiles(userProfiles []model.Profile, info HostInfo, version string) map[s
 			if prof.MaxMemoryUsage > int64((info.MemoryTotal/2)*1e3) {
 				prof.MaxMemoryUsage = int64((info.MemoryTotal / 2) * 1e3)
 			}
-			normalProfile["max_memory_usage"] = prof.MaxMemoryUsage
+			if prof.MaxMemoryUsage > 0 {
+				normalProfile["max_memory_usage"] = prof.MaxMemoryUsage
+			} else if common.FloatIsBigger(prof.MaxMemoryPercent, 0.0) {
+				normalProfile["max_memory_usage"] = int64(float64(info.MemoryTotal) * prof.MaxMemoryPercent * 1e3)
+			}
 			if prof.MaxMemoryUsageForAllQueries > int64(((info.MemoryTotal*3)/4)*1e3) {
 				prof.MaxMemoryUsageForAllQueries = int64(((info.MemoryTotal * 3) / 4) * 1e3)
 			}
-			normalProfile["max_memory_usage_for_all_queries"] = prof.MaxMemoryUsageForAllQueries
+			if prof.MaxMemoryPercentForAllQueries > 0 {
+				normalProfile["max_memory_usage_for_all_queries"] = prof.MaxMemoryUsageForAllQueries
+			} else if common.FloatIsBigger(prof.MaxMemoryPercentForAllQueries, 0.0) {
+				normalProfile["max_memory_usage_for_all_queries"] = int64(float64(info.MemoryTotal) * prof.MaxMemoryPercentForAllQueries * 1e3)
+			}
 			normalProfile["max_execution_time"] = prof.MaxExecutionTime
 			normalProfile["max_backup_bandwidth"] = prof.MaxBackupBandwidth
 			normalProfile["max_bytes_to_read"] = prof.MaxBytesToRead

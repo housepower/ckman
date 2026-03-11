@@ -4,8 +4,19 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"strconv"
 )
+
+const MIN = 0.000001
+
+func FloatIsEqual(f1, f2 float64) bool {
+	return math.Abs(f1-f2) < MIN
+}
+
+func FloatIsBigger(f1, f2 float64) bool {
+	return f1-f2 > MIN
+}
 
 func MaxInt(x, y int) int {
 	if x > y {

@@ -19,3 +19,5 @@ pkged.go
 static/dist/
 coverage.xml
 coverage.txt
+node_modules
+yarn.lock

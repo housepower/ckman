@@ -253,9 +253,11 @@ type Profile struct {
 	AllowDDL   int
 	MaxThreads int
 	// https://clickhouse.tech/docs/en/operations/settings/query-complexity/
-	MaxMemoryUsage              int64
-	MaxMemoryUsageForAllQueries int64
-	MaxExecutionTime            int64
+	MaxMemoryUsage                int64
+	MaxMemoryPercent              float64
+	MaxMemoryUsageForAllQueries   int64
+	MaxMemoryPercentForAllQueries float64
+	MaxExecutionTime              int64
 	// 服务器上特定备份的最大读取速率（以每秒字节数计）。0 表示不受限制。
 	MaxBackupBandwidth int64
 	// 在执行查询时，从表中可读取的未压缩数据的最大字节数。 该限制会在每个处理的数据块上进行检查，仅适用于最深层的表表达式；
