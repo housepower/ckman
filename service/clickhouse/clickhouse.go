@@ -240,8 +240,8 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 
 	// get columns
 	if common.ArraySearch("columns", cols) || len(cols) == 0 {
-		query = fmt.Sprintf("SELECT table, count() as columns, database FROM system.columns WHERE database in ('%s') GROUP BY table, database",
-			dbs)
+		query = fmt.Sprintf("SELECT table, count() as columns, database FROM cluster('%s', system.columns) WHERE database in ('%s') GROUP BY table, database",
+			conf.Cluster, dbs)
 		value, err = service.QueryInfo(query)
 		if err != nil {
 			return nil, err
