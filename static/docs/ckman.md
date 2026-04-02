@@ -36,14 +36,26 @@
 
 -   部署`ClickHouse`集群
 -   导入`ClickHouse`集群
--   升级`ClickHouse`集群
+-   升级`ClickHouse`集群（支持全量升级和滚动升级）
 -   增加或删除集群节点
 -   对集群（或节点）进行启停
--   实现数据再均衡
--   存储策略配置
--   用户权限配额控制
+-   实现数据再均衡（支持按`partition`和按`sharding key`两种模式）
+-   存储策略配置（支持`local`、`HDFS`、`S3`多种磁盘类型）
+-   用户权限配额控制（支持管理员、普通用户、访客三种角色）
 -   集群配置文件最佳实践及定制化能力 
--   简单`SQL`查询能力
+-   简单`SQL`查询能力（含`EXPLAIN`查询计划、`CSV`导出）
+-   表管理（创建、修改、删除、截断、`TTL`管理、`ORDER BY`修改）
+-   分区管理（查看、删除、冻结/解冻分区）
+-   物化视图管理（创建、删除、状态查看）
+-   `groupUniqArray`聚合表管理
+-   数据备份与恢复（支持本地、`S3`存储目标，支持定时备份）
+-   数据归档（支持本地、`HDFS`、`S3`存储目标）
+-   数据清理（按时间范围清理历史数据）
+-   表迁移（跨数据库迁移表）
+-   `DML`操作（对逻辑集群表执行`UPDATE`/`DELETE`）
+-   `ClickHouse Keeper`部署与管理
+-   异步任务管理（查看、停止、删除运维任务）
+-   节点日志查看
 
 ### 监控ClickHouse集群
 
@@ -53,6 +65,11 @@
 -   监控集群分布式表相关指标
 -   监控副本状态相关指标
 -   监控慢`SQL`等相关指标
+-   监控分布式`DDL`队列状态
+-   监控表合并（`Merges`）操作状态
+-   监控后台线程池状态
+-   `Prometheus`指标暴露（`/metrics`端点）
+-   `HTTP`服务发现（支持`Prometheus`自动发现监控目标）
 
 ## 如何部署ckman
 
@@ -168,6 +185,14 @@ make frontend
 -   `task_interval`
     -   执行异步运维动作的扫描时间间隔
     -   前端请求部署、升级、销毁以及增删节点等比较耗时的操作时，`ckman`先记录状态，然后使用另外的协程异步扫描处理，异步扫描的时间间隔通过该参数可配，默认为`5`秒
+-   `pkg_path`
+    -   安装包存储路径，默认为`ckman`工作目录
+-   `metric`
+    -   是否开启`Prometheus`指标暴露
+    -   默认为`true`
+-   `metric_path`
+    -   `Prometheus`指标暴露路径
+    -   默认为`/metrics`
 -   `persistant_policy`
     -   持久化策略，主要用来存储集群的配置信息，包括集群配置、逻辑集群映射关系 、查询语句历史记录、运维操作状态等。
     -   持久化策略支持`local`、`mysql`和`postgres`
@@ -215,6 +240,9 @@ clickhouse连接池相关设置。
 
 -   `sync_dist_schema`
     -   同步集群内物理表的`schema`，默认10分钟一次
+
+-   `clear_znodes`
+    -   清理`ZooKeeper`节点的定时任务
 
 
 ## persistent_config
@@ -277,8 +305,10 @@ clickhouse连接池相关设置。
     -   登录`nacos`的用户名
 -   `password`
     -   登录`nacos`的密码，加密规则同持久化策略数据库密码，同样，如果需要加密，需要以`ENC()`将密文包含起来。
--   `namespace`
-    -   指定`nacos`的`namespace`，默认为`DEFAULT`
+-   `namespace_id`
+    -   指定`nacos`的`namespace ID`
+-   `beat_interval`
+    -   心跳间隔时间，单位毫秒，默认为`5000`
 -   `group`
     -   向`nacos`注册的服务所在的组
     -    默认为`DEFAULT_GROUP`
@@ -664,6 +694,18 @@ clickhouse连接池相关设置。
 
 ![image-20210726112101073](img/image-20210726112101073.png)
 
+### Distributed DDL Queue
+
+显示集群的分布式`DDL`队列状态，可以查看当前正在执行或等待执行的分布式`DDL`操作。
+
+### Table Merges
+
+查看集群中正在进行的表合并（`Merge`）操作状态。可以了解当前各节点的合并进度和资源使用情况。
+
+### Background Pool
+
+查看`ClickHouse`后台线程池的状态，包括`Merge`、`Mutation`等后台任务的线程使用情况。
+
 ## Query管理
 
 `ckman`还提供了简单的`clickhouse`查询的页面。通过该页面可以查询集群中的数据。
@@ -677,6 +719,77 @@ clickhouse连接池相关设置。
 >   该工具主要针对分布式表，本地表也能查，但是如果本地表在集群的其他节点不存在，就会报错。即使表在所有节点都存在，查询出来的数据也是某个节点的数据，因此每次查询出来的数据可能不一致。
 >
 >   默认情况下，`sql`随机挑选一个节点执行，因此返回的结果依赖于该节点的本地查询情况，如果查询的是本地表，则结果可能是不一致的。可以通过右上角的下拉框指定执行`sql`的节点。
+
+除了基本的查询功能外，`ckman`还支持以下查询相关功能：
+
+-   **查询计划（EXPLAIN）**：可以查看`SQL`的执行计划，帮助优化查询性能。
+-   **查询导出（CSV）**：支持将查询结果导出为`CSV`格式文件。
+-   **查询历史**：记录历史查询语句，方便查看和复用。支持删除历史记录。
+
+## 分区管理
+
+`ckman`提供了分区管理功能，可以对集群中的表分区进行查看和操作。
+
+-   **查看分区**：获取指定表的分区信息，包括分区名称、行数、磁盘占用等。支持同时查看多个表的分区信息。
+-   **删除分区**：按分区`ID`删除指定分区的数据。
+-   **操作分区**：支持冻结（`FREEZE`）、解冻（`UNFREEZE`）等分区操作。
+
+## 物化视图管理
+
+`ckman`支持对`ClickHouse`集群的物化视图进行管理：
+
+-   **创建/删除物化视图**：通过界面创建或删除物化视图。
+-   **查看物化视图状态**：查看集群中物化视图的运行状态。
+-   **groupUniqArray聚合**：支持创建基于`groupUniqArray`的聚合表，并可查询和删除。
+
+## 数据备份与恢复
+
+`ckman`提供了完整的数据备份与恢复功能：
+
+### 数据备份
+
+支持对集群数据进行备份操作：
+
+-   **备份目标**：支持备份到本地文件系统和`S3`存储。
+-   **备份方式**：支持立即备份和定时备份（通过`cron`表达式配置）。
+-   **备份粒度**：支持全量备份和分区级别的备份。
+-   **压缩支持**：支持多种压缩格式（`gzip`、`brotli`、`xz`、`zstd`等）。
+-   **自动清理**：支持配置备份保留天数，自动清理过期备份。
+-   **备份历史**：可查看备份历史记录和备份详情。
+
+### 数据恢复
+
+支持从已有的备份中恢复数据到集群。
+
+## 表迁移
+
+支持将表从一个数据库迁移到另一个数据库，方便数据库重组和管理。
+
+## 节点日志
+
+支持在界面上直接查看`ClickHouse`节点的日志信息，包括普通日志和错误日志，方便排查问题。
+
+## 任务管理
+
+`ckman`中的部署、升级、销毁、增删节点、数据均衡、数据归档等耗时操作均以异步任务的方式执行。任务管理功能包括：
+
+-   **任务列表**：查看所有任务及其状态（等待中、运行中、成功、失败、已停止）。
+-   **任务详情**：查看指定任务的详细执行状态，包括各节点的执行进度。
+-   **停止任务**：可停止正在等待或运行中的任务。
+-   **删除任务**：删除已完成或已停止的任务记录。
+-   **运行中任务计数**：查看当前正在运行的任务数量。
+
+## 用户权限管理
+
+`ckman`支持基于角色的访问控制（`RBAC`），内置三种角色：
+
+-   **管理员（Admin）**：拥有所有操作权限，可以进行集群部署、销毁、节点管理、配置修改等操作。
+-   **普通用户（Ordinary）**：可以进行表管理、查询、数据操作（`DML`）、备份恢复、分区管理等操作，但不能进行集群级别的运维操作。
+-   **访客（Guest）**：只有只读权限，可以查看集群状态、表信息、监控指标等，但不能进行任何修改操作。
+
+认证方式支持：
+-   `JWT Token`认证：标准的`Token`认证方式，`Token`绑定客户端`IP`，超时自动失效。
+-   统一门户`Token`认证：通过`RSA`加密的用户`Token`，优先级高于`JWT`认证。
 
 ## 配置管理
 
@@ -1400,14 +1513,6 @@ ckman会将计算出来的数据插入到对应分片的一个本地临时表内
 >       -   是否跳过相同版本
 >       -   实时查询各节点的版本号，如过数据库无法连接，则强制升级
 
-### [GET]/api/v1/config
-
-获取`ckman`配置。
-
-### [PUT]/api/v1/config
-
-修改`ckman`配置。
-
 ### [POST]/api/v1/deploy/ck
 
 部署集群。
@@ -1583,14 +1688,193 @@ ckman会将计算出来的数据插入到对应分片的一个本地临时表内
 
 获取复制表状态。统计复制表的一些状态。
 
-### [GET]/api/v1/status/{clusterName}
+### [GET]/api/v1/zk/replicated_queue/{clusterName}
 
-`zookeeper`的相关指标查看。
+获取复制队列信息，查看`ReplicatedMergeTree`表的复制队列状态。
+
+### [DELETE]/api/v1/ck/truncate_table/{clusterName}
+
+截断表数据。通过`tableName`和`database`参数指定要截断的表。
+
+### [PUT]/api/v1/ck/table/ttl/{clusterName}
+
+修改或删除表的`TTL`设置。
+
+### [PUT]/api/v1/ck/table/readonly/{clusterName}
+
+修复只读副本状态。当副本处于只读状态时，可通过该接口恢复。
+
+### [PUT]/api/v1/ck/table/orderby/{clusterName}
+
+修改表的`ORDER BY`和`PARTITION BY`设置。
+
+### [PUT]/api/v1/ck/table/view/{clusterName}
+
+创建或删除物化视图。
+
+### [GET]/api/v1/ck/vm/{clusterName}
+
+获取物化视图的状态信息。
+
+### [POST]/api/v1/ck/table/group_uniq_array/{clusterName}
+
+创建基于`groupUniqArray`的聚合表。
+
+### [GET]/api/v1/ck/table/group_uniq_array/{clusterName}
+
+查询`groupUniqArray`聚合表。
+
+### [DELETE]/api/v1/ck/table/group_uniq_array/{clusterName}
+
+删除`groupUniqArray`聚合表。
+
+### [DELETE]/api/v1/ck/table_all/{clusterName}
+
+删除指定的表及其所有关联表（物化视图、聚合表等）。
+
+### [POST]/api/v1/ck/table/dml/{clusterName}
+
+对逻辑集群表执行`DML`操作（`UPDATE`/`DELETE`）。
+
+### [POST]/api/v1/ck/table/migrate/{clusterName}
+
+将表从一个数据库迁移到另一个数据库。
+
+### [GET]/api/v1/ck/query_explain/{clusterName}
+
+获取`SQL`的执行计划（`EXPLAIN`）。
+
+### [GET]/api/v1/ck/query_export/{clusterName}
+
+查询并将结果导出为`CSV`格式。
+
+### [DELETE]/api/v1/ck/query_history/{clusterName}
+
+清除查询历史记录。
+
+### [GET]/api/v1/ck/table_lists/{clusterName}
+
+获取集群中所有的分布式表和逻辑表列表，包含列信息。
+
+### [GET]/api/v1/ck/backgroundpool/{clusterName}
+
+获取后台线程池状态，包括`Merge`、`Mutation`等后台任务的线程使用情况。
+
+### [GET]/api/v1/ck/table_merges/{clusterName}
+
+获取集群中正在进行的表合并操作信息。
+
+### [PUT]/api/v1/ck/open_sessions/{clusterName}
+
+终止正在执行的查询。通过`query_id`或`host`参数指定要终止的查询。
+
+### [GET]/api/v1/ck/ddl_queue/{clusterName}
+
+获取分布式`DDL`队列状态。
+
+### [POST]/api/v1/ck/node/log/{clusterName}
+
+获取`ClickHouse`节点的日志信息，支持查看普通日志和错误日志。
+
+### [GET]/api/v1/ck/partition/{clusterName}
+
+获取指定表的分区信息。
+
+### [POST]/api/v1/ck/partition/{clusterName}
+
+获取多个表的分区信息。
+
+### [DELETE]/api/v1/ck/partition/{clusterName}
+
+按分区`ID`删除指定分区。
+
+### [PUT]/api/v1/ck/partition/{clusterName}
+
+操作分区，支持冻结（`FREEZE`）、解冻（`UNFREEZE`）等操作。
+
+### [POST]/api/v1/ck/rebalance_info/{clusterName}
+
+获取数据再均衡的相关信息，在执行均衡前可先查看。
+
+### [GET]/api/v1/ck/config/{clusterName}
+
+获取指定集群的当前配置信息。
+
+### [POST]/api/v1/ck/config/{clusterName}
+
+修改集群配置。可修改存储策略、用户配置、`Profile`、`Quota`、端口等配置项。`ckman`会根据修改的内容决定集群是否需要重启。
+
+### [GET]/api/v1/metric/query_metric/{clusterName}
+
+从`ClickHouse`系统表（`metric_log`、`asynchronous_metric_log`）直接查询指标数据。
+
+### [GET]/api/v1/version
+
+获取`ckman`的版本信息。
+
+### [GET]/api/v1/instances
+
+获取`ckman`集群实例列表（多实例部署时使用）。
+
+### [GET]/api/v1/ui/schema
+
+获取前端`UI`表单的`JSON Schema`定义，用于动态生成部署、配置等表单。
+
+### [GET]/api/v1/task/{taskId}
+
+获取指定任务的详细状态信息。
+
+### [GET]/api/v1/task/lists
+
+获取所有任务列表，包含任务类型、状态、耗时等信息。
+
+### [GET]/api/v1/task/running
+
+获取当前正在运行的任务数量。
+
+### [DELETE]/api/v1/task/{taskId}
+
+删除指定的任务记录（仅可删除已完成或已停止的任务）。
+
+### [PUT]/api/v1/task/{taskId}
+
+停止指定的任务（仅可停止等待中或运行中的任务）。
+
+### [POST]/api/v1/data_manage/backup/{clusterName}
+
+创建数据备份任务。
+
+>   -   支持立即备份和定时备份（通过`cron`表达式）
+>   -   支持全量备份和分区级别备份
+>   -   备份目标支持本地文件系统和`S3`
+>   -   支持配置压缩格式和备份保留天数
+
+### [POST]/api/v1/data_manage/restore/{clusterName}
+
+从备份中恢复数据。
+
+### [GET]/api/v1/data_manage/backup/{clusterName}
+
+获取指定集群的备份历史记录。
+
+### [DELETE]/api/v1/data_manage/backup/{backupId}
+
+删除备份记录，如果是定时备份则同时停止定时任务。
+
+### [GET]/api/v1/data_manage/backup_history/{backupId}
+
+获取指定备份的详细信息。
 
 # RoadMap
 
--   [ ] 监控集成`grafna`
--   [ ] 支持只读用户
+-   [ ] 监控集成`Grafana`
 -   [ ] 云原生适配 
--   [ ] `clickhouse-keeper`支持
+-   [x] 支持只读用户（已实现，通过`RBAC`访客角色支持）
+-   [x] `ClickHouse Keeper`支持（已实现，支持部署、升级、销毁、配置管理）
+-   [x] 数据备份与恢复（已实现，支持本地和`S3`存储）
+-   [x] `DM8`达梦数据库持久化支持（已实现）
+-   [x] `Prometheus`指标暴露（已实现）
+-   [x] 物化视图管理（已实现）
+-   [x] 分区管理（已实现）
+-   [x] 异步任务管理（已实现）
 
