@@ -98,7 +98,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 			return errors.Errorf("cwd can't be empty for tgz deployment")
 		}
 		if !strings.HasSuffix(conf.Cwd, "/") {
-			return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.Cwd))
+			return errors.Errorf("path %s must end with '/'", conf.Cwd)
 		}
 		conf.NeedSudo = false
 		if err = checkAccess(conf.Cwd, conf); err != nil {
@@ -153,7 +153,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 			return errors.Errorf("keeper runtime %s is not supported", conf.KeeperConf.Runtime)
 		}
 		if !strings.HasSuffix(conf.KeeperConf.Path, "/") {
-			return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.KeeperConf.Path))
+			return errors.Errorf("path %s must end with '/'", conf.KeeperConf.Path)
 		}
 		if err := checkAccess(conf.KeeperConf.Path, conf); err != nil {
 			return errors.Wrapf(err, "check access error")
@@ -191,7 +191,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 	}
 
 	if !strings.HasSuffix(conf.Path, "/") {
-		return errors.Errorf(fmt.Sprintf("path %s must end with '/'", conf.Path))
+		return errors.Errorf("path %s must end with '/'", conf.Path)
 	}
 	if err = checkAccess(conf.Path, conf); err != nil {
 		return errors.Wrap(err, "")
@@ -209,7 +209,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 			switch disk.Type {
 			case "local":
 				if !strings.HasSuffix(disk.DiskLocal.Path, "/") {
-					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+					return errors.Errorf("path %s must end with '/'", disk.DiskLocal.Path)
 				}
 				if err = checkAccess(disk.DiskLocal.Path, conf); err != nil {
 					return err
@@ -217,7 +217,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 				localPath = append(localPath, disk.DiskLocal.Path)
 			case "hdfs":
 				if !strings.HasSuffix(disk.DiskHdfs.Endpoint, "/") {
-					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+					return errors.Errorf("path %s must end with '/'", disk.DiskHdfs.Endpoint)
 				}
 				if common.CompareClickHouseVersion(conf.Version, "21.9") < 0 {
 					return errors.Errorf("clickhouse do not support hdfs storage policy while version < 21.9 ")
@@ -225,7 +225,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 				hdfsEndpoints = append(hdfsEndpoints, disk.DiskHdfs.Endpoint)
 			case "s3":
 				if !strings.HasSuffix(disk.DiskS3.Endpoint, "/") {
-					return errors.Errorf(fmt.Sprintf("path %s must end with '/'", disk.DiskLocal.Path))
+					return errors.Errorf("path %s must end with '/'", disk.DiskS3.Endpoint)
 				}
 				s3Endpoints = append(s3Endpoints, disk.DiskS3.Endpoint)
 			default:

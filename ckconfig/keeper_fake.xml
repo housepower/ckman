@@ -1,7 +1,7 @@
 <clickhouse>
     <keeper_server>
         <coordination_settings>
-            <auto_forwarding>false</auto_forwarding>
+            <auto_forwarding>true</auto_forwarding>
             <force_sync>true</force_sync>
             <operation_timeout_ms>10000</operation_timeout_ms>
             <session_timeout_ms>30000</session_timeout_ms>

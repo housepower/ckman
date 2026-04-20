@@ -23,7 +23,7 @@ func TestTgzPkg_StopCmd(t *testing.T) {
 func TestTgzPkg_RestartCmd(t *testing.T) {
 	p := TgzFacotry{}.Create()
 	out := p.RestartCmd("clickhouse-server", "/home/eoi/clickhouse")
-	expect := `ps -ef |grep /home/eoi/clickhouse/bin/clickhouse-server |grep -v grep |awk '{print $2}' |xargs kill;/home/eoi/clickhouse/bin/clickhouse-server --config-file=/home/eoi/clickhouse/etc/clickhouse-server/config.xml --pid-file=/home/eoi/clickhouse/run/clickhouse-server.pid --daemon`
+	expect := `ps -ef |grep /home/eoi/clickhouse/bin/clickhouse-server |grep -v grep |awk '{print $2}' |xargs kill; sleep 5;/home/eoi/clickhouse/bin/clickhouse-server --config-file=/home/eoi/clickhouse/etc/clickhouse-server/config.xml --pid-file=/home/eoi/clickhouse/run/clickhouse-server.pid --daemon`
 	assert.Equal(t, expect, out)
 }
 
@@ -38,7 +38,7 @@ func TestTgzPkg_InstallCmd(t *testing.T) {
 	}
 	p := TgzFacotry{}.Create()
 	out := p.InstallCmd(CkSvrName, pkgs)
-	expect := `mkdir -p /home/eoi/clickhouse/bin /home/eoi/clickhouse/etc/clickhouse-server/config.d /home/eoi/clickhouse/etc/clickhouse-server/users.d /home/eoi/clickhouse/log/clickhouse-server /home/eoi/clickhouse/run /home/eoi/clickhouse/data/clickhouse;tar -xvf /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-common-static-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;tar -xvf /tmp/clickhouse-server-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-server-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-server-22.3.6.5/etc/clickhouse-* /home/eoi/clickhouse/etc/;tar -xvf /tmp/clickhouse-client-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-client-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-client-22.3.6.5/etc/clickhouse-* /home/eoi/clickhouse/etc/`
+	expect := `mkdir -p /home/eoi/clickhouse/bin /home/eoi/clickhouse/etc/clickhouse-server/config.d /home/eoi/clickhouse/etc/clickhouse-server/users.d /home/eoi/clickhouse/log/clickhouse-server /home/eoi/clickhouse/run;tar -xf /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-common-static-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;tar -xf /tmp/clickhouse-server-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-server-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-server-22.3.6.5/etc/clickhouse-server /home/eoi/clickhouse/etc/;tar -xf /tmp/clickhouse-client-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-client-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-client-22.3.6.5/etc/clickhouse-client /home/eoi/clickhouse/etc/`
 	assert.Equal(t, expect, out)
 }
 
@@ -68,7 +68,7 @@ func TestTgzPkg_UpgradeCmd(t *testing.T) {
 	}
 	p := TgzFacotry{}.Create()
 	out := p.UpgradeCmd(CkSvrName, pkgs)
-	expect := `mkdir -p /home/eoi/clickhouse/bin /home/eoi/clickhouse/etc/clickhouse-server/config.d /home/eoi/clickhouse/etc/clickhouse-server/users.d /home/eoi/clickhouse/log/clickhouse-server /home/eoi/clickhouse/run /home/eoi/clickhouse/data/clickhouse;tar -xvf /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-common-static-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;tar -xvf /tmp/clickhouse-server-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-server-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-server-22.3.6.5/etc/clickhouse-* /home/eoi/clickhouse/etc/;tar -xvf /tmp/clickhouse-client-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-client-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-client-22.3.6.5/etc/clickhouse-* /home/eoi/clickhouse/etc/`
+	expect := `mkdir -p /home/eoi/clickhouse/bin /home/eoi/clickhouse/etc/clickhouse-server/config.d /home/eoi/clickhouse/etc/clickhouse-server/users.d /home/eoi/clickhouse/log/clickhouse-server /home/eoi/clickhouse/run;tar -xf /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-common-static-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;tar -xf /tmp/clickhouse-server-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-server-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-server-22.3.6.5/etc/clickhouse-server /home/eoi/clickhouse/etc/;tar -xf /tmp/clickhouse-client-22.3.6.5-amd64.tgz -C /tmp;cp -rf /tmp/clickhouse-client-22.3.6.5/usr/bin/* /home/eoi/clickhouse/bin;cp -rf /tmp/clickhouse-client-22.3.6.5/etc/clickhouse-client /home/eoi/clickhouse/etc/`
 	assert.Equal(t, expect, out)
 }
 
@@ -180,7 +180,7 @@ func TestDebPkg_UninstallCmd(t *testing.T) {
 	}
 	p := DebFacotry{}.Create()
 	out := p.Uninstall(CkSvrName, pkgs, "22.3.6.5")
-	expect := `dpkg -P clickhouse-client clickhouse-common-static  clickhouse-server`
+	expect := `dpkg -P clickhouse-client clickhouse-common-static clickhouse-server`
 	assert.Equal(t, expect, out)
 }
 

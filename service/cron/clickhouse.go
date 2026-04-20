@@ -401,7 +401,7 @@ func syncSchema(conn *common.Conn, allCols, cols common.Map, database, table, on
 	}
 	// local table
 	if err := alterTable(conn, database, table, oncluster, strings.Join(columns, ","), version); err != nil {
-		return errors.Wrapf(err, table)
+		return errors.Wrap(err, table)
 	}
 	return nil
 }
