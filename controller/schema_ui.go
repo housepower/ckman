@@ -794,9 +794,9 @@ Non-professionals please do not fill in this`,
 		Default:       "0.5",
 		Required:      "false",
 	})
-	params.MustRegister(profile, "MaxMemoryPercentForAllUsers", &common.Parameter{
+	params.MustRegister(profile, "MaxMemoryPercentForAllQueries", &common.Parameter{
 		LabelZH:       "用户查询可用最大内存（百分比）",
-		LabelEN:       "MaxMemoryPercentForAllUsers",
+		LabelEN:       "MaxMemoryPercentForAllQueries",
 		DescriptionZH: "用于在单个服务器上运行查询的最大RAM量（百分比）",
 		DescriptionEN: "The maximum amount of RAM to use for running a query on a single server.",
 		Range:         &common.Range{Min: 0.0, Max: 1.0},
@@ -1707,9 +1707,9 @@ Non-professionals please do not fill in this`,
 		Default:       "0.5",
 		Required:      "false",
 	})
-	params.MustRegister(profile, "MaxMemoryPercentForAllUsers", &common.Parameter{
+	params.MustRegister(profile, "MaxMemoryPercentForAllQueries", &common.Parameter{
 		LabelZH:       "用户查询可用最大内存（百分比）",
-		LabelEN:       "MaxMemoryPercentForAllUsers",
+		LabelEN:       "MaxMemoryPercentForAllQueries",
 		DescriptionZH: "用于在单个服务器上运行查询的最大RAM量（百分比）",
 		DescriptionEN: "The maximum amount of RAM to use for running a query on a single server.",
 		Range:         &common.Range{Min: 0.0, Max: 1.0},

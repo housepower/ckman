@@ -240,19 +240,8 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 
 	// get columns
 	if common.ArraySearch("columns", cols) || len(cols) == 0 {
-		query = fmt.Sprintf("SELECT table, count() as columns, database FROM cluster('%s', system.columns) WHERE database in ('%s') GROUP BY table, database",
-			conf.Cluster, dbs)
-		value, err = service.QueryInfo(query)
-		if err != nil {
+		if err = getCkTableMetricColumns(conf, metrics, dbs); err != nil {
 			return nil, err
-		}
-		for i := 1; i < len(value); i++ {
-			table := value[i][0].(string)
-			database := value[i][2].(string)
-			tableName := fmt.Sprintf("%s.%s", database, table)
-			if metric, ok := metrics[tableName]; ok {
-				metric.Columns = value[i][1].(uint64)
-			}
 		}
 	}
 
@@ -314,6 +303,86 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 	}
 
 	return metrics, nil
+}
+
+func getCkTableMetricColumns(conf *model.CKManClickHouseConfig, metrics map[string]*model.CkTableMetrics, dbs string) error {
+	query := fmt.Sprintf("SELECT table, count() as columns, database FROM system.columns WHERE database in ('%s') GROUP BY table, database", dbs)
+
+	var lastErr error
+	var queryOK bool
+	for _, host := range conf.Hosts {
+		conn, err := common.ConnectClickHouse(host, model.ClickHouseDefaultDB, conf.GetConnOption())
+		if err != nil {
+			lastErr = err
+			log.Logger.Warnf("connect clickhouse %s failed when get table columns: %v", host, err)
+			continue
+		}
+
+		service := &CkService{
+			Config: conf,
+			Conn:   conn,
+		}
+		value, err := service.QueryInfo(query)
+		if err != nil {
+			lastErr = err
+			log.Logger.Warnf("query table columns from %s failed: %v", host, err)
+			continue
+		}
+
+		queryOK = true
+		mergeCkTableMetricColumns(metrics, value)
+	}
+	if !queryOK {
+		return lastErr
+	}
+	return nil
+}
+
+func mergeCkTableMetricColumns(metrics map[string]*model.CkTableMetrics, value [][]interface{}) {
+	for i := 1; i < len(value); i++ {
+		if len(value[i]) < 3 {
+			continue
+		}
+		table, ok := value[i][0].(string)
+		if !ok {
+			continue
+		}
+		columns, ok := ckMetricUint64(value[i][1])
+		if !ok {
+			continue
+		}
+		database, ok := value[i][2].(string)
+		if !ok {
+			continue
+		}
+		tableName := fmt.Sprintf("%s.%s", database, table)
+		if metric, ok := metrics[tableName]; ok && columns > metric.Columns {
+			metric.Columns = columns
+		}
+	}
+}
+
+func ckMetricUint64(v interface{}) (uint64, bool) {
+	switch n := v.(type) {
+	case uint64:
+		return n, true
+	case uint32:
+		return uint64(n), true
+	case uint:
+		return uint64(n), true
+	case int64:
+		if n < 0 {
+			return 0, false
+		}
+		return uint64(n), true
+	case int:
+		if n < 0 {
+			return 0, false
+		}
+		return uint64(n), true
+	default:
+		return 0, false
+	}
 }
 
 func GetCKMerges(conf *model.CKManClickHouseConfig) ([]model.CKTableMerges, error) {
