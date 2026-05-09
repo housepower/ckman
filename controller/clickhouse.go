@@ -1963,14 +1963,7 @@ func (controller *ClickHouseController) StartNode(c *gin.Context) {
 		return
 	}
 	con := conf
-	//copy the original hosts
-	var host string
-	for _, h := range conf.Hosts {
-		if h != ip {
-			host = h
-			break
-		}
-	}
+	host := common.PickAvailableSchemaSource(&conf, ip)
 	con.Hosts = []string{ip}
 
 	err = deploy.StartCkCluster(&con)
