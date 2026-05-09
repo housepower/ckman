@@ -65,13 +65,13 @@ func TestProfiles(t *testing.T) {
 
 	profile := []model.Profile{
 		{
-			Name:                        "readwrite",
-			ReadOnly:                    1,
-			AllowDDL:                    0,
-			MaxThreads:                  32,
-			MaxMemoryUsage:              2147483648,
-			MaxMemoryUsageForAllQueries: 2576980377,
-			MaxExecutionTime:            30,
+			Name:                          "readwrite",
+			ReadOnly:                      1,
+			AllowDDL:                      0,
+			MaxThreads:                    32,
+			MaxMemoryPercent:              0.5,
+			MaxMemoryPercentForAllQueries: 0.75,
+			MaxExecutionTime:              30,
 		},
 		{
 			Name: "readonly",
@@ -192,16 +192,15 @@ func TestUsersXML(t *testing.T) {
 			},
 			Profiles: []model.Profile{
 				{
-					Name:                        "readwrite",
-					ReadOnly:                    1,
-					AllowDDL:                    0,
-					MaxThreads:                  32,
-					MaxMemoryUsage:              2147483648,
-					MaxMemoryUsageForAllQueries: 2576980377,
-					MaxExecutionTime:            30,
-					MaxBackupBandwidth:          1048576,
-					MaxConcurrentQueriesForUser: 100,
-					MaxPartitionsToRead:         3600,
+					Name:                          "readwrite",
+					ReadOnly:                      1,
+					AllowDDL:                      0,
+					MaxThreads:                    32,
+					MaxMemoryPercent:              0.5,
+					MaxMemoryPercentForAllQueries: 0.75,
+					MaxExecutionTime:              30,
+					MaxConcurrentQueriesForUser:   100,
+					MaxPartitionsToRead:           3600,
 				},
 				{
 					Name: "readonly",

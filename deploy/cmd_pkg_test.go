@@ -52,7 +52,7 @@ func TestTgzPkg_UninstallCmd(t *testing.T) {
 		Cwd: "/home/eoi/clickhouse",
 	}
 	p := TgzFacotry{}.Create()
-	expect := "rm -rf /home/eoi/clickhouse/*"
+	expect := "rm -rf /home/eoi/clickhouse/bin /home/eoi/clickhouse/etc /home/eoi/clickhouse/log /home/eoi/clickhouse/run"
 	out := p.Uninstall(CkSvrName, pkgs, "22.3.6.5")
 	assert.Equal(t, expect, out)
 }

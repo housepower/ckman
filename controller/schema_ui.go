@@ -87,8 +87,8 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(conf, "Cwd", &common.Parameter{
 		LabelZH:       "工作路径",
 		LabelEN:       "WorkingDirectory",
-		DescriptionZH: "工作路径，仅tgz部署时需要",
-		DescriptionEN: "Working directory, only required for tgz deployment",
+		DescriptionZH: "tgz部署的工作目录，存放二进制/配置/日志/pid。需以'/'结尾。卸载时仅清空其下的 bin/etc/log/run 四个子目录；数据存储路径(Path)与Keeper数据路径不可落在这四个子目录中，但允许放在工作目录下其他位置（如 ${Cwd}data/）",
+		DescriptionEN: "Working directory for tgz deployment (binaries/configs/logs/pid). Must end with '/'. Uninstall only removes the bin/etc/log/run subdirectories; Data Path and Keeper Path must not live under any of those four, but are allowed elsewhere under Cwd (e.g. ${Cwd}data/).",
 		Visiable:      "PkgType.indexOf('tgz') !== -1",
 		Regexp:        "^/.+/$",
 	})
@@ -232,10 +232,12 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		Default: "9234",
 	})
 	params.MustRegister(keeper, "Path", &common.Parameter{
-		LabelZH: "Keeper数据路径",
-		LabelEN: "KeeperPath",
-		Default: "/var/lib/",
-		Regexp:  "^/.+/$",
+		LabelZH:       "Keeper数据路径",
+		LabelEN:       "KeeperPath",
+		DescriptionZH: "Keeper存储数据的路径，需存在且以'/'结尾。tgz部署时可以放在工作路径(Cwd)同级或其下子目录，但不得落在 ${Cwd}{bin,etc,log,run}/ 中——这四个子目录会在卸载时被清空",
+		DescriptionEN: "Data path for Keeper, must exist and end with '/'. For tgz deployment, may live alongside or beneath Cwd; must NOT fall under ${Cwd}{bin,etc,log,run}/ which are wiped on uninstall.",
+		Default:       "/var/lib/",
+		Regexp:        "^/.+/$",
 	})
 	params.MustRegister(keeper, "Expert", &common.Parameter{
 		LabelZH:  "专家配置",
@@ -338,9 +340,9 @@ func RegistCreateClusterSchema() common.ConfigParams {
 	params.MustRegister(conf, "Path", &common.Parameter{
 		LabelZH:       "数据存储路径",
 		LabelEN:       "Data Path",
-		DescriptionZH: "ClickHouse存储数据的路径，路径需要存在且必须以'/'结尾",
+		DescriptionZH: "ClickHouse存储数据的路径，需存在且以'/'结尾。tgz部署时可以放在工作路径(Cwd)同级或其下子目录（如 ${Cwd}data/），但不得落在 ${Cwd}{bin,etc,log,run}/ 中——这四个子目录会在卸载时被清空",
 		Default:       "/var/lib/",
-		DescriptionEN: "path need exist, must end with '/'",
+		DescriptionEN: "Data path for ClickHouse, must exist and end with '/'. For tgz deployment, may live alongside or beneath Cwd (e.g. ${Cwd}data/); must NOT fall under ${Cwd}{bin,etc,log,run}/ which are wiped on uninstall.",
 		Regexp:        "^/.+/$",
 	})
 	params.MustRegister(conf, "Storage", &common.Parameter{
@@ -764,20 +766,6 @@ Non-professionals please do not fill in this`,
 		DescriptionEN: "The maximum number of query processing threads, excluding threads for retrieving data from remote servers (see the ‘max_distributed_connections’ parameter).",
 		Required:      "false",
 	})
-	params.MustRegister(profile, "MaxMemoryUsage", &common.Parameter{
-		LabelZH:       "最大使用内存（字节）",
-		LabelEN:       "MaxMemoryUsage",
-		DescriptionZH: "用于在单个服务器上运行查询的最大RAM量",
-		DescriptionEN: "The maximum amount of RAM to use for running a query on a single server.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxMemoryUsageForAllQueries", &common.Parameter{
-		LabelZH:       "用户查询可用最大内存（字节）",
-		LabelEN:       "MaxMemoryUsageForAllQueries",
-		DescriptionZH: "在单个ClickHouse服务进程中，所有运行的查询累加在一起，限制使用的最大内存用量，默认为0不做限制",
-		DescriptionEN: "In a single ClickHouse service process, all running queries are accumulated together to limit the maximum memory usage. The default value is 0 and no limit is imposed.",
-		Required:      "false",
-	})
 	params.MustRegister(profile, "MaxExecutionTime", &common.Parameter{
 		LabelZH:       "SQL超时时间（秒）",
 		LabelEN:       "MaxExecutionTime",
@@ -803,13 +791,6 @@ Non-professionals please do not fill in this`,
 		Default:       "0.75",
 		Required:      "false",
 	})
-	params.MustRegister(profile, "MaxBackupBandwidth", &common.Parameter{
-		LabelZH:       "最大备份带宽（字节/秒）",
-		LabelEN:       "MaxBackupBandwidth",
-		DescriptionZH: "服务器上特定备份的最大读取速率（以每秒字节数计）。0 表示不受限制。",
-		DescriptionEN: "The maximum read speed in bytes per second for a specific backup on the server. 0 means no limit.",
-		Required:      "false",
-	})
 	params.MustRegister(profile, "MaxBytesToRead", &common.Parameter{
 		LabelZH:       "最大读取字节数（字节）",
 		LabelEN:       "MaxBytesToRead",
@@ -822,49 +803,6 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "MaxConcurrentQueriesForUser",
 		DescriptionZH: "用户并发查询的最大数量。0 表示不限制。",
 		DescriptionEN: "The maximum number of concurrent queries for a user. 0 means no limit.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxDownloadThreads", &common.Parameter{
-		LabelZH:       "最大下载线程数",
-		LabelEN:       "MaxDownloadThreads",
-		DescriptionZH: "用于下载数据的最大线程数（例如 URL 引擎）。",
-		DescriptionEN: "The maximum number of threads for downloading data (e.g., URL engine).",
-		Default:       "4",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxExecutionSpeed", &common.Parameter{
-		LabelZH:       "最大执行速度（行/秒）",
-		LabelEN:       "MaxExecutionSpeed",
-		DescriptionZH: "最大查询执行速度（以每秒行数计）。0 表示不受限制。",
-		DescriptionEN: "Maximum query execution speed in rows per second. 0 means no limit.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxExecutionSpeedBytes", &common.Parameter{
-		LabelZH:       "最大执行速度（字节/秒）",
-		LabelEN:       "MaxExecutionSpeedBytes",
-		DescriptionZH: "最大查询执行速度（以每秒字节数计）。0 表示不受限制。",
-		DescriptionEN: "Maximum query execution speed in bytes per second. 0 means no limit.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxNetworkBandwidth", &common.Parameter{
-		LabelZH:       "最大网络带宽（字节/秒）",
-		LabelEN:       "MaxNetworkBandwidth",
-		DescriptionZH: "限制通过网络进行数据交换的速度，单位为字节/秒。此设置对每个查询生效。",
-		DescriptionEN: "Limits the speed of data exchange over the network in bytes per second. This setting applies to each query.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxRemoteReadNetworkBandwidth", &common.Parameter{
-		LabelZH:       "最大远程读取网络带宽（字节/秒）",
-		LabelEN:       "MaxRemoteReadNetworkBandwidth",
-		DescriptionZH: "读取时网络数据交换的最大速率（以字节/秒计）。",
-		DescriptionEN: "The maximum rate of network data exchange for reading in bytes per second.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxNetworkBandwidthForUser", &common.Parameter{
-		LabelZH:       "用户最大网络带宽（字节/秒）",
-		LabelEN:       "MaxNetworkBandwidthForUser",
-		DescriptionZH: "限制通过网络进行数据交换的速率，以每秒字节数为单位。此设置适用于单个用户执行的所有并发查询。",
-		DescriptionEN: "Limits the rate of data exchange over the network in bytes per second. This setting applies to all concurrent queries executed by a single user.",
 		Required:      "false",
 	})
 	params.MustRegister(profile, "MaxPartitionsToRead", &common.Parameter{
@@ -887,6 +825,50 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "MaxResultRows",
 		DescriptionZH: "限制结果中的行数。对子查询，以及在远程服务器上执行分布式查询的部分时也会进行检查。当值为 0 时，不施加任何限制。",
 		DescriptionEN: "Limits the number of rows in the result. Also checked for subqueries and when executing distributed query parts on remote servers. When the value is 0, no limit is imposed.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxRowsToRead", &common.Parameter{
+		LabelZH:       "最大读取行数",
+		LabelEN:       "MaxRowsToRead",
+		DescriptionZH: "单查询从表中可读取的最大行数。0 表示不限制。",
+		DescriptionEN: "Maximum number of rows that can be read from a table in a single query. 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxBytesBeforeExternalGroupBy", &common.Parameter{
+		LabelZH:       "外部聚合阈值（字节）",
+		LabelEN:       "MaxBytesBeforeExternalGroupBy",
+		DescriptionZH: "GROUP BY 强制 spill 到磁盘的内存阈值（字节）。0 表示禁用外部聚合。建议设为 max_memory_usage 的一半。",
+		DescriptionEN: "Memory threshold (bytes) above which GROUP BY spills to disk. 0 disables external aggregation. Recommended to set to half of max_memory_usage.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxBytesBeforeExternalSort", &common.Parameter{
+		LabelZH:       "外部排序阈值（字节）",
+		LabelEN:       "MaxBytesBeforeExternalSort",
+		DescriptionZH: "ORDER BY 强制 spill 到磁盘的内存阈值（字节）。0 表示禁用外部排序。",
+		DescriptionEN: "Memory threshold (bytes) above which ORDER BY spills to disk. 0 disables external sorting.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "S3MaxGetRPS", &common.Parameter{
+		LabelZH:       "S3 GET 限速（请求/秒）",
+		LabelEN:       "S3MaxGetRPS",
+		DescriptionZH: "单查询访问 S3 的最大 GET 请求速率（次/秒）。0 表示不限制。",
+		DescriptionEN: "Maximum S3 GET request rate per query (requests/sec). 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "ForceIndexByDate", &common.Parameter{
+		LabelZH:       "强制日期索引",
+		LabelEN:       "ForceIndexByDate",
+		DescriptionZH: "强制查询使用基于日期的索引，未命中时拒绝执行。0/1。",
+		DescriptionEN: "Force queries to use date-based index; reject queries without one. 0/1.",
+		Range:         &common.Range{Min: 0, Max: 1, Step: 1},
+		Required:      "false",
+	})
+	params.MustRegister(profile, "ForcePrimaryKey", &common.Parameter{
+		LabelZH:       "强制主键",
+		LabelEN:       "ForcePrimaryKey",
+		DescriptionZH: "强制查询使用主键，未命中时拒绝执行。0/1。",
+		DescriptionEN: "Force queries to use primary key; reject queries without one. 0/1.",
+		Range:         &common.Range{Min: 0, Max: 1, Step: 1},
 		Required:      "false",
 	})
 	params.MustRegister(profile, "Expert", &common.Parameter{
@@ -1007,8 +989,8 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(conf, "Cwd", &common.Parameter{
 		LabelZH:       "工作路径",
 		LabelEN:       "WorkingDirectory",
-		DescriptionZH: "工作路径，仅tgz部署时需要",
-		DescriptionEN: "Working directory, only required for tgz deployment",
+		DescriptionZH: "tgz部署的工作目录（不可修改）。卸载时仅清空其下的 bin/etc/log/run 四个子目录",
+		DescriptionEN: "Working directory for tgz deployment (read-only). Uninstall removes only the bin/etc/log/run subdirectories.",
 		Visiable:      "PkgType.indexOf('tgz') !== -1",
 		Editable:      "false",
 	})
@@ -1029,8 +1011,8 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(conf, "Path", &common.Parameter{
 		LabelZH:       "数据存储路径",
 		LabelEN:       "Data Path",
-		DescriptionZH: "ClickHouse存储数据的路径，路径需要存在且必须以'/'结尾",
-		DescriptionEN: "path need exist, must end with '/'",
+		DescriptionZH: "ClickHouse存储数据的路径（不可修改）。tgz部署下不会落在 ${Cwd}{bin,etc,log,run}/ 中，因此卸载不会误删数据",
+		DescriptionEN: "Data path for ClickHouse (read-only). Guaranteed to live outside ${Cwd}{bin,etc,log,run}/ for tgz, so uninstall will not delete data.",
 		Editable:      "false",
 	})
 
@@ -1129,9 +1111,11 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		LabelEN: "RaftPort",
 	})
 	params.MustRegister(keeper, "Path", &common.Parameter{
-		LabelZH:  "Keeper数据路径",
-		LabelEN:  "KeeperPath",
-		Editable: "false",
+		LabelZH:       "Keeper数据路径",
+		LabelEN:       "KeeperPath",
+		DescriptionZH: "Keeper存储数据的路径（不可修改）。tgz部署下不会落在 ${Cwd}{bin,etc,log,run}/ 中，因此卸载不会误删数据",
+		DescriptionEN: "Data path for Keeper (read-only). Guaranteed to live outside ${Cwd}{bin,etc,log,run}/ for tgz, so uninstall will not delete data.",
+		Editable:      "false",
 	})
 	params.MustRegister(keeper, "Expert", &common.Parameter{
 		LabelZH:  "专家配置",
@@ -1691,13 +1675,6 @@ Non-professionals please do not fill in this`,
 		DescriptionEN: "The maximum number of query processing threads, excluding threads for retrieving data from remote servers (see the ‘max_distributed_connections’ parameter).",
 		Required:      "false",
 	})
-	params.MustRegister(profile, "MaxMemoryUsage", &common.Parameter{
-		LabelZH:       "最大使用内存（字节）",
-		LabelEN:       "MaxMemoryUsage",
-		DescriptionZH: "用于在单个服务器上运行查询的最大RAM量",
-		DescriptionEN: "The maximum amount of RAM to use for running a query on a single server.",
-		Required:      "false",
-	})
 	params.MustRegister(profile, "MaxMemoryPercent", &common.Parameter{
 		LabelZH:       "最大使用内存（百分比）",
 		LabelEN:       "MaxMemoryPercent",
@@ -1716,25 +1693,11 @@ Non-professionals please do not fill in this`,
 		Default:       "0.75",
 		Required:      "false",
 	})
-	params.MustRegister(profile, "MaxMemoryUsageForAllQueries", &common.Parameter{
-		LabelZH:       "用户查询可用最大内存（字节）",
-		LabelEN:       "MaxMemoryUsageForAllQueries",
-		DescriptionZH: "在单个ClickHouse服务进程中，所有运行的查询累加在一起，限制使用的最大内存用量，默认为0不做限制",
-		DescriptionEN: "In a single ClickHouse service process, all running queries are accumulated together to limit the maximum memory usage. The default value is 0 and no limit is imposed.",
-		Required:      "false",
-	})
 	params.MustRegister(profile, "MaxExecutionTime", &common.Parameter{
 		LabelZH:       "SQL超时时间（秒）",
 		LabelEN:       "MaxExecutionTime",
 		DescriptionZH: "如果查询运行时间超过指定的秒数，则行为将由 'timeout_overflow_mode' 确定，默认情况下为 - 引发异常。请注意，在数据处理过程中，将检查超时，查询只能在指定位置停止。它目前无法在聚合状态合并或查询分析期间停止，实际运行时间将高于此设置的值。",
 		DescriptionEN: "If query run time exceeded the specified number of seconds, the behavior will be determined by the 'timeout_overflow_mode' which by default is - throw an exception. Note that the timeout is checked and query can stop only in designated places during data processing. It currently cannot stop during merging of aggregation states or during query analysis, and the actual run time will be higher than the value of this setting.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxBackupBandwidth", &common.Parameter{
-		LabelZH:       "最大备份带宽（字节/秒）",
-		LabelEN:       "MaxBackupBandwidth",
-		DescriptionZH: "服务器上特定备份的最大读取速率（以每秒字节数计）。0 表示不受限制。",
-		DescriptionEN: "The maximum read speed in bytes per second for a specific backup on the server. 0 means no limit.",
 		Required:      "false",
 	})
 	params.MustRegister(profile, "MaxBytesToRead", &common.Parameter{
@@ -1749,49 +1712,6 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "MaxConcurrentQueriesForUser",
 		DescriptionZH: "用户并发查询的最大数量。0 表示不限制。",
 		DescriptionEN: "The maximum number of concurrent queries for a user. 0 means no limit.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxDownloadThreads", &common.Parameter{
-		LabelZH:       "最大下载线程数",
-		LabelEN:       "MaxDownloadThreads",
-		DescriptionZH: "用于下载数据的最大线程数（例如 URL 引擎）。",
-		DescriptionEN: "The maximum number of threads for downloading data (e.g., URL engine).",
-		Default:       "4",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxExecutionSpeed", &common.Parameter{
-		LabelZH:       "最大执行速度（行/秒）",
-		LabelEN:       "MaxExecutionSpeed",
-		DescriptionZH: "最大查询执行速度（以每秒行数计）。0 表示不受限制。",
-		DescriptionEN: "Maximum query execution speed in rows per second. 0 means no limit.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxExecutionSpeedBytes", &common.Parameter{
-		LabelZH:       "最大执行速度（字节/秒）",
-		LabelEN:       "MaxExecutionSpeedBytes",
-		DescriptionZH: "最大查询执行速度（以每秒字节数计）。0 表示不受限制。",
-		DescriptionEN: "Maximum query execution speed in bytes per second. 0 means no limit.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxNetworkBandwidth", &common.Parameter{
-		LabelZH:       "最大网络带宽（字节/秒）",
-		LabelEN:       "MaxNetworkBandwidth",
-		DescriptionZH: "限制通过网络进行数据交换的速度，单位为字节/秒。此设置对每个查询生效。",
-		DescriptionEN: "Limits the speed of data exchange over the network in bytes per second. This setting applies to each query.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxRemoteReadNetworkBandwidth", &common.Parameter{
-		LabelZH:       "最大远程读取网络带宽（字节/秒）",
-		LabelEN:       "MaxRemoteReadNetworkBandwidth",
-		DescriptionZH: "读取时网络数据交换的最大速率（以字节/秒计）。",
-		DescriptionEN: "The maximum rate of network data exchange for reading in bytes per second.",
-		Required:      "false",
-	})
-	params.MustRegister(profile, "MaxNetworkBandwidthForUser", &common.Parameter{
-		LabelZH:       "用户最大网络带宽（字节/秒）",
-		LabelEN:       "MaxNetworkBandwidthForUser",
-		DescriptionZH: "限制通过网络进行数据交换的速率，以每秒字节数为单位。此设置适用于单个用户执行的所有并发查询。",
-		DescriptionEN: "Limits the rate of data exchange over the network in bytes per second. This setting applies to all concurrent queries executed by a single user.",
 		Required:      "false",
 	})
 	params.MustRegister(profile, "MaxPartitionsToRead", &common.Parameter{
@@ -1814,6 +1734,50 @@ Non-professionals please do not fill in this`,
 		LabelEN:       "MaxResultRows",
 		DescriptionZH: "限制结果中的行数。对子查询，以及在远程服务器上执行分布式查询的部分时也会进行检查。当值为 0 时，不施加任何限制。",
 		DescriptionEN: "Limits the number of rows in the result. Also checked for subqueries and when executing distributed query parts on remote servers. When the value is 0, no limit is imposed.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxRowsToRead", &common.Parameter{
+		LabelZH:       "最大读取行数",
+		LabelEN:       "MaxRowsToRead",
+		DescriptionZH: "单查询从表中可读取的最大行数。0 表示不限制。",
+		DescriptionEN: "Maximum number of rows that can be read from a table in a single query. 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxBytesBeforeExternalGroupBy", &common.Parameter{
+		LabelZH:       "外部聚合阈值（字节）",
+		LabelEN:       "MaxBytesBeforeExternalGroupBy",
+		DescriptionZH: "GROUP BY 强制 spill 到磁盘的内存阈值（字节）。0 表示禁用外部聚合。建议设为 max_memory_usage 的一半。",
+		DescriptionEN: "Memory threshold (bytes) above which GROUP BY spills to disk. 0 disables external aggregation. Recommended to set to half of max_memory_usage.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "MaxBytesBeforeExternalSort", &common.Parameter{
+		LabelZH:       "外部排序阈值（字节）",
+		LabelEN:       "MaxBytesBeforeExternalSort",
+		DescriptionZH: "ORDER BY 强制 spill 到磁盘的内存阈值（字节）。0 表示禁用外部排序。",
+		DescriptionEN: "Memory threshold (bytes) above which ORDER BY spills to disk. 0 disables external sorting.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "S3MaxGetRPS", &common.Parameter{
+		LabelZH:       "S3 GET 限速（请求/秒）",
+		LabelEN:       "S3MaxGetRPS",
+		DescriptionZH: "单查询访问 S3 的最大 GET 请求速率（次/秒）。0 表示不限制。",
+		DescriptionEN: "Maximum S3 GET request rate per query (requests/sec). 0 means no limit.",
+		Required:      "false",
+	})
+	params.MustRegister(profile, "ForceIndexByDate", &common.Parameter{
+		LabelZH:       "强制日期索引",
+		LabelEN:       "ForceIndexByDate",
+		DescriptionZH: "强制查询使用基于日期的索引，未命中时拒绝执行。0/1。",
+		DescriptionEN: "Force queries to use date-based index; reject queries without one. 0/1.",
+		Range:         &common.Range{Min: 0, Max: 1, Step: 1},
+		Required:      "false",
+	})
+	params.MustRegister(profile, "ForcePrimaryKey", &common.Parameter{
+		LabelZH:       "强制主键",
+		LabelEN:       "ForcePrimaryKey",
+		DescriptionZH: "强制查询使用主键，未命中时拒绝执行。0/1。",
+		DescriptionEN: "Force queries to use primary key; reject queries without one. 0/1.",
+		Range:         &common.Range{Min: 0, Max: 1, Step: 1},
 		Required:      "false",
 	})
 	params.MustRegister(profile, "Expert", &common.Parameter{

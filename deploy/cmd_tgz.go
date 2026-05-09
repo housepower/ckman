@@ -64,5 +64,5 @@ func (p *TgzPkg) UpgradeCmd(svr string, pkgs Packages) string {
 }
 
 func (p *TgzPkg) Uninstall(svr string, pkgs Packages, version string) string {
-	return fmt.Sprintf("rm -rf %s/*", pkgs.Cwd)
+	return fmt.Sprintf("rm -rf %s/bin %s/etc %s/log %s/run", pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd)
 }

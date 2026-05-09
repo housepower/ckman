@@ -154,6 +154,29 @@ func storage(storage *model.Storage) (map[string]interface{}, map[string]interfa
 		}
 	}
 	if len(storage.Policies) > 0 {
+		diskTypeByName := make(map[string]string, len(storage.Disks))
+		cacheTarget := make(map[string]string)
+		for _, d := range storage.Disks {
+			diskTypeByName[d.Name] = d.Type
+			if d.Type == "cache" && d.DiskCache != nil {
+				cacheTarget[d.Name] = d.DiskCache.Disk
+			}
+		}
+		isS3Backed := func(name string) bool {
+			seen := map[string]bool{}
+			for name != "" && !seen[name] {
+				seen[name] = true
+				switch diskTypeByName[name] {
+				case "s3":
+					return true
+				case "cache":
+					name = cacheTarget[name]
+				default:
+					return false
+				}
+			}
+			return false
+		}
 		var policies []map[string]interface{}
 		for _, policy := range storage.Policies {
 			policyMapping := make(map[string]interface{})
@@ -163,6 +186,19 @@ func storage(storage *model.Storage) (map[string]interface{}, map[string]interfa
 					"disk":                     vol.Disks,
 					"max_data_part_size_bytes": vol.MaxDataPartSizeBytes,
 					"prefer_not_to_merge":      vol.PreferNotToMerge,
+				}
+				s3Backed := false
+				for _, dname := range vol.Disks {
+					if isS3Backed(dname) {
+						s3Backed = true
+						break
+					}
+				}
+				if s3Backed {
+					if vol.PreferNotToMerge == nil {
+						volume["prefer_not_to_merge"] = true
+					}
+					volume["perform_ttl_move_on_insert"] = false
 				}
 				volumes = append(volumes, map[string]interface{}{
 					vol.Name: volume,

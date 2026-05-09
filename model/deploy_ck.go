@@ -254,32 +254,28 @@ type Profile struct {
 	AllowDDL   int
 	MaxThreads int
 	// https://clickhouse.tech/docs/en/operations/settings/query-complexity/
-	MaxMemoryUsage                int64
 	MaxMemoryPercent              float64
-	MaxMemoryUsageForAllQueries   int64
 	MaxMemoryPercentForAllQueries float64
-	MaxExecutionTime              int64
-	// 服务器上特定备份的最大读取速率（以每秒字节数计）。0 表示不受限制。
-	MaxBackupBandwidth int64
+	// GROUP BY 强制 spill 到磁盘的阈值（字节）。0 表示禁用外部聚合。
+	MaxBytesBeforeExternalGroupBy int64
+	// ORDER BY 强制 spill 到磁盘的阈值（字节）。0 表示禁用外部排序。
+	MaxBytesBeforeExternalSort int64
+	// 强制查询使用基于日期的索引，未命中时拒绝执行。0/1。
+	ForceIndexByDate int
+	// 强制查询使用主键，未命中时拒绝执行。0/1。
+	ForcePrimaryKey int
+	// S3 GET 单查询限速：每秒请求数。0 表示不限制。
+	S3MaxGetRPS int64
+	MaxExecutionTime int64
 	// 在执行查询时，从表中可读取的未压缩数据的最大字节数。 该限制会在每个处理的数据块上进行检查，仅适用于最深层的表表达式；
 	// 在从远程服务器读取时，该限制仅在远程服务器上进行检查。
 	MaxBytesToRead int64
-	// 可能的取值：正整数。 0 — 不限制。
-	MaxConcurrentQueriesForUser int64
-	// 用于下载数据的最大线程数（例如 URL 引擎）。
-	MaxDownloadThreads int64
-	// 最大查询执行速度（以每秒行数计）。0 表示不受限制。
-	MaxExecutionSpeed int64
-	// 最大查询执行速度（以每秒字节数计）。0 表示不受限制。
-	MaxExecutionSpeedBytes int64
-	// 限制通过网络进行数据交换的速度，单位为字节/秒。此设置对每个查询生效。
-	MaxNetworkBandwidth int64
-	// 读取时网络数据交换的最大速率（以字节/秒计）。
-	MaxRemoteReadNetworkBandwidth int64
-	// 限制通过网络进行数据交换的速率，以每秒字节数为单位。此设置适用于单个用户执行的所有并发查询。
-	MaxNetworkBandwidthForUser int64
+	// 单查询从表中可读取的最大行数。0 表示不限制。
+	MaxRowsToRead int64
 	// 限制在单个查询中可访问的最大分区数量。 -1 表示没有限制。
 	MaxPartitionsToRead int64
+	// 可能的取值：正整数。 0 — 不限制。
+	MaxConcurrentQueriesForUser int64
 	// 限制结果的大小（以字节数计，未压缩）。如果达到该阈值，查询在处理完一个数据块后会停止， 但不会截断结果的最后一个数据块，因此最终结果的大小可能会大于该阈值。
 	// 该阈值是根据结果在内存中的大小来计算的。 即使结果本身很小，它也可能引用内存中更大的数据结构， 例如 LowCardinality 列使用的字典以及 AggregateFunction 列使用的 Arenas， 因此即使结果集本身很小，也可能会超过该阈值。
 	MaxResultBytes int64

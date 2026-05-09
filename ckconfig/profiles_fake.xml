@@ -15,15 +15,9 @@
         </default>
         <readonly>
             <allow_ddl>1</allow_ddl>
-            <max_backup_bandwidth>0</max_backup_bandwidth>
             <max_bytes_to_read>0</max_bytes_to_read>
             <max_concurrent_queries_for_user>0</max_concurrent_queries_for_user>
-            <max_execution_speed>0</max_execution_speed>
-            <max_execution_speed_bytes>0</max_execution_speed_bytes>
             <max_execution_time>0</max_execution_time>
-            <max_network_bandwidth>0</max_network_bandwidth>
-            <max_network_bandwidth_for_user>0</max_network_bandwidth_for_user>
-            <max_remote_read_network_bandwidth>0</max_remote_read_network_bandwidth>
             <max_result_bytes>0</max_result_bytes>
             <max_result_rows>0</max_result_rows>
             <max_threads>16</max_threads>
@@ -31,16 +25,11 @@
         </readonly>
         <readwrite>
             <allow_ddl>0</allow_ddl>
-            <max_backup_bandwidth>0</max_backup_bandwidth>
             <max_bytes_to_read>0</max_bytes_to_read>
             <max_concurrent_queries_for_user>0</max_concurrent_queries_for_user>
-            <max_execution_speed>0</max_execution_speed>
-            <max_execution_speed_bytes>0</max_execution_speed_bytes>
             <max_execution_time>30</max_execution_time>
-            <max_memory_usage>2147483648</max_memory_usage>
-            <max_network_bandwidth>0</max_network_bandwidth>
-            <max_network_bandwidth_for_user>0</max_network_bandwidth_for_user>
-            <max_remote_read_network_bandwidth>0</max_remote_read_network_bandwidth>
+            <max_memory_usage>17179869184000</max_memory_usage>
+            <max_memory_usage_for_all_queries>25769803776000</max_memory_usage_for_all_queries>
             <max_result_bytes>0</max_result_bytes>
             <max_result_rows>0</max_result_rows>
             <max_threads>32</max_threads>

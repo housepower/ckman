@@ -112,39 +112,38 @@ func profiles(userProfiles []model.Profile, info HostInfo, version string) map[s
 			normalProfile["readonly"] = prof.ReadOnly
 			normalProfile["allow_ddl"] = prof.AllowDDL
 			normalProfile["max_threads"] = prof.MaxThreads
-			if prof.MaxMemoryUsage > int64((info.MemoryTotal/2)*1e3) {
-				prof.MaxMemoryUsage = int64((info.MemoryTotal / 2) * 1e3)
-			}
-			if prof.MaxMemoryUsage > 0 {
-				normalProfile["max_memory_usage"] = prof.MaxMemoryUsage
-			} else if common.FloatIsBigger(prof.MaxMemoryPercent, 0.0) {
+			if common.FloatIsBigger(prof.MaxMemoryPercent, 0.0) {
 				normalProfile["max_memory_usage"] = int64(float64(info.MemoryTotal) * prof.MaxMemoryPercent * 1e3)
 			}
-			if prof.MaxMemoryUsageForAllQueries > int64(((info.MemoryTotal*3)/4)*1e3) {
-				prof.MaxMemoryUsageForAllQueries = int64(((info.MemoryTotal * 3) / 4) * 1e3)
-			}
-			if prof.MaxMemoryPercentForAllQueries > 0 {
-				normalProfile["max_memory_usage_for_all_queries"] = prof.MaxMemoryUsageForAllQueries
-			} else if common.FloatIsBigger(prof.MaxMemoryPercentForAllQueries, 0.0) {
+			if common.FloatIsBigger(prof.MaxMemoryPercentForAllQueries, 0.0) {
 				normalProfile["max_memory_usage_for_all_queries"] = int64(float64(info.MemoryTotal) * prof.MaxMemoryPercentForAllQueries * 1e3)
 			}
 			normalProfile["max_execution_time"] = prof.MaxExecutionTime
-			normalProfile["max_backup_bandwidth"] = prof.MaxBackupBandwidth
 			normalProfile["max_bytes_to_read"] = prof.MaxBytesToRead
 			normalProfile["max_concurrent_queries_for_user"] = prof.MaxConcurrentQueriesForUser
-			if prof.MaxDownloadThreads > 0 {
-				normalProfile["max_download_threads"] = prof.MaxDownloadThreads
-			}
-			normalProfile["max_execution_speed"] = prof.MaxExecutionSpeed
-			normalProfile["max_execution_speed_bytes"] = prof.MaxExecutionSpeedBytes
-			normalProfile["max_network_bandwidth"] = prof.MaxNetworkBandwidth
-			normalProfile["max_remote_read_network_bandwidth"] = prof.MaxRemoteReadNetworkBandwidth
-			normalProfile["max_network_bandwidth_for_user"] = prof.MaxNetworkBandwidthForUser
 			if prof.MaxPartitionsToRead != 0 {
 				normalProfile["max_partitions_to_read"] = prof.MaxPartitionsToRead
 			}
 			normalProfile["max_result_bytes"] = prof.MaxResultBytes
 			normalProfile["max_result_rows"] = prof.MaxResultRows
+			if prof.MaxRowsToRead > 0 {
+				normalProfile["max_rows_to_read"] = prof.MaxRowsToRead
+			}
+			if prof.MaxBytesBeforeExternalGroupBy > 0 {
+				normalProfile["max_bytes_before_external_group_by"] = prof.MaxBytesBeforeExternalGroupBy
+			}
+			if prof.MaxBytesBeforeExternalSort > 0 {
+				normalProfile["max_bytes_before_external_sort"] = prof.MaxBytesBeforeExternalSort
+			}
+			if prof.S3MaxGetRPS > 0 {
+				normalProfile["s3_max_get_rps"] = prof.S3MaxGetRPS
+			}
+			if prof.ForceIndexByDate > 0 {
+				normalProfile["force_index_by_date"] = prof.ForceIndexByDate
+			}
+			if prof.ForcePrimaryKey > 0 {
+				normalProfile["force_primary_key"] = prof.ForcePrimaryKey
+			}
 			mergo.Merge(&normalProfile, expert(prof.Expert))
 			profileMap[prof.Name] = normalProfile
 		}

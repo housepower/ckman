@@ -144,6 +144,8 @@
                 <volumes>
                     <replica>
                         <disk>s3</disk>
+                        <perform_ttl_move_on_insert>false</perform_ttl_move_on_insert>
+                        <prefer_not_to_merge>true</prefer_not_to_merge>
                     </replica>
                 </volumes>
             </s3_only>

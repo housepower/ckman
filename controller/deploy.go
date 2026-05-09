@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/housepower/ckman/repository"
@@ -13,6 +14,24 @@ import (
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/model"
 )
+
+// tgzReservedSubdirs lists the subdirectories under Cwd that the tgz uninstaller
+// removes (see deploy/cmd_tgz.go Uninstall). Any data path that resolves into
+// these subtrees would be wiped on uninstall.
+var tgzReservedSubdirs = []string{"bin", "etc", "log", "run"}
+
+func checkPathOutsideTgzReserved(p, cwd, name string) error {
+	if p == "" {
+		return nil
+	}
+	for _, sub := range tgzReservedSubdirs {
+		reserved := path.Join(cwd, sub) + "/"
+		if p == reserved || strings.HasPrefix(p, reserved) {
+			return errors.Errorf("%s %s falls under %s which is removed on uninstall", name, p, reserved)
+		}
+	}
+	return nil
+}
 
 type DeployController struct {
 	Controller
@@ -99,6 +118,14 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 		}
 		if !strings.HasSuffix(conf.Cwd, "/") {
 			return errors.Errorf("path %s must end with '/'", conf.Cwd)
+		}
+		if err = checkPathOutsideTgzReserved(conf.Path, conf.Cwd, "data path"); err != nil {
+			return err
+		}
+		if conf.KeeperConf != nil {
+			if err = checkPathOutsideTgzReserved(conf.KeeperConf.Path, conf.Cwd, "keeper path"); err != nil {
+				return err
+			}
 		}
 		conf.NeedSudo = false
 		if err = checkAccess(conf.Cwd, conf); err != nil {
