@@ -1,8 +1,10 @@
 package common
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/housepower/ckman/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,4 +38,49 @@ func TestCkPasswdLabel(t *testing.T) {
 	assert.Equal(t, "password_double_sha1_hex", CkPasswdLabel(DOUBLE_SHA1_HEX))
 	assert.Equal(t, "password", CkPasswdLabel(PLAINTEXT))
 	assert.Equal(t, "password", CkPasswdLabel(-1))
+}
+
+func TestPickAvailableSchemaSource(t *testing.T) {
+	conf := &model.CKManClickHouseConfig{
+		Hosts: []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"},
+	}
+
+	// 保存并恢复原 fn
+	orig := pickConnFn
+	defer func() { pickConnFn = orig }()
+
+	t.Run("全部可用返回首个", func(t *testing.T) {
+		pickConnFn = func(host string, _ model.ConnetOption) error { return nil }
+		got := PickAvailableSchemaSource(conf)
+		assert.Equal(t, "10.0.0.1", got)
+	})
+
+	t.Run("首个不可用跳到下一个", func(t *testing.T) {
+		pickConnFn = func(host string, _ model.ConnetOption) error {
+			if host == "10.0.0.1" {
+				return errors.New("connection refused")
+			}
+			return nil
+		}
+		got := PickAvailableSchemaSource(conf)
+		assert.Equal(t, "10.0.0.2", got)
+	})
+
+	t.Run("全不可用返回空", func(t *testing.T) {
+		pickConnFn = func(host string, _ model.ConnetOption) error { return errors.New("dead") }
+		got := PickAvailableSchemaSource(conf)
+		assert.Equal(t, "", got)
+	})
+
+	t.Run("exclude 跳过指定 IP", func(t *testing.T) {
+		pickConnFn = func(host string, _ model.ConnetOption) error { return nil }
+		got := PickAvailableSchemaSource(conf, "10.0.0.1")
+		assert.Equal(t, "10.0.0.2", got)
+	})
+
+	t.Run("exclude 含空字符串不影响", func(t *testing.T) {
+		pickConnFn = func(host string, _ model.ConnetOption) error { return nil }
+		got := PickAvailableSchemaSource(conf, "")
+		assert.Equal(t, "10.0.0.1", got)
+	})
 }
