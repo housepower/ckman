@@ -27,8 +27,9 @@ type CkClusterNode struct {
 }
 
 type AddNodeReq struct {
-	Ips   []string `json:"ips" example:"192.168.0.1,192.168.0.2"`
-	Shard int      `json:"shard" example:"3"`
+	Ips              []string `json:"ips" example:"192.168.0.1,192.168.0.2"`
+	Shard            int      `json:"shard" example:"3"`
+	SourceSchemaHost string   `json:"sourceSchemaHost" example:"192.168.0.10"`
 }
 
 type GetLogReq struct {
