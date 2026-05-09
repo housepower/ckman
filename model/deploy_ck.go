@@ -43,13 +43,14 @@ const (
 )
 
 type CkDeployExt struct {
-	Policy         string
-	Ipv6Enable     bool
-	Restart        bool
-	ChangeCk       bool
-	CurClusterOnly bool //仅修改当前集群的配置
-	NumCPU         int
-	SkipKeeper     bool
+	Policy           string
+	Ipv6Enable       bool
+	Restart          bool
+	ChangeCk         bool
+	CurClusterOnly   bool //仅修改当前集群的配置
+	NumCPU           int
+	SkipKeeper       bool
+	SourceSchemaHost string //AddNode 时由用户指定的 schema 同步源
 }
 
 type CkShard struct {
