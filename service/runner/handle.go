@@ -220,6 +220,10 @@ func CKAddNodeHandle(task *model.Task) error {
 		return err
 	}
 
+	if d.Ext.SourceSchemaHost == "" {
+		return errors.New("sourceSchemaHost is empty in deploy ext")
+	}
+
 	deploy.SetNodeStatus(task, model.NodeStatusConfigExt, model.ALL_NODES_DEFAULT)
 	for _, host := range d.Conf.Hosts {
 		tmp := &model.CKManClickHouseConfig{
@@ -239,7 +243,7 @@ func CKAddNodeHandle(task *model.Task) error {
 				//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
 				zkService, err := zookeeper.GetZkService(conf.Cluster)
 				if err == nil {
-					err = zkService.CleanZoopath(conf, conf.Cluster, conf.Hosts[0], false)
+					err = zkService.CleanZoopath(conf, conf.Cluster, host, false)
 					if err == nil {
 						if err = service.FetchSchemerFromOtherNode(d.Ext.SourceSchemaHost); err != nil {
 							log.Logger.Errorf("fetch schema from other node failed again")
