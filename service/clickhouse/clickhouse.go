@@ -1310,9 +1310,14 @@ func SyncLogicTable(src, dst model.CKManClickHouseConfig, name ...string) bool {
 		return false
 	}
 
-	dstConn, err := common.ConnectClickHouse(dst.Hosts[0], model.ClickHouseDefaultDB, dst.GetConnOption())
+	dstHost := common.PickAvailableSchemaSource(&dst)
+	if dstHost == "" {
+		log.Logger.Warnf("no available host in cluster %s for schema sync", dst.Cluster)
+		return false
+	}
+	dstConn, err := common.ConnectClickHouse(dstHost, model.ClickHouseDefaultDB, dst.GetConnOption())
 	if err != nil {
-		log.Logger.Warnf("can't connect %s", dst.Hosts[0])
+		log.Logger.Warnf("can't connect %s", dstHost)
 		return false
 	}
 	for _, schema := range statementsqls {
