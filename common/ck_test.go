@@ -44,43 +44,37 @@ func TestPickAvailableSchemaSource(t *testing.T) {
 	conf := &model.CKManClickHouseConfig{
 		Hosts: []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"},
 	}
-
-	// 保存并恢复原 fn
-	orig := pickConnFn
-	defer func() { pickConnFn = orig }()
+	allOk := func(host string, _ model.ConnetOption) error { return nil }
 
 	t.Run("全部可用返回首个", func(t *testing.T) {
-		pickConnFn = func(host string, _ model.ConnetOption) error { return nil }
-		got := PickAvailableSchemaSource(conf)
+		got := pickAvailableSchemaSource(conf, allOk)
 		assert.Equal(t, "10.0.0.1", got)
 	})
 
 	t.Run("首个不可用跳到下一个", func(t *testing.T) {
-		pickConnFn = func(host string, _ model.ConnetOption) error {
+		fn := func(host string, _ model.ConnetOption) error {
 			if host == "10.0.0.1" {
 				return errors.New("connection refused")
 			}
 			return nil
 		}
-		got := PickAvailableSchemaSource(conf)
+		got := pickAvailableSchemaSource(conf, fn)
 		assert.Equal(t, "10.0.0.2", got)
 	})
 
 	t.Run("全不可用返回空", func(t *testing.T) {
-		pickConnFn = func(host string, _ model.ConnetOption) error { return errors.New("dead") }
-		got := PickAvailableSchemaSource(conf)
+		fn := func(host string, _ model.ConnetOption) error { return errors.New("dead") }
+		got := pickAvailableSchemaSource(conf, fn)
 		assert.Equal(t, "", got)
 	})
 
 	t.Run("exclude 跳过指定 IP", func(t *testing.T) {
-		pickConnFn = func(host string, _ model.ConnetOption) error { return nil }
-		got := PickAvailableSchemaSource(conf, "10.0.0.1")
+		got := pickAvailableSchemaSource(conf, allOk, "10.0.0.1")
 		assert.Equal(t, "10.0.0.2", got)
 	})
 
 	t.Run("exclude 含空字符串不影响", func(t *testing.T) {
-		pickConnFn = func(host string, _ model.ConnetOption) error { return nil }
-		got := PickAvailableSchemaSource(conf, "")
+		got := pickAvailableSchemaSource(conf, allOk, "")
 		assert.Equal(t, "10.0.0.1", got)
 	})
 }

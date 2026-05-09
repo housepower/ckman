@@ -217,15 +217,12 @@ func GetShardAvaliableHosts(conf *model.CKManClickHouseConfig) ([]string, error)
 	return hosts, nil
 }
 
-// pickConnFn 默认指向真实 ClickHouse 连接，测试中可替换。
-var pickConnFn = func(host string, opt model.ConnetOption) error {
-	_, err := ConnectClickHouse(host, model.ClickHouseDefaultDB, opt)
-	return err
-}
-
-// PickAvailableSchemaSource 在 conf.Hosts 中按顺序挑第一个能连上 ClickHouse 的节点，
-// 跳过 exclude 中列出的 IP。全部不可用返回空串。
-func PickAvailableSchemaSource(conf *model.CKManClickHouseConfig, exclude ...string) string {
+// pickAvailableSchemaSource 内部实现，接受 connFn 作为依赖以便测试。
+func pickAvailableSchemaSource(
+	conf *model.CKManClickHouseConfig,
+	connFn func(host string, opt model.ConnetOption) error,
+	exclude ...string,
+) string {
 	skip := make(map[string]struct{}, len(exclude))
 	for _, e := range exclude {
 		if e != "" {
@@ -237,11 +234,20 @@ func PickAvailableSchemaSource(conf *model.CKManClickHouseConfig, exclude ...str
 		if _, ok := skip[host]; ok {
 			continue
 		}
-		if err := pickConnFn(host, opt); err == nil {
+		if err := connFn(host, opt); err == nil {
 			return host
 		}
 	}
 	return ""
+}
+
+// PickAvailableSchemaSource 在 conf.Hosts 中按顺序挑第一个能连上 ClickHouse 的节点，
+// 跳过 exclude 中列出的 IP。全部不可用返回空串。
+func PickAvailableSchemaSource(conf *model.CKManClickHouseConfig, exclude ...string) string {
+	return pickAvailableSchemaSource(conf, func(host string, opt model.ConnetOption) error {
+		_, err := ConnectClickHouse(host, model.ClickHouseDefaultDB, opt)
+		return err
+	}, exclude...)
 }
 
 /*
