@@ -234,14 +234,14 @@ func CKAddNodeHandle(task *model.Task) error {
 		if err := service.InitCkService(); err != nil {
 			return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 		}
-		if err := service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
+		if err := service.FetchSchemerFromOtherNode(d.Ext.SourceSchemaHost); err != nil {
 			if common.ExceptionAS(err, common.REPLICA_ALREADY_EXISTS) {
 				//Code: 253: Replica /clickhouse/tables/XXX/XXX/replicas/{replica} already exists, clean the znode and  retry
 				zkService, err := zookeeper.GetZkService(conf.Cluster)
 				if err == nil {
 					err = zkService.CleanZoopath(conf, conf.Cluster, conf.Hosts[0], false)
 					if err == nil {
-						if err = service.FetchSchemerFromOtherNode(conf.Hosts[0]); err != nil {
+						if err = service.FetchSchemerFromOtherNode(d.Ext.SourceSchemaHost); err != nil {
 							log.Logger.Errorf("fetch schema from other node failed again")
 						}
 					}
