@@ -1775,7 +1775,7 @@ func (controller *ClickHouseController) AddNode(c *gin.Context) {
 		return
 	}
 	if _, err := common.ConnectClickHouse(req.SourceSchemaHost, model.ClickHouseDefaultDB, conf.GetConnOption()); err != nil {
-		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED,
+		controller.wrapfunc(c, model.E_CH_CONNECT_FAILED,
 			errors.Wrapf(err, "sourceSchemaHost %s is not reachable", req.SourceSchemaHost))
 		return
 	}
