@@ -3025,6 +3025,10 @@ var doc = `{
                 "shard": {
                     "type": "integer",
                     "example": 3
+                },
+                "sourceSchemaHost": {
+                    "type": "string",
+                    "example": "192.168.0.10"
                 }
             }
         },

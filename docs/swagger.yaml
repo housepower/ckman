@@ -12,6 +12,9 @@ definitions:
       shard:
         example: 3
         type: integer
+      sourceSchemaHost:
+        example: 192.168.0.10
+        type: string
     type: object
   model.AlterCkTableReq:
     properties:
