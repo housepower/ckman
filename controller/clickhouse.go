@@ -1757,6 +1757,29 @@ func (controller *ClickHouseController) AddNode(c *gin.Context) {
 		}
 	}
 
+	// 校验 SourceSchemaHost
+	if req.SourceSchemaHost == "" {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, errors.New("sourceSchemaHost is required"))
+		return
+	}
+	for _, ip := range req.Ips {
+		if req.SourceSchemaHost == ip {
+			err := errors.Errorf("sourceSchemaHost %s cannot be one of the new nodes", req.SourceSchemaHost)
+			controller.wrapfunc(c, model.E_INVALID_VARIABLE, err)
+			return
+		}
+	}
+	if !common.ArraySearch(req.SourceSchemaHost, conf.Hosts) {
+		err := errors.Errorf("sourceSchemaHost %s is not in cluster %s", req.SourceSchemaHost, clusterName)
+		controller.wrapfunc(c, model.E_INVALID_VARIABLE, err)
+		return
+	}
+	if _, err := common.ConnectClickHouse(req.SourceSchemaHost, model.ClickHouseDefaultDB, conf.GetConnOption()); err != nil {
+		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED,
+			errors.Wrapf(err, "sourceSchemaHost %s is not reachable", req.SourceSchemaHost))
+		return
+	}
+
 	shards := make([]model.CkShard, len(conf.Shards))
 	copy(shards, conf.Shards)
 	if len(shards) >= req.Shard {
@@ -1787,6 +1810,7 @@ func (controller *ClickHouseController) AddNode(c *gin.Context) {
 	// install clickhouse and start service on the new node
 	d := deploy.NewCkDeploy(conf)
 	d.Conf.Hosts = req.Ips
+	d.Ext.SourceSchemaHost = req.SourceSchemaHost
 
 	d.Packages = deploy.BuildPackages(conf.Version, conf.PkgType, conf.Cwd)
 	if reflect.DeepEqual(d.Packages, deploy.Packages{}) {
