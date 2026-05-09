@@ -157,7 +157,7 @@ func (d *KeeperDeploy) Install() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
-			cmd1 := cmdIns.StopCmd(KeeperSvrName, d.Conf.Cwd)
+			cmd1 := cmdIns.StopCmd(KeeperSvrName, d.Conf.Cwd, path.Join(d.Conf.KeeperConf.Path, "clickhouse-keeper"))
 			_, _ = common.RemoteExecute(sshOpts, cmd1)
 
 			cmd2 := strings.Join(cmds, ";")
@@ -378,7 +378,7 @@ func (d *KeeperDeploy) Start() error {
 			// 	sshOpts.NeedSudo = d.Conf.NeedSudo
 			// }
 
-			cmd := cmdIns.StartCmd(KeeperSvrName, d.Conf.Cwd)
+			cmd := cmdIns.StartCmd(KeeperSvrName, d.Conf.Cwd, path.Join(d.Conf.KeeperConf.Path, "clickhouse-keeper"))
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
@@ -413,7 +413,7 @@ func (d *KeeperDeploy) Stop() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
-			cmd := cmdIns.StopCmd(KeeperSvrName, d.Conf.Cwd)
+			cmd := cmdIns.StopCmd(KeeperSvrName, d.Conf.Cwd, path.Join(d.Conf.KeeperConf.Path, "clickhouse-keeper"))
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
@@ -448,7 +448,7 @@ func (d *KeeperDeploy) Restart() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
-			cmd := cmdIns.RestartCmd(KeeperSvrName, d.Conf.Cwd)
+			cmd := cmdIns.RestartCmd(KeeperSvrName, d.Conf.Cwd, path.Join(d.Conf.KeeperConf.Path, "clickhouse-keeper"))
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err

@@ -8,22 +8,23 @@ import (
 
 func TestTgzPkg_StartCmd(t *testing.T) {
 	p := TgzFacotry{}.Create()
-	out := p.StartCmd("clickhouse-server", "/home/eoi/clickhouse")
-	expect := "/home/eoi/clickhouse/bin/clickhouse-server --config-file=/home/eoi/clickhouse/etc/clickhouse-server/config.xml --pid-file=/home/eoi/clickhouse/run/clickhouse-server.pid --daemon"
+	out := p.StartCmd("clickhouse-server", "/home/eoi/clickhouse", "/var/lib/clickhouse")
+	expect := `if [ -f /home/eoi/clickhouse/run/clickhouse-server.pid ]; then P=$(cat /home/eoi/clickhouse/run/clickhouse-server.pid 2>/dev/null); if [ -n "$P" ] && kill -0 "$P" 2>/dev/null; then echo "clickhouse-server already running (pid $P)" >&2; exit 1; fi; fi; rm -f /home/eoi/clickhouse/run/clickhouse-server.pid /var/lib/clickhouse/status; /home/eoi/clickhouse/bin/clickhouse-server --config-file=/home/eoi/clickhouse/etc/clickhouse-server/config.xml --pid-file=/home/eoi/clickhouse/run/clickhouse-server.pid --daemon`
 	assert.Equal(t, expect, out)
 }
 
 func TestTgzPkg_StopCmd(t *testing.T) {
 	p := TgzFacotry{}.Create()
-	out := p.StopCmd("clickhouse-server", "/home/eoi/clickhouse")
-	expect := "ps -ef |grep /home/eoi/clickhouse/bin/clickhouse-server |grep -v grep |awk '{print $2}' |xargs kill"
+	out := p.StopCmd("clickhouse-server", "/home/eoi/clickhouse", "/var/lib/clickhouse")
+	expect := `ps -ef |grep /home/eoi/clickhouse/bin/clickhouse-server |grep -v grep |awk '{print $2}' |xargs kill; for i in $(seq 1 30); do ps -ef |grep /home/eoi/clickhouse/bin/clickhouse-server |grep -v grep >/dev/null || break; sleep 1; done; rm -f /home/eoi/clickhouse/run/clickhouse-server.pid /var/lib/clickhouse/status`
 	assert.Equal(t, expect, out)
 }
 
 func TestTgzPkg_RestartCmd(t *testing.T) {
 	p := TgzFacotry{}.Create()
-	out := p.RestartCmd("clickhouse-server", "/home/eoi/clickhouse")
-	expect := `ps -ef |grep /home/eoi/clickhouse/bin/clickhouse-server |grep -v grep |awk '{print $2}' |xargs kill; sleep 5;/home/eoi/clickhouse/bin/clickhouse-server --config-file=/home/eoi/clickhouse/etc/clickhouse-server/config.xml --pid-file=/home/eoi/clickhouse/run/clickhouse-server.pid --daemon`
+	out := p.RestartCmd("clickhouse-server", "/home/eoi/clickhouse", "/var/lib/clickhouse")
+	expect := p.StopCmd("clickhouse-server", "/home/eoi/clickhouse", "/var/lib/clickhouse") + "; " +
+		p.StartCmd("clickhouse-server", "/home/eoi/clickhouse", "/var/lib/clickhouse")
 	assert.Equal(t, expect, out)
 }
 
@@ -74,21 +75,21 @@ func TestTgzPkg_UpgradeCmd(t *testing.T) {
 
 func TestRpmPkg_StartCmd(t *testing.T) {
 	p := RpmFacotry{}.Create()
-	out := p.StartCmd("clickhouse-server", "")
+	out := p.StartCmd("clickhouse-server", "", "")
 	expect := "systemctl start clickhouse-server"
 	assert.Equal(t, expect, out)
 }
 
 func TestRpmPkg_StopCmd(t *testing.T) {
 	p := RpmFacotry{}.Create()
-	out := p.StopCmd("clickhouse-server", "")
+	out := p.StopCmd("clickhouse-server", "", "")
 	expect := "systemctl stop clickhouse-server"
 	assert.Equal(t, expect, out)
 }
 
 func TestRpmPkg_RestartCmd(t *testing.T) {
 	p := RpmFacotry{}.Create()
-	out := p.RestartCmd("clickhouse-server", "")
+	out := p.RestartCmd("clickhouse-server", "", "")
 	expect := `systemctl restart clickhouse-server`
 	assert.Equal(t, expect, out)
 }
@@ -137,21 +138,21 @@ func TestRpmPkg_UpgradeCmd(t *testing.T) {
 
 func TestDebPkg_StartCmd(t *testing.T) {
 	p := DebFacotry{}.Create()
-	out := p.StartCmd("clickhouse-server", "/home/eoi/clickhouse")
+	out := p.StartCmd("clickhouse-server", "/home/eoi/clickhouse", "")
 	expect := "service clickhouse-server start"
 	assert.Equal(t, expect, out)
 }
 
 func TestDebPkg_StopCmd(t *testing.T) {
 	p := DebFacotry{}.Create()
-	out := p.StopCmd("clickhouse-server", "/home/eoi/clickhouse")
+	out := p.StopCmd("clickhouse-server", "/home/eoi/clickhouse", "")
 	expect := "service clickhouse-server stop"
 	assert.Equal(t, expect, out)
 }
 
 func TestDebPkg_RestartCmd(t *testing.T) {
 	p := DebFacotry{}.Create()
-	out := p.RestartCmd("clickhouse-server", "/home/eoi/clickhouse")
+	out := p.RestartCmd("clickhouse-server", "/home/eoi/clickhouse", "")
 	expect := `service clickhouse-server restart`
 	assert.Equal(t, expect, out)
 }

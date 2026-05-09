@@ -15,14 +15,14 @@ func (DebFacotry) Create() CmdAdpt {
 
 type DebPkg struct{}
 
-func (p *DebPkg) StartCmd(svr, cwd string) string {
+func (p *DebPkg) StartCmd(svr, cwd, dataDir string) string {
 	return "service " + svr + " start"
 }
-func (p *DebPkg) StopCmd(svr, cwd string) string {
+func (p *DebPkg) StopCmd(svr, cwd, dataDir string) string {
 	return "service " + svr + " stop"
 }
 
-func (p *DebPkg) RestartCmd(svr, cwd string) string {
+func (p *DebPkg) RestartCmd(svr, cwd, dataDir string) string {
 	return "service " + svr + " restart"
 }
 

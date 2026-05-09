@@ -15,19 +15,40 @@ func (TgzFacotry) Create() CmdAdpt {
 
 type TgzPkg struct{}
 
-func (p *TgzPkg) StartCmd(svr, cwd string) string {
+func (p *TgzPkg) StartCmd(svr, cwd, dataDir string) string {
+	configName := "config.xml"
 	if svr == KeeperSvrName {
-		return fmt.Sprintf("%s/bin/%s --config-file=%s/etc/%s/keeper_config.xml --pid-file=%s/run/%s.pid --daemon", cwd, svr, cwd, svr, cwd, svr)
-	} else {
-		return fmt.Sprintf("%s/bin/%s --config-file=%s/etc/%s/config.xml --pid-file=%s/run/%s.pid --daemon", cwd, svr, cwd, svr, cwd, svr)
+		configName = "keeper_config.xml"
 	}
-}
-func (p *TgzPkg) StopCmd(svr, cwd string) string {
-	return fmt.Sprintf("ps -ef |grep %s/bin/%s |grep -v grep |awk '{print $2}' |xargs kill", cwd, svr)
+	pidFile := fmt.Sprintf("%s/run/%s.pid", cwd, svr)
+	statusFile := fmt.Sprintf("%s/status", dataDir)
+	bin := fmt.Sprintf("%s/bin/%s", cwd, svr)
+	configFile := fmt.Sprintf("%s/etc/%s/%s", cwd, svr, configName)
+	// If the previous pid is still alive, abort to avoid double instance;
+	// otherwise wipe stale pid/status (which can keep ClickHouse from starting)
+	// and launch.
+	livenessCheck := fmt.Sprintf(
+		`if [ -f %s ]; then P=$(cat %s 2>/dev/null); if [ -n "$P" ] && kill -0 "$P" 2>/dev/null; then echo "%s already running (pid $P)" >&2; exit 1; fi; fi`,
+		pidFile, pidFile, svr)
+	cleanup := fmt.Sprintf("rm -f %s %s", pidFile, statusFile)
+	start := fmt.Sprintf("%s --config-file=%s --pid-file=%s --daemon", bin, configFile, pidFile)
+	return fmt.Sprintf("%s; %s; %s", livenessCheck, cleanup, start)
 }
 
-func (p *TgzPkg) RestartCmd(svr, cwd string) string {
-	return p.StopCmd(svr, cwd) + "; sleep 5;" + p.StartCmd(svr, cwd)
+func (p *TgzPkg) StopCmd(svr, cwd, dataDir string) string {
+	pidFile := fmt.Sprintf("%s/run/%s.pid", cwd, svr)
+	statusFile := fmt.Sprintf("%s/status", dataDir)
+	bin := fmt.Sprintf("%s/bin/%s", cwd, svr)
+	kill := fmt.Sprintf("ps -ef |grep %s |grep -v grep |awk '{print $2}' |xargs kill", bin)
+	// Wait up to 30s for the process to actually exit before removing files,
+	// so subsequent starts see a clean slate.
+	wait := fmt.Sprintf(`for i in $(seq 1 30); do ps -ef |grep %s |grep -v grep >/dev/null || break; sleep 1; done`, bin)
+	cleanup := fmt.Sprintf("rm -f %s %s", pidFile, statusFile)
+	return fmt.Sprintf("%s; %s; %s", kill, wait, cleanup)
+}
+
+func (p *TgzPkg) RestartCmd(svr, cwd, dataDir string) string {
+	return p.StopCmd(svr, cwd, dataDir) + "; " + p.StartCmd(svr, cwd, dataDir)
 }
 
 func (p *TgzPkg) InstallCmd(svr string, pkgs Packages) string {

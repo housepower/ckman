@@ -20,14 +20,14 @@ func (RpmFacotry) Create() CmdAdpt {
 
 type RpmPkg struct{}
 
-func (p *RpmPkg) StartCmd(svr, cwd string) string {
+func (p *RpmPkg) StartCmd(svr, cwd, dataDir string) string {
 	return "systemctl start " + svr
 }
-func (p *RpmPkg) StopCmd(svr, cwd string) string {
+func (p *RpmPkg) StopCmd(svr, cwd, dataDir string) string {
 	return "systemctl stop " + svr
 }
 
-func (p *RpmPkg) RestartCmd(svr, cwd string) string {
+func (p *RpmPkg) RestartCmd(svr, cwd, dataDir string) string {
 	return "systemctl restart " + svr
 }
 

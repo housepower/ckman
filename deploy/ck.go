@@ -218,7 +218,7 @@ func (d *CKDeploy) Install() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
-			cmd1 := cmdIns.StopCmd(CkSvrName, d.Conf.Cwd)
+			cmd1 := cmdIns.StopCmd(CkSvrName, d.Conf.Cwd, path.Join(d.Conf.Path, "clickhouse"))
 			_, _ = common.RemoteExecute(sshOpts, cmd1)
 
 			cmd2 := strings.Join(cmds, ";")
@@ -552,7 +552,7 @@ func (d *CKDeploy) Start() error {
 				sshOpts.NeedSudo = d.Conf.NeedSudo
 			}
 
-			cmd := cmdIns.StartCmd(CkSvrName, d.Conf.Cwd)
+			cmd := cmdIns.StartCmd(CkSvrName, d.Conf.Cwd, path.Join(d.Conf.Path, "clickhouse"))
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
@@ -587,7 +587,7 @@ func (d *CKDeploy) Stop() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
-			cmd := cmdIns.StopCmd(CkSvrName, d.Conf.Cwd)
+			cmd := cmdIns.StopCmd(CkSvrName, d.Conf.Cwd, path.Join(d.Conf.Path, "clickhouse"))
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
@@ -622,7 +622,7 @@ func (d *CKDeploy) Restart() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
-			cmd := cmdIns.RestartCmd(CkSvrName, d.Conf.Cwd)
+			cmd := cmdIns.RestartCmd(CkSvrName, d.Conf.Cwd, path.Join(d.Conf.Path, "clickhouse"))
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
 				lastError = err
