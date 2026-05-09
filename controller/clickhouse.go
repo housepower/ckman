@@ -1710,6 +1710,8 @@ func (controller *ClickHouseController) GetClusterStatus(c *gin.Context) {
 // @Failure 200 {string} json "{"code":"5001","msg":"变量不合法","data":""}"
 // @Failure 200 {string} json "{"code":"5005","msg":"节点重复","data":""}"
 // @Failure 200 {string} json "{"code":"5002","msg":"数据不匹配","data":""}"
+// @Failure 200 {string} json "{"code":"5000","msg":"参数不合法","data":""}"
+// @Failure 200 {string} json "{"code":"5110","msg":"ClickHouse连接失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"success","data":null}"
 // @Router /api/v1/ck/node/{clusterName} [post]
 func (controller *ClickHouseController) AddNode(c *gin.Context) {
