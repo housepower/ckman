@@ -119,3 +119,85 @@ type RestoreRequest struct {
 
 type RestoreResponse struct {
 }
+
+// ============== 新数据模型（Plan 1 引入，老 Backup 类型仍保留） ==============
+
+const (
+	BACKUP_TYPE_DAILY_PARTITION = BACKUP_TYPE_DAILY // 别名，语义更准确：要求 partition key 是日级别
+)
+
+const (
+	// 新增 Run 状态
+	BACKUP_STATUS_QUEUED      = "queued"
+	BACKUP_STATUS_RUNNING     = "running"
+	BACKUP_STATUS_INTERRUPTED = "interrupted"
+	BACKUP_STATUS_SKIPPED     = "skipped"
+
+	// Run trigger types
+	TRIGGER_CRON             = "cron"
+	TRIGGER_MANUAL_IMMEDIATE = "manual_immediate"
+	TRIGGER_MANUAL_RESTORE   = "manual_restore"
+	TRIGGER_RETRY            = "retry"
+	TRIGGER_MIGRATED         = "migrated"
+
+	// Run skip / interrupt reasons
+	REASON_OVERLAP      = "overlap"
+	REASON_QUEUE_FULL   = "queue_full"
+	REASON_DISABLED     = "disabled"
+	REASON_RESTART      = "ckman restart"
+	REASON_INST_CHANGED = "instance changed"
+)
+
+type BackupPolicy struct {
+	PolicyID     string      `json:"policy_id"`
+	ClusterName  string      `json:"cluster_name"`
+	Database     string      `json:"database"`
+	Table        string      `json:"table"`
+	ScheduleType string      `json:"schedule_type"` // immediate | scheduled
+	Crontab      string      `json:"crontab"`
+	Instance     string      `json:"instance"`
+	BackupStyle  string      `json:"backup_style"` // full | incremental
+	BackupType   string      `json:"backup_type"`  // partition | daily
+	DaysBefore   int         `json:"days_before"`
+	Partitions   []string    `json:"partitions"`
+	TargetType   string      `json:"target_type"` // s3 | local
+	S3           TargetS3    `json:"s3"`
+	Local        TargetLocal `json:"local"`
+	Compression  string      `json:"compression"`
+	Checksum     bool        `json:"checksum"`
+	Clean        bool        `json:"clean"`
+	Enabled      bool        `json:"enabled"`
+	Deleted      bool        `json:"deleted"`
+	CreateTime   time.Time   `json:"create_time"`
+	UpdateTime   time.Time   `json:"update_time"`
+}
+
+type BackupRun struct {
+	RunID        string               `json:"run_id"`
+	PolicyID     string               `json:"policy_id"`
+	ClusterName  string               `json:"cluster_name"`
+	Database     string               `json:"database"`
+	Table        string               `json:"table"`
+	Operation    string               `json:"operation"`    // backup | restore
+	TriggerType  string               `json:"trigger_type"` // cron | manual_immediate | ...
+	Instance     string               `json:"instance"`
+	Status       string               `json:"status"` // queued | running | success | failed | skipped | interrupted
+	StatusReason string               `json:"status_reason"`
+	Partitions   []BackupRunPartition `json:"partitions"`
+	StartedAt    time.Time            `json:"started_at"`
+	FinishedAt   time.Time            `json:"finished_at"`
+	Elapsed      int                  `json:"elapsed"`
+	ErrorMsg     string               `json:"error_msg"`
+	CreateTime   time.Time            `json:"create_time"`
+}
+
+type BackupRunPartition struct {
+	Partition string              `json:"partition"`
+	Status    string              `json:"status"`
+	Size      uint64              `json:"size"`
+	Rows      uint64              `json:"rows"`
+	FileNum   uint64              `json:"file_num"`
+	Elapsed   int                 `json:"elapsed"`
+	Msg       string              `json:"msg"`
+	PathInfo  map[string]PathInfo `json:"-"` // 仅 checksum=true 时填充，不入库
+}
