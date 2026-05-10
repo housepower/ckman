@@ -124,6 +124,20 @@ make lint       # Lint code
 
 The built frontend is embedded in the Go binary using `//go:embed static/dist`.
 
+### IMPORTANT: Frontend submodule workflow
+
+`frontend/` is a git submodule (clone of `ckman-fe.git`). **Never edit code or commit inside `frontend/`.** Its HEAD is frequently detached, commits there don't land on any branch and are unreachable to remote/other clones.
+
+Correct workflow:
+
+1. All frontend changes go in the sibling working copy: `../ckman-fe/` (i.e. `/data/root/go/src/github.com/housepower/ckman-fe/`)
+2. In `ckman-fe`, commit to the active branch (typically `main`)
+3. After pushing, in the parent repo: `cd frontend && git fetch && git checkout <new-sha> && cd .. && git add frontend && git commit` to update the submodule pointer
+
+Before any frontend work, verify `cd ../ckman-fe && git status && git branch -vv` — confirm clean tree and which branch is active. If unsure, ask the user.
+
+`make build` to verify frontend changes is run in `ckman-fe/`, not `ckman/frontend`.
+
 ## Key Patterns
 
 ### Response Wrapping
