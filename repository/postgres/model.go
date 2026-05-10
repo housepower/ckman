@@ -57,3 +57,33 @@ type TblBackup struct {
 func (v TblBackup) TableName() string {
 	return PG_TBL_BACKUP
 }
+
+type TblBackupPolicy struct {
+	PolicyID     string `gorm:"column:policy_id;primaryKey"`
+	ClusterName  string `gorm:"column:cluster_name;index:idx_bp_cluster_db_table"`
+	Database     string `gorm:"column:database_name;index:idx_bp_cluster_db_table"`
+	Table        string `gorm:"column:table_name;index:idx_bp_cluster_db_table"`
+	Instance     string `gorm:"column:instance;index:idx_bp_instance"`
+	ScheduleType string `gorm:"column:schedule_type"`
+	Enabled      bool   `gorm:"column:enabled"`
+	Deleted      bool   `gorm:"column:deleted"`
+	Policy       string `gorm:"column:policy;type:JSONB"`
+	UpdateTime   string `gorm:"column:update_time"`
+}
+
+func (v TblBackupPolicy) TableName() string { return PG_TBL_BACKUP_POLICY }
+
+type TblBackupRun struct {
+	RunID       string    `gorm:"column:run_id;primaryKey"`
+	PolicyID    string    `gorm:"column:policy_id;index:idx_br_policy_started"`
+	ClusterName string    `gorm:"column:cluster_name;index:idx_br_table_started"`
+	Database    string    `gorm:"column:database_name;index:idx_br_table_started"`
+	Table       string    `gorm:"column:table_name;index:idx_br_table_started"`
+	Status      string    `gorm:"column:status;index:idx_br_status_instance"`
+	Instance    string    `gorm:"column:instance;index:idx_br_status_instance"`
+	StartedAt   time.Time `gorm:"column:started_at;index:idx_br_policy_started;index:idx_br_table_started"`
+	Run         string    `gorm:"column:run;type:JSONB"`
+	CreateTime  time.Time `gorm:"column:create_time"`
+}
+
+func (v TblBackupRun) TableName() string { return PG_TBL_BACKUP_RUN }
