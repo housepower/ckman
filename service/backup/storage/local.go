@@ -7,7 +7,7 @@ import (
 
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
-	"github.com/housepower/ckman/service/backup"
+	"github.com/housepower/ckman/service/backup/bvalidate"
 )
 
 // Local 实现 Storage 接口，将备份文件写到 ClickHouse 节点的本地文件系统。
@@ -27,7 +27,7 @@ func NewLocal(cfg model.TargetLocal, sshOpts func(string) common.SshOptions) *Lo
 
 // Init 对配置路径执行白名单校验（修闭 spec §9 #9 RCE 注入面）。
 func (l *Local) Init() error {
-	return backup.ValidateLocalPath(l.cfg.Path)
+	return bvalidate.ValidateLocalPath(l.cfg.Path)
 }
 
 // Type 返回存储类型标识。
@@ -62,7 +62,7 @@ func (l *Local) CleanPartition(database, table, host, partition string) error {
 	}
 	// identifier 强校验，防 shell 注入（双层防御：校验 + %q 引用）
 	for _, s := range []string{database, table, partition} {
-		if err := backup.ValidateIdentifier(s); err != nil {
+		if err := bvalidate.ValidateIdentifier(s); err != nil {
 			return err
 		}
 	}
@@ -80,10 +80,10 @@ func (l *Local) CheckPartition(host, database, table, partition string,
 	if l.sshOpts == nil {
 		return errors.New("local storage: sshOpts not configured")
 	}
-	if err := backup.ValidateIdentifier(database); err != nil {
+	if err := bvalidate.ValidateIdentifier(database); err != nil {
 		return err
 	}
-	if err := backup.ValidateIdentifier(table); err != nil {
+	if err := bvalidate.ValidateIdentifier(table); err != nil {
 		return err
 	}
 	opts := l.sshOpts(host)

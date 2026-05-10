@@ -1,52 +1,19 @@
 package backup
 
 import (
-	"errors"
 	"fmt"
-	"regexp"
-	"strings"
 	"time"
 
+	"github.com/housepower/ckman/service/backup/bvalidate"
 	"github.com/robfig/cron/v3"
 )
 
-var (
-	pathRe       = regexp.MustCompile(`^/[a-zA-Z0-9_./\-]+$`)
-	identifierRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_\-]*$`)
-)
+// ValidateLocalPath 拒绝注入面：要求绝对路径、白名单字符、不含 ..、长度上限。
+// 委托给 bvalidate 子包，避免 storage 子包循环依赖。
+func ValidateLocalPath(p string) error { return bvalidate.ValidateLocalPath(p) }
 
-const maxLocalPathLen = 256
-
-// ValidateLocalPath 拒绝注入面：要求绝对路径、白名单字符、不含 ..、长度上限
-func ValidateLocalPath(p string) error {
-	if len(p) == 0 || len(p) > maxLocalPathLen {
-		return fmt.Errorf("local path empty or too long (>%d)", maxLocalPathLen)
-	}
-	if strings.Contains(p, "..") {
-		return errors.New("local path may not contain '..'")
-	}
-	if strings.Contains(p, "//") {
-		return errors.New("local path may not contain '//'")
-	}
-	if strings.Contains(p, "/./") {
-		return errors.New("local path may not contain '/./'")
-	}
-	if !pathRe.MatchString(p) {
-		return fmt.Errorf("local path %q contains forbidden characters", p)
-	}
-	return nil
-}
-
-// ValidateIdentifier 用于 database / table / 分区名等会被拼到 SQL 的字符串
-func ValidateIdentifier(s string) error {
-	if s == "" {
-		return errors.New("identifier empty")
-	}
-	if !identifierRe.MatchString(s) {
-		return fmt.Errorf("identifier %q contains forbidden characters", s)
-	}
-	return nil
-}
+// ValidateIdentifier 用于 database / table / 分区名等会被拼到 SQL 的字符串。
+func ValidateIdentifier(s string) error { return bvalidate.ValidateIdentifier(s) }
 
 // ValidateCrontabMinInterval 解析 cron，检查接下来连续 24 次触发中任一相邻间隔 >= 1 小时
 func ValidateCrontabMinInterval(spec string) error {
