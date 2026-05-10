@@ -332,7 +332,31 @@ func (realStages) Restore(ctx context.Context, e *Executor, runID string) error 
 	}
 	return nil
 }
-func (realStages) Check(context.Context, *Executor, string) error   { return nil }
+func (realStages) Check(ctx context.Context, e *Executor, runID string) error {
+	run, err := e.repo.GetRun(runID)
+	if err != nil {
+		return err
+	}
+	var firstErr error
+	for _, p := range run.Partitions {
+		if p.Status != model.BACKUP_PARTITION_STATUS_SUCCESS {
+			continue
+		}
+		g, _ := errgroup.WithContext(ctx)
+		for _, c := range e.conns {
+			c := c
+			pp := p
+			g.Go(func() error {
+				return e.storage.CheckPartition(c.host, run.Database, run.Table, pp.Partition, pp.PathInfo)
+			})
+		}
+		if err := g.Wait(); err != nil && firstErr == nil {
+			firstErr = err
+			// 关键：不 return；继续校验后续 partition（修 #3）
+		}
+	}
+	return firstErr
+}
 func (realStages) Close(context.Context, *Executor, string) error   { return nil }
 
 // Prepare 阶段:

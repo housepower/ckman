@@ -397,3 +397,100 @@ func TestRealStages_Restore_SkipsNonWaiting(t *testing.T) {
 		t.Fatal("non-waiting partition should be skipped")
 	}
 }
+
+// ── Check stage tests ─────────────────────────────────────────────────────────
+
+type checksumStorage struct {
+	check func(host, db, table, partition string, pi map[string]model.PathInfo) error
+}
+
+func (s *checksumStorage) Init() error                                      { return nil }
+func (s *checksumStorage) BackupSQL(_, _, _, _ string) string               { return "" }
+func (s *checksumStorage) RestoreSQL(_, _, _, _ string) string              { return "" }
+func (s *checksumStorage) CleanPartition(_, _, _, _ string) error           { return nil }
+func (s *checksumStorage) CheckPartition(host, db, table, partition string, pi map[string]model.PathInfo) error {
+	return s.check(host, db, table, partition, pi)
+}
+func (s *checksumStorage) Type() string { return "fake" }
+
+func TestRealStages_Check_AllPartitionsValidated(t *testing.T) {
+	// 修 #3：3 个 success partition 全要被校验，旧版 return 写在 for 内只校验第一个
+	checked := map[string]int{}
+	storage := &checksumStorage{
+		check: func(host, db, table, p string, _ map[string]model.PathInfo) error {
+			checked[p]++
+			return nil
+		},
+	}
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", Database: "dba", Table: "t1",
+		Partitions: []model.BackupRunPartition{
+			{Partition: "20250507", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+			{Partition: "20250508", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+			{Partition: "20250509", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+		},
+	}
+	e := &Executor{
+		repo:    repo,
+		conns:   []*shardConn{newFakeShardConn("h1")},
+		storage: storage,
+	}
+	if err := (realStages{}).Check(context.Background(), e, "r1"); err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	if len(checked) != 3 {
+		t.Fatalf("expected 3 partitions checked, got %d (regression of #3!)", len(checked))
+	}
+}
+
+func TestRealStages_Check_FirstFailureRetainedButContinues(t *testing.T) {
+	// p2 失败，p1 / p3 仍校验。返回首个错。
+	count := 0
+	storage := &checksumStorage{
+		check: func(_, _, _, p string, _ map[string]model.PathInfo) error {
+			count++
+			if p == "20250508" {
+				return errors.New("md5 mismatch")
+			}
+			return nil
+		},
+	}
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", Database: "d", Table: "t",
+		Partitions: []model.BackupRunPartition{
+			{Partition: "20250507", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+			{Partition: "20250508", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+			{Partition: "20250509", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+		},
+	}
+	e := &Executor{repo: repo, conns: []*shardConn{newFakeShardConn("h1")}, storage: storage}
+	err := (realStages{}).Check(context.Background(), e, "r1")
+	if err == nil || !strings.Contains(err.Error(), "md5 mismatch") {
+		t.Fatalf("expected md5 mismatch, got %v", err)
+	}
+	if count != 3 {
+		t.Fatalf("expected all 3 checked despite failure, got %d", count)
+	}
+}
+
+func TestRealStages_Check_SkipsNonSuccess(t *testing.T) {
+	// 仅校验 SUCCESS 状态的 partition
+	called := 0
+	storage := &checksumStorage{check: func(_, _, _, _ string, _ map[string]model.PathInfo) error { called++; return nil }}
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1",
+		Partitions: []model.BackupRunPartition{
+			{Partition: "p1", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+			{Partition: "p2", Status: model.BACKUP_PARTITION_STATUS_FAILED},
+			{Partition: "p3", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+		},
+	}
+	e := &Executor{repo: repo, conns: []*shardConn{newFakeShardConn("h1")}, storage: storage}
+	_ = realStages{}.Check(context.Background(), e, "r1")
+	if called != 1 {
+		t.Fatalf("expected only 1 success partition checked, got %d", called)
+	}
+}
