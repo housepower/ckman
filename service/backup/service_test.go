@@ -147,3 +147,46 @@ func newServiceForTest(self string, repo ServiceRepo, pool ServicePool) *Service
 	s.now = func() time.Time { return time.Unix(1, 0) }
 	return s
 }
+
+func (r *memRepo) InFlightRunsByInstance(instance string) []model.BackupRun {
+	var out []model.BackupRun
+	for _, rn := range r.runs {
+		if rn.Instance == instance && (rn.Status == model.BACKUP_STATUS_QUEUED || rn.Status == model.BACKUP_STATUS_RUNNING) {
+			out = append(out, rn)
+		}
+	}
+	return out
+}
+
+// Task 14 追加：Boot 把本实例残留 in-flight run 标 interrupted
+func TestService_Boot_MarksInFlightAsInterrupted(t *testing.T) {
+	repo := newMemRepo()
+	repo.runs["r-running"] = model.BackupRun{RunID: "r-running", Status: model.BACKUP_STATUS_RUNNING, Instance: "ckman-01"}
+	repo.runs["r-queued"] = model.BackupRun{RunID: "r-queued", Status: model.BACKUP_STATUS_QUEUED, Instance: "ckman-01"}
+	repo.runs["r-other"] = model.BackupRun{RunID: "r-other", Status: model.BACKUP_STATUS_RUNNING, Instance: "ckman-02"}
+	repo.runs["r-success"] = model.BackupRun{RunID: "r-success", Status: model.BACKUP_STATUS_SUCCESS, Instance: "ckman-01"}
+
+	svc := newServiceForTest("ckman-01", repo, &fakePool{})
+	if err := svc.Boot(); err != nil {
+		t.Fatalf("boot: %v", err)
+	}
+	r1, _ := repo.GetRun("r-running")
+	if r1.Status != model.BACKUP_STATUS_INTERRUPTED {
+		t.Fatalf("running should be interrupted: %+v", r1)
+	}
+	if r1.StatusReason != model.REASON_RESTART {
+		t.Fatalf("status_reason should be ckman restart: %+v", r1)
+	}
+	r2, _ := repo.GetRun("r-queued")
+	if r2.Status != model.BACKUP_STATUS_INTERRUPTED {
+		t.Fatalf("queued should be interrupted: %+v", r2)
+	}
+	r3, _ := repo.GetRun("r-other")
+	if r3.Status != model.BACKUP_STATUS_RUNNING {
+		t.Fatalf("other instance unaffected: %+v", r3)
+	}
+	r4, _ := repo.GetRun("r-success")
+	if r4.Status != model.BACKUP_STATUS_SUCCESS {
+		t.Fatalf("success terminal state must not change: %+v", r4)
+	}
+}

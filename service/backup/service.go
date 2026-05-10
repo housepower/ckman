@@ -9,7 +9,7 @@ import (
 	"github.com/housepower/ckman/model"
 )
 
-// ServiceRepo 暴露 Service 需要的持久层操作。Task 14 会扩。
+// ServiceRepo 暴露 Service 需要的持久层操作。
 type ServiceRepo interface {
 	CreatePolicy(p model.BackupPolicy) error
 	GetPolicy(id string) (model.BackupPolicy, error)
@@ -17,6 +17,7 @@ type ServiceRepo interface {
 	UpdateRun(r model.BackupRun) error
 	GetRun(id string) (model.BackupRun, error)
 	InFlightRunsByPolicy(policyID string) []model.BackupRun
+	InFlightRunsByInstance(instance string) []model.BackupRun // 新增，Task 14
 }
 
 // ServicePool 暴露入队能力。Task 11 的 Pool 实现满足。
@@ -92,4 +93,19 @@ func (s *Service) SubmitForPolicy(p model.BackupPolicy, trigger string) (string,
 	}
 
 	return run.RunID, nil
+}
+
+// Boot 启动时调用：把本实例上所有 queued/running run 标 interrupted。
+// 防止 ckman 崩溃 / 重启后留下假在跑的状态。spec §5.5。
+func (s *Service) Boot() error {
+	now := s.now()
+	for _, r := range s.repo.InFlightRunsByInstance(s.self) {
+		r.Status = model.BACKUP_STATUS_INTERRUPTED
+		r.StatusReason = model.REASON_RESTART
+		r.FinishedAt = now
+		if err := s.repo.UpdateRun(r); err != nil {
+			log.Logger.Errorf("[backup] boot mark interrupted run=%s: %v", r.RunID, err)
+		}
+	}
+	return nil
 }
