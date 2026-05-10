@@ -234,7 +234,18 @@ func (c *DataManageController) ListRunsByTable(ctx *gin.Context) {
 }
 
 // GetTablePartitionSummary GET /data_manage/tables/:cluster/:database/summary
-// stub 占位，Plan2-T9 实现完整逻辑。
+// 返回 cluster.database 下所有 MergeTree 系列表的分区信息与大小，供前端选表时 batch 缓存。
 func (c *DataManageController) GetTablePartitionSummary(ctx *gin.Context) {
-	c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, fmt.Errorf("not implemented (Plan2-T9)"))
+	cluster := ctx.Param(ClickHouseClusterPath)
+	database := ctx.Param("database")
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	infos, err := svc.GetTablePartitionSummary(cluster, database)
+	if err != nil {
+		c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, infos)
 }
