@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/housepower/ckman/log"
@@ -88,18 +89,49 @@ var _ CronAdapter = ServiceCronAdapter{}
 //
 // self: 本实例标识（host:port）。
 // maxConcurrent: worker pool 大小，<=0 则使用默认值 8。
+// chAdapter: ClickHouseAdapter，提供 ConnFactory / ListPartitions 等真实 hook。
 //
 // 返回 stop 函数，进程退出时调用以清理。
-func Init(ctx context.Context, self string, maxConcurrent int) (stop func(), err error) {
+func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickHouseAdapter) (stop func(), err error) {
 	if maxConcurrent <= 0 {
 		maxConcurrent = 8
 	}
 	repo := PersistentRepoAdapter{}
 
-	// Pool 用占位 exec：Plan 1 阶段没有真实 run 流入；
-	// Plan 2 接 HTTP 后换成真实 Executor.Run。
-	pool := NewPool(maxConcurrent, func(_ context.Context, runID string) {
-		log.Logger.Warnf("[backup] received run %s but executor not wired yet (Plan 2)", runID)
+	// 真实 Executor 装配
+	exec := &Executor{
+		repo:                  repo,
+		connFactory:           chAdapter.ConnFactory,
+		listPartitions:        chAdapter.ListPartitions,
+		getLastRunPartitions:  chAdapter.GetLastRunPartitions,
+		collectChecksumOnHost: chAdapter.CollectChecksumOnHost,
+		stages:                realStages{},
+	}
+
+	// execSQL hook：从 exec.conns 按 host 找 conn 直接调 Exec
+	exec.execSQL = func(host, sql string) error {
+		for _, c := range exec.conns {
+			if c.host == host && c.conn != nil {
+				return c.conn.Exec(sql)
+			}
+		}
+		return fmt.Errorf("no conn for host %s", host)
+	}
+
+	// queryRows hook：从 exec.conns 按 host 找 conn 直接调 Query
+	exec.queryRows = func(host string) (queryResult, error) {
+		for _, c := range exec.conns {
+			if c.host == host && c.conn != nil {
+				return c.conn.Query("SELECT path FROM system.parts WHERE active = 1 LIMIT 1")
+			}
+		}
+		return nil, fmt.Errorf("no conn for host %s", host)
+	}
+
+	pool := NewPool(maxConcurrent, func(ctx context.Context, runID string) {
+		if rerr := exec.Run(ctx, runID); rerr != nil {
+			log.Logger.Errorf("[backup] run %s failed: %v", runID, rerr)
+		}
 	})
 
 	svc := NewService(self, repo, pool)

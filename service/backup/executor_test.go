@@ -14,10 +14,11 @@ import (
 
 type fakeQueryRows struct{ closeFn func() }
 
-func (f *fakeQueryRows) Close() {
+func (f *fakeQueryRows) Close() error {
 	if f.closeFn != nil {
 		f.closeFn()
 	}
+	return nil
 }
 
 type fakeStorage struct {

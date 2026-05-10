@@ -10,11 +10,12 @@ import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/repository"
 	"golang.org/x/sync/errgroup"
 )
 
-// queryResult is a minimal interface satisfied by *sql.Rows and test fakes.
-type queryResult interface{ Close() }
+// queryResult is a minimal interface satisfied by *common.Rows and test fakes.
+type queryResult interface{ Close() error }
 
 // ExecRepo 暴露 Executor 需要的持久层操作。
 type ExecRepo interface {
@@ -143,6 +144,21 @@ func (e *Executor) Init(ctx context.Context, runID string) error {
 		return fmt.Errorf("no shard reachable for cluster %s", policy.ClusterName)
 	}
 	e.conns = conns
+
+	// 装配 storage（如果尚未注入，且 policy 有目标类型则按 policy 创建）
+	if e.storage == nil && policy.TargetType != "" {
+		cluster, cerr := repository.Ps.GetClusterbyName(policy.ClusterName)
+		if cerr != nil {
+			return fmt.Errorf("get cluster %s: %w", policy.ClusterName, cerr)
+		}
+		e.storage = NewStorageForPolicy(policy, cluster)
+		if e.storage == nil {
+			return fmt.Errorf("unsupported target type: %s", policy.TargetType)
+		}
+		if err := e.storage.Init(); err != nil {
+			return fmt.Errorf("storage init: %w", err)
+		}
+	}
 
 	// 仅 daily 模式且 daysBefore > 0 时枚举分区
 	if policy.BackupType == model.BACKUP_TYPE_DAILY_PARTITION && policy.DaysBefore > 0 {

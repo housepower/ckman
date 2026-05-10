@@ -123,7 +123,8 @@ func main() {
 	})
 
 	self := net.JoinHostPort(config.GlobalConfig.Server.Ip, fmt.Sprint(config.GlobalConfig.Server.Port))
-	backupStop, err := backup.Init(context.Background(), self, 8)
+	chAdapter := backup.NewClickHouseAdapter()
+	backupStop, err := backup.Init(context.Background(), self, 8, chAdapter)
 	if err != nil {
 		log.Logger.Fatalf("init backup service failed: %v", err)
 	}
