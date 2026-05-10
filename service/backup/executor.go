@@ -357,7 +357,45 @@ func (realStages) Check(ctx context.Context, e *Executor, runID string) error {
 	}
 	return firstErr
 }
-func (realStages) Close(context.Context, *Executor, string) error   { return nil }
+func (realStages) Close(ctx context.Context, e *Executor, runID string) error {
+	run, err := e.repo.GetRun(runID)
+	if err != nil {
+		return err
+	}
+	policy, err := e.repo.GetPolicyForRun(run.PolicyID)
+	if err != nil {
+		return err
+	}
+	if !policy.Clean {
+		return nil
+	}
+
+	// 防注入：identifier 强校验
+	if err := ValidateIdentifier(run.Database); err != nil {
+		return err
+	}
+	if err := ValidateIdentifier(run.Table); err != nil {
+		return err
+	}
+
+	var dropErrs []error
+	for _, p := range run.Partitions {
+		if p.Status != model.BACKUP_PARTITION_STATUS_SUCCESS {
+			continue
+		}
+		for _, c := range e.conns {
+			sql := fmt.Sprintf("ALTER TABLE `%s`.`%s` DROP PARTITION '%s'",
+				run.Database, run.Table, strings.ReplaceAll(p.Partition, "'", "''"))
+			if err := e.execSQL(c.host, sql); err != nil {
+				dropErrs = append(dropErrs, fmt.Errorf("[%s][%s] %w", c.host, p.Partition, err))
+			}
+		}
+	}
+	if len(dropErrs) > 0 {
+		return fmt.Errorf("cleanup_failed: %w", errors.Join(dropErrs...))
+	}
+	return nil
+}
 
 // Prepare 阶段:
 //  1. 若 policy.Checksum=true：用 errgroup 并发查各 host system.parts（修 #5 race）；
