@@ -11,6 +11,19 @@ import (
 	servicecron "github.com/housepower/ckman/service/cron"
 )
 
+// 包级单例，供 controller 层通过 GetService() / GetChAdapter() 访问。
+// 风格与 repository.Ps 一致。
+var (
+	globalService   *Service
+	globalChAdapter *ClickHouseAdapter
+)
+
+// GetService 返回已初始化的 backup Service；未 Init 则返回 nil。
+func GetService() *Service { return globalService }
+
+// GetChAdapter 返回已初始化的 ClickHouseAdapter；未 Init 则返回 nil。
+func GetChAdapter() *ClickHouseAdapter { return globalChAdapter }
+
 // PersistentRepoAdapter 把 repository.Ps（PersistentMgr）桥接到 ServiceRepo 与 ExecRepo。
 type PersistentRepoAdapter struct{}
 
@@ -156,5 +169,10 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 		time.Sleep(50 * time.Millisecond)
 		pool.Stop()
 	}
+
+	// 暴露包级单例，供 controller 层读取
+	globalService = svc
+	globalChAdapter = chAdapter
+
 	return stop, nil
 }

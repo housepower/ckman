@@ -3,14 +3,13 @@ package controller
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-basic/uuid"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/model"
-	"github.com/housepower/ckman/repository"
-	"github.com/housepower/ckman/service/clickhouse"
-	"github.com/housepower/ckman/service/cron"
+	"github.com/housepower/ckman/service/backup"
 )
 
 type DataManageController struct {
@@ -27,246 +26,215 @@ func NewDataManageController(config *config.CKManConfig, wrapfunc Wrapfunc) *Dat
 	}
 }
 
-func (controller *DataManageController) BackupData(c *gin.Context) {
-	clusterName := c.Param(ClickHouseClusterPath)
+// self 返回本实例 host:port 标识，用于立即备份 instance 字段。
+func (c *DataManageController) self() string {
+	return net.JoinHostPort(c.config.Server.Ip, fmt.Sprint(c.config.Server.Port))
+}
 
+// svc 返回包级 backup.Service；若未初始化则通过 wrapfunc 报错并返回 nil。
+func (c *DataManageController) svc(ctx *gin.Context) *backup.Service {
+	svc := backup.GetService()
+	if svc == nil {
+		c.wrapfunc(ctx, model.E_DATA_INSERT_FAILED, fmt.Errorf("backup service not initialized"))
+	}
+	return svc
+}
+
+// ============== Backup / Restore 主流程 ==============
+
+// BackupData POST /data_manage/backup/:cluster
+// 立即/定时备份；多表展开为多 policy + 多 run。立即备份返回 run_ids；定时备份返回空。
+func (c *DataManageController) BackupData(ctx *gin.Context) {
+	cluster := ctx.Param(ClickHouseClusterPath)
 	var req model.BackupRequest
-	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+	if err := model.DecodeRequestBody(ctx.Request, &req); err != nil {
+		c.wrapfunc(ctx, model.E_INVALID_PARAMS, err)
 		return
 	}
-
-	if req.ScheduleType == model.BACKUP_SCHEDULED {
-		if req.Crontab == "" {
-			controller.wrapfunc(c, model.E_INVALID_VARIABLE, fmt.Errorf("crontab is empty"))
-			return
-		}
-		if req.DaysBefore <= 0 {
-			controller.wrapfunc(c, model.E_INVALID_VARIABLE, fmt.Errorf("days before must be greater than 0"))
-			return
-		}
-		if req.BackupType == model.BACKUP_TYPE_PARTITION {
-			controller.wrapfunc(c, model.E_INVALID_VARIABLE, fmt.Errorf("partition backup can not be scheduled"))
-			return
-		}
-
-		if req.BackupStyle == model.BACKUP_STYLE_FULL {
-			controller.wrapfunc(c, model.E_INVALID_VARIABLE, fmt.Errorf("full backup can not be scheduled"))
-			return
-		}
+	if len(req.Tables) == 0 || len(req.Tables) > 100 {
+		c.wrapfunc(ctx, model.E_INVALID_VARIABLE, fmt.Errorf("tables 数量必须在 1-100 之间"))
+		return
 	}
-
-	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	// spec #12：立即备份强制绑定到本实例
+	if req.ScheduleType == model.BACKUP_IMMEDIATE {
+		req.Instance = c.self()
+	}
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	runIDs, err := svc.SubmitBackupRequest(cluster, req)
 	if err != nil {
-		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+		c.wrapfunc(ctx, model.E_DATA_INSERT_FAILED, err)
 		return
 	}
-	svc := clickhouse.NewCkService(&conf)
-	if err = svc.InitCkService(); err != nil {
-		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
-		return
-	}
-	for _, table := range req.Tables {
-		var cnt uint64
-		err = svc.Conn.QueryRow(fmt.Sprintf("SELECT count() FROM system.tables WHERE database = '%s' AND name = '%s'", req.Database, table)).Scan(&cnt)
-		if err != nil {
-			controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
-			return
-		}
-		if cnt == 0 {
-			controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, fmt.Errorf("table %s.%s not exist", req.Database, table))
-			return
-		}
-		if req.BackupType == model.BACKUP_TYPE_PARTITION {
-			for _, partition := range req.Partitions {
-				var cnt uint64
-				err = svc.Conn.QueryRow(fmt.Sprintf("SELECT count() FROM system.parts WHERE database = '%s' AND table = '%s' AND partition = '%s'", req.Database, table, partition)).Scan(&cnt)
-				if err != nil {
-					controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
-					return
-				}
-				if cnt == 0 {
-					controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, fmt.Errorf("partition %s in table %s.%s not exist", partition, req.Database, table))
-					return
-				}
-			}
-		}
-	}
-	backups := NewBackup(clusterName, req)
-	self := net.JoinHostPort(controller.config.Server.Ip, fmt.Sprint(controller.config.Server.Port))
-	for _, backup := range backups {
-		if err := repository.Ps.CreateBackup(backup); err != nil {
-			controller.wrapfunc(c, model.E_DATA_INSERT_FAILED, err)
-			return
-		}
-		if backup.ScheduleType == model.BACKUP_IMMEDIATE {
-			if err := clickhouse.BackupManage(backup.BackupId, self); err != nil {
-				controller.wrapfunc(c, model.E_DATA_INSERT_FAILED, err)
-				return
-			}
-		} else if backup.ScheduleType == model.BACKUP_SCHEDULED {
-			if self == backup.Instance {
-				cron.AddJob(backup.BackupId, backup.Crontab, func() error {
-					return clickhouse.BackupManage(backup.BackupId, self)
-				})
-			}
-		}
-	}
-	controller.wrapfunc(c, model.E_SUCCESS, nil)
+	c.wrapfunc(ctx, model.E_SUCCESS, gin.H{"run_ids": runIDs})
 }
 
-func (controller *DataManageController) RestoreData(c *gin.Context) {
-	clusterName := c.Param(ClickHouseClusterPath)
-	var req model.RestoreRequest
-	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
-		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+// RestoreData POST /data_manage/restore/:cluster
+func (c *DataManageController) RestoreData(ctx *gin.Context) {
+	cluster := ctx.Param(ClickHouseClusterPath)
+	var req backup.RestoreRequest
+	if err := model.DecodeRequestBody(ctx.Request, &req); err != nil {
+		c.wrapfunc(ctx, model.E_INVALID_PARAMS, err)
 		return
 	}
-	backup, err := repository.Ps.GetBackupById(req.BackupId)
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	runID, err := svc.SubmitRestore(cluster, req)
 	if err != nil {
-		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+		c.wrapfunc(ctx, model.E_DATA_INSERT_FAILED, err)
 		return
 	}
-	var newBack model.Backup
-	newBack.BackupId = uuid.New()
-	newBack.Database = backup.Database
-	newBack.Table = backup.Table
-	newBack.ScheduleType = model.BACKUP_IMMEDIATE
-	newBack.Operation = model.OP_RESTORE
-	newBack.Clean = false
-	newBack.ClusterName = clusterName
-	newBack.TargetType = backup.TargetType
-	newBack.DaysBefore = 0
-	newBack.S3 = backup.S3
-	newBack.Local = backup.Local
-	newBack.Status = model.BACKUP_STATUS_WAITING
-	var partitions []model.BackupLists
-	for _, partition := range req.Partitions {
-		found := false
-		var pp model.BackupLists
-		for _, p := range backup.Partitions {
-			if p.Partition == partition && p.Status == model.BACKUP_PARTITION_STATUS_SUCCESS {
-				found = true
-				pp = p
-				break
-			}
-		}
-		if !found {
-			controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, fmt.Errorf("partition %s not exist or not in success state", partition))
-			return
-		}
-		partitions = append(partitions, model.BackupLists{
-			//QueryId:   uuid.New(),
-			Partition: partition,
-			Status:    model.BACKUP_PARTITION_STATUS_WAITING,
-			Rows:      pp.Rows,
-			Size:      pp.Size,
-			FileNum:   pp.FileNum,
-		})
-	}
-	newBack.Partitions = partitions
-	if err := repository.Ps.CreateBackup(newBack); err != nil {
-		controller.wrapfunc(c, model.E_DATA_INSERT_FAILED, err)
-		return
-	}
-	self := net.JoinHostPort(controller.config.Server.Ip, fmt.Sprint(controller.config.Server.Port))
-	if err := clickhouse.BackupManage(newBack.BackupId, self); err != nil {
-		controller.wrapfunc(c, model.E_DATA_INSERT_FAILED, err)
-		return
-	}
-	controller.wrapfunc(c, model.E_SUCCESS, nil)
+	c.wrapfunc(ctx, model.E_SUCCESS, gin.H{"run_id": runID})
 }
 
-func (controller *DataManageController) GetBackupHistory(c *gin.Context) {
-	clusterName := c.Param(ClickHouseClusterPath)
-	backups, err := repository.Ps.GetAllBackups(clusterName)
-	if err != nil {
-		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+// ============== Policy 列表 / 详情 / 编辑 / 删除 ==============
+
+// ListPolicies GET /data_manage/backup/:cluster — 返回 cluster 下 policy 列表
+func (c *DataManageController) ListPolicies(ctx *gin.Context) {
+	cluster := ctx.Param(ClickHouseClusterPath)
+	svc := c.svc(ctx)
+	if svc == nil {
 		return
 	}
-
-	controller.wrapfunc(c, model.E_SUCCESS, backups)
+	policies, err := svc.ListPoliciesByCluster(cluster)
+	if err != nil {
+		c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, policies)
 }
 
-func (controller *DataManageController) DeleteBackup(c *gin.Context) {
-	backupId := c.Param("backupId")
-	backup, err := repository.Ps.GetBackupById(backupId)
+// GetPolicy GET /data_manage/backup/policy/:policy_id
+func (c *DataManageController) GetPolicy(ctx *gin.Context) {
+	pid := ctx.Param("policy_id")
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	p, err := svc.GetPolicy(pid)
 	if err != nil {
-		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+		c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, err)
 		return
 	}
-	if backup.ScheduleType == model.BACKUP_SCHEDULED {
-		cron.RemoveJob(backup.BackupId)
-	}
-	if err := repository.Ps.DeleteBackup(backupId); err != nil {
-		controller.wrapfunc(c, model.E_DATA_DELETE_FAILED, err)
-		return
-	}
-	controller.wrapfunc(c, model.E_SUCCESS, nil)
+	c.wrapfunc(ctx, model.E_SUCCESS, p)
 }
 
-func (controller *DataManageController) GetBackupById(c *gin.Context) {
-	backupId := c.Param("backupId")
-	backup, err := repository.Ps.GetBackupById(backupId)
-	if err != nil {
-		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
+// UpdatePolicy PUT /data_manage/backup/policy/:policy_id
+func (c *DataManageController) UpdatePolicy(ctx *gin.Context) {
+	pid := ctx.Param("policy_id")
+	var p model.BackupPolicy
+	if err := model.DecodeRequestBody(ctx.Request, &p); err != nil {
+		c.wrapfunc(ctx, model.E_INVALID_PARAMS, err)
 		return
 	}
-	controller.wrapfunc(c, model.E_SUCCESS, backup)
+	p.PolicyID = pid // path param 优先
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	if err := svc.UpdatePolicy(p); err != nil {
+		c.wrapfunc(ctx, model.E_INVALID_VARIABLE, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, nil)
 }
 
-func NewBackup(clusterName string, req model.BackupRequest) []model.Backup {
-	var backups []model.Backup
-	for _, table := range req.Tables {
-		var back model.Backup
-		back.BackupId = uuid.New()
-		back.ScheduleType = req.ScheduleType
-		back.ClusterName = clusterName
-		back.Operation = model.OP_BACKUP
-		back.Database = req.Database
-		back.Table = table
-		back.DaysBefore = req.DaysBefore
-		back.Clean = req.Clean
-		back.Compression = req.Compression
-		back.Checksum = req.Checksum
-		back.Instance = req.Instance
-		back.Status = model.BACKUP_STATUS_WAITING
-		if req.BackupType == model.BACKUP_TYPE_PARTITION {
-			var partitions []model.BackupLists
-			for _, p := range req.Partitions {
-				if p == "tuple()" {
-					p = "all"
-				}
-				partitions = append(partitions, model.BackupLists{
-					//QueryId:   uuid.New(),
-					Partition: p,
-					Status:    model.BACKUP_PARTITION_STATUS_WAITING,
-				})
-			}
-			back.Partitions = partitions
-		}
-		if req.BackupType == model.BACKUP_TYPE_PARTITION {
-			back.DaysBefore = 0
-		} else {
-			back.DaysBefore = req.DaysBefore
-			back.Crontab = req.Crontab
-		}
-		if req.BackupStyle == model.BACKUP_STYLE_FULL {
-			back.Partitions = []model.BackupLists{
-				model.BackupLists{
-					//QueryId:   uuid.New(),
-					Partition: "all",
-					Status:    model.BACKUP_PARTITION_STATUS_WAITING,
-				},
-			}
-		}
-		back.TargetType = req.Target
-		if req.Target == model.BACKUP_LOCAL {
-			back.Local = req.Local
-		} else if req.Target == model.BACKUP_S3 {
-			back.S3 = req.S3
-		}
-		backups = append(backups, back)
+// DeletePolicy DELETE /data_manage/backup/policy/:policy_id
+func (c *DataManageController) DeletePolicy(ctx *gin.Context) {
+	pid := ctx.Param("policy_id")
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
 	}
-	return backups
+	if err := svc.DeletePolicy(pid); err != nil {
+		c.wrapfunc(ctx, model.E_DATA_DELETE_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, nil)
+}
+
+// TriggerPolicy POST /data_manage/backup/policy/:policy_id/trigger
+// 手动触发一次立即执行，不论 schedule_type。
+func (c *DataManageController) TriggerPolicy(ctx *gin.Context) {
+	pid := ctx.Param("policy_id")
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	runID, err := svc.TriggerPolicy(pid)
+	if err != nil {
+		c.wrapfunc(ctx, model.E_DATA_INSERT_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, gin.H{"run_id": runID})
+}
+
+// ============== Run 详情 + 台账 ==============
+
+// GetRun GET /data_manage/backup/run/:run_id
+func (c *DataManageController) GetRun(ctx *gin.Context) {
+	rid := ctx.Param("run_id")
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	r, err := svc.GetRun(rid)
+	if err != nil {
+		c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, r)
+}
+
+// ListRunsByPolicy GET /data_manage/backup/policy/:policy_id/runs?limit=&before=
+func (c *DataManageController) ListRunsByPolicy(ctx *gin.Context) {
+	pid := ctx.Param("policy_id")
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "30"))
+	var before time.Time
+	if b := ctx.Query("before"); b != "" {
+		if t, err := time.Parse(time.RFC3339, b); err == nil {
+			before = t
+		}
+	}
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	runs, err := svc.ListRunsByPolicy(pid, limit, before)
+	if err != nil {
+		c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, runs)
+}
+
+// ListRunsByTable GET /data_manage/backup/table/:cluster/:database/:table/runs?days=
+func (c *DataManageController) ListRunsByTable(ctx *gin.Context) {
+	cluster := ctx.Param(ClickHouseClusterPath)
+	database := ctx.Param("database")
+	table := ctx.Param("table")
+	days, _ := strconv.Atoi(ctx.DefaultQuery("days", "30"))
+	if days <= 0 {
+		days = 30
+	}
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	runs, err := svc.ListRunsByTable(cluster, database, table, days)
+	if err != nil {
+		c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, runs)
+}
+
+// GetTablePartitionSummary GET /data_manage/tables/:cluster/:database/summary
+// stub 占位，Plan2-T9 实现完整逻辑。
+func (c *DataManageController) GetTablePartitionSummary(ctx *gin.Context) {
+	c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, fmt.Errorf("not implemented (Plan2-T9)"))
 }
