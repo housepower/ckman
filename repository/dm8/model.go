@@ -38,3 +38,29 @@ type TblBackup struct {
 	UpdateTime  string        `gorm:"column:update_time"`
 	Backup      dmSchema.Clob `gorm:"size:1024000"`
 }
+
+type TblBackupPolicy struct {
+	PolicyID     string        `gorm:"column:policy_id,primaryKey"`
+	ClusterName  string        `gorm:"column:cluster_name,index:idx_bp_cluster_db_table"`
+	Database     string        `gorm:"column:database_name,index:idx_bp_cluster_db_table"`
+	Table        string        `gorm:"column:table_name,index:idx_bp_cluster_db_table"`
+	Instance     string        `gorm:"column:instance,index:idx_bp_instance"`
+	ScheduleType string        `gorm:"column:schedule_type"`
+	Enabled      bool          `gorm:"column:enabled"`
+	Deleted      bool          `gorm:"column:deleted"`
+	Policy       dmSchema.Clob `gorm:"column:policy,size:1024000"`
+	UpdateTime   string        `gorm:"column:update_time"`
+}
+
+type TblBackupRun struct {
+	RunID       string        `gorm:"column:run_id,primaryKey"`
+	PolicyID    string        `gorm:"column:policy_id,index:idx_br_policy_started"`
+	ClusterName string        `gorm:"column:cluster_name,index:idx_br_table_started"`
+	Database    string        `gorm:"column:database_name,index:idx_br_table_started"`
+	Table       string        `gorm:"column:table_name,index:idx_br_table_started"`
+	Status      string        `gorm:"column:status,index:idx_br_status_instance"`
+	Instance    string        `gorm:"column:instance,index:idx_br_status_instance"`
+	StartedAt   time.Time     `gorm:"column:started_at,index:idx_br_started"`
+	Run         dmSchema.Clob `gorm:"column:run,size:1024000"`
+	CreateTime  time.Time     `gorm:"column:create_time"`
+}
