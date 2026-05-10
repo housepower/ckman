@@ -276,7 +276,62 @@ func (realStages) Backup(ctx context.Context, e *Executor, runID string) error {
 	return nil
 }
 
-func (realStages) Restore(context.Context, *Executor, string) error { return nil }
+func (realStages) Restore(ctx context.Context, e *Executor, runID string) error {
+	run, err := e.repo.GetRun(runID)
+	if err != nil {
+		return err
+	}
+	var anyFail bool
+	for i := range run.Partitions {
+		p := &run.Partitions[i]
+		if p.Status != model.BACKUP_PARTITION_STATUS_WAITING {
+			continue
+		}
+		p.Status = model.BACKUP_PARTITION_STATUS_RUNNING
+		if err := e.repo.UpdateRun(run); err != nil {
+			return fmt.Errorf("mark partition running: %w", err)
+		}
+		start := time.Now()
+
+		type result struct {
+			host string
+			err  error
+		}
+		ch := make(chan result, len(e.conns))
+		for _, c := range e.conns {
+			c := c
+			go func() {
+				key := fmt.Sprintf("%s/%s.%s/%s", p.Partition, run.Database, run.Table, c.host)
+				sql := fmt.Sprintf("RESTORE TABLE `%s`.`%s`%s SETTINGS allow_non_empty_tables=true",
+					run.Database, run.Table,
+					e.storage.RestoreSQL(run.Database, run.Table, p.Partition, key))
+				ch <- result{c.host, e.execSQL(c.host, sql)}
+			}()
+		}
+		var partErrs []string
+		for range e.conns {
+			r := <-ch
+			if r.err != nil {
+				partErrs = append(partErrs, fmt.Sprintf("[%s] %v", r.host, r.err))
+			}
+		}
+		p.Elapsed = int(time.Since(start).Seconds())
+		if len(partErrs) > 0 {
+			p.Status = model.BACKUP_PARTITION_STATUS_FAILED
+			p.Msg = strings.Join(partErrs, "; ")
+			anyFail = true
+		} else {
+			p.Status = model.BACKUP_PARTITION_STATUS_SUCCESS
+		}
+		if err := e.repo.UpdateRun(run); err != nil {
+			return fmt.Errorf("update partition: %w", err)
+		}
+	}
+	if anyFail {
+		return errors.New("one or more partitions failed")
+	}
+	return nil
+}
 func (realStages) Check(context.Context, *Executor, string) error   { return nil }
 func (realStages) Close(context.Context, *Executor, string) error   { return nil }
 

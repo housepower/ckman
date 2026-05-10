@@ -334,3 +334,66 @@ func TestRealStages_Backup_SkipsNonWaiting(t *testing.T) {
 		t.Fatal("non-waiting partition should be skipped")
 	}
 }
+
+// ── Restore stage tests ───────────────────────────────────────────────────────
+
+func TestRealStages_Restore_PartitionIsolation(t *testing.T) {
+	conns := []*shardConn{newFakeShardConn("h1")}
+	calls := []string{}
+	execFn := func(_ string, sql string) error {
+		calls = append(calls, sql)
+		if strings.Contains(sql, "20250508") {
+			return errors.New("restore failed")
+		}
+		return nil
+	}
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", Operation: model.OP_RESTORE,
+		Database: "dba", Table: "t1",
+		Partitions: []model.BackupRunPartition{
+			{Partition: "20250507", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+			{Partition: "20250508", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+		},
+	}
+	e := &Executor{repo: repo, conns: conns, execSQL: execFn, storage: &fakeStorage{}}
+	err := realStages{}.Restore(context.Background(), e, "r1")
+	if err == nil {
+		t.Fatal("expected fail")
+	}
+	for _, sql := range calls {
+		if !strings.Contains(sql, "RESTORE TABLE") {
+			t.Fatalf("expected RESTORE TABLE: %s", sql)
+		}
+		if !strings.Contains(sql, "allow_non_empty_tables=true") {
+			t.Fatalf("expected SETTINGS allow_non_empty_tables=true: %s", sql)
+		}
+	}
+	got, _ := repo.GetRun("r1")
+	if got.Partitions[0].Status != model.BACKUP_PARTITION_STATUS_SUCCESS {
+		t.Fatalf("first partition should succeed: %+v", got.Partitions[0])
+	}
+	if got.Partitions[1].Status != model.BACKUP_PARTITION_STATUS_FAILED {
+		t.Fatalf("second partition should fail: %+v", got.Partitions[1])
+	}
+}
+
+func TestRealStages_Restore_SkipsNonWaiting(t *testing.T) {
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", Operation: model.OP_RESTORE,
+		Partitions: []model.BackupRunPartition{
+			{Partition: "20250508", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+		},
+	}
+	called := false
+	e := &Executor{
+		repo: repo, conns: []*shardConn{newFakeShardConn("h1")},
+		execSQL: func(string, string) error { called = true; return nil },
+		storage: &fakeStorage{},
+	}
+	_ = realStages{}.Restore(context.Background(), e, "r1")
+	if called {
+		t.Fatal("non-waiting partition should be skipped")
+	}
+}
