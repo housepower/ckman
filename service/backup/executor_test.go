@@ -3,6 +3,7 @@ package backup
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -25,8 +26,8 @@ type fakeStorage struct {
 }
 
 func (f *fakeStorage) Init() error                                                         { return nil }
-func (f *fakeStorage) BackupSQL(d, t, p, k string) string                                  { return "" }
-func (f *fakeStorage) RestoreSQL(d, t, p, k string) string                                 { return "" }
+func (f *fakeStorage) BackupSQL(d, t, p, k string) string                                  { return fmt.Sprintf(" PARTITION '%s'", p) }
+func (f *fakeStorage) RestoreSQL(d, t, p, k string) string                                 { return fmt.Sprintf(" PARTITION '%s'", p) }
 func (f *fakeStorage) CleanPartition(d, t, h, p string) error {
 	f.cleaned = append(f.cleaned, p)
 	return f.cleanErr
@@ -234,5 +235,102 @@ func TestRealStages_Prepare_NoChecksumSkipsMd5(t *testing.T) {
 	}
 	if queryCalled {
 		t.Fatal("queryRows should not be called when Checksum=false")
+	}
+}
+
+// ── Backup stage tests ────────────────────────────────────────────────────────
+
+func TestRealStages_Backup_PartitionIsolation(t *testing.T) {
+	// 3 partition，第 2 个 BACKUP TABLE 失败；其余继续；run 整体 failed
+	conns := []*shardConn{newFakeShardConn("h1")}
+	execCalls := []string{}
+	execFn := func(host, sql string) error {
+		execCalls = append(execCalls, sql)
+		if strings.Contains(sql, "20250508") {
+			return errors.New("backup engine OOM")
+		}
+		return nil
+	}
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", PolicyID: "p1", Database: "dba", Table: "t1",
+		Partitions: []model.BackupRunPartition{
+			{Partition: "20250507", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+			{Partition: "20250508", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+			{Partition: "20250509", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+		},
+	}
+	e := &Executor{
+		repo:    repo,
+		conns:   conns,
+		execSQL: execFn,
+		storage: &fakeStorage{},
+	}
+	err := realStages{}.Backup(context.Background(), e, "r1")
+	if err == nil {
+		t.Fatal("expected error since one partition failed")
+	}
+	got, _ := repo.GetRun("r1")
+	want := []string{
+		model.BACKUP_PARTITION_STATUS_SUCCESS,
+		model.BACKUP_PARTITION_STATUS_FAILED,
+		model.BACKUP_PARTITION_STATUS_SUCCESS,
+	}
+	for i, w := range want {
+		if got.Partitions[i].Status != w {
+			t.Fatalf("partition[%d] status got=%s want=%s", i, got.Partitions[i].Status, w)
+		}
+	}
+	if len(execCalls) != 3 {
+		t.Fatalf("expected 3 BACKUP attempts (no traction), got %d", len(execCalls))
+	}
+	// 失败 partition 必须有 Msg
+	if got.Partitions[1].Msg == "" {
+		t.Fatal("failed partition should have Msg")
+	}
+}
+
+func TestRealStages_Backup_AllSuccess(t *testing.T) {
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", PolicyID: "p1", Database: "d", Table: "t",
+		Partitions: []model.BackupRunPartition{
+			{Partition: "20250507", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+		},
+	}
+	e := &Executor{
+		repo:    repo,
+		conns:   []*shardConn{newFakeShardConn("h1")},
+		execSQL: func(host, sql string) error { return nil },
+		storage: &fakeStorage{},
+	}
+	if err := (realStages{}).Backup(context.Background(), e, "r1"); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+	got, _ := repo.GetRun("r1")
+	if got.Partitions[0].Status != model.BACKUP_PARTITION_STATUS_SUCCESS {
+		t.Fatalf("status: %s", got.Partitions[0].Status)
+	}
+}
+
+func TestRealStages_Backup_SkipsNonWaiting(t *testing.T) {
+	// 已是 SUCCESS 的不重试
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", PolicyID: "p1",
+		Partitions: []model.BackupRunPartition{
+			{Partition: "20250507", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+		},
+	}
+	called := false
+	e := &Executor{
+		repo:    repo,
+		conns:   []*shardConn{newFakeShardConn("h1")},
+		execSQL: func(string, string) error { called = true; return nil },
+		storage: &fakeStorage{},
+	}
+	_ = realStages{}.Backup(context.Background(), e, "r1")
+	if called {
+		t.Fatal("non-waiting partition should be skipped")
 	}
 }
