@@ -7,7 +7,11 @@ import (
 
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
+	"golang.org/x/sync/errgroup"
 )
+
+// queryResult is a minimal interface satisfied by *sql.Rows and test fakes.
+type queryResult interface{ Close() }
 
 // ExecRepo 暴露 Executor 需要的持久层操作。
 type ExecRepo interface {
@@ -52,6 +56,10 @@ type Executor struct {
 	// run-scoped（Init 阶段填，后续阶段读）
 	conns   []*shardConn
 	storage BackupStorage
+
+	// run-scoped helpers（Init 期间不一定都注入；Task 21 真实 adapter 全部填）
+	queryRows             func(host string) (queryResult, error)
+	collectChecksumOnHost func(c *shardConn, run *model.BackupRun) error
 }
 
 // BackupStorage 是 backup 包内对 storage.Storage 的本地镜像接口，
@@ -198,4 +206,69 @@ func (e *Executor) markSuccess(runID string) error {
 	r.FinishedAt = e.clock()
 	r.Elapsed = int(r.FinishedAt.Sub(r.StartedAt).Seconds())
 	return e.repo.UpdateRun(r)
+}
+
+// ── realStages ────────────────────────────────────────────────────────────────
+
+// realStages implements the stages interface with real logic.
+// Remaining methods (Backup/Restore/Check/Close) will be filled in subsequent tasks.
+type realStages struct{}
+
+func (realStages) Backup(context.Context, *Executor, string) error  { return nil }
+func (realStages) Restore(context.Context, *Executor, string) error { return nil }
+func (realStages) Check(context.Context, *Executor, string) error   { return nil }
+func (realStages) Close(context.Context, *Executor, string) error   { return nil }
+
+// Prepare 阶段:
+//  1. 若 policy.Checksum=true：用 errgroup 并发查各 host system.parts（修 #5 race）；
+//     即便 goroutine 报错，已成功拿到的 rows 也通过 defer rows.Close() 释放（修泄漏）。
+//  2. 清旧目标端残留分区：任一失败立即返回，不静默吞错。
+func (realStages) Prepare(ctx context.Context, e *Executor, runID string) error {
+	run, err := e.repo.GetRun(runID)
+	if err != nil {
+		return err
+	}
+	policy, err := e.repo.GetPolicyForRun(run.PolicyID)
+	if err != nil {
+		return err
+	}
+
+	// checksum 阶段：用 errgroup 替代旧 lastErr race
+	if policy.Checksum {
+		g, gctx := errgroup.WithContext(ctx)
+		_ = gctx
+		for _, c := range e.conns {
+			c := c
+			g.Go(func() error {
+				rows, err := e.queryRows(c.host)
+				if err != nil {
+					return fmt.Errorf("[%s] query: %w", c.host, err)
+				}
+				defer rows.Close() // 即便后续报错也 close
+				if e.collectChecksumOnHost != nil {
+					return e.collectChecksumOnHost(c, &run)
+				}
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			return err
+		}
+		if err := e.repo.UpdateRun(run); err != nil {
+			return fmt.Errorf("update checksum info: %w", err)
+		}
+	}
+
+	// 清旧目标端残留：失败立即终止 run（不静默）
+	for _, p := range run.Partitions {
+		if p.Status != model.BACKUP_PARTITION_STATUS_WAITING {
+			continue
+		}
+		for _, c := range e.conns {
+			if err := e.storage.CleanPartition(run.Database, run.Table, c.host, p.Partition); err != nil {
+				return fmt.Errorf("clean %s on %s: %w", p.Partition, c.host, err)
+			}
+		}
+	}
+	return nil
 }
