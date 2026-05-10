@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/repository"
+	"github.com/housepower/ckman/service/backup"
 	"github.com/housepower/ckman/service/cron"
 	"github.com/housepower/ckman/service/runner"
 
@@ -118,6 +121,14 @@ func main() {
 	zookeeper.ZkServiceCache.OnEvicted(func(key string, value interface{}) {
 		value.(*zookeeper.ZkService).Conn.Close()
 	})
+
+	self := net.JoinHostPort(config.GlobalConfig.Server.Ip, fmt.Sprint(config.GlobalConfig.Server.Port))
+	backupStop, err := backup.Init(context.Background(), self, 8)
+	if err != nil {
+		log.Logger.Fatalf("init backup service failed: %v", err)
+	}
+	defer backupStop()
+	log.Logger.Infof("start backup service success (self=%s, max_concurrent=%d)", self, 8)
 
 	runnerServ := runner.NewRunnerService(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server)
 	runnerServ.Start()
