@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
@@ -74,13 +76,35 @@ type PersistentBackupService interface {
 	GetBackupByShechuleType(scheduleType string) ([]model.Backup, error)
 }
 
+type PersistentBackupPolicyService interface {
+	CreateBackupPolicy(p model.BackupPolicy) error
+	UpdateBackupPolicy(p model.BackupPolicy) error
+	DeleteBackupPolicy(policyID string) error // 软删：仅置 deleted=true
+	GetBackupPolicy(policyID string) (model.BackupPolicy, error)
+	GetBackupPoliciesByCluster(cluster string) ([]model.BackupPolicy, error)
+	GetActiveScheduledPolicies(instance string) ([]model.BackupPolicy, error) // enabled+scheduled+!deleted+instance==
+}
+
+type PersistentBackupRunService interface {
+	CreateBackupRun(r model.BackupRun) error
+	UpdateBackupRun(r model.BackupRun) error
+	GetBackupRun(runID string) (model.BackupRun, error)
+	GetRunsByPolicy(policyID string, limit int, before time.Time) ([]model.BackupRun, error)
+	GetRunsByTable(cluster, database, table string, sinceDays int) ([]model.BackupRun, error)
+	GetRunsInFlightByPolicy(policyID string) ([]model.BackupRun, error)
+	GetRunsInFlightByInstance(instance string) ([]model.BackupRun, error)
+	MarkRunRunningIfQueued(runID, instance string, startedAt time.Time) (bool, error)
+}
+
 type PersistentMgr interface {
 	PersistentBase
 	PersistentClusterService
 	PersistentLogicService
 	PersistentQueryHistoryService
 	PersistentTaskService
-	PersistentBackupService
+	PersistentBackupService           // 老接口保留
+	PersistentBackupPolicyService     // 新增
+	PersistentBackupRunService        // 新增
 }
 
 func RegistePersistent(fn func() PersistentFactory) {

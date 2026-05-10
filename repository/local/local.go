@@ -43,6 +43,10 @@ func (lp *LocalPersistent) Init(config interface{}) error {
 	lp.Snapshot.Task = make(map[string]model.Task)
 	lp.Data.Backup = make(map[string]model.Backup)
 	lp.Snapshot.Backup = make(map[string]model.Backup)
+	lp.Data.BackupPolicy = make(map[string]model.BackupPolicy)
+	lp.Snapshot.BackupPolicy = make(map[string]model.BackupPolicy)
+	lp.Data.BackupRun = make(map[string]model.BackupRun)
+	lp.Snapshot.BackupRun = make(map[string]model.BackupRun)
 
 	return lp.load()
 }
@@ -587,4 +591,208 @@ func (lp *LocalPersistent) load() error {
 
 func NewLocalPersistent() *LocalPersistent {
 	return &LocalPersistent{}
+}
+
+// ─── BackupPolicy ────────────────────────────────────────────────────────────
+
+func (lp *LocalPersistent) CreateBackupPolicy(p model.BackupPolicy) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.BackupPolicy[p.PolicyID]; ok {
+		return repository.ErrRecordExists
+	}
+	if p.CreateTime.IsZero() {
+		p.CreateTime = time.Now()
+	}
+	p.UpdateTime = time.Now()
+	lp.Data.BackupPolicy[p.PolicyID] = p
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) UpdateBackupPolicy(p model.BackupPolicy) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.BackupPolicy[p.PolicyID]; !ok {
+		return repository.ErrRecordNotFound
+	}
+	p.UpdateTime = time.Now()
+	lp.Data.BackupPolicy[p.PolicyID] = p
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) DeleteBackupPolicy(policyID string) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	p, ok := lp.Data.BackupPolicy[policyID]
+	if !ok {
+		return repository.ErrRecordNotFound
+	}
+	p.Deleted = true
+	p.Enabled = false
+	p.UpdateTime = time.Now()
+	lp.Data.BackupPolicy[policyID] = p
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) GetBackupPolicy(policyID string) (model.BackupPolicy, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	p, ok := lp.Data.BackupPolicy[policyID]
+	if !ok {
+		return model.BackupPolicy{}, repository.ErrRecordNotFound
+	}
+	return p, nil
+}
+
+func (lp *LocalPersistent) GetBackupPoliciesByCluster(cluster string) ([]model.BackupPolicy, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var out []model.BackupPolicy
+	for _, p := range lp.Data.BackupPolicy {
+		if p.ClusterName == cluster && !p.Deleted {
+			out = append(out, p)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreateTime.Before(out[j].CreateTime) })
+	return out, nil
+}
+
+func (lp *LocalPersistent) GetActiveScheduledPolicies(instance string) ([]model.BackupPolicy, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var out []model.BackupPolicy
+	for _, p := range lp.Data.BackupPolicy {
+		if !p.Deleted && p.Enabled && p.ScheduleType == model.BACKUP_SCHEDULED && p.Instance == instance {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+// ─── BackupRun ───────────────────────────────────────────────────────────────
+
+func (lp *LocalPersistent) CreateBackupRun(r model.BackupRun) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.BackupRun[r.RunID]; ok {
+		return repository.ErrRecordExists
+	}
+	if r.CreateTime.IsZero() {
+		r.CreateTime = time.Now()
+	}
+	lp.Data.BackupRun[r.RunID] = r
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) UpdateBackupRun(r model.BackupRun) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.BackupRun[r.RunID]; !ok {
+		return repository.ErrRecordNotFound
+	}
+	lp.Data.BackupRun[r.RunID] = r
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
+func (lp *LocalPersistent) GetBackupRun(runID string) (model.BackupRun, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	r, ok := lp.Data.BackupRun[runID]
+	if !ok {
+		return model.BackupRun{}, repository.ErrRecordNotFound
+	}
+	return r, nil
+}
+
+func (lp *LocalPersistent) GetRunsByPolicy(policyID string, limit int, before time.Time) ([]model.BackupRun, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var out []model.BackupRun
+	for _, r := range lp.Data.BackupRun {
+		if r.PolicyID != policyID {
+			continue
+		}
+		if !before.IsZero() && !r.StartedAt.Before(before) {
+			continue
+		}
+		out = append(out, r)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].StartedAt.After(out[j].StartedAt) })
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (lp *LocalPersistent) GetRunsByTable(cluster, database, table string, sinceDays int) ([]model.BackupRun, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	cutoff := time.Now().AddDate(0, 0, -sinceDays)
+	var out []model.BackupRun
+	for _, r := range lp.Data.BackupRun {
+		if r.ClusterName == cluster && r.Database == database && r.Table == table && r.StartedAt.After(cutoff) {
+			out = append(out, r)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].StartedAt.After(out[j].StartedAt) })
+	return out, nil
+}
+
+func (lp *LocalPersistent) GetRunsInFlightByPolicy(policyID string) ([]model.BackupRun, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var out []model.BackupRun
+	for _, r := range lp.Data.BackupRun {
+		if r.PolicyID == policyID && (r.Status == model.BACKUP_STATUS_QUEUED || r.Status == model.BACKUP_STATUS_RUNNING) {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+func (lp *LocalPersistent) GetRunsInFlightByInstance(instance string) ([]model.BackupRun, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var out []model.BackupRun
+	for _, r := range lp.Data.BackupRun {
+		if r.Instance == instance && (r.Status == model.BACKUP_STATUS_QUEUED || r.Status == model.BACKUP_STATUS_RUNNING) {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+func (lp *LocalPersistent) MarkRunRunningIfQueued(runID, instance string, startedAt time.Time) (bool, error) {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	r, ok := lp.Data.BackupRun[runID]
+	if !ok {
+		return false, repository.ErrRecordNotFound
+	}
+	if r.Status != model.BACKUP_STATUS_QUEUED {
+		return false, nil
+	}
+	r.Status = model.BACKUP_STATUS_RUNNING
+	r.Instance = instance
+	r.StartedAt = startedAt
+	lp.Data.BackupRun[runID] = r
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return true, nil
 }
