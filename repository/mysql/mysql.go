@@ -66,6 +66,8 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 		&TblQueryHistory{},
 		&TblTask{},
 		&TblBackup{},
+		&TblBackupPolicy{}, // 新增
+		&TblBackupRun{},    // 新增
 	)
 	if err != nil {
 		return errors.Wrap(err, "")
@@ -581,6 +583,272 @@ func (mp *MysqlPersistent) GetBackupByShechuleType(scheduleType string) ([]model
 		}
 	}
 	return backups, nil
+}
+
+// ─── PersistentBackupPolicyService ───────────────────────────────────────────
+
+func (mp *MysqlPersistent) CreateBackupPolicy(p model.BackupPolicy) error {
+	p.CreateTime = time.Now()
+	p.UpdateTime = p.CreateTime
+	raw, err := json.Marshal(p)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tbl := TblBackupPolicy{
+		PolicyID:     p.PolicyID,
+		ClusterName:  p.ClusterName,
+		Database:     p.Database,
+		Table:        p.Table,
+		Instance:     p.Instance,
+		ScheduleType: p.ScheduleType,
+		Enabled:      p.Enabled,
+		Deleted:      false,
+		Policy:       string(raw),
+		UpdateTime:   p.UpdateTime.Format("2006-01-02 15:04:05.999"),
+	}
+	tx := mp.Client.Create(&tbl)
+	return wrapError(tx.Error)
+}
+
+func (mp *MysqlPersistent) UpdateBackupPolicy(p model.BackupPolicy) error {
+	p.UpdateTime = time.Now()
+	raw, err := json.Marshal(p)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tx := mp.Client.Model(&TblBackupPolicy{}).Where("policy_id = ?", p.PolicyID).Updates(map[string]interface{}{
+		"cluster_name":  p.ClusterName,
+		"database_name": p.Database,
+		"table_name":    p.Table,
+		"instance":      p.Instance,
+		"schedule_type": p.ScheduleType,
+		"enabled":       p.Enabled,
+		"deleted":       p.Deleted,
+		"policy":        string(raw),
+		"update_time":   p.UpdateTime.Format("2006-01-02 15:04:05.999"),
+	})
+	return wrapError(tx.Error)
+}
+
+func (mp *MysqlPersistent) DeleteBackupPolicy(policyID string) error {
+	tx := mp.Client.Model(&TblBackupPolicy{}).Where("policy_id = ?", policyID).Updates(map[string]interface{}{
+		"deleted":     true,
+		"enabled":     false,
+		"update_time": time.Now().Format("2006-01-02 15:04:05.999"),
+	})
+	return wrapError(tx.Error)
+}
+
+func (mp *MysqlPersistent) GetBackupPolicy(policyID string) (model.BackupPolicy, error) {
+	var tbl TblBackupPolicy
+	if err := mp.Client.Where("policy_id = ?", policyID).First(&tbl).Error; err != nil {
+		return model.BackupPolicy{}, wrapError(err)
+	}
+	var p model.BackupPolicy
+	if err := json.Unmarshal([]byte(tbl.Policy), &p); err != nil {
+		return model.BackupPolicy{}, errors.Wrap(err, "")
+	}
+	return p, nil
+}
+
+func (mp *MysqlPersistent) GetBackupPoliciesByCluster(cluster string) ([]model.BackupPolicy, error) {
+	var tbls []TblBackupPolicy
+	tx := mp.Client.Where("cluster_name = ? AND deleted = ?", cluster, false).Find(&tbls)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	policies := make([]model.BackupPolicy, 0, len(tbls))
+	for _, tbl := range tbls {
+		var p model.BackupPolicy
+		if err := json.Unmarshal([]byte(tbl.Policy), &p); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		policies = append(policies, p)
+	}
+	return policies, nil
+}
+
+func (mp *MysqlPersistent) GetActiveScheduledPolicies(instance string) ([]model.BackupPolicy, error) {
+	var tbls []TblBackupPolicy
+	tx := mp.Client.Where("instance = ? AND enabled = ? AND schedule_type = ? AND deleted = ?",
+		instance, true, "scheduled", false).Find(&tbls)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	policies := make([]model.BackupPolicy, 0, len(tbls))
+	for _, tbl := range tbls {
+		var p model.BackupPolicy
+		if err := json.Unmarshal([]byte(tbl.Policy), &p); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		policies = append(policies, p)
+	}
+	return policies, nil
+}
+
+// ─── PersistentBackupRunService ──────────────────────────────────────────────
+
+func (mp *MysqlPersistent) CreateBackupRun(r model.BackupRun) error {
+	r.CreateTime = time.Now()
+	raw, err := json.Marshal(r)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tbl := TblBackupRun{
+		RunID:       r.RunID,
+		PolicyID:    r.PolicyID,
+		ClusterName: r.ClusterName,
+		Database:    r.Database,
+		Table:       r.Table,
+		Status:      r.Status,
+		Instance:    r.Instance,
+		StartedAt:   r.StartedAt,
+		Run:         string(raw),
+		CreateTime:  r.CreateTime,
+	}
+	return wrapError(mp.Client.Create(&tbl).Error)
+}
+
+func (mp *MysqlPersistent) UpdateBackupRun(r model.BackupRun) error {
+	raw, err := json.Marshal(r)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tx := mp.Client.Model(&TblBackupRun{}).Where("run_id = ?", r.RunID).Updates(map[string]interface{}{
+		"status":     r.Status,
+		"instance":   r.Instance,
+		"started_at": r.StartedAt,
+		"run":        string(raw),
+	})
+	return wrapError(tx.Error)
+}
+
+func (mp *MysqlPersistent) GetBackupRun(runID string) (model.BackupRun, error) {
+	var tbl TblBackupRun
+	if err := mp.Client.Where("run_id = ?", runID).First(&tbl).Error; err != nil {
+		return model.BackupRun{}, wrapError(err)
+	}
+	var r model.BackupRun
+	if err := json.Unmarshal([]byte(tbl.Run), &r); err != nil {
+		return model.BackupRun{}, errors.Wrap(err, "")
+	}
+	return r, nil
+}
+
+func (mp *MysqlPersistent) GetRunsByPolicy(policyID string, limit int, before time.Time) ([]model.BackupRun, error) {
+	db := mp.Client.Where("policy_id = ?", policyID).Order("started_at DESC")
+	if !before.IsZero() {
+		db = db.Where("started_at < ?", before)
+	}
+	if limit > 0 {
+		db = db.Limit(limit)
+	}
+	var tbls []TblBackupRun
+	if err := db.Find(&tbls).Error; err != nil && err != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(err, "")
+	}
+	runs := make([]model.BackupRun, 0, len(tbls))
+	for _, tbl := range tbls {
+		var r model.BackupRun
+		if err := json.Unmarshal([]byte(tbl.Run), &r); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		runs = append(runs, r)
+	}
+	return runs, nil
+}
+
+func (mp *MysqlPersistent) GetRunsByTable(cluster, database, table string, sinceDays int) ([]model.BackupRun, error) {
+	cutoff := time.Now().AddDate(0, 0, -sinceDays)
+	var tbls []TblBackupRun
+	tx := mp.Client.Where(
+		"cluster_name = ? AND database_name = ? AND table_name = ? AND started_at > ?",
+		cluster, database, table, cutoff,
+	).Order("started_at DESC").Find(&tbls)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	runs := make([]model.BackupRun, 0, len(tbls))
+	for _, tbl := range tbls {
+		var r model.BackupRun
+		if err := json.Unmarshal([]byte(tbl.Run), &r); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		runs = append(runs, r)
+	}
+	return runs, nil
+}
+
+func (mp *MysqlPersistent) GetRunsInFlightByPolicy(policyID string) ([]model.BackupRun, error) {
+	var tbls []TblBackupRun
+	tx := mp.Client.Where("policy_id = ? AND status IN ?", policyID,
+		[]string{model.BACKUP_STATUS_QUEUED, model.BACKUP_STATUS_RUNNING}).Find(&tbls)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	runs := make([]model.BackupRun, 0, len(tbls))
+	for _, tbl := range tbls {
+		var r model.BackupRun
+		if err := json.Unmarshal([]byte(tbl.Run), &r); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		runs = append(runs, r)
+	}
+	return runs, nil
+}
+
+func (mp *MysqlPersistent) GetRunsInFlightByInstance(instance string) ([]model.BackupRun, error) {
+	var tbls []TblBackupRun
+	tx := mp.Client.Where("instance = ? AND status IN ?", instance,
+		[]string{model.BACKUP_STATUS_QUEUED, model.BACKUP_STATUS_RUNNING}).Find(&tbls)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	runs := make([]model.BackupRun, 0, len(tbls))
+	for _, tbl := range tbls {
+		var r model.BackupRun
+		if err := json.Unmarshal([]byte(tbl.Run), &r); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		runs = append(runs, r)
+	}
+	return runs, nil
+}
+
+func (mp *MysqlPersistent) MarkRunRunningIfQueued(runID, instance string, startedAt time.Time) (bool, error) {
+	// 先取出当前记录，做早返回优化（常见路径：无人竞争时避免一次 UPDATE）
+	var tr TblBackupRun
+	if err := mp.Client.Where("run_id = ?", runID).First(&tr).Error; err != nil {
+		return false, wrapError(err)
+	}
+	var run model.BackupRun
+	if err := json.Unmarshal([]byte(tr.Run), &run); err != nil {
+		return false, errors.Wrap(err, "")
+	}
+	if run.Status != model.BACKUP_STATUS_QUEUED {
+		return false, nil
+	}
+	// 更新 model 字段后重新 marshal 到 blob
+	run.Status = model.BACKUP_STATUS_RUNNING
+	run.Instance = instance
+	run.StartedAt = startedAt
+	raw, err := json.Marshal(run)
+	if err != nil {
+		return false, errors.Wrap(err, "")
+	}
+	// 原子条件 UPDATE：并发抢占时 WHERE status='queued' 保证只有一个 worker 成功
+	tx := mp.Client.Model(&TblBackupRun{}).
+		Where("run_id = ? AND status = ?", runID, model.BACKUP_STATUS_QUEUED).
+		Updates(map[string]interface{}{
+			"status":     model.BACKUP_STATUS_RUNNING,
+			"instance":   instance,
+			"started_at": startedAt,
+			"run":        string(raw),
+		})
+	if tx.Error != nil {
+		return false, wrapError(tx.Error)
+	}
+	return tx.RowsAffected == 1, nil
 }
 
 func wrapError(err error) error {
