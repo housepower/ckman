@@ -43,6 +43,7 @@ require (
 	github.com/imdario/mergo v0.3.12
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/wanlay/gorm-dm8 v1.0.5
+	golang.org/x/sync v0.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.3.3
 	gorm.io/driver/postgres v1.3.4
@@ -129,7 +130,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/net v0.23.0 // indirect
-	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
