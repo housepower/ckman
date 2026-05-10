@@ -6,11 +6,13 @@ const (
 	BACKUP_IMMEDIATE = "immediate"
 	BACKUP_SCHEDULED = "scheduled"
 
-	BACKUP_TYPE_FULL = "full"
-	BACKUP_TYPE_INCR = "incremental"
+	// BackupStyle: 全量 / 增量
+	BACKUP_STYLE_FULL = "full"
+	BACKUP_STYLE_INCR = "incremental"
 
-	BACKUP_BY_PARTITON = "partition"
-	BACKUP_BY_DAILY    = "daily"
+	// BackupType: 增量备份的方式（按分区 / 按日期）
+	BACKUP_TYPE_PARTITION = "partition"
+	BACKUP_TYPE_DAILY     = "daily"
 
 	OP_BACKUP  = "backup"
 	OP_RESTORE = "restore"
@@ -98,8 +100,8 @@ type BackupRequest struct {
 	Instance     string      `json:"instance"`                   //ckman实例名称， 定时备份选择哪个ckman进行备份
 	Database     string      `json:"database"`                   //数据库名称
 	Tables       []string    `json:"tables"`                     //表名称
-	BackupType   string      `json:"backup_style"`               //备份类型： 全量备份，增量备份
-	BackupStyle  string      `json:"backup_type"`                //备份方式： 按分区备份，按日期备份
+	BackupStyle  string      `json:"backup_style"`               //备份类型： 全量备份(full)，增量备份(incremental)
+	BackupType   string      `json:"backup_type"`                //备份方式： 按分区备份(partition)，按日期备份(daily)
 	Partitions   []string    `json:"partitions"`                 //分区名称
 	DaysBefore   int         `json:"days_before"`                //保留天数
 	Target       string      `json:"target"`                     //备份目标： 本地，S3

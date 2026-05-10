@@ -45,12 +45,12 @@ func (controller *DataManageController) BackupData(c *gin.Context) {
 			controller.wrapfunc(c, model.E_INVALID_VARIABLE, fmt.Errorf("days before must be greater than 0"))
 			return
 		}
-		if req.BackupStyle == model.BACKUP_BY_PARTITON {
+		if req.BackupType == model.BACKUP_TYPE_PARTITION {
 			controller.wrapfunc(c, model.E_INVALID_VARIABLE, fmt.Errorf("partition backup can not be scheduled"))
 			return
 		}
 
-		if req.BackupType == model.BACKUP_TYPE_FULL {
+		if req.BackupStyle == model.BACKUP_STYLE_FULL {
 			controller.wrapfunc(c, model.E_INVALID_VARIABLE, fmt.Errorf("full backup can not be scheduled"))
 			return
 		}
@@ -77,7 +77,7 @@ func (controller *DataManageController) BackupData(c *gin.Context) {
 			controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, fmt.Errorf("table %s.%s not exist", req.Database, table))
 			return
 		}
-		if req.BackupStyle == model.BACKUP_BY_PARTITON {
+		if req.BackupType == model.BACKUP_TYPE_PARTITION {
 			for _, partition := range req.Partitions {
 				var cnt uint64
 				err = svc.Conn.QueryRow(fmt.Sprintf("SELECT count() FROM system.parts WHERE database = '%s' AND table = '%s' AND partition = '%s'", req.Database, table, partition)).Scan(&cnt)
@@ -152,8 +152,8 @@ func (controller *DataManageController) RestoreData(c *gin.Context) {
 			}
 		}
 		if !found {
-			controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, fmt.Errorf("partition %s not exist", partition))
-			continue
+			controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, fmt.Errorf("partition %s not exist or not in success state", partition))
+			return
 		}
 		partitions = append(partitions, model.BackupLists{
 			//QueryId:   uuid.New(),
@@ -231,7 +231,7 @@ func NewBackup(clusterName string, req model.BackupRequest) []model.Backup {
 		back.Checksum = req.Checksum
 		back.Instance = req.Instance
 		back.Status = model.BACKUP_STATUS_WAITING
-		if req.BackupStyle == model.BACKUP_BY_PARTITON {
+		if req.BackupType == model.BACKUP_TYPE_PARTITION {
 			var partitions []model.BackupLists
 			for _, p := range req.Partitions {
 				if p == "tuple()" {
@@ -245,13 +245,13 @@ func NewBackup(clusterName string, req model.BackupRequest) []model.Backup {
 			}
 			back.Partitions = partitions
 		}
-		if req.BackupStyle == model.BACKUP_BY_PARTITON {
+		if req.BackupType == model.BACKUP_TYPE_PARTITION {
 			back.DaysBefore = 0
 		} else {
 			back.DaysBefore = req.DaysBefore
 			back.Crontab = req.Crontab
 		}
-		if req.BackupType == model.BACKUP_TYPE_FULL {
+		if req.BackupStyle == model.BACKUP_STYLE_FULL {
 			back.Partitions = []model.BackupLists{
 				model.BackupLists{
 					//QueryId:   uuid.New(),

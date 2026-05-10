@@ -491,7 +491,9 @@ func (b *Back) Check() error {
 			}(conn)
 		}
 		b.wg.Wait()
-		return lastErr
+		if lastErr != nil {
+			return lastErr
+		}
 	}
 	return nil
 }
