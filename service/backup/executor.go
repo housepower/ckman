@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"golang.org/x/sync/errgroup"
@@ -23,10 +24,10 @@ type ExecRepo interface {
 }
 
 // shardConn 是 Executor 内部用的 shard 句柄。
-// 真实实现持有 *common.Conn；测试用 fake 仅持 host。
+// 真实实现持有 *common.Conn；测试用 fake 仅持 host（conn 为 nil）。
 type shardConn struct {
 	host string
-	// conn *common.Conn   // Task 21 真实 adapter 注入
+	conn *common.Conn // 真实 adapter 注入；测试 fake 留 nil
 }
 
 // stages 让 Executor 把 5 个阶段分别可单测。
