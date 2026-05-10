@@ -1,0 +1,149 @@
+package backup
+
+import (
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/housepower/ckman/model"
+)
+
+type memRepo struct {
+	policies map[string]model.BackupPolicy
+	runs     map[string]model.BackupRun
+}
+
+func newMemRepo() *memRepo {
+	return &memRepo{policies: map[string]model.BackupPolicy{}, runs: map[string]model.BackupRun{}}
+}
+
+func (r *memRepo) CreatePolicy(p model.BackupPolicy) error    { r.policies[p.PolicyID] = p; return nil }
+func (r *memRepo) GetPolicy(id string) (model.BackupPolicy, error) {
+	p, ok := r.policies[id]
+	if !ok {
+		return model.BackupPolicy{}, errors.New("not found")
+	}
+	return p, nil
+}
+func (r *memRepo) CreateRun(rn model.BackupRun) error { r.runs[rn.RunID] = rn; return nil }
+func (r *memRepo) UpdateRun(rn model.BackupRun) error { r.runs[rn.RunID] = rn; return nil }
+func (r *memRepo) GetRun(id string) (model.BackupRun, error) {
+	rn, ok := r.runs[id]
+	if !ok {
+		return model.BackupRun{}, errors.New("not found")
+	}
+	return rn, nil
+}
+func (r *memRepo) InFlightRunsByPolicy(policyID string) []model.BackupRun {
+	var out []model.BackupRun
+	for _, rn := range r.runs {
+		if rn.PolicyID == policyID && (rn.Status == model.BACKUP_STATUS_QUEUED || rn.Status == model.BACKUP_STATUS_RUNNING) {
+			out = append(out, rn)
+		}
+	}
+	return out
+}
+
+type fakePool struct {
+	full bool
+	in   []string
+}
+
+func (f *fakePool) Submit(id string) bool {
+	if f.full {
+		return false
+	}
+	f.in = append(f.in, id)
+	return true
+}
+
+func TestService_Submit_NormalCase(t *testing.T) {
+	repo := newMemRepo()
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+	policy := model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		ScheduleType: model.BACKUP_IMMEDIATE, Instance: "ckman-01", Enabled: false,
+	}
+	repo.policies["p1"] = policy
+	runID, err := svc.SubmitForPolicy(policy, model.TRIGGER_MANUAL_IMMEDIATE)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	if runID == "" {
+		t.Fatal("empty runID")
+	}
+	rn, _ := repo.GetRun(runID)
+	if rn.Status != model.BACKUP_STATUS_QUEUED {
+		t.Fatalf("run not queued: %+v", rn)
+	}
+	if len(pool.in) != 1 || pool.in[0] != runID {
+		t.Fatalf("pool not enqueued: %+v", pool.in)
+	}
+}
+
+func TestService_Submit_OverlapWritesSkipped(t *testing.T) {
+	repo := newMemRepo()
+	policy := model.BackupPolicy{PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		ScheduleType: model.BACKUP_SCHEDULED, Instance: "ckman-01", Enabled: true}
+	repo.policies["p1"] = policy
+	repo.runs["r-prev"] = model.BackupRun{
+		RunID: "r-prev", PolicyID: "p1", Status: model.BACKUP_STATUS_RUNNING,
+	}
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+
+	runID, err := svc.SubmitForPolicy(policy, model.TRIGGER_CRON)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	rn, _ := repo.GetRun(runID)
+	if rn.Status != model.BACKUP_STATUS_SKIPPED || rn.StatusReason != model.REASON_OVERLAP {
+		t.Fatalf("expected skipped(overlap), got %+v", rn)
+	}
+	if len(pool.in) != 0 {
+		t.Fatal("pool should not receive overlap-skipped run")
+	}
+}
+
+func TestService_Submit_QueueFullWritesSkipped(t *testing.T) {
+	repo := newMemRepo()
+	policy := model.BackupPolicy{PolicyID: "p1", Instance: "ckman-01", ScheduleType: model.BACKUP_SCHEDULED, Enabled: true}
+	repo.policies["p1"] = policy
+	pool := &fakePool{full: true}
+	svc := newServiceForTest("ckman-01", repo, pool)
+
+	runID, err := svc.SubmitForPolicy(policy, model.TRIGGER_CRON)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	rn, _ := repo.GetRun(runID)
+	if rn.Status != model.BACKUP_STATUS_SKIPPED || rn.StatusReason != model.REASON_QUEUE_FULL {
+		t.Fatalf("expected skipped(queue_full), got %+v", rn)
+	}
+}
+
+func TestService_Submit_DisabledPolicyWritesSkipped(t *testing.T) {
+	repo := newMemRepo()
+	policy := model.BackupPolicy{PolicyID: "p1", Instance: "ckman-01",
+		ScheduleType: model.BACKUP_SCHEDULED, Enabled: false}
+	repo.policies["p1"] = policy
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+
+	runID, _ := svc.SubmitForPolicy(policy, model.TRIGGER_CRON)
+	rn, _ := repo.GetRun(runID)
+	if rn.Status != model.BACKUP_STATUS_SKIPPED || rn.StatusReason != model.REASON_DISABLED {
+		t.Fatalf("expected skipped(disabled), got %+v", rn)
+	}
+	if len(pool.in) != 0 {
+		t.Fatal("disabled run should not enqueue")
+	}
+}
+
+func newServiceForTest(self string, repo ServiceRepo, pool ServicePool) *Service {
+	s := NewService(self, repo, pool)
+	// 测试用固定 now 让 timestamp 可预期（可选）
+	s.now = func() time.Time { return time.Unix(1, 0) }
+	return s
+}
