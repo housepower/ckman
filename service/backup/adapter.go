@@ -22,6 +22,9 @@ func (PersistentRepoAdapter) CreatePolicy(p model.BackupPolicy) error {
 func (PersistentRepoAdapter) GetPolicy(id string) (model.BackupPolicy, error) {
 	return repository.Ps.GetBackupPolicy(id)
 }
+func (PersistentRepoAdapter) UpdatePolicy(p model.BackupPolicy) error {
+	return repository.Ps.UpdateBackupPolicy(p)
+}
 func (PersistentRepoAdapter) CreateRun(r model.BackupRun) error {
 	return repository.Ps.CreateBackupRun(r)
 }
