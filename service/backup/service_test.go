@@ -159,6 +159,22 @@ func (r *memRepo) InFlightRunsByInstance(instance string) []model.BackupRun {
 	return out
 }
 
+// Task 6 追加：GetRun delegates to repo
+func TestService_GetRun_Delegates(t *testing.T) {
+	repo := newMemRepo()
+	expected := model.BackupRun{RunID: "r-abc", PolicyID: "p1", Status: model.BACKUP_STATUS_SUCCESS}
+	repo.runs["r-abc"] = expected
+
+	svc := newServiceForTest("ckman-01", repo, &fakePool{})
+	got, err := svc.GetRun("r-abc")
+	if err != nil {
+		t.Fatalf("GetRun: %v", err)
+	}
+	if got.RunID != expected.RunID || got.Status != expected.Status {
+		t.Fatalf("unexpected run: %+v", got)
+	}
+}
+
 // Task 14 追加：Boot 把本实例残留 in-flight run 标 interrupted
 func TestService_Boot_MarksInFlightAsInterrupted(t *testing.T) {
 	repo := newMemRepo()
