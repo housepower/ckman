@@ -21,6 +21,9 @@ func (s *Service) UpdatePolicy(p model.BackupPolicy) error {
 		p.ScheduleType != old.ScheduleType {
 		return errors.New("cannot edit cluster/database/table/schedule_type; create a new policy instead")
 	}
+	if p.TaskID != old.TaskID {
+		return errors.New("cannot edit task_id; create a new task instead")
+	}
 	if p.ScheduleType == model.BACKUP_SCHEDULED {
 		if err := ValidateCrontabMinInterval(p.Crontab); err != nil {
 			return fmt.Errorf("invalid crontab: %w", err)

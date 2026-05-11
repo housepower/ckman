@@ -19,10 +19,24 @@ func (s *Service) SubmitBackupRequest(cluster string, req model.BackupRequest) (
 			return nil, fmt.Errorf("invalid crontab: %w", err)
 		}
 	}
+
+	// 同次提交的所有 policy 共享一个 taskID；taskName 由用户指定或自动生成。
+	taskID := uuid.New()
+	taskName := req.TaskName
+	if taskName == "" {
+		if len(req.Tables) == 1 {
+			taskName = fmt.Sprintf("%s.%s", req.Database, req.Tables[0])
+		} else {
+			taskName = fmt.Sprintf("%s.%s (+%d more)", req.Database, req.Tables[0], len(req.Tables)-1)
+		}
+	}
+
 	var runIDs []string
 	for _, table := range req.Tables {
 		policy := model.BackupPolicy{
 			PolicyID:     uuid.New(),
+			TaskID:       taskID,
+			TaskName:     taskName,
 			ClusterName:  cluster,
 			Database:     req.Database,
 			Table:        table,

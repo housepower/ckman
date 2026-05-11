@@ -94,6 +94,49 @@ func TestDeletePolicy_SoftDelete(t *testing.T) {
 	}
 }
 
+func TestUpdatePolicy_RejectsTaskIDChange(t *testing.T) {
+	repo := newMemRepo()
+	repo.policies["p1"] = model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		ScheduleType: model.BACKUP_SCHEDULED, Crontab: "0 3 * * *",
+		TaskID: "task-aaa", TaskName: "original-task",
+	}
+	svc := newServiceForTest("ckman-01", repo, &fakePool{})
+	upd := model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		ScheduleType: model.BACKUP_SCHEDULED, Crontab: "0 3 * * *",
+		TaskID: "task-bbb", // different — must be rejected
+	}
+	if err := svc.UpdatePolicy(upd); err == nil {
+		t.Fatal("changing TaskID should be rejected")
+	}
+}
+
+func TestUpdatePolicy_AllowsTaskNameChange(t *testing.T) {
+	repo := newMemRepo()
+	repo.policies["p1"] = model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		ScheduleType: model.BACKUP_SCHEDULED, Crontab: "0 3 * * *",
+		TaskID: "task-aaa", TaskName: "original-task",
+	}
+	svc := newServiceForTest("ckman-01", repo, &fakePool{})
+	upd := model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		ScheduleType: model.BACKUP_SCHEDULED, Crontab: "0 3 * * *",
+		TaskID: "task-aaa", TaskName: "renamed-task", // same TaskID, different name — allowed
+	}
+	if err := svc.UpdatePolicy(upd); err != nil {
+		t.Fatalf("changing TaskName should be allowed: %v", err)
+	}
+	got, _ := repo.GetPolicy("p1")
+	if got.TaskName != "renamed-task" {
+		t.Fatalf("expected TaskName=%q, got %q", "renamed-task", got.TaskName)
+	}
+	if got.TaskID != "task-aaa" {
+		t.Fatalf("TaskID must not change: %q", got.TaskID)
+	}
+}
+
 func TestTriggerPolicy_CreatesRun(t *testing.T) {
 	repo := newMemRepo()
 	repo.policies["p1"] = model.BackupPolicy{

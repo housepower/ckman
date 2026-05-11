@@ -140,6 +140,8 @@ func buildPolicy(key policyKey, rows []model.Backup, policyID string) model.Back
 
 	return model.BackupPolicy{
 		PolicyID:     policyID,
+		TaskID:       policyID, // 老数据每个 policy 自成 task；TaskID = PolicyID 表示 1:1
+		TaskName:     "",       // 留空（迁移过来的无显式 task 名）
 		ClusterName:  key.ClusterName,
 		Database:     key.Database,
 		Table:        key.Table,
@@ -345,6 +347,8 @@ func runMigration(ps PersistentForUpgrade, opts BackupUpgradeOpts) (Stats, error
 				placeholderID := fmt.Sprintf("policy-legacy-%s-%s-%s", b.ClusterName, b.Database, b.Table)
 				placeholder := model.BackupPolicy{
 					PolicyID:    placeholderID,
+					TaskID:      placeholderID, // 老数据每个 policy 自成 task
+					TaskName:    "",            // 留空（迁移过来的无显式 task 名）
 					ClusterName: b.ClusterName,
 					Database:    b.Database,
 					Table:       b.Table,

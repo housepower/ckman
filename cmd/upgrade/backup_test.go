@@ -340,3 +340,49 @@ func TestMigrate_DryRunWritesNothing(t *testing.T) {
 	assert.Equal(t, 1, stats.PoliciesCreated)
 	assert.Equal(t, 1, stats.RunsCreated)
 }
+
+// TestMigrate_EachPolicyGetsTaskIDEqualToPolicyID verifies that after migration
+// every policy has a non-empty TaskID equal to its own PolicyID (self-contained task).
+func TestMigrate_EachPolicyGetsTaskIDEqualToPolicyID(t *testing.T) {
+	fp := newFake()
+	fp.clusters["ckI"] = model.CKManClickHouseConfig{Cluster: "ckI"}
+	// Two separate tables → two separate policies, each self-contained task.
+	fp.backups["ckI"] = []model.Backup{
+		makeBackup("bk-i1", "ckI", "db1", "t1", model.BACKUP_IMMEDIATE, "", "inst1", model.OP_BACKUP, model.BACKUP_STATUS_SUCCESS, simpleParts("20250501")),
+		makeBackup("bk-i2", "ckI", "db1", "t2", model.BACKUP_IMMEDIATE, "", "inst1", model.OP_BACKUP, model.BACKUP_STATUS_SUCCESS, simpleParts("20250501")),
+	}
+
+	opts := BackupUpgradeOpts{Force: true}
+	stats, err := runMigration(fp, opts)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, stats.PoliciesCreated)
+
+	require.Len(t, fp.policies, 2)
+	for _, p := range fp.policies {
+		assert.NotEmpty(t, p.TaskID, "migrated policy %s must have non-empty TaskID", p.PolicyID)
+		assert.Equal(t, p.PolicyID, p.TaskID, "migrated policy %s TaskID must equal PolicyID (self-contained task)", p.PolicyID)
+	}
+}
+
+// TestMigrate_PlaceholderPolicyGetsTaskID verifies that placeholder policies
+// (for restore-only rows with no backup counterpart) also have TaskID = PolicyID.
+func TestMigrate_PlaceholderPolicyGetsTaskID(t *testing.T) {
+	fp := newFake()
+	fp.clusters["ckJ"] = model.CKManClickHouseConfig{Cluster: "ckJ"}
+	// Only a restore row — will create a placeholder policy.
+	fp.backups["ckJ"] = []model.Backup{
+		makeBackup("rs-j1", "ckJ", "db1", "t1", model.BACKUP_IMMEDIATE, "", "inst1",
+			model.OP_RESTORE, model.BACKUP_STATUS_SUCCESS, simpleParts("20250501")),
+	}
+
+	opts := BackupUpgradeOpts{Force: true}
+	_, err := runMigration(fp, opts)
+
+	require.NoError(t, err)
+	require.Len(t, fp.policies, 1)
+
+	placeholder := fp.policies[0]
+	assert.NotEmpty(t, placeholder.TaskID, "placeholder must have non-empty TaskID")
+	assert.Equal(t, placeholder.PolicyID, placeholder.TaskID, "placeholder TaskID must equal PolicyID")
+}

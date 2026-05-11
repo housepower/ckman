@@ -96,6 +96,7 @@ type Backup struct {
 
 type BackupRequest struct {
 	ScheduleType string      `json:"schedule_type"`              //备份类型： 立即备份，定时备份
+	TaskName     string      `json:"task_name"`                  //任务显示名（可选）；空时后端自动生成
 	Crontab      string      `json:"crontab"`                    //定时备份的cron表达式
 	Instance     string      `json:"instance"`                   //ckman实例名称， 定时备份选择哪个ckman进行备份
 	Database     string      `json:"database"`                   //数据库名称
@@ -150,6 +151,8 @@ const (
 
 type BackupPolicy struct {
 	PolicyID     string      `json:"policy_id"`
+	TaskID       string      `json:"task_id"`   // 同次 BackupRequest 提交的 policy 共享；空表示 legacy/独立 task
+	TaskName     string      `json:"task_name"` // 用户可选填的任务名；空表示无显示名
 	ClusterName  string      `json:"cluster_name"`
 	Database     string      `json:"database"`
 	Table        string      `json:"table"`
