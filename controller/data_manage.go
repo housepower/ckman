@@ -233,6 +233,22 @@ func (c *DataManageController) ListRunsByTable(ctx *gin.Context) {
 	c.wrapfunc(ctx, model.E_SUCCESS, runs)
 }
 
+// GetClusterDisks GET /data_manage/disks/:cluster
+// 返回 cluster 配置中的 local disk 列表（含 allow_backup 标记），给前端 backup 表单做 target=local 选项使用。
+func (c *DataManageController) GetClusterDisks(ctx *gin.Context) {
+	cluster := ctx.Param(ClickHouseClusterPath)
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	disks, err := svc.GetClusterDisks(cluster)
+	if err != nil {
+		c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, disks)
+}
+
 // GetTablePartitionSummary GET /data_manage/tables/:cluster/:database/summary
 // 返回 cluster.database 下所有 MergeTree 系列表的分区信息与大小，供前端选表时 batch 缓存。
 func (c *DataManageController) GetTablePartitionSummary(ctx *gin.Context) {
