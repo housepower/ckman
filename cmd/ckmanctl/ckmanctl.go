@@ -82,15 +82,15 @@ func main() {
 			Zkhosts:    *gz_host,
 		})
 	case "cleanup":
-		thirdCmd := strings.Split(command, " ")[2]
-		if thirdCmd == "suball" {
+		switch strings.Split(command, " ")[2] {
+		case "suball":
 			znodes.SuballHandle(znodes.ZSuballOpts{
 				ClusterName: *dzs_cluster,
 				ConfigFile:  *dzs_conf,
 				Dryrun:      *dzs_dryrun,
 				Node:        *dzs_path,
 			})
-		} else if thirdCmd == "queue" {
+		case "queue":
 			znodes.ReplicaQueueHandle(znodes.ZReplicaQueueOpts{
 				ClusterName:    *dzq_cluster,
 				Dryrun:         *dzq_dryrun,
@@ -99,8 +99,8 @@ func main() {
 			})
 		}
 	case "set":
-		secondCmd := strings.Split(command, " ")[1]
-		if secondCmd == "metacache" {
+		switch strings.Split(command, " ")[1] {
+		case "metacache":
 			metacache.MetacacheHandle(metacache.MetacacheOpts{
 				ClusterName: *sm_cluster,
 				ConfigFile:  *sm_conf,
@@ -108,8 +108,8 @@ func main() {
 			})
 		}
 	case "upgrade":
-		secondCmd := strings.Split(command, " ")[1]
-		if secondCmd == "backup" {
+		switch strings.Split(command, " ")[1] {
+		case "backup":
 			upgrade.BackupUpgradeHandle(upgrade.BackupUpgradeOpts{
 				ConfigFile: *ub_conf,
 				DryRun:     *ub_dryrun,
