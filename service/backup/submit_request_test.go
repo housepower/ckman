@@ -124,6 +124,70 @@ func TestSubmitBackupRequest_UserProvidedTaskName(t *testing.T) {
 	}
 }
 
+// TestSubmitBackupRequest_RejectDuplicateScheduled verifies that scheduling
+// a table already covered by an active scheduled policy is rejected.
+func TestSubmitBackupRequest_RejectDuplicateScheduled(t *testing.T) {
+	repo := newMemRepo()
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+
+	// 预置一条 active scheduled policy
+	repo.policies["pre"] = model.BackupPolicy{
+		PolicyID:     "pre",
+		TaskName:     "nightly",
+		ClusterName:  "ckA",
+		Database:     "dba",
+		Table:        "t1",
+		ScheduleType: model.BACKUP_SCHEDULED,
+		Enabled:      true,
+	}
+
+	// 重复添加：t1 冲突，t2 不冲突；整体应拒绝
+	req := model.BackupRequest{
+		ScheduleType: model.BACKUP_SCHEDULED,
+		Crontab:      "0 3 * * *",
+		Database:     "dba",
+		Tables:       []string{"t1", "t2"},
+		Target:       model.BACKUP_LOCAL,
+		Instance:     "ckman-01",
+	}
+	_, err := svc.SubmitBackupRequest("ckA", req)
+	if err == nil {
+		t.Fatalf("expected duplicate-scheduled rejection, got nil")
+	}
+	if len(repo.policies) != 1 {
+		t.Fatalf("policy table mutated on rejection: got %d, want 1", len(repo.policies))
+	}
+
+	// 立即备份不受拦截影响
+	req.ScheduleType = model.BACKUP_IMMEDIATE
+	req.Crontab = ""
+	if _, err := svc.SubmitBackupRequest("ckA", req); err != nil {
+		t.Fatalf("immediate backup should not be blocked: %v", err)
+	}
+
+	// 已禁用的 scheduled policy 不阻塞
+	repo.policies["pre2"] = model.BackupPolicy{
+		PolicyID:     "pre2",
+		ClusterName:  "ckB",
+		Database:     "dba",
+		Table:        "t3",
+		ScheduleType: model.BACKUP_SCHEDULED,
+		Enabled:      false,
+	}
+	req = model.BackupRequest{
+		ScheduleType: model.BACKUP_SCHEDULED,
+		Crontab:      "0 3 * * *",
+		Database:     "dba",
+		Tables:       []string{"t3"},
+		Target:       model.BACKUP_LOCAL,
+		Instance:     "ckman-01",
+	}
+	if _, err := svc.SubmitBackupRequest("ckB", req); err != nil {
+		t.Fatalf("disabled scheduled policy should not block: %v", err)
+	}
+}
+
 // TestSubmitBackupRequest_ScheduledReturnsNoRunIDs verifies that a scheduled
 // backup produces policies but no runIDs (scheduler triggers later).
 func TestSubmitBackupRequest_ScheduledReturnsNoRunIDs(t *testing.T) {

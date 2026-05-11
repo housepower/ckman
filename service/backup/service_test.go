@@ -19,6 +19,15 @@ func newMemRepo() *memRepo {
 
 func (r *memRepo) CreatePolicy(p model.BackupPolicy) error    { r.policies[p.PolicyID] = p; return nil }
 func (r *memRepo) UpdatePolicy(p model.BackupPolicy) error    { r.policies[p.PolicyID] = p; return nil }
+func (r *memRepo) ListPoliciesByCluster(cluster string) ([]model.BackupPolicy, error) {
+	var out []model.BackupPolicy
+	for _, p := range r.policies {
+		if p.ClusterName == cluster {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
 func (r *memRepo) GetPolicy(id string) (model.BackupPolicy, error) {
 	p, ok := r.policies[id]
 	if !ok {

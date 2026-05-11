@@ -14,6 +14,7 @@ type ServiceRepo interface {
 	CreatePolicy(p model.BackupPolicy) error
 	GetPolicy(id string) (model.BackupPolicy, error)
 	UpdatePolicy(p model.BackupPolicy) error
+	ListPoliciesByCluster(cluster string) ([]model.BackupPolicy, error)
 	CreateRun(r model.BackupRun) error
 	UpdateRun(r model.BackupRun) error
 	GetRun(id string) (model.BackupRun, error)

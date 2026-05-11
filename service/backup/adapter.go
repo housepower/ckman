@@ -38,6 +38,9 @@ func (PersistentRepoAdapter) GetPolicy(id string) (model.BackupPolicy, error) {
 func (PersistentRepoAdapter) UpdatePolicy(p model.BackupPolicy) error {
 	return repository.Ps.UpdateBackupPolicy(p)
 }
+func (PersistentRepoAdapter) ListPoliciesByCluster(cluster string) ([]model.BackupPolicy, error) {
+	return repository.Ps.GetBackupPoliciesByCluster(cluster)
+}
 func (PersistentRepoAdapter) CreateRun(r model.BackupRun) error {
 	return repository.Ps.CreateBackupRun(r)
 }

@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-basic/uuid"
 	"github.com/housepower/ckman/log"
@@ -17,6 +18,35 @@ func (s *Service) SubmitBackupRequest(cluster string, req model.BackupRequest) (
 	if req.ScheduleType == model.BACKUP_SCHEDULED {
 		if err := ValidateCrontabMinInterval(req.Crontab); err != nil {
 			return nil, fmt.Errorf("invalid crontab: %w", err)
+		}
+		// 拦截：同一张表禁止挂在多个 active scheduled task 下。
+		existing, err := s.repo.ListPoliciesByCluster(cluster)
+		if err != nil {
+			return nil, fmt.Errorf("list policies for conflict check: %w", err)
+		}
+		want := make(map[string]struct{}, len(req.Tables))
+		for _, t := range req.Tables {
+			want[t] = struct{}{}
+		}
+		var conflicts []string
+		for _, p := range existing {
+			if p.Deleted || !p.Enabled || p.ScheduleType != model.BACKUP_SCHEDULED {
+				continue
+			}
+			if p.Database != req.Database {
+				continue
+			}
+			if _, hit := want[p.Table]; !hit {
+				continue
+			}
+			label := p.TaskName
+			if label == "" {
+				label = p.PolicyID
+			}
+			conflicts = append(conflicts, fmt.Sprintf("%s.%s (task=%s)", p.Database, p.Table, label))
+		}
+		if len(conflicts) > 0 {
+			return nil, fmt.Errorf("以下表已存在启用中的定时备份任务，不允许重复添加: %s", strings.Join(conflicts, ", "))
 		}
 	}
 
