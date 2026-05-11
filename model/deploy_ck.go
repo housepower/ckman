@@ -420,6 +420,7 @@ type ConnetOption struct {
 	Password           string
 	MaxRead            int
 	Settings           clickhouse.Settings
+	BypassPool         bool
 }
 
 type CkOption func(*ConnetOption)
@@ -445,6 +446,14 @@ func WithMaxRead(maxRead int) CkOption {
 func WithSettings(settings clickhouse.Settings) CkOption {
 	return func(opt *ConnetOption) {
 		opt.Settings = settings
+	}
+}
+
+// WithBypassPool: 标记此连接不进 common.ConnectPool 缓存（既不从 pool 取也不入 pool）。
+// 用于备份/恢复等长 query + 非常规 settings 场景，避免其他 caller 拿到该连接复用。
+func WithBypassPool(bypass bool) CkOption {
+	return func(opt *ConnetOption) {
+		opt.BypassPool = bypass
 	}
 }
 

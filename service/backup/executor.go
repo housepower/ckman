@@ -82,8 +82,10 @@ type BackupStorage interface {
 // Run 是 worker 调用入口。
 func (e *Executor) Run(ctx context.Context, runID string) error {
 	if err := e.Init(ctx, runID); err != nil {
+		e.closeConns()
 		return e.markFailed(runID, "init: "+err.Error())
 	}
+	defer e.closeConns()
 	r, _ := e.repo.GetRun(runID)
 	st := e.resolveStages()
 	if r.Operation == model.OP_BACKUP {
@@ -110,6 +112,17 @@ func (e *Executor) Run(ctx context.Context, runID string) error {
 		return e.markFailed(runID, "close: "+err.Error())
 	}
 	return e.markSuccess(runID)
+}
+
+// closeConns 关闭并清空 e.conns。backup 连接 BypassPool=true，用完显式 close，
+// 防止任何 caller（包括 Executor 自己下次 Run）拿到一个已 close 的 conn。
+func (e *Executor) closeConns() {
+	for _, c := range e.conns {
+		if c != nil && c.conn != nil {
+			_ = c.conn.Close()
+		}
+	}
+	e.conns = nil
 }
 
 func (e *Executor) resolveStages() stages {

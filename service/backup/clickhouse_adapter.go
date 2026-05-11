@@ -15,12 +15,15 @@ import (
 //   - MaxRead 6h: backup of large tables can stream for hours
 //   - max_execution_time=0: server-side per-connection setting; BACKUP/RESTORE
 //     statements don't accept inline SETTINGS so this is the only way to disable it.
+//   - BypassPool: backup 用完即关，不让此连接进 common.ConnectPool 被普通业务复用
+//     （其 ReadTimeout 与 Settings 与普通用法不兼容）。
 func backupConnOpts(cc model.CKManClickHouseConfig) model.ConnetOption {
 	return cc.GetConnOption(
 		model.WithMaxRead(21600),
 		model.WithSettings(clickhouse.Settings{
 			"max_execution_time": uint64(0),
 		}),
+		model.WithBypassPool(true),
 	)
 }
 
