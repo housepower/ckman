@@ -16,6 +16,7 @@ import (
 	"github.com/housepower/ckman/cmd/metacache"
 	"github.com/housepower/ckman/cmd/migrate"
 	"github.com/housepower/ckman/cmd/password"
+	"github.com/housepower/ckman/cmd/upgrade"
 	"github.com/housepower/ckman/cmd/znodes"
 	"github.com/housepower/ckman/log"
 )
@@ -54,6 +55,14 @@ var (
 	sm_cluster     = s_metacacheCmd.Arg("cluster", "cluster").String()
 	sm_conf        = s_metacacheCmd.Flag("conf", "config file path").Short('c').Default("/etc/ckman/conf/ckman.hjson").String()
 	sm_dryrun      = s_metacacheCmd.Flag("dryrun", "dryrun").Short('d').Bool()
+
+	upgradeCmd = kingpin.Command("upgrade", "upgrade options")
+	u_backup   = upgradeCmd.Command("backup", "upgrade legacy Backup table to new BackupPolicy/BackupRun schema")
+	ub_conf    = u_backup.Flag("conf", "ckman config file path").Short('c').Default("/etc/ckman/conf/ckman.hjson").String()
+	ub_dryrun  = u_backup.Flag("dry-run", "print mapping plan without writing").Bool()
+	ub_verbose = u_backup.Flag("verbose", "verbose log per row").Short('v').Bool()
+	ub_force   = u_backup.Flag("force", "allow writing even if new tables non-empty").Bool()
+	ub_cleanup = u_backup.Flag("cleanup", "delete migrated rows from old Backup table after success").Bool()
 )
 
 func main() {
@@ -96,6 +105,17 @@ func main() {
 				ClusterName: *sm_cluster,
 				ConfigFile:  *sm_conf,
 				Dryrun:      *sm_dryrun,
+			})
+		}
+	case "upgrade":
+		secondCmd := strings.Split(command, " ")[1]
+		if secondCmd == "backup" {
+			upgrade.BackupUpgradeHandle(upgrade.BackupUpgradeOpts{
+				ConfigFile: *ub_conf,
+				DryRun:     *ub_dryrun,
+				Verbose:    *ub_verbose,
+				Force:      *ub_force,
+				Cleanup:    *ub_cleanup,
 			})
 		}
 	}
