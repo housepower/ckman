@@ -419,6 +419,7 @@ type ConnetOption struct {
 	User               string
 	Password           string
 	MaxRead            int
+	Settings           clickhouse.Settings
 }
 
 type CkOption func(*ConnetOption)
@@ -438,6 +439,12 @@ func WithSecure(secure bool) CkOption {
 func WithMaxRead(maxRead int) CkOption {
 	return func(opt *ConnetOption) {
 		opt.MaxRead = maxRead
+	}
+}
+
+func WithSettings(settings clickhouse.Settings) CkOption {
+	return func(opt *ConnetOption) {
+		opt.Settings = settings
 	}
 }
 

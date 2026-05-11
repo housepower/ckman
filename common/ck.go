@@ -60,6 +60,7 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 		DialTimeout:      time.Duration(10) * time.Second,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
 		ReadTimeout:      time.Second * time.Duration(opt.MaxRead),
+		Settings:         opt.Settings,
 	}
 
 	if opt.Secure {

@@ -4,11 +4,25 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 )
+
+// backupConnOpts returns ConnetOption presets for backup/restore connections:
+//   - MaxRead 6h: backup of large tables can stream for hours
+//   - max_execution_time=0: server-side per-connection setting; BACKUP/RESTORE
+//     statements don't accept inline SETTINGS so this is the only way to disable it.
+func backupConnOpts(cc model.CKManClickHouseConfig) model.ConnetOption {
+	return cc.GetConnOption(
+		model.WithMaxRead(21600),
+		model.WithSettings(clickhouse.Settings{
+			"max_execution_time": uint64(0),
+		}),
+	)
+}
 
 // ClickHouseAdapter 提供 Executor 所需的真实实现 hook。
 //
@@ -36,7 +50,7 @@ func (a *ClickHouseAdapter) ConnFactory(cluster string) ([]*shardConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt := cc.GetConnOption()
+	opt := backupConnOpts(cc)
 	var conns []*shardConn
 	for idx, shard := range cc.Shards {
 		var got *shardConn
