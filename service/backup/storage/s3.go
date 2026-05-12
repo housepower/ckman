@@ -14,6 +14,8 @@ type S3 struct {
 }
 
 func NewS3(cfg model.TargetS3) *S3 {
+	// trim 末尾斜杠，避免拼出 host//bucket 让 ClickHouse 解析失败
+	cfg.Endpoint = strings.TrimRight(cfg.Endpoint, "/")
 	return &S3{cfg: cfg}
 }
 
