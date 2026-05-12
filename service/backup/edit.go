@@ -29,6 +29,10 @@ func (s *Service) UpdatePolicy(p model.BackupPolicy) error {
 			return fmt.Errorf("invalid crontab: %w", err)
 		}
 	}
+	// Sensitive 字段保留：前端编辑时通常不重传 secret，空值应解释为「不变」而非清空。
+	if p.S3.SecretAccessKey == "" {
+		p.S3.SecretAccessKey = old.S3.SecretAccessKey
+	}
 	p.CreateTime = old.CreateTime
 	p.UpdateTime = time.Now()
 	return s.repo.UpdatePolicy(p)

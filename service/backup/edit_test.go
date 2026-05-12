@@ -29,6 +29,41 @@ func TestUpdatePolicy_RejectsImmutableFieldChanges(t *testing.T) {
 	}
 }
 
+// 编辑时若 secret 为空（前端通常不重传敏感字段），应保留旧值，
+// 否则会静默清空 S3 凭证导致后续 run 失败。
+func TestUpdatePolicy_PreservesSecretWhenEmpty(t *testing.T) {
+	repo := newMemRepo()
+	repo.policies["p1"] = model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		ScheduleType: model.BACKUP_IMMEDIATE,
+		S3: model.TargetS3{
+			AccessKeyID:     "AK",
+			SecretAccessKey: "SK-OLD",
+		},
+	}
+	svc := newServiceForTest("ckman-01", repo, &fakePool{})
+	// 模拟前端编辑：只改 bucket，不带 SecretAccessKey
+	upd := model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		ScheduleType: model.BACKUP_IMMEDIATE,
+		S3: model.TargetS3{
+			AccessKeyID: "AK",
+			Bucket:      "new-bucket",
+			// SecretAccessKey 空
+		},
+	}
+	if err := svc.UpdatePolicy(upd); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	got, _ := repo.GetPolicy("p1")
+	if got.S3.SecretAccessKey != "SK-OLD" {
+		t.Fatalf("secret was wiped: got %q want SK-OLD", got.S3.SecretAccessKey)
+	}
+	if got.S3.Bucket != "new-bucket" {
+		t.Fatalf("bucket not updated: %q", got.S3.Bucket)
+	}
+}
+
 func TestUpdatePolicy_AllowsEditableFields(t *testing.T) {
 	repo := newMemRepo()
 	repo.policies["p1"] = model.BackupPolicy{
