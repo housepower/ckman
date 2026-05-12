@@ -85,6 +85,9 @@ func TestClickHouseAdapter_CollectChecksumOnHost_PopulatesPathInfo(t *testing.T)
 	a := &ClickHouseAdapter{
 		getCluster: func(string) (model.CKManClickHouseConfig, error) { return cluster, nil },
 		sshExec:    func(common.SshOptions, string) (string, error) { return sshOut, nil },
+		queryDataPaths: func(_ *shardConn, _, _ string) ([]string, error) {
+			return []string{"/var/lib/clickhouse/data/dba/t1/"}, nil
+		},
 	}
 	run := &model.BackupRun{
 		ClusterName: "ckA", Database: "dba", Table: "t1",

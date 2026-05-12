@@ -29,22 +29,25 @@ func backupConnOpts(cc model.CKManClickHouseConfig) model.ConnetOption {
 
 // ClickHouseAdapter 提供 Executor 所需的真实实现 hook。
 //
-// getCluster / dial / sshExec 是注入点，便于单测；NewClickHouseAdapter 用真实实现。
+// getCluster / dial / sshExec / queryDataPaths 是注入点，便于单测；NewClickHouseAdapter 用真实实现。
 type ClickHouseAdapter struct {
-	getCluster func(string) (model.CKManClickHouseConfig, error)
-	dial       func(host string, opt model.ConnetOption) (*common.Conn, error)
-	sshExec    func(opts common.SshOptions, cmd string) (string, error)
+	getCluster     func(string) (model.CKManClickHouseConfig, error)
+	dial           func(host string, opt model.ConnetOption) (*common.Conn, error)
+	sshExec        func(opts common.SshOptions, cmd string) (string, error)
+	queryDataPaths func(c *shardConn, db, table string) ([]string, error)
 }
 
 // NewClickHouseAdapter 真实环境工厂。
 func NewClickHouseAdapter() *ClickHouseAdapter {
-	return &ClickHouseAdapter{
+	a := &ClickHouseAdapter{
 		getCluster: repository.Ps.GetClusterbyName,
 		dial: func(host string, opt model.ConnetOption) (*common.Conn, error) {
 			return common.ConnectClickHouse(host, model.ClickHouseDefaultDB, opt)
 		},
 		sshExec: common.RemoteExecute,
 	}
+	a.queryDataPaths = a.realQueryTableDataPaths
+	return a
 }
 
 // ConnFactory 给 Executor.connFactory 用：每 shard 拿第一个可达 replica，缓存 *common.Conn 到 shardConn。
@@ -137,6 +140,38 @@ func (a *ClickHouseAdapter) ListAllPartitions(c *shardConn, db, table string) ([
 	return partitions, nil
 }
 
+// realQueryTableDataPaths 从 system.tables 拿表的实际数据目录列表（Atomic 引擎下是
+// store/<uuid>，传统引擎是 data/<db>/<table>，多 disk policy 可能多个 path）。
+func (a *ClickHouseAdapter) realQueryTableDataPaths(c *shardConn, db, table string) ([]string, error) {
+	if c == nil || c.conn == nil {
+		return nil, fmt.Errorf("queryTableDataPaths: nil conn")
+	}
+	sql := fmt.Sprintf(
+		"SELECT data_paths FROM system.tables WHERE database='%s' AND name='%s'",
+		strings.ReplaceAll(db, "'", "''"),
+		strings.ReplaceAll(table, "'", "''"),
+	)
+	rows, err := c.conn.Query(sql)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var paths []string
+		if err := rows.Scan(&paths); err != nil {
+			return nil, err
+		}
+		out = append(out, paths...)
+	}
+	return out, nil
+}
+
+// shellQuote 用单引号包裹路径，内部的 ' 转成 '\''，安全传给远端 shell。
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // GetLastRunPartitions 从持久层查 365 天内同表的最近一次 success run 的 partitions。
 func (a *ClickHouseAdapter) GetLastRunPartitions(cluster, db, table string) ([]model.BackupRunPartition, error) {
 	runs, err := repository.Ps.GetRunsByTable(cluster, db, table, 365)
@@ -166,15 +201,28 @@ func (a *ClickHouseAdapter) CollectChecksumOnHost(c *shardConn, run *model.Backu
 		NeedSudo:         cluster.NeedSudo,
 		AuthenticateType: cluster.AuthenticateType,
 	}
+	// 数据路径从 CK 自身查，兼容 Atomic 引擎的 store/uuid 目录、自定义 path、多 disk。
+	if a.queryDataPaths == nil {
+		return fmt.Errorf("queryDataPaths hook not configured")
+	}
+	dataPaths, err := a.queryDataPaths(c, run.Database, run.Table)
+	if err != nil {
+		return fmt.Errorf("query data_paths for %s.%s: %w", run.Database, run.Table, err)
+	}
+	if len(dataPaths) == 0 {
+		return fmt.Errorf("table %s.%s has no data_paths on host %s", run.Database, run.Table, c.host)
+	}
+	pathArgs := make([]string, len(dataPaths))
+	for i, p := range dataPaths {
+		pathArgs[i] = shellQuote(p)
+	}
 	for i := range run.Partitions {
 		if run.Partitions[i].Status != model.BACKUP_PARTITION_STATUS_WAITING {
 			continue
 		}
 		// 用 -exec ... + 而不是 \; —— 后者经 ssh shell 解析后会变成裸 ; 让 find 报
 		// "missing argument to -exec"。+ 批量传参，性能也更好。
-		cmd := fmt.Sprintf("find /var/lib/clickhouse/data/%s/%s/ -type f -exec md5sum {} +",
-			strings.ReplaceAll(run.Database, "'", ""),
-			strings.ReplaceAll(run.Table, "'", ""))
+		cmd := fmt.Sprintf("find %s -type f -exec md5sum {} +", strings.Join(pathArgs, " "))
 		out, err := a.sshExec(opts, cmd)
 		if err != nil {
 			return fmt.Errorf("[%s] md5sum: %w", c.host, err)
