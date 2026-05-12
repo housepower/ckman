@@ -170,7 +170,9 @@ func (a *ClickHouseAdapter) CollectChecksumOnHost(c *shardConn, run *model.Backu
 		if run.Partitions[i].Status != model.BACKUP_PARTITION_STATUS_WAITING {
 			continue
 		}
-		cmd := fmt.Sprintf("find /var/lib/clickhouse/data/%s/%s/ -type f -exec md5sum {} \\;",
+		// 用 -exec ... + 而不是 \; —— 后者经 ssh shell 解析后会变成裸 ; 让 find 报
+		// "missing argument to -exec"。+ 批量传参，性能也更好。
+		cmd := fmt.Sprintf("find /var/lib/clickhouse/data/%s/%s/ -type f -exec md5sum {} +",
 			strings.ReplaceAll(run.Database, "'", ""),
 			strings.ReplaceAll(run.Table, "'", ""))
 		out, err := a.sshExec(opts, cmd)
