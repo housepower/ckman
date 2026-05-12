@@ -190,6 +190,21 @@ func (c *DataManageController) GetRun(ctx *gin.Context) {
 	c.wrapfunc(ctx, model.E_SUCCESS, r)
 }
 
+// DeleteRun DELETE /data_manage/backup/run/:run_id
+// 仅删 ckman 台账记录，不动 S3/Local 上的备份数据。
+func (c *DataManageController) DeleteRun(ctx *gin.Context) {
+	rid := ctx.Param("run_id")
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	if err := svc.DeleteRun(rid); err != nil {
+		c.wrapfunc(ctx, model.E_DATA_DELETE_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, nil)
+}
+
 // ListRunsByPolicy GET /data_manage/backup/policy/:policy_id/runs?limit=&before=
 func (c *DataManageController) ListRunsByPolicy(ctx *gin.Context) {
 	pid := ctx.Param("policy_id")

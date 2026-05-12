@@ -732,6 +732,11 @@ func (mp *DM8Persistent) UpdateBackupRun(r model.BackupRun) error {
 	return wrapError(tx.Error)
 }
 
+func (mp *DM8Persistent) DeleteBackupRun(runID string) error {
+	tx := mp.Client.Where("run_id = ?", runID).Delete(&TblBackupRun{})
+	return wrapError(tx.Error)
+}
+
 func (mp *DM8Persistent) GetBackupRun(runID string) (model.BackupRun, error) {
 	var tbl TblBackupRun
 	if err := mp.Client.Where("run_id = ?", runID).First(&tbl).Error; err != nil {

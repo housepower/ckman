@@ -709,6 +709,19 @@ func (lp *LocalPersistent) UpdateBackupRun(r model.BackupRun) error {
 	return nil
 }
 
+func (lp *LocalPersistent) DeleteBackupRun(runID string) error {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+	if _, ok := lp.Data.BackupRun[runID]; !ok {
+		return repository.ErrRecordNotFound
+	}
+	delete(lp.Data.BackupRun, runID)
+	if !lp.InTransAction {
+		_ = lp.dump()
+	}
+	return nil
+}
+
 func (lp *LocalPersistent) GetBackupRun(runID string) (model.BackupRun, error) {
 	lp.lock.RLock()
 	defer lp.lock.RUnlock()

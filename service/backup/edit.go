@@ -50,6 +50,20 @@ func (s *Service) DeletePolicy(policyID string) error {
 	return s.repo.UpdatePolicy(p)
 }
 
+// DeleteRun 删除一次 run 的 ckman 台账记录。仅允许终态 run（success/failed/
+// skipped/interrupted）；queued/running 拒绝，避免在跑的 worker 拿不到记录。
+// 该操作不动 S3 / Local 上的备份数据，对应 backup 数据可能成为孤儿。
+func (s *Service) DeleteRun(runID string) error {
+	r, err := s.repo.GetRun(runID)
+	if err != nil {
+		return err
+	}
+	if r.Status == model.BACKUP_STATUS_QUEUED || r.Status == model.BACKUP_STATUS_RUNNING {
+		return fmt.Errorf("cannot delete in-flight run (status=%s)", r.Status)
+	}
+	return s.repo.DeleteRun(runID)
+}
+
 // TriggerPolicy 立即触发一次 run（不论 schedule_type）
 func (s *Service) TriggerPolicy(policyID string) (string, error) {
 	p, err := s.repo.GetPolicy(policyID)

@@ -37,6 +37,13 @@ func (r *memRepo) GetPolicy(id string) (model.BackupPolicy, error) {
 }
 func (r *memRepo) CreateRun(rn model.BackupRun) error { r.runs[rn.RunID] = rn; return nil }
 func (r *memRepo) UpdateRun(rn model.BackupRun) error { r.runs[rn.RunID] = rn; return nil }
+func (r *memRepo) DeleteRun(id string) error {
+	if _, ok := r.runs[id]; !ok {
+		return errors.New("not found")
+	}
+	delete(r.runs, id)
+	return nil
+}
 func (r *memRepo) GetRun(id string) (model.BackupRun, error) {
 	rn, ok := r.runs[id]
 	if !ok {

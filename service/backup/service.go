@@ -17,6 +17,7 @@ type ServiceRepo interface {
 	ListPoliciesByCluster(cluster string) ([]model.BackupPolicy, error)
 	CreateRun(r model.BackupRun) error
 	UpdateRun(r model.BackupRun) error
+	DeleteRun(id string) error
 	GetRun(id string) (model.BackupRun, error)
 	InFlightRunsByPolicy(policyID string) []model.BackupRun
 	InFlightRunsByInstance(instance string) []model.BackupRun // 新增，Task 14

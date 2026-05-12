@@ -88,6 +88,7 @@ type PersistentBackupPolicyService interface {
 type PersistentBackupRunService interface {
 	CreateBackupRun(r model.BackupRun) error
 	UpdateBackupRun(r model.BackupRun) error
+	DeleteBackupRun(runID string) error
 	GetBackupRun(runID string) (model.BackupRun, error)
 	GetRunsByPolicy(policyID string, limit int, before time.Time) ([]model.BackupRun, error)
 	GetRunsByTable(cluster, database, table string, sinceDays int) ([]model.BackupRun, error)

@@ -49,6 +49,9 @@ func (PersistentRepoAdapter) CreateRun(r model.BackupRun) error {
 func (PersistentRepoAdapter) UpdateRun(r model.BackupRun) error {
 	return repository.Ps.UpdateBackupRun(r)
 }
+func (PersistentRepoAdapter) DeleteRun(id string) error {
+	return repository.Ps.DeleteBackupRun(id)
+}
 func (PersistentRepoAdapter) GetRun(id string) (model.BackupRun, error) {
 	return repository.Ps.GetBackupRun(id)
 }

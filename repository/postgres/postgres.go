@@ -758,6 +758,11 @@ func (mp *PostgresPersistent) UpdateBackupRun(r model.BackupRun) error {
 	return wrapError(tx.Error)
 }
 
+func (mp *PostgresPersistent) DeleteBackupRun(runID string) error {
+	tx := mp.Client.Where("run_id = ?", runID).Delete(&TblBackupRun{})
+	return wrapError(tx.Error)
+}
+
 func (mp *PostgresPersistent) GetBackupRun(runID string) (model.BackupRun, error) {
 	var tbl TblBackupRun
 	if err := mp.Client.Where("run_id = ?", runID).First(&tbl).Error; err != nil {
