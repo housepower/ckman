@@ -26,8 +26,15 @@ func backupSettings(compression string) string {
 }
 
 // restoreSettings 生成 RESTORE TABLE … 末尾的 SETTINGS 子句。
-// allow_non_empty_tables=true：允许 restore 到已存在且非空的表，否则 partition
-// 级恢复无意义（表通常本来就有数据）。
+//
+// 经验证 ClickHouse 部分版本（含我们目标环境）在 RESTORE TABLE PARTITION
+// 语法后**不接受** SETTINGS 子句，会报 "Syntax error: failed at SETTINGS"。
+// 而且 ckman 的恢复路径全部是 PARTITION 级（SubmitRestoreRequest 强制要求
+// 指定 partitions），PARTITION 恢复语义就是「往表里追加分区」，本来就允许
+// 表非空，无需 allow_non_empty_tables。
+//
+// 因此返回空串。如果将来需要全表 restore 且支持 SETTINGS 的版本，可以分支
+// 出 restoreSettingsFull() 单独处理。
 func restoreSettings() string {
-	return " SETTINGS allow_non_empty_tables=true"
+	return ""
 }
