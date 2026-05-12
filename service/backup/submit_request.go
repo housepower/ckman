@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -15,6 +16,10 @@ import (
 // 定时备份：建 policy(Enabled=true) + 写入策略，由 scheduler 周期触发；
 // 返回的 run_ids 为空切片（定时备份不立即创建 run）。
 func (s *Service) SubmitBackupRequest(cluster string, req model.BackupRequest) ([]string, error) {
+	// 通用校验：incremental + partition 模式必须显式给出 partitions
+	if req.BackupStyle == model.BACKUP_STYLE_INCR && req.BackupType == model.BACKUP_TYPE_PARTITION && len(req.Partitions) == 0 {
+		return nil, errors.New("incremental + partition mode requires at least one partition name")
+	}
 	if req.ScheduleType == model.BACKUP_SCHEDULED {
 		if err := ValidateCrontabMinInterval(req.Crontab); err != nil {
 			return nil, fmt.Errorf("invalid crontab: %w", err)

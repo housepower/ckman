@@ -53,6 +53,7 @@ type Executor struct {
 	repo                 ExecRepo
 	connFactory          func(cluster string) ([]*shardConn, error)
 	listPartitions       func(c *shardConn, db, table, beforeYYYYMMDD string) ([]string, error)
+	listAllPartitions    func(c *shardConn, db, table string) ([]string, error)
 	getLastRunPartitions func(cluster, db, table string) ([]model.BackupRunPartition, error)
 	stages               stages
 	now                  func() time.Time
@@ -173,19 +174,8 @@ func (e *Executor) Init(ctx context.Context, runID string) error {
 		}
 	}
 
-	// 仅 daily 模式且 daysBefore > 0 时枚举分区
-	if policy.BackupType == model.BACKUP_TYPE_DAILY_PARTITION && policy.DaysBefore > 0 {
-		toPartition := e.clock().AddDate(0, 0, -policy.DaysBefore).Format("20060102")
-		newPartitions, err := e.listPartitions(conns[0], policy.Database, policy.Table, toPartition)
-		if err != nil {
-			return err
-		}
-		// 修 #4：getLastRunPartitions 报错时仍采用 newPartitions，不丢分区
-		var prev []model.BackupRunPartition
-		if e.getLastRunPartitions != nil {
-			prev, _ = e.getLastRunPartitions(policy.ClusterName, policy.Database, policy.Table)
-		}
-		r.Partitions = mergePartitionLists(prev, newPartitions)
+	if err := e.resolveRunPartitions(&r, policy); err != nil {
+		return err
 	}
 
 	r.StartedAt = e.clock()
@@ -193,6 +183,67 @@ func (e *Executor) Init(ctx context.Context, runID string) error {
 		return err
 	}
 	return nil
+}
+
+// resolveRunPartitions 根据 policy 的 backup_style / backup_type 决定 run.Partitions 来源。
+// 仅 backup 走这里；restore 的分区在 SubmitRestoreRequest 已经写好。
+func (e *Executor) resolveRunPartitions(r *model.BackupRun, policy model.BackupPolicy) error {
+	if r.Operation != model.OP_BACKUP {
+		return nil
+	}
+	switch {
+	case policy.BackupStyle == model.BACKUP_STYLE_FULL:
+		// 全量：枚举表全部 active 分区，每次都重备
+		if e.listAllPartitions == nil {
+			return errors.New("full backup requires listAllPartitions hook")
+		}
+		all, err := e.listAllPartitions(e.conns[0], policy.Database, policy.Table)
+		if err != nil {
+			return fmt.Errorf("list all partitions: %w", err)
+		}
+		if len(all) == 0 {
+			return fmt.Errorf("table %s.%s has no active partitions to backup", policy.Database, policy.Table)
+		}
+		r.Partitions = partitionsFromNames(all)
+	case policy.BackupType == model.BACKUP_TYPE_PARTITION:
+		// 增量 + 按分区名：用 policy.Partitions（用户提交时指定）
+		if len(policy.Partitions) == 0 {
+			return errors.New("partition mode requires explicit partition list")
+		}
+		// 跳过已经成功备份过的分区（避免重复备份）
+		var prev []model.BackupRunPartition
+		if e.getLastRunPartitions != nil {
+			prev, _ = e.getLastRunPartitions(policy.ClusterName, policy.Database, policy.Table)
+		}
+		r.Partitions = mergePartitionLists(prev, policy.Partitions)
+	case policy.BackupType == model.BACKUP_TYPE_DAILY_PARTITION && policy.DaysBefore > 0:
+		// 增量 + 按时间段：枚举 partition <= today-N 的分区，叠加上次 success 的分区
+		toPartition := e.clock().AddDate(0, 0, -policy.DaysBefore).Format("20060102")
+		newPartitions, err := e.listPartitions(e.conns[0], policy.Database, policy.Table, toPartition)
+		if err != nil {
+			return err
+		}
+		var prev []model.BackupRunPartition
+		if e.getLastRunPartitions != nil {
+			prev, _ = e.getLastRunPartitions(policy.ClusterName, policy.Database, policy.Table)
+		}
+		r.Partitions = mergePartitionLists(prev, newPartitions)
+	default:
+		return fmt.Errorf("unsupported backup mode: style=%s type=%s daysBefore=%d",
+			policy.BackupStyle, policy.BackupType, policy.DaysBefore)
+	}
+	return nil
+}
+
+// partitionsFromNames 把分区名列表转换为 waiting 状态的 BackupRunPartition 切片。
+func partitionsFromNames(names []string) []model.BackupRunPartition {
+	out := make([]model.BackupRunPartition, 0, len(names))
+	for _, n := range names {
+		out = append(out, model.BackupRunPartition{
+			Partition: n, Status: model.BACKUP_PARTITION_STATUS_WAITING,
+		})
+	}
+	return out
 }
 
 // mergePartitionLists：保留 prev 的 success（避免重复备份），新增 newest 中尚未存在的分区

@@ -106,6 +106,37 @@ func (a *ClickHouseAdapter) ListPartitions(c *shardConn, db, table, beforeYYYYMM
 	return partitions, nil
 }
 
+// ListAllPartitions 列指定表全部 active 分区（不做日期过滤），用于全量备份。
+func (a *ClickHouseAdapter) ListAllPartitions(c *shardConn, db, table string) ([]string, error) {
+	if c == nil || c.conn == nil {
+		return nil, fmt.Errorf("ListAllPartitions: nil conn for host %s", func() string {
+			if c != nil {
+				return c.host
+			}
+			return "<nil>"
+		}())
+	}
+	query := fmt.Sprintf(
+		"SELECT DISTINCT partition FROM system.parts WHERE database = '%s' AND `table` = '%s' AND active = 1 ORDER BY partition",
+		strings.ReplaceAll(db, "'", "''"),
+		strings.ReplaceAll(table, "'", "''"),
+	)
+	rows, err := c.conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var partitions []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		partitions = append(partitions, p)
+	}
+	return partitions, nil
+}
+
 // GetLastRunPartitions 从持久层查 365 天内同表的最近一次 success run 的 partitions。
 func (a *ClickHouseAdapter) GetLastRunPartitions(cluster, db, table string) ([]model.BackupRunPartition, error) {
 	runs, err := repository.Ps.GetRunsByTable(cluster, db, table, 365)

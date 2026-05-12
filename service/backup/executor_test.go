@@ -83,9 +83,10 @@ func TestExecutor_Init_PartitionListErrorDoesNotDropList(t *testing.T) {
 	// 修 #4：getLastRunPartitions 报错时仍采用 newPartitions
 	repo := newFakeExecRepo(model.BackupPolicy{
 		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
-		BackupType: model.BACKUP_TYPE_DAILY_PARTITION, DaysBefore: 7,
+		BackupStyle: model.BACKUP_STYLE_INCR,
+		BackupType:  model.BACKUP_TYPE_DAILY_PARTITION, DaysBefore: 7,
 	})
-	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Status: model.BACKUP_STATUS_RUNNING}
+	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_RUNNING}
 
 	called := false
 	e := &Executor{
@@ -118,9 +119,10 @@ func TestExecutor_Init_MergesNewPartitionsWithPrev(t *testing.T) {
 	// 老的保留 success，新的标 waiting
 	repo := newFakeExecRepo(model.BackupPolicy{
 		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
-		BackupType: model.BACKUP_TYPE_DAILY_PARTITION, DaysBefore: 7,
+		BackupStyle: model.BACKUP_STYLE_INCR,
+		BackupType:  model.BACKUP_TYPE_DAILY_PARTITION, DaysBefore: 7,
 	})
-	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Status: model.BACKUP_STATUS_RUNNING}
+	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_RUNNING}
 
 	e := &Executor{
 		repo: repo,
@@ -152,6 +154,124 @@ func TestExecutor_Init_MergesNewPartitionsWithPrev(t *testing.T) {
 	}
 	if statusByPart["20250507"] != model.BACKUP_PARTITION_STATUS_WAITING {
 		t.Fatalf("new partitions should be waiting")
+	}
+}
+
+// TestExecutor_Init_FullBackup 全量备份枚举表所有 active 分区。
+func TestExecutor_Init_FullBackup(t *testing.T) {
+	repo := newFakeExecRepo(model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		BackupStyle: model.BACKUP_STYLE_FULL,
+		BackupType:  model.BACKUP_TYPE_PARTITION, // full 时类型字段无意义，但前端可能填了
+	})
+	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_RUNNING}
+
+	allCalled := false
+	e := &Executor{
+		repo: repo,
+		connFactory: func(string) ([]*shardConn, error) {
+			return []*shardConn{newFakeShardConn("h1")}, nil
+		},
+		listAllPartitions: func(_ *shardConn, db, table string) ([]string, error) {
+			allCalled = true
+			return []string{"20250506", "20250507", "20250508"}, nil
+		},
+	}
+	if err := e.Init(context.Background(), "r1"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if !allCalled {
+		t.Fatal("listAllPartitions not called")
+	}
+	rn, _ := repo.GetRun("r1")
+	if len(rn.Partitions) != 3 {
+		t.Fatalf("expected 3 partitions, got %d", len(rn.Partitions))
+	}
+	for _, p := range rn.Partitions {
+		if p.Status != model.BACKUP_PARTITION_STATUS_WAITING {
+			t.Errorf("partition %s should be waiting, got %s", p.Partition, p.Status)
+		}
+	}
+}
+
+// TestExecutor_Init_FullBackup_NoPartitions 全量备份但表无 active 分区 → 报错，
+// 不允许 silent success。
+func TestExecutor_Init_FullBackup_NoPartitions(t *testing.T) {
+	repo := newFakeExecRepo(model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		BackupStyle: model.BACKUP_STYLE_FULL,
+	})
+	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_RUNNING}
+
+	e := &Executor{
+		repo: repo,
+		connFactory: func(string) ([]*shardConn, error) {
+			return []*shardConn{newFakeShardConn("h1")}, nil
+		},
+		listAllPartitions: func(_ *shardConn, db, table string) ([]string, error) {
+			return nil, nil // 空表
+		},
+	}
+	err := e.Init(context.Background(), "r1")
+	if err == nil || !strings.Contains(err.Error(), "no active partitions") {
+		t.Fatalf("expected no-partitions error, got %v", err)
+	}
+}
+
+// TestExecutor_Init_PartitionMode 增量 + 按分区名：从 policy.Partitions 拿列表。
+func TestExecutor_Init_PartitionMode(t *testing.T) {
+	repo := newFakeExecRepo(model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		BackupStyle: model.BACKUP_STYLE_INCR,
+		BackupType:  model.BACKUP_TYPE_PARTITION,
+		Partitions:  []string{"20250506", "20250507"},
+	})
+	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_RUNNING}
+
+	e := &Executor{
+		repo: repo,
+		connFactory: func(string) ([]*shardConn, error) {
+			return []*shardConn{newFakeShardConn("h1")}, nil
+		},
+		// listPartitions 不应该被调用（按名模式不枚举）
+		listPartitions: func(_ *shardConn, _, _, _ string) ([]string, error) {
+			t.Fatal("listPartitions should not be called for partition-name mode")
+			return nil, nil
+		},
+		listAllPartitions: func(_ *shardConn, _, _ string) ([]string, error) {
+			t.Fatal("listAllPartitions should not be called for partition-name mode")
+			return nil, nil
+		},
+	}
+	if err := e.Init(context.Background(), "r1"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	rn, _ := repo.GetRun("r1")
+	if len(rn.Partitions) != 2 {
+		t.Fatalf("expected 2 partitions from policy, got %d", len(rn.Partitions))
+	}
+}
+
+// TestExecutor_Init_PartitionMode_Empty 按分区名但 policy.Partitions 为空 → 报错，
+// 防止 silent success。
+func TestExecutor_Init_PartitionMode_Empty(t *testing.T) {
+	repo := newFakeExecRepo(model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		BackupStyle: model.BACKUP_STYLE_INCR,
+		BackupType:  model.BACKUP_TYPE_PARTITION,
+		Partitions:  nil,
+	})
+	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_RUNNING}
+
+	e := &Executor{
+		repo: repo,
+		connFactory: func(string) ([]*shardConn, error) {
+			return []*shardConn{newFakeShardConn("h1")}, nil
+		},
+	}
+	err := e.Init(context.Background(), "r1")
+	if err == nil || !strings.Contains(err.Error(), "explicit partition list") {
+		t.Fatalf("expected explicit-list error, got %v", err)
 	}
 }
 

@@ -124,6 +124,32 @@ func TestSubmitBackupRequest_UserProvidedTaskName(t *testing.T) {
 	}
 }
 
+// TestSubmitBackupRequest_RejectPartitionModeEmpty verifies that
+// incremental+partition mode without partition list is rejected.
+func TestSubmitBackupRequest_RejectPartitionModeEmpty(t *testing.T) {
+	repo := newMemRepo()
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+
+	req := model.BackupRequest{
+		ScheduleType: model.BACKUP_IMMEDIATE,
+		Database:     "dba",
+		Tables:       []string{"t1"},
+		BackupStyle:  model.BACKUP_STYLE_INCR,
+		BackupType:   model.BACKUP_TYPE_PARTITION,
+		Partitions:   nil,
+		Target:       model.BACKUP_LOCAL,
+		Instance:     "ckman-01",
+	}
+	_, err := svc.SubmitBackupRequest("ckA", req)
+	if err == nil {
+		t.Fatalf("expected rejection for empty partition list")
+	}
+	if len(repo.policies) != 0 {
+		t.Fatalf("policy should not be created on rejection, got %d", len(repo.policies))
+	}
+}
+
 // TestSubmitBackupRequest_RejectDuplicateScheduled verifies that scheduling
 // a table already covered by an active scheduled policy is rejected.
 func TestSubmitBackupRequest_RejectDuplicateScheduled(t *testing.T) {

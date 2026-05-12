@@ -122,6 +122,7 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 		repo:                  repo,
 		connFactory:           chAdapter.ConnFactory,
 		listPartitions:        chAdapter.ListPartitions,
+		listAllPartitions:     chAdapter.ListAllPartitions,
 		getLastRunPartitions:  chAdapter.GetLastRunPartitions,
 		collectChecksumOnHost: chAdapter.CollectChecksumOnHost,
 		stages:                realStages{},
