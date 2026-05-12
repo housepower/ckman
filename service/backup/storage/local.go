@@ -14,15 +14,16 @@ import (
 // sshOpts 以依赖注入的方式提供：调用方（持有 cluster 配置的层）负责构造并传入，
 // 让 storage 包无需直接依赖 cluster 模型。
 type Local struct {
-	cfg     model.TargetLocal
-	sshOpts func(host string) common.SshOptions // 可为 nil；nil 时远程操作返回错误
+	cfg         model.TargetLocal
+	compression string
+	sshOpts     func(host string) common.SshOptions // 可为 nil；nil 时远程操作返回错误
 }
 
 // NewLocal 构造 Local storage 实例。
 // sshOpts 传 nil 时，Init / BackupSQL / RestoreSQL 仍可使用，
 // 但 CleanPartition / CheckPartition 会返回错误。
-func NewLocal(cfg model.TargetLocal, sshOpts func(string) common.SshOptions) *Local {
-	return &Local{cfg: cfg, sshOpts: sshOpts}
+func NewLocal(cfg model.TargetLocal, compression string, sshOpts func(string) common.SshOptions) *Local {
+	return &Local{cfg: cfg, compression: compression, sshOpts: sshOpts}
 }
 
 // Init 对配置路径执行白名单校验（修闭 spec §9 #9 RCE 注入面）。
@@ -33,7 +34,7 @@ func (l *Local) Init() error {
 // Type 返回存储类型标识。
 func (l *Local) Type() string { return model.BACKUP_LOCAL }
 
-// BackupSQL 返回 BACKUP TABLE … 语句的尾部子句（PARTITION + TO File(…)）。
+// BackupSQL 返回 BACKUP TABLE … 语句的尾部子句（PARTITION + TO File(…) + SETTINGS）。
 // partition="all" 时省略 PARTITION 子句。
 func (l *Local) BackupSQL(database, table, partition, key string) string {
 	var sb strings.Builder
@@ -41,16 +42,18 @@ func (l *Local) BackupSQL(database, table, partition, key string) string {
 		sb.WriteString(fmt.Sprintf(" PARTITION '%s'", strings.ReplaceAll(partition, "'", "''")))
 	}
 	sb.WriteString(fmt.Sprintf(" TO File('%s/%s')", l.cfg.Path, key))
+	sb.WriteString(backupSettings(l.compression))
 	return sb.String()
 }
 
-// RestoreSQL 返回 RESTORE TABLE … 语句的尾部子句（PARTITION + FROM File(…)）。
+// RestoreSQL 返回 RESTORE TABLE … 语句的尾部子句（PARTITION + FROM File(…) + SETTINGS）。
 func (l *Local) RestoreSQL(database, table, partition, key string) string {
 	var sb strings.Builder
 	if partition != "all" {
 		sb.WriteString(fmt.Sprintf(" PARTITION '%s'", strings.ReplaceAll(partition, "'", "''")))
 	}
 	sb.WriteString(fmt.Sprintf(" FROM File('%s/%s')", l.cfg.Path, key))
+	sb.WriteString(restoreSettings())
 	return sb.String()
 }
 
@@ -88,7 +91,8 @@ func (l *Local) CheckPartition(host, database, table, partition string,
 	}
 	opts := l.sshOpts(host)
 	root := fmt.Sprintf("%s/%s.%s/%s", l.cfg.Path, database, table, host)
-	cmd := fmt.Sprintf("find %q -type f -exec md5sum {} \\;", root)
+	// 用 -exec ... + 而不是 \; —— 后者经 ssh shell 解析后会变成裸 ;
+	cmd := fmt.Sprintf("find %q -type f -exec md5sum {} +", root)
 	out, err := common.RemoteExecute(opts, cmd)
 	if err != nil {
 		return err

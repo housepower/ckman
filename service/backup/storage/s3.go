@@ -9,14 +9,15 @@ import (
 )
 
 type S3 struct {
-	cfg    model.TargetS3
-	client *S3Client
+	cfg         model.TargetS3
+	compression string
+	client      *S3Client
 }
 
-func NewS3(cfg model.TargetS3) *S3 {
+func NewS3(cfg model.TargetS3, compression string) *S3 {
 	// trim 末尾斜杠，避免拼出 host//bucket 让 ClickHouse 解析失败
 	cfg.Endpoint = strings.TrimRight(cfg.Endpoint, "/")
-	return &S3{cfg: cfg}
+	return &S3{cfg: cfg, compression: compression}
 }
 
 func (s *S3) Init() error {
@@ -43,6 +44,7 @@ func (s *S3) BackupSQL(database, table, partition, key string) string {
 		s.cfg.Endpoint, s.cfg.Bucket, key,
 		escapeSQLLiteral(s.cfg.AccessKeyID),
 		escapeSQLLiteral(s.cfg.SecretAccessKey)))
+	sb.WriteString(backupSettings(s.compression))
 	return sb.String()
 }
 
@@ -55,6 +57,7 @@ func (s *S3) RestoreSQL(database, table, partition, key string) string {
 		s.cfg.Endpoint, s.cfg.Bucket, key,
 		escapeSQLLiteral(s.cfg.AccessKeyID),
 		escapeSQLLiteral(s.cfg.SecretAccessKey)))
+	sb.WriteString(restoreSettings())
 	return sb.String()
 }
 
