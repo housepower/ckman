@@ -74,7 +74,10 @@ func (s *S3) CheckPartition(host, database, table, partition string, pathInfo ma
 		return errors.New("s3 not initialized")
 	}
 	key := fmt.Sprintf("%s/%s.%s/%s", partition, database, table, host)
-	_, _, _, err := s.client.CheckSum(host, s.cfg.Bucket, key, pathInfo, s.cfg)
+	// 仅当备份时未压缩，md5(local raw) ↔ md5(S3 object) 才会相等；
+	// 压缩开启时只能校验文件存在性与数量。
+	compareMD5 := s.compression == "" || strings.EqualFold(s.compression, "none")
+	_, _, _, err := s.client.CheckSum(host, s.cfg.Bucket, key, pathInfo, s.cfg, compareMD5)
 	return err
 }
 

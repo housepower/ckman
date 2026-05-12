@@ -156,7 +156,15 @@ LOOP_DEL:
 	return nil
 }
 
-func (c *S3Client) CheckSum(host string, bucket, key string, paths map[string]model.PathInfo, conf model.TargetS3) (map[string]model.PathInfo, uint64, int, error) {
+// CheckSum 在 S3 上列出对应 key 的对象，做完整性校验。
+//
+// compareMD5=true：把本地 raw 文件 md5 与 S3 对象 ETag 比对（仅当
+// ClickHouse 备份时没做压缩时有意义；compression_method!='none' 会让
+// CK 上传 gzip/zstd 后的字节，本地 md5 必然对不上 S3 ETag）。
+//
+// compareMD5=false：跳过 md5 比对，只做「文件存在性 + 数量匹配」校验，
+// 仍能抓到丢文件 / 数据上传不完整 等异常，避免假 mismatch。
+func (c *S3Client) CheckSum(host string, bucket, key string, paths map[string]model.PathInfo, conf model.TargetS3, compareMD5 bool) (map[string]model.PathInfo, uint64, int, error) {
 	var rsize uint64
 	errPaths := make(map[string]model.PathInfo)
 
@@ -234,7 +242,7 @@ func (c *S3Client) CheckSum(host string, bucket, key string, paths map[string]mo
 			continue
 		}
 		if checksum, ok := rpaths[k]; ok {
-			if v.MD5 != checksum {
+			if compareMD5 && v.MD5 != checksum {
 				errPaths[k] = v
 				err = fmt.Errorf("checksum mismatch for %v, expect %v, but got %v", k, v.MD5, checksum)
 				log.Logger.Warnf("[%s]%v", host, err)
