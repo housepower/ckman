@@ -276,6 +276,19 @@ func (e *Executor) markFailed(runID, reason string) error {
 	r.ErrorMsg = reason
 	r.FinishedAt = e.clock()
 	r.Elapsed = int(r.FinishedAt.Sub(r.StartedAt).Seconds())
+	// 把还未走完的 partition (waiting/running) 一并标 failed，避免 partition.status
+	// 与 run.status 不一致让 UI 出现「run 失败但分区显示等待」。已 success/skipped
+	// 的不动——它们的阶段成果是真实的（如 check 阶段失败时，backup 阶段已上传的
+	// 分区数据本身仍然成功）。
+	for i := range r.Partitions {
+		s := r.Partitions[i].Status
+		if s == model.BACKUP_PARTITION_STATUS_WAITING || s == model.BACKUP_PARTITION_STATUS_RUNNING {
+			r.Partitions[i].Status = model.BACKUP_PARTITION_STATUS_FAILED
+			if r.Partitions[i].Msg == "" {
+				r.Partitions[i].Msg = "run aborted: " + reason
+			}
+		}
+	}
 	if upErr := e.repo.UpdateRun(r); upErr != nil {
 		log.Logger.Errorf("[exec] update failed run %s: %v", runID, upErr)
 	}

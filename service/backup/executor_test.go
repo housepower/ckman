@@ -275,6 +275,50 @@ func TestExecutor_Init_PartitionMode_Empty(t *testing.T) {
 	}
 }
 
+// markFailed 应当把未走完（waiting/running）的 partition 也标 failed，
+// 否则 UI 会出现 run.status=failed 但 partition.status=waiting 的不一致状态。
+// 已 success / skipped 的 partition 不动（它们的阶段成果是真实的）。
+func TestExecutor_MarkFailed_FillsUnfinishedPartitions(t *testing.T) {
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP,
+		Status: model.BACKUP_STATUS_RUNNING,
+		Partitions: []model.BackupRunPartition{
+			{Partition: "p_waiting", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+			{Partition: "p_running", Status: model.BACKUP_PARTITION_STATUS_RUNNING},
+			{Partition: "p_success", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+			{Partition: "p_failed", Status: model.BACKUP_PARTITION_STATUS_FAILED, Msg: "existing reason"},
+		},
+	}
+	e := &Executor{repo: repo}
+	_ = e.markFailed("r1", "prepare: boom")
+
+	got, _ := repo.GetRun("r1")
+	if got.Status != model.BACKUP_STATUS_FAILED {
+		t.Fatalf("run status: %s", got.Status)
+	}
+	want := map[string]string{
+		"p_waiting": model.BACKUP_PARTITION_STATUS_FAILED,
+		"p_running": model.BACKUP_PARTITION_STATUS_FAILED,
+		"p_success": model.BACKUP_PARTITION_STATUS_SUCCESS, // 保留
+		"p_failed":  model.BACKUP_PARTITION_STATUS_FAILED,
+	}
+	for _, p := range got.Partitions {
+		if p.Status != want[p.Partition] {
+			t.Errorf("partition %s: got %s want %s", p.Partition, p.Status, want[p.Partition])
+		}
+	}
+	// 原本就有 Msg 的 failed partition 不被覆盖
+	for _, p := range got.Partitions {
+		if p.Partition == "p_failed" && p.Msg != "existing reason" {
+			t.Errorf("p_failed Msg overwritten: %q", p.Msg)
+		}
+		if p.Partition == "p_waiting" && p.Msg == "" {
+			t.Errorf("p_waiting should have abort reason set")
+		}
+	}
+}
+
 // ── Prepare stage tests ───────────────────────────────────────────────────────
 
 func TestRealStages_Prepare_ChecksumErrorAggregated(t *testing.T) {
