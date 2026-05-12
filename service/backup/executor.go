@@ -65,7 +65,8 @@ type Executor struct {
 	// run-scoped helpers（Init 期间不一定都注入；Task 21 真实 adapter 全部填）
 	queryRows             func(host string) (queryResult, error)
 	collectChecksumOnHost func(c *shardConn, run *model.BackupRun) error
-	execSQL               func(host, sql string) error // 新增；Task 21 真实 adapter 注入
+	execSQL               func(host, sql string) error                                                            // 新增；Task 21 真实 adapter 注入
+	queryPartitionStats   func(host, db, table, partition string) (rows, bytes, parts uint64, err error) // backup 前统计 partition 数据量
 }
 
 // BackupStorage 是 backup 包内对 storage.Storage 的本地镜像接口，
@@ -315,6 +316,24 @@ func (realStages) Backup(ctx context.Context, e *Executor, runID string) error {
 			return fmt.Errorf("mark partition running: %w", err)
 		}
 		start := time.Now()
+
+		// BACKUP 前累加每个 shard 上该分区的 rows / bytes / parts
+		if e.queryPartitionStats != nil {
+			var totalRows, totalBytes, totalParts uint64
+			for _, c := range e.conns {
+				rows, bytes, parts, qerr := e.queryPartitionStats(c.host, run.Database, run.Table, p.Partition)
+				if qerr != nil {
+					log.Logger.Warnf("[exec] queryPartitionStats host=%s partition=%s: %v", c.host, p.Partition, qerr)
+					continue
+				}
+				totalRows += rows
+				totalBytes += bytes
+				totalParts += parts
+			}
+			p.Rows = totalRows
+			p.Size = totalBytes
+			p.FileNum = totalParts
+		}
 
 		// 跨 shard 并发执行 BACKUP TABLE，但状态汇总在主线程串行写，规避 race。
 		type result struct {

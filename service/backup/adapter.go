@@ -3,8 +3,10 @@ package backup
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
@@ -146,6 +148,38 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 			}
 		}
 		return nil, fmt.Errorf("no conn for host %s", host)
+	}
+
+	// queryPartitionStats hook：本 shard 上该 partition 的 rows / bytes / parts
+	exec.queryPartitionStats = func(host, db, table, partition string) (uint64, uint64, uint64, error) {
+		var conn *common.Conn
+		for _, c := range exec.conns {
+			if c.host == host && c.conn != nil {
+				conn = c.conn
+				break
+			}
+		}
+		if conn == nil {
+			return 0, 0, 0, fmt.Errorf("no conn for host %s", host)
+		}
+		sql := fmt.Sprintf(
+			"SELECT coalesce(sum(rows),0), coalesce(sum(bytes_on_disk),0), count() FROM system.parts WHERE active=1 AND database='%s' AND `table`='%s' AND partition='%s'",
+			strings.ReplaceAll(db, "'", "''"),
+			strings.ReplaceAll(table, "'", "''"),
+			strings.ReplaceAll(partition, "'", "''"),
+		)
+		rows, err := conn.Query(sql)
+		if err != nil {
+			return 0, 0, 0, err
+		}
+		defer rows.Close()
+		var nrows, nbytes, nparts uint64
+		if rows.Next() {
+			if err := rows.Scan(&nrows, &nbytes, &nparts); err != nil {
+				return 0, 0, 0, err
+			}
+		}
+		return nrows, nbytes, nparts, nil
 	}
 
 	pool := NewPool(maxConcurrent, func(ctx context.Context, runID string) {
