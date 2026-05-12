@@ -85,8 +85,8 @@ func TestClickHouseAdapter_CollectChecksumOnHost_PopulatesPathInfo(t *testing.T)
 	a := &ClickHouseAdapter{
 		getCluster: func(string) (model.CKManClickHouseConfig, error) { return cluster, nil },
 		sshExec:    func(common.SshOptions, string) (string, error) { return sshOut, nil },
-		queryDataPaths: func(_ *shardConn, _, _ string) ([]string, error) {
-			return []string{"/var/lib/clickhouse/data/dba/t1/"}, nil
+		queryPartitionPaths: func(_ *shardConn, _, _, _ string) ([]string, error) {
+			return []string{"/var/lib/clickhouse/data/dba/t1/all_1_1_0"}, nil
 		},
 	}
 	run := &model.BackupRun{
@@ -102,11 +102,37 @@ func TestClickHouseAdapter_CollectChecksumOnHost_PopulatesPathInfo(t *testing.T)
 	if len(pi) != 2 {
 		t.Fatalf("expected 2 PathInfo entries, got %d: %+v", len(pi), pi)
 	}
-	for _, info := range pi {
-		if info.Host != "h1" || info.MD5 == "" || info.LPath == "" {
+	wantRPaths := map[string]string{
+		"20250508/dba.t1/h1/data/dba/t1/all_1_1_0/data.bin":    "d41d8cd98f00b204e9800998ecf8427e",
+		"20250508/dba.t1/h1/data/dba/t1/all_1_1_0/columns.txt": "098f6bcd4621d373cade4e832627b4f6",
+	}
+	for rpath, wantMD5 := range wantRPaths {
+		info, ok := pi[rpath]
+		if !ok {
+			t.Errorf("missing PathInfo for RPath=%s; got keys=%v", rpath, mapKeys(pi))
+			continue
+		}
+		if info.RPath != rpath {
+			t.Errorf("RPath field mismatch: key=%s, info.RPath=%s", rpath, info.RPath)
+		}
+		if info.MD5 != wantMD5 {
+			t.Errorf("MD5 mismatch for %s: got %s, want %s", rpath, info.MD5, wantMD5)
+		}
+		if info.Host != "h1" || info.LPath == "" {
 			t.Errorf("incomplete: %+v", info)
 		}
 	}
+	if run.Partitions[0].FileNum != 2 {
+		t.Errorf("expected FileNum=2, got %d", run.Partitions[0].FileNum)
+	}
+}
+
+func mapKeys(m map[string]model.PathInfo) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }
 
 func TestClickHouseAdapter_CollectChecksumOnHost_SkipsNonWaiting(t *testing.T) {
