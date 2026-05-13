@@ -65,4 +65,14 @@ func TestValidateCrontabMinInterval(t *testing.T) {
 	if err := ValidateCrontabMinInterval("not-a-cron"); err == nil {
 		t.Error("invalid cron should reject")
 	}
+	// 兼容 6 段 Quartz 风格（老架构迁移过来的格式，例如 "0 0 0 * * ?"）
+	if err := ValidateCrontabMinInterval("0 0 0 * * ?"); err != nil {
+		t.Errorf("6-field daily should pass: %v", err)
+	}
+	if err := ValidateCrontabMinInterval("0 0 */2 * * ?"); err != nil {
+		t.Errorf("6-field every-2h should pass: %v", err)
+	}
+	if err := ValidateCrontabMinInterval("0 * * * * *"); err == nil {
+		t.Error("6-field every-minute should reject")
+	}
 }

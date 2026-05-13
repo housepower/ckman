@@ -32,16 +32,26 @@ func (controller *ConfigController) GetVersion(c *gin.Context) {
 }
 
 func (controller *ConfigController) GetInstances(c *gin.Context) {
+	// Nacos 订阅回调存在 self 不出现的情况：ckman 先 Subscribe 再 RegisterInstance，
+	// 首次 push 时本机尚未注册；其后 Nacos 不再向本机的订阅 push 自己注册的实例。
+	// 这里始终把 self union 进去并去重，保证下拉里能看到自己。
+	self := net.JoinHostPort(controller.config.Server.Ip, fmt.Sprint(controller.config.Server.Port))
+	seen := map[string]struct{}{}
 	var instances []string
+	add := func(addr string) {
+		if _, ok := seen[addr]; ok {
+			return
+		}
+		seen[addr] = struct{}{}
+		instances = append(instances, addr)
+	}
+
+	add(self)
 	config.ClusterMutex.RLock()
 	for _, instance := range config.ClusterNodes {
-		instances = append(instances, net.JoinHostPort(instance.Ip, fmt.Sprint(instance.Port)))
+		add(net.JoinHostPort(instance.Ip, fmt.Sprint(instance.Port)))
 	}
 	config.ClusterMutex.RUnlock()
-
-	if len(instances) == 0 {
-		instances = append(instances, net.JoinHostPort(controller.config.Server.Ip, fmt.Sprint(controller.config.Server.Port)))
-	}
 
 	controller.wrapfunc(c, model.E_SUCCESS, instances)
 }
