@@ -20,6 +20,9 @@ func (s *Service) SubmitBackupRequest(cluster string, req model.BackupRequest) (
 	if req.BackupStyle == model.BACKUP_STYLE_INCR && req.BackupType == model.BACKUP_TYPE_PARTITION && len(req.Partitions) == 0 {
 		return nil, errors.New("incremental + partition mode requires at least one partition name")
 	}
+	if err := validateDailyRange(req.ScheduleType, req.BackupStyle, req.BackupType, req.StartDate, req.RangeStartDate, req.RangeEndDate, req.DaysBefore); err != nil {
+		return nil, err
+	}
 	if req.ScheduleType == model.BACKUP_SCHEDULED {
 		if err := ValidateCrontabMinInterval(req.Crontab); err != nil {
 			return nil, fmt.Errorf("invalid crontab: %w", err)
@@ -69,26 +72,29 @@ func (s *Service) SubmitBackupRequest(cluster string, req model.BackupRequest) (
 	var runIDs []string
 	for _, table := range req.Tables {
 		policy := model.BackupPolicy{
-			PolicyID:     uuid.New(),
-			TaskID:       taskID,
-			TaskName:     taskName,
-			ClusterName:  cluster,
-			Database:     req.Database,
-			Table:        table,
-			ScheduleType: req.ScheduleType,
-			Crontab:      req.Crontab,
-			Instance:     req.Instance,
-			BackupStyle:  req.BackupStyle,
-			BackupType:   req.BackupType,
-			DaysBefore:   req.DaysBefore,
-			Partitions:   req.Partitions,
-			TargetType:   req.Target,
-			S3:           req.S3,
-			Local:        req.Local,
-			Compression:  req.Compression,
-			Checksum:     req.Checksum,
-			Clean:        req.Clean,
-			Enabled:      req.ScheduleType == model.BACKUP_SCHEDULED,
+			PolicyID:       uuid.New(),
+			TaskID:         taskID,
+			TaskName:       taskName,
+			ClusterName:    cluster,
+			Database:       req.Database,
+			Table:          table,
+			ScheduleType:   req.ScheduleType,
+			Crontab:        req.Crontab,
+			Instance:       req.Instance,
+			BackupStyle:    req.BackupStyle,
+			BackupType:     req.BackupType,
+			DaysBefore:     req.DaysBefore,
+			StartDate:      req.StartDate,
+			RangeStartDate: req.RangeStartDate,
+			RangeEndDate:   req.RangeEndDate,
+			Partitions:     req.Partitions,
+			TargetType:     req.Target,
+			S3:             req.S3,
+			Local:          req.Local,
+			Compression:    req.Compression,
+			Checksum:       req.Checksum,
+			Clean:          req.Clean,
+			Enabled:        req.ScheduleType == model.BACKUP_SCHEDULED,
 		}
 		if err := s.repo.CreatePolicy(policy); err != nil {
 			return runIDs, fmt.Errorf("create policy for table %s: %w", table, err)

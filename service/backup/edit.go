@@ -9,7 +9,7 @@ import (
 )
 
 // UpdatePolicy 修改可编辑字段；cluster/db/table/schedule_type 不可改。
-// crontab / instance / enabled / days_before / target / credentials / style / type 可改。
+// crontab / instance / enabled / time range / target / credentials / style / type 可改。
 func (s *Service) UpdatePolicy(p model.BackupPolicy) error {
 	old, err := s.repo.GetPolicy(p.PolicyID)
 	if err != nil {
@@ -28,6 +28,9 @@ func (s *Service) UpdatePolicy(p model.BackupPolicy) error {
 		if err := ValidateCrontabMinInterval(p.Crontab); err != nil {
 			return fmt.Errorf("invalid crontab: %w", err)
 		}
+	}
+	if err := validateDailyRange(p.ScheduleType, p.BackupStyle, p.BackupType, p.StartDate, p.RangeStartDate, p.RangeEndDate, p.DaysBefore); err != nil {
+		return err
 	}
 	// Sensitive 字段保留：前端编辑时通常不重传 secret，空值应解释为「不变」而非清空。
 	if p.S3.SecretAccessKey == "" {

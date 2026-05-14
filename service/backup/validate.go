@@ -1,7 +1,9 @@
 package backup
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/housepower/ckman/service/backup/bvalidate"
@@ -58,4 +60,53 @@ func NextRunAfter(spec string, after time.Time) (time.Time, error) {
 		}
 	}
 	return sched.Next(after), nil
+}
+
+func validateDailyRange(scheduleType, backupStyle, backupType, startDate, rangeStartDate, rangeEndDate string, endDaysBefore int) error {
+	if backupStyle != "incremental" || backupType != "daily" {
+		return nil
+	}
+	startDate = strings.TrimSpace(startDate)
+	rangeStartDate = strings.TrimSpace(rangeStartDate)
+	rangeEndDate = strings.TrimSpace(rangeEndDate)
+
+	hasFixedRange := rangeStartDate != "" || rangeEndDate != ""
+	if hasFixedRange {
+		if scheduleType == "scheduled" {
+			return errors.New("daily fixed range backup only supports immediate schedule_type")
+		}
+		if rangeStartDate == "" || rangeEndDate == "" {
+			return errors.New("daily fixed range backup requires both range_start_date and range_end_date")
+		}
+		start, err := parseYYYYMMDD("range_start_date", rangeStartDate)
+		if err != nil {
+			return err
+		}
+		end, err := parseYYYYMMDD("range_end_date", rangeEndDate)
+		if err != nil {
+			return err
+		}
+		if start.After(end) {
+			return fmt.Errorf("daily fixed range start must be <= end (%s > %s)", rangeStartDate, rangeEndDate)
+		}
+		return nil
+	}
+
+	if endDaysBefore <= 0 {
+		return errors.New("daily backup requires days_before > 0")
+	}
+	if startDate != "" {
+		if _, err := parseYYYYMMDD("start_date", startDate); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func parseYYYYMMDD(name, value string) (time.Time, error) {
+	t, err := time.Parse("20060102", value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("daily backup %s must be YYYYMMDD: %w", name, err)
+	}
+	return t, nil
 }

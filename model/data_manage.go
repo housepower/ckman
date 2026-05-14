@@ -73,44 +73,50 @@ type BackupLists struct {
 }
 
 type Backup struct {
-	BackupId     string        `json:"backup_id"` // primary key
-	Database     string        `json:"database"`
-	ClusterName  string        `json:"cluster_name"`
-	Table        string        `json:"table"`
-	Partitions   []BackupLists `json:"partitions"`
-	ScheduleType string        `json:"schedule_type"` // immediate, scheduled
-	Crontab      string        `json:"crontab"`
-	DaysBefore   int           `json:"days_before"`
-	Clean        bool          `json:"clean"`       // 备份成功后是否删除本地数据
-	Operation    string        `json:"operation"`   // backup, restore
-	TargetType   string        `json:"target_type"` // local, s3, hdfs
-	Instance     string        `json:"instance"`
-	Checksum     bool          `json:"checksum"`
-	Local        TargetLocal
-	S3           TargetS3
-	Status       string    `json:"status"`
-	Compression  string    `json:"Compression" example:"gzip"` // none, gzip/gz, brotli/br, xz/LZMA, zstd/zst
-	CreateTime   time.Time `json:"create_time"`
-	UpdateTime   time.Time `json:"update_time"`
+	BackupId       string        `json:"backup_id"` // primary key
+	Database       string        `json:"database"`
+	ClusterName    string        `json:"cluster_name"`
+	Table          string        `json:"table"`
+	Partitions     []BackupLists `json:"partitions"`
+	ScheduleType   string        `json:"schedule_type"` // immediate, scheduled
+	Crontab        string        `json:"crontab"`
+	DaysBefore     int           `json:"days_before"`
+	StartDate      string        `json:"start_date"`
+	RangeStartDate string        `json:"range_start_date"`
+	RangeEndDate   string        `json:"range_end_date"`
+	Clean          bool          `json:"clean"`       // 备份成功后是否删除本地数据
+	Operation      string        `json:"operation"`   // backup, restore
+	TargetType     string        `json:"target_type"` // local, s3, hdfs
+	Instance       string        `json:"instance"`
+	Checksum       bool          `json:"checksum"`
+	Local          TargetLocal
+	S3             TargetS3
+	Status         string    `json:"status"`
+	Compression    string    `json:"Compression" example:"gzip"` // none, gzip/gz, brotli/br, xz/LZMA, zstd/zst
+	CreateTime     time.Time `json:"create_time"`
+	UpdateTime     time.Time `json:"update_time"`
 }
 
 type BackupRequest struct {
-	ScheduleType string      `json:"schedule_type"`              //备份类型： 立即备份，定时备份
-	TaskName     string      `json:"task_name"`                  //任务显示名（可选）；空时后端自动生成
-	Crontab      string      `json:"crontab"`                    //定时备份的cron表达式
-	Instance     string      `json:"instance"`                   //ckman实例名称， 定时备份选择哪个ckman进行备份
-	Database     string      `json:"database"`                   //数据库名称
-	Tables       []string    `json:"tables"`                     //表名称
-	BackupStyle  string      `json:"backup_style"`               //备份类型： 全量备份(full)，增量备份(incremental)
-	BackupType   string      `json:"backup_type"`                //备份方式： 按分区备份(partition)，按日期备份(daily)
-	Partitions   []string    `json:"partitions"`                 //分区名称
-	DaysBefore   int         `json:"days_before"`                //保留天数
-	Target       string      `json:"target"`                     //备份目标： 本地，S3
-	Local        TargetLocal `json:"local"`                      //本地备份路径
-	S3           TargetS3    `json:"s3"`                         //S3配置
-	Compression  string      `json:"Compression" example:"gzip"` //压缩类型： 不压缩，gzip/gz, brotli/br, xz/LZMA, zstd/zst
-	Clean        bool        `json:"clean"`                      //是否清理本地数据
-	Checksum     bool        `json:"checksum"`                   //是否进行md5校验
+	ScheduleType   string      `json:"schedule_type"`              //备份类型： 立即备份，定时备份
+	TaskName       string      `json:"task_name"`                  //任务显示名（可选）；空时后端自动生成
+	Crontab        string      `json:"crontab"`                    //定时备份的cron表达式
+	Instance       string      `json:"instance"`                   //ckman实例名称， 定时备份选择哪个ckman进行备份
+	Database       string      `json:"database"`                   //数据库名称
+	Tables         []string    `json:"tables"`                     //表名称
+	BackupStyle    string      `json:"backup_style"`               //备份类型： 全量备份(full)，增量备份(incremental)
+	BackupType     string      `json:"backup_type"`                //备份方式： 按分区备份(partition)，按日期备份(daily)
+	Partitions     []string    `json:"partitions"`                 //分区名称
+	DaysBefore     int         `json:"days_before"`                //结束时间：多少天前
+	StartDate      string      `json:"start_date"`                 //固定开始日期，格式 YYYYMMDD；空表示不限制开始时间，兼容老策略
+	RangeStartDate string      `json:"range_start_date"`           //一次性时间区间开始日期，格式 YYYYMMDD
+	RangeEndDate   string      `json:"range_end_date"`             //一次性时间区间结束日期，格式 YYYYMMDD
+	Target         string      `json:"target"`                     //备份目标： 本地，S3
+	Local          TargetLocal `json:"local"`                      //本地备份路径
+	S3             TargetS3    `json:"s3"`                         //S3配置
+	Compression    string      `json:"Compression" example:"gzip"` //压缩类型： 不压缩，gzip/gz, brotli/br, xz/LZMA, zstd/zst
+	Clean          bool        `json:"clean"`                      //是否清理本地数据
+	Checksum       bool        `json:"checksum"`                   //是否进行md5校验
 }
 
 type RestoreRequest struct {
@@ -150,29 +156,32 @@ const (
 )
 
 type BackupPolicy struct {
-	PolicyID     string      `json:"policy_id"`
-	TaskID       string      `json:"task_id"`   // 同次 BackupRequest 提交的 policy 共享；空表示 legacy/独立 task
-	TaskName     string      `json:"task_name"` // 用户可选填的任务名；空表示无显示名
-	ClusterName  string      `json:"cluster_name"`
-	Database     string      `json:"database"`
-	Table        string      `json:"table"`
-	ScheduleType string      `json:"schedule_type"` // immediate | scheduled
-	Crontab      string      `json:"crontab"`
-	Instance     string      `json:"instance"`
-	BackupStyle  string      `json:"backup_style"` // full | incremental
-	BackupType   string      `json:"backup_type"`  // partition | daily
-	DaysBefore   int         `json:"days_before"`
-	Partitions   []string    `json:"partitions"`
-	TargetType   string      `json:"target_type"` // s3 | local
-	S3           TargetS3    `json:"s3"`
-	Local        TargetLocal `json:"local"`
-	Compression  string      `json:"compression"`
-	Checksum     bool        `json:"checksum"`
-	Clean        bool        `json:"clean"`
-	Enabled      bool        `json:"enabled"`
-	Deleted      bool        `json:"deleted"`
-	CreateTime   time.Time   `json:"create_time"`
-	UpdateTime   time.Time   `json:"update_time"`
+	PolicyID       string      `json:"policy_id"`
+	TaskID         string      `json:"task_id"`   // 同次 BackupRequest 提交的 policy 共享；空表示 legacy/独立 task
+	TaskName       string      `json:"task_name"` // 用户可选填的任务名；空表示无显示名
+	ClusterName    string      `json:"cluster_name"`
+	Database       string      `json:"database"`
+	Table          string      `json:"table"`
+	ScheduleType   string      `json:"schedule_type"` // immediate | scheduled
+	Crontab        string      `json:"crontab"`
+	Instance       string      `json:"instance"`
+	BackupStyle    string      `json:"backup_style"` // full | incremental
+	BackupType     string      `json:"backup_type"`  // partition | daily
+	DaysBefore     int         `json:"days_before"`
+	StartDate      string      `json:"start_date"`
+	RangeStartDate string      `json:"range_start_date"`
+	RangeEndDate   string      `json:"range_end_date"`
+	Partitions     []string    `json:"partitions"`
+	TargetType     string      `json:"target_type"` // s3 | local
+	S3             TargetS3    `json:"s3"`
+	Local          TargetLocal `json:"local"`
+	Compression    string      `json:"compression"`
+	Checksum       bool        `json:"checksum"`
+	Clean          bool        `json:"clean"`
+	Enabled        bool        `json:"enabled"`
+	Deleted        bool        `json:"deleted"`
+	CreateTime     time.Time   `json:"create_time"`
+	UpdateTime     time.Time   `json:"update_time"`
 }
 
 type BackupRun struct {

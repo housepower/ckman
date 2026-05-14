@@ -78,8 +78,9 @@ func (a *ClickHouseAdapter) ConnFactory(cluster string) ([]*shardConn, error) {
 	return conns, nil
 }
 
-// ListPartitions 列指定表 partition <= beforeYYYYMMDD 的所有分区（通过 cluster 视图跨节点查询）。
-func (a *ClickHouseAdapter) ListPartitions(c *shardConn, db, table, beforeYYYYMMDD string) ([]string, error) {
+// ListPartitions 列指定表 fromYYYYMMDD <= partition <= toYYYYMMDD 的所有分区。
+// fromYYYYMMDD 为空时不限制下界，兼容老的「<= N 天前」策略。
+func (a *ClickHouseAdapter) ListPartitions(c *shardConn, db, table, fromYYYYMMDD, toYYYYMMDD string) ([]string, error) {
 	if c == nil || c.conn == nil {
 		return nil, fmt.Errorf("ListPartitions: nil conn for host %s", func() string {
 			if c != nil {
@@ -88,11 +89,18 @@ func (a *ClickHouseAdapter) ListPartitions(c *shardConn, db, table, beforeYYYYMM
 			return "<nil>"
 		}())
 	}
-	query := fmt.Sprintf(
-		"SELECT DISTINCT partition FROM system.parts WHERE partition <= '%s' AND database = '%s' AND `table` = '%s' AND active = 1 ORDER BY partition",
-		strings.ReplaceAll(beforeYYYYMMDD, "'", "''"),
+	where := fmt.Sprintf(
+		"partition <= '%s' AND database = '%s' AND `table` = '%s' AND active = 1",
+		strings.ReplaceAll(toYYYYMMDD, "'", "''"),
 		strings.ReplaceAll(db, "'", "''"),
 		strings.ReplaceAll(table, "'", "''"),
+	)
+	if fromYYYYMMDD != "" {
+		where = fmt.Sprintf("partition >= '%s' AND %s", strings.ReplaceAll(fromYYYYMMDD, "'", "''"), where)
+	}
+	query := fmt.Sprintf(
+		"SELECT DISTINCT partition FROM system.parts WHERE %s ORDER BY partition",
+		where,
 	)
 	rows, err := c.conn.Query(query)
 	if err != nil {

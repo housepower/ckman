@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/housepower/ckman/model"
 )
@@ -99,7 +100,10 @@ func TestExecutor_Init_PartitionListErrorDoesNotDropList(t *testing.T) {
 		connFactory: func(string) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
-		listPartitions: func(_ *shardConn, db, table, before string) ([]string, error) {
+		listPartitions: func(_ *shardConn, db, table, from, before string) ([]string, error) {
+			if from != "" {
+				t.Fatalf("legacy daily range should not set lower bound, got %s", from)
+			}
 			return []string{"20250508", "20250509"}, nil
 		},
 		getLastRunPartitions: func(cluster, db, table string) ([]model.BackupRunPartition, error) {
@@ -134,7 +138,7 @@ func TestExecutor_Init_ExcludesPreviouslySuccessfulPartitions(t *testing.T) {
 		connFactory: func(string) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
-		listPartitions: func(_ *shardConn, db, table, before string) ([]string, error) {
+		listPartitions: func(_ *shardConn, db, table, from, before string) ([]string, error) {
 			return []string{"20250506", "20250507", "20250508"}, nil
 		},
 		getLastRunPartitions: func(cluster, db, table string) ([]model.BackupRunPartition, error) {
@@ -163,6 +167,71 @@ func TestExecutor_Init_ExcludesPreviouslySuccessfulPartitions(t *testing.T) {
 	}
 	if statusByPart["20250508"] != model.BACKUP_PARTITION_STATUS_WAITING {
 		t.Fatalf("new partition should be waiting")
+	}
+}
+
+func TestExecutor_Init_DailyRangeWithStartDate(t *testing.T) {
+	repo := newFakeExecRepo(model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		BackupStyle: model.BACKUP_STYLE_INCR,
+		BackupType:  model.BACKUP_TYPE_DAILY_PARTITION,
+		StartDate:   "20260424",
+		DaysBefore:  1,
+	})
+	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_RUNNING}
+
+	e := &Executor{
+		repo: repo,
+		connFactory: func(string) ([]*shardConn, error) {
+			return []*shardConn{newFakeShardConn("h1")}, nil
+		},
+		now: func() time.Time {
+			return time.Date(2026, 6, 1, 3, 0, 0, 0, time.Local)
+		},
+		listPartitions: func(_ *shardConn, db, table, from, to string) ([]string, error) {
+			if from != "20260424" || to != "20260531" {
+				t.Fatalf("unexpected daily range: from=%s to=%s", from, to)
+			}
+			return []string{"20260424", "20260513"}, nil
+		},
+	}
+	if err := e.Init(context.Background(), "r1"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	rn, _ := repo.GetRun("r1")
+	if len(rn.Partitions) != 2 {
+		t.Fatalf("expected 2 partitions, got %d", len(rn.Partitions))
+	}
+}
+
+func TestExecutor_Init_DailyFixedRange(t *testing.T) {
+	repo := newFakeExecRepo(model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		BackupStyle:    model.BACKUP_STYLE_INCR,
+		BackupType:     model.BACKUP_TYPE_DAILY_PARTITION,
+		RangeStartDate: "20260101",
+		RangeEndDate:   "20260131",
+	})
+	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_RUNNING}
+
+	e := &Executor{
+		repo: repo,
+		connFactory: func(string) ([]*shardConn, error) {
+			return []*shardConn{newFakeShardConn("h1")}, nil
+		},
+		listPartitions: func(_ *shardConn, db, table, from, to string) ([]string, error) {
+			if from != "20260101" || to != "20260131" {
+				t.Fatalf("unexpected fixed range: from=%s to=%s", from, to)
+			}
+			return []string{"20260101", "20260131"}, nil
+		},
+	}
+	if err := e.Init(context.Background(), "r1"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	rn, _ := repo.GetRun("r1")
+	if len(rn.Partitions) != 2 {
+		t.Fatalf("expected 2 partitions, got %d", len(rn.Partitions))
 	}
 }
 
@@ -243,7 +312,7 @@ func TestExecutor_Init_PartitionMode(t *testing.T) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
 		// listPartitions 不应该被调用（按名模式不枚举）
-		listPartitions: func(_ *shardConn, _, _, _ string) ([]string, error) {
+		listPartitions: func(_ *shardConn, _, _, _, _ string) ([]string, error) {
 			t.Fatal("listPartitions should not be called for partition-name mode")
 			return nil, nil
 		},

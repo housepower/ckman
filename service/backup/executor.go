@@ -53,7 +53,7 @@ func (stagesStub) Close(context.Context, *Executor, string) error   { return nil
 type Executor struct {
 	repo                 ExecRepo
 	connFactory          func(cluster string) ([]*shardConn, error)
-	listPartitions       func(c *shardConn, db, table, beforeYYYYMMDD string) ([]string, error)
+	listPartitions       func(c *shardConn, db, table, fromYYYYMMDD, toYYYYMMDD string) ([]string, error)
 	listAllPartitions    func(c *shardConn, db, table string) ([]string, error)
 	getLastRunPartitions func(cluster, db, table string) ([]model.BackupRunPartition, error)
 	stages               stages
@@ -218,10 +218,12 @@ func (e *Executor) resolveRunPartitions(r *model.BackupRun, policy model.BackupP
 			prev, _ = e.getLastRunPartitions(policy.ClusterName, policy.Database, policy.Table)
 		}
 		r.Partitions = excludeSuccessfulPartitions(prev, policy.Partitions)
-	case policy.BackupType == model.BACKUP_TYPE_DAILY_PARTITION && policy.DaysBefore > 0:
-		// 增量 + 按时间段：枚举 partition <= today-N 的分区，排除上次 success run 已成功备份的分区。
-		toPartition := e.clock().AddDate(0, 0, -policy.DaysBefore).Format("20060102")
-		newPartitions, err := e.listPartitions(e.conns[0], policy.Database, policy.Table, toPartition)
+	case policy.BackupType == model.BACKUP_TYPE_DAILY_PARTITION && (policy.DaysBefore > 0 || hasFixedDailyRange(policy)):
+		// 增量 + 按时间段：
+		// 1. 固定区间：[range_start_date, range_end_date]
+		// 2. 滚动区间：[start_date, today-days_before]，start_date 为空时不限制下界
+		fromPartition, toPartition := e.resolveDailyPartitionRange(policy)
+		newPartitions, err := e.listPartitions(e.conns[0], policy.Database, policy.Table, fromPartition, toPartition)
 		if err != nil {
 			return err
 		}
@@ -231,10 +233,23 @@ func (e *Executor) resolveRunPartitions(r *model.BackupRun, policy model.BackupP
 		}
 		r.Partitions = excludeSuccessfulPartitions(prev, newPartitions)
 	default:
-		return fmt.Errorf("unsupported backup mode: style=%s type=%s daysBefore=%d",
-			policy.BackupStyle, policy.BackupType, policy.DaysBefore)
+		return fmt.Errorf("unsupported backup mode: style=%s type=%s startDate=%s daysBefore=%d",
+			policy.BackupStyle, policy.BackupType, policy.StartDate, policy.DaysBefore)
 	}
 	return nil
+}
+
+func hasFixedDailyRange(policy model.BackupPolicy) bool {
+	return strings.TrimSpace(policy.RangeStartDate) != "" && strings.TrimSpace(policy.RangeEndDate) != ""
+}
+
+func (e *Executor) resolveDailyPartitionRange(policy model.BackupPolicy) (string, string) {
+	rangeStart := strings.TrimSpace(policy.RangeStartDate)
+	rangeEnd := strings.TrimSpace(policy.RangeEndDate)
+	if rangeStart != "" || rangeEnd != "" {
+		return rangeStart, rangeEnd
+	}
+	return strings.TrimSpace(policy.StartDate), e.clock().AddDate(0, 0, -policy.DaysBefore).Format("20060102")
 }
 
 // partitionsFromNames 把分区名列表转换为 waiting 状态的 BackupRunPartition 切片。

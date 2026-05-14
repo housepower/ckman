@@ -150,6 +150,127 @@ func TestSubmitBackupRequest_RejectPartitionModeEmpty(t *testing.T) {
 	}
 }
 
+func TestSubmitBackupRequest_DailyRangeFields(t *testing.T) {
+	repo := newMemRepo()
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+
+	req := model.BackupRequest{
+		ScheduleType: model.BACKUP_SCHEDULED,
+		Crontab:      "0 3 * * *",
+		Database:     "dba",
+		Tables:       []string{"t1"},
+		BackupStyle:  model.BACKUP_STYLE_INCR,
+		BackupType:   model.BACKUP_TYPE_DAILY_PARTITION,
+		StartDate:    "20260424",
+		DaysBefore:   1,
+		Target:       model.BACKUP_LOCAL,
+		Instance:     "ckman-01",
+	}
+	if _, err := svc.SubmitBackupRequest("ckA", req); err != nil {
+		t.Fatalf("SubmitBackupRequest: %v", err)
+	}
+	var got model.BackupPolicy
+	for _, p := range repo.policies {
+		got = p
+	}
+	if got.StartDate != "20260424" || got.DaysBefore != 1 {
+		t.Fatalf("unexpected range fields: start=%s end=%d", got.StartDate, got.DaysBefore)
+	}
+}
+
+func TestSubmitBackupRequest_RejectInvalidDailyStartDate(t *testing.T) {
+	repo := newMemRepo()
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+
+	req := model.BackupRequest{
+		ScheduleType: model.BACKUP_IMMEDIATE,
+		Database:     "dba",
+		Tables:       []string{"t1"},
+		BackupStyle:  model.BACKUP_STYLE_INCR,
+		BackupType:   model.BACKUP_TYPE_DAILY_PARTITION,
+		StartDate:    "2026-04-24",
+		DaysBefore:   20,
+		Target:       model.BACKUP_LOCAL,
+		Instance:     "ckman-01",
+	}
+	if _, err := svc.SubmitBackupRequest("ckA", req); err == nil {
+		t.Fatalf("expected invalid daily start date rejection")
+	}
+}
+
+func TestSubmitBackupRequest_DailyFixedRangeFields(t *testing.T) {
+	repo := newMemRepo()
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+
+	req := model.BackupRequest{
+		ScheduleType:   model.BACKUP_IMMEDIATE,
+		Database:       "dba",
+		Tables:         []string{"t1"},
+		BackupStyle:    model.BACKUP_STYLE_INCR,
+		BackupType:     model.BACKUP_TYPE_DAILY_PARTITION,
+		RangeStartDate: "20260101",
+		RangeEndDate:   "20260131",
+		Target:         model.BACKUP_LOCAL,
+		Instance:       "ckman-01",
+	}
+	if _, err := svc.SubmitBackupRequest("ckA", req); err != nil {
+		t.Fatalf("SubmitBackupRequest: %v", err)
+	}
+	var got model.BackupPolicy
+	for _, p := range repo.policies {
+		got = p
+	}
+	if got.RangeStartDate != "20260101" || got.RangeEndDate != "20260131" {
+		t.Fatalf("unexpected fixed range: start=%s end=%s", got.RangeStartDate, got.RangeEndDate)
+	}
+}
+
+func TestSubmitBackupRequest_RejectScheduledDailyFixedRange(t *testing.T) {
+	repo := newMemRepo()
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+
+	req := model.BackupRequest{
+		ScheduleType:   model.BACKUP_SCHEDULED,
+		Crontab:        "0 3 * * *",
+		Database:       "dba",
+		Tables:         []string{"t1"},
+		BackupStyle:    model.BACKUP_STYLE_INCR,
+		BackupType:     model.BACKUP_TYPE_DAILY_PARTITION,
+		RangeStartDate: "20260101",
+		RangeEndDate:   "20260131",
+		Target:         model.BACKUP_LOCAL,
+		Instance:       "ckman-01",
+	}
+	if _, err := svc.SubmitBackupRequest("ckA", req); err == nil {
+		t.Fatalf("expected scheduled fixed range rejection")
+	}
+}
+
+func TestSubmitBackupRequest_RejectInvalidDailyFixedRange(t *testing.T) {
+	repo := newMemRepo()
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+
+	req := model.BackupRequest{
+		ScheduleType:   model.BACKUP_IMMEDIATE,
+		Database:       "dba",
+		Tables:         []string{"t1"},
+		BackupStyle:    model.BACKUP_STYLE_INCR,
+		BackupType:     model.BACKUP_TYPE_DAILY_PARTITION,
+		RangeStartDate: "20260131",
+		RangeEndDate:   "20260101",
+		Target:         model.BACKUP_LOCAL,
+		Instance:       "ckman-01",
+	}
+	if _, err := svc.SubmitBackupRequest("ckA", req); err == nil {
+		t.Fatalf("expected invalid fixed range rejection")
+	}
+}
+
 // TestSubmitBackupRequest_RejectDuplicateScheduled verifies that scheduling
 // a table already covered by an active scheduled policy is rejected.
 func TestSubmitBackupRequest_RejectDuplicateScheduled(t *testing.T) {
