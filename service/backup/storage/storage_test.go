@@ -19,13 +19,14 @@ func (f *fakeStorage) BackupSQL(database, table, partition, key string) string {
 func (f *fakeStorage) RestoreSQL(database, table, partition, key string) string {
 	return ""
 }
-func (f *fakeStorage) CleanPartition(database, table, host, partition string) error {
-	f.prepared = append(f.prepared, partition)
+func (f *fakeStorage) CleanPartition(host, keyPrefix string) error {
+	_ = host
+	f.prepared = append(f.prepared, keyPrefix)
 	return nil
 }
-func (f *fakeStorage) CheckPartition(host, database, table, partition string,
+func (f *fakeStorage) CheckPartition(host, keyPrefix string,
 	pathInfo map[string]model.PathInfo) error {
-	f.checked = append(f.checked, partition)
+	f.checked = append(f.checked, keyPrefix)
 	return nil
 }
 func (f *fakeStorage) Type() string { return "fake" }
@@ -40,6 +41,6 @@ func TestStorage_InterfaceCompiles(t *testing.T) {
 	}
 	_ = s.BackupSQL("d", "t", "p", "k")
 	_ = s.RestoreSQL("d", "t", "p", "k")
-	_ = s.CleanPartition("d", "t", "h", "p")
-	_ = s.CheckPartition("h", "d", "t", "p", nil)
+	_ = s.CleanPartition("h", "k")
+	_ = s.CheckPartition("h", "k", nil)
 }

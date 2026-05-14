@@ -11,6 +11,7 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
+	"github.com/housepower/ckman/service/backup/storage"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -65,7 +66,7 @@ type Executor struct {
 	// run-scoped helpers（Init 期间不一定都注入；Task 21 真实 adapter 全部填）
 	queryRows             func(host string) (queryResult, error)
 	collectChecksumOnHost func(c *shardConn, run *model.BackupRun) error
-	execSQL               func(host, sql string) error                                                            // 新增；Task 21 真实 adapter 注入
+	execSQL               func(host, sql string) error                                                   // 新增；Task 21 真实 adapter 注入
 	queryPartitionStats   func(host, db, table, partition string) (rows, bytes, parts uint64, err error) // backup 前统计 partition 数据量
 }
 
@@ -76,8 +77,8 @@ type BackupStorage interface {
 	Init() error
 	BackupSQL(database, table, partition, key string) string
 	RestoreSQL(database, table, partition, key string) string
-	CleanPartition(database, table, host, partition string) error
-	CheckPartition(host, database, table, partition string, pathInfo map[string]model.PathInfo) error
+	CleanPartition(host, keyPrefix string) error
+	CheckPartition(host, keyPrefix string, pathInfo map[string]model.PathInfo) error
 	Type() string
 }
 
@@ -211,14 +212,14 @@ func (e *Executor) resolveRunPartitions(r *model.BackupRun, policy model.BackupP
 		if len(policy.Partitions) == 0 {
 			return errors.New("partition mode requires explicit partition list")
 		}
-		// 跳过已经成功备份过的分区（避免重复备份）
+		// 跳过已经成功备份过的分区（避免重复备份），本次 run 只记录需要执行的分区。
 		var prev []model.BackupRunPartition
 		if e.getLastRunPartitions != nil {
 			prev, _ = e.getLastRunPartitions(policy.ClusterName, policy.Database, policy.Table)
 		}
-		r.Partitions = mergePartitionLists(prev, policy.Partitions)
+		r.Partitions = excludeSuccessfulPartitions(prev, policy.Partitions)
 	case policy.BackupType == model.BACKUP_TYPE_DAILY_PARTITION && policy.DaysBefore > 0:
-		// 增量 + 按时间段：枚举 partition <= today-N 的分区，叠加上次 success 的分区
+		// 增量 + 按时间段：枚举 partition <= today-N 的分区，排除上次 success run 已成功备份的分区。
 		toPartition := e.clock().AddDate(0, 0, -policy.DaysBefore).Format("20060102")
 		newPartitions, err := e.listPartitions(e.conns[0], policy.Database, policy.Table, toPartition)
 		if err != nil {
@@ -228,7 +229,7 @@ func (e *Executor) resolveRunPartitions(r *model.BackupRun, policy model.BackupP
 		if e.getLastRunPartitions != nil {
 			prev, _ = e.getLastRunPartitions(policy.ClusterName, policy.Database, policy.Table)
 		}
-		r.Partitions = mergePartitionLists(prev, newPartitions)
+		r.Partitions = excludeSuccessfulPartitions(prev, newPartitions)
 	default:
 		return fmt.Errorf("unsupported backup mode: style=%s type=%s daysBefore=%d",
 			policy.BackupStyle, policy.BackupType, policy.DaysBefore)
@@ -247,17 +248,19 @@ func partitionsFromNames(names []string) []model.BackupRunPartition {
 	return out
 }
 
-// mergePartitionLists：保留 prev 的 success（避免重复备份），新增 newest 中尚未存在的分区
-// 状态标 waiting。
-func mergePartitionLists(prev []model.BackupRunPartition, newest []string) []model.BackupRunPartition {
-	have := map[string]bool{}
-	out := make([]model.BackupRunPartition, 0, len(prev)+len(newest))
+// excludeSuccessfulPartitions 用历史 success 分区做排重，只返回本次需要执行的
+// newest 分区，状态标 waiting。历史分区不进入当前 run，避免 check/clean/UI 把它们
+// 当成本次执行结果处理。
+func excludeSuccessfulPartitions(prev []model.BackupRunPartition, newest []string) []model.BackupRunPartition {
+	done := map[string]bool{}
 	for _, p := range prev {
-		out = append(out, p)
-		have[p.Partition] = true
+		if p.Status == model.BACKUP_PARTITION_STATUS_SUCCESS {
+			done[p.Partition] = true
+		}
 	}
+	out := make([]model.BackupRunPartition, 0, len(newest))
 	for _, n := range newest {
-		if !have[n] {
+		if !done[n] {
 			out = append(out, model.BackupRunPartition{
 				Partition: n, Status: model.BACKUP_PARTITION_STATUS_WAITING,
 			})
@@ -333,12 +336,15 @@ func (realStages) Backup(ctx context.Context, e *Executor, runID string) error {
 		// BACKUP 前累加每个 shard 上该分区的 rows / bytes / parts
 		if e.queryPartitionStats != nil {
 			var totalRows, totalBytes, totalParts uint64
+			statsByHost := make([]string, 0, len(e.conns))
 			for _, c := range e.conns {
 				rows, bytes, parts, qerr := e.queryPartitionStats(c.host, run.Database, run.Table, p.Partition)
 				if qerr != nil {
 					log.Logger.Warnf("[exec] queryPartitionStats host=%s partition=%s: %v", c.host, p.Partition, qerr)
+					statsByHost = append(statsByHost, fmt.Sprintf("%s:error=%v", c.host, qerr))
 					continue
 				}
+				statsByHost = append(statsByHost, fmt.Sprintf("%s:rows=%d bytes=%d parts=%d", c.host, rows, bytes, parts))
 				totalRows += rows
 				totalBytes += bytes
 				totalParts += parts
@@ -346,6 +352,10 @@ func (realStages) Backup(ctx context.Context, e *Executor, runID string) error {
 			p.Rows = totalRows
 			p.Size = totalBytes
 			p.FileNum = totalParts
+			if totalRows == 0 && totalBytes == 0 && totalParts == 0 {
+				log.Logger.Warnf("[exec] partition stats empty run=%s table=%s.%s partition=%s stats=[%s]",
+					run.RunID, run.Database, run.Table, p.Partition, strings.Join(statsByHost, "; "))
+			}
 		}
 
 		// 跨 shard 并发执行 BACKUP TABLE，但状态汇总在主线程串行写，规避 race。
@@ -357,7 +367,7 @@ func (realStages) Backup(ctx context.Context, e *Executor, runID string) error {
 		for _, c := range e.conns {
 			c := c
 			go func() {
-				key := fmt.Sprintf("%s/%s.%s/%s", p.Partition, run.Database, run.Table, c.host)
+				key := storage.JoinRunKey(run.StoragePrefix, p.Partition, run.Database, run.Table, c.host)
 				sql := fmt.Sprintf("BACKUP TABLE `%s`.`%s`%s",
 					run.Database, run.Table,
 					e.storage.BackupSQL(run.Database, run.Table, p.Partition, key))
@@ -414,7 +424,7 @@ func (realStages) Restore(ctx context.Context, e *Executor, runID string) error 
 		for _, c := range e.conns {
 			c := c
 			go func() {
-				key := fmt.Sprintf("%s/%s.%s/%s", p.Partition, run.Database, run.Table, c.host)
+				key := storage.JoinRunKey(run.StoragePrefix, p.Partition, run.Database, run.Table, c.host)
 				sql := fmt.Sprintf("RESTORE TABLE `%s`.`%s`%s SETTINGS allow_non_empty_tables=true",
 					run.Database, run.Table,
 					e.storage.RestoreSQL(run.Database, run.Table, p.Partition, key))
@@ -460,7 +470,8 @@ func (realStages) Check(ctx context.Context, e *Executor, runID string) error {
 			c := c
 			pp := p
 			g.Go(func() error {
-				return e.storage.CheckPartition(c.host, run.Database, run.Table, pp.Partition, pp.PathInfo)
+				keyPrefix := storage.JoinRunKey(run.StoragePrefix, pp.Partition, run.Database, run.Table, c.host)
+				return e.storage.CheckPartition(c.host, keyPrefix, pp.PathInfo)
 			})
 		}
 		if err := g.Wait(); err != nil && firstErr == nil {
@@ -556,7 +567,8 @@ func (realStages) Prepare(ctx context.Context, e *Executor, runID string) error 
 			continue
 		}
 		for _, c := range e.conns {
-			if err := e.storage.CleanPartition(run.Database, run.Table, c.host, p.Partition); err != nil {
+			keyPrefix := storage.JoinRunKey(run.StoragePrefix, p.Partition, run.Database, run.Table, c.host)
+			if err := e.storage.CleanPartition(c.host, keyPrefix); err != nil {
 				return fmt.Errorf("clean %s on %s: %w", p.Partition, c.host, err)
 			}
 		}

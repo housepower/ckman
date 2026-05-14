@@ -140,6 +140,24 @@ func TestService_Submit_QueueFullWritesSkipped(t *testing.T) {
 	}
 }
 
+func TestService_Submit_FillsStoragePrefixWithCluster(t *testing.T) {
+	// 新 run 的 StoragePrefix 应等于 policy.ClusterName；Restore 时透传此前缀确保对得上 storage key。
+	repo := newMemRepo()
+	policy := model.BackupPolicy{PolicyID: "p1", ClusterName: "ckA",
+		Database: "d", Table: "t", Instance: "ckman-01",
+		ScheduleType: model.BACKUP_SCHEDULED, Enabled: true}
+	repo.policies["p1"] = policy
+	svc := newServiceForTest("ckman-01", repo, &fakePool{})
+	runID, err := svc.SubmitForPolicy(policy, model.TRIGGER_CRON)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	rn, _ := repo.GetRun(runID)
+	if rn.StoragePrefix != "ckA" {
+		t.Fatalf("expected storage_prefix=ckA, got %q", rn.StoragePrefix)
+	}
+}
+
 func TestService_Submit_DisabledPolicyWritesSkipped(t *testing.T) {
 	repo := newMemRepo()
 	policy := model.BackupPolicy{PolicyID: "p1", Instance: "ckman-01",

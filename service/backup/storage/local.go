@@ -57,40 +57,34 @@ func (l *Local) RestoreSQL(database, table, partition, key string) string {
 	return sb.String()
 }
 
-// CleanPartition 通过 SSH 删除目标节点上该 partition 的备份目录。
-// database / table / partition 均经 ValidateIdentifier 强校验，防 shell 注入。
-func (l *Local) CleanPartition(database, table, host, partition string) error {
+// CleanPartition 通过 SSH 删除目标节点上 keyPrefix 对应的备份目录。
+// keyPrefix 由调用方用 JoinRunKey 构造，已包含 [cluster/]<partition>/<db>.<table>/<host>。
+func (l *Local) CleanPartition(host, keyPrefix string) error {
 	if l.sshOpts == nil {
 		return errors.New("local storage: sshOpts not configured")
 	}
-	// identifier 强校验，防 shell 注入（双层防御：校验 + %q 引用）
-	for _, s := range []string{database, table, partition} {
-		if err := bvalidate.ValidateIdentifier(s); err != nil {
-			return err
-		}
+	if err := validateKeyPrefix(keyPrefix); err != nil {
+		return err
 	}
 	opts := l.sshOpts(host)
 	// %q 对路径进行 Go 风格引用（bash 同样接受双引号路径），防止路径中意外空格等
-	cmd := fmt.Sprintf("rm -fr %q/%s.%s/%s/", l.cfg.Path, database, table, host)
+	cmd := fmt.Sprintf("rm -fr %q/%s/", l.cfg.Path, keyPrefix)
 	_, err := common.RemoteExecute(opts, cmd)
 	return err
 }
 
 // CheckPartition 通过 SSH 在 ClickHouse 节点上执行 md5sum，并与 pathInfo 中预期值比对。
 // 修闭老版 "// todo" 衍生问题：本地备份开 checksum 时实际不做校验仍标 success。
-func (l *Local) CheckPartition(host, database, table, partition string,
+func (l *Local) CheckPartition(host, keyPrefix string,
 	pathInfo map[string]model.PathInfo) error {
 	if l.sshOpts == nil {
 		return errors.New("local storage: sshOpts not configured")
 	}
-	if err := bvalidate.ValidateIdentifier(database); err != nil {
-		return err
-	}
-	if err := bvalidate.ValidateIdentifier(table); err != nil {
+	if err := validateKeyPrefix(keyPrefix); err != nil {
 		return err
 	}
 	opts := l.sshOpts(host)
-	root := fmt.Sprintf("%s/%s.%s/%s", l.cfg.Path, database, table, host)
+	root := fmt.Sprintf("%s/%s", l.cfg.Path, keyPrefix)
 	// 用 -exec ... + 而不是 \; —— 后者经 ssh shell 解析后会变成裸 ;
 	cmd := fmt.Sprintf("find %q -type f -exec md5sum {} +", root)
 	out, err := common.RemoteExecute(opts, cmd)

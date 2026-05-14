@@ -61,23 +61,22 @@ func (s *S3) RestoreSQL(database, table, partition, key string) string {
 	return sb.String()
 }
 
-func (s *S3) CleanPartition(database, table, host, partition string) error {
+func (s *S3) CleanPartition(host, keyPrefix string) error {
+	_ = host // S3 是 server-side 删除，host 仅 Local 后端使用
 	if s.client == nil {
 		return errors.New("s3 not initialized")
 	}
-	key := fmt.Sprintf("%s/%s.%s/%s", partition, database, table, host)
-	return s.client.Remove(s.cfg.Bucket, key)
+	return s.client.Remove(s.cfg.Bucket, keyPrefix)
 }
 
-func (s *S3) CheckPartition(host, database, table, partition string, pathInfo map[string]model.PathInfo) error {
+func (s *S3) CheckPartition(host, keyPrefix string, pathInfo map[string]model.PathInfo) error {
 	if s.client == nil {
 		return errors.New("s3 not initialized")
 	}
-	key := fmt.Sprintf("%s/%s.%s/%s", partition, database, table, host)
 	// 仅当备份时未压缩，md5(local raw) ↔ md5(S3 object) 才会相等；
 	// 压缩开启时只能校验文件存在性与数量。
 	compareMD5 := s.compression == "" || strings.EqualFold(s.compression, "none")
-	_, _, _, err := s.client.CheckSum(host, s.cfg.Bucket, key, pathInfo, s.cfg, compareMD5)
+	_, _, _, err := s.client.CheckSum(host, s.cfg.Bucket, keyPrefix, pathInfo, s.cfg, compareMD5)
 	return err
 }
 

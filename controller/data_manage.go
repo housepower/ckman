@@ -157,6 +157,28 @@ func (c *DataManageController) DeletePolicy(ctx *gin.Context) {
 	c.wrapfunc(ctx, model.E_SUCCESS, nil)
 }
 
+// GetPolicyNextRun GET /data_manage/backup/policy/:policy_id/next_run
+// 返回 scheduled+enabled 任务的下次触发时间；其它情况 next_run_at 为空串。
+func (c *DataManageController) GetPolicyNextRun(ctx *gin.Context) {
+	pid := ctx.Param("policy_id")
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	p, err := svc.GetPolicy(pid)
+	if err != nil {
+		c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	resp := gin.H{"next_run_at": ""}
+	if p.ScheduleType == model.BACKUP_SCHEDULED && p.Enabled && !p.Deleted {
+		if next, err := backup.NextRunAfter(p.Crontab, time.Now()); err == nil {
+			resp["next_run_at"] = next.Format(time.RFC3339)
+		}
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, resp)
+}
+
 // TriggerPolicy POST /data_manage/backup/policy/:policy_id/trigger
 // 手动触发一次立即执行，不论 schedule_type。
 func (c *DataManageController) TriggerPolicy(ctx *gin.Context) {

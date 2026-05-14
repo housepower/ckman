@@ -9,6 +9,7 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
+	"github.com/housepower/ckman/service/backup/storage"
 )
 
 // backupConnOpts returns ConnetOption presets for backup/restore connections:
@@ -175,35 +176,46 @@ func (a *ClickHouseAdapter) realQueryPartitionPaths(c *shardConn, db, table, par
 	return out, nil
 }
 
-// shellQuote 用单引号包裹路径，内部的 ' 转成 '\''，安全传给远端 shell。
+// shellQuote 用单引号包裹路径，内部的 ' 转成 '\”，安全传给远端 shell。
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// GetLastRunPartitions 从持久层查 365 天内同表的最近一次 success run 的 partitions。
+// GetLastRunPartitions 从持久层查 365 天内同表所有 success run 中已成功备份的
+// partitions。调用方用它做增量去重；不能只取最近一次 success run，否则当前 run
+// 不再记录历史 success 后，下一轮会丢失更早的去重历史。
 func (a *ClickHouseAdapter) GetLastRunPartitions(cluster, db, table string) ([]model.BackupRunPartition, error) {
 	runs, err := repository.Ps.GetRunsByTable(cluster, db, table, 365)
 	if err != nil {
 		return nil, err
 	}
+	seen := make(map[string]bool)
+	partitions := make([]model.BackupRunPartition, 0)
 	for _, r := range runs {
-		if r.Status == model.BACKUP_STATUS_SUCCESS {
-			return r.Partitions, nil
+		if r.Status != model.BACKUP_STATUS_SUCCESS {
+			continue
+		}
+		for _, p := range r.Partitions {
+			if p.Status != model.BACKUP_PARTITION_STATUS_SUCCESS || seen[p.Partition] {
+				continue
+			}
+			seen[p.Partition] = true
+			partitions = append(partitions, p)
 		}
 	}
-	return nil, nil
+	return partitions, nil
 }
 
 // CollectChecksumOnHost 在 host 上通过 SSH 执行 md5sum，把结果填到 run.Partitions[i].PathInfo。
 // 仅对 status=WAITING 的 partition 做。
 //
-// 路径关联（与 ClickHouse 备份到 S3 的 key 命名对齐）：
+// 路径关联（与 ClickHouse 备份到 storage 的 key 命名对齐）：
 //
-//	S3 object key = <partition>/<db>.<table>/<host>/data/<db>/<table>/<part_dir>/<file>
-//	local file    = <data_path>/<part_dir>/<file>（CK 报告的 system.parts.path 末段）
+//	storage key = [<storage_prefix>/]<partition>/<db>.<table>/<host>/data/<db>/<table>/<part_dir>/<file>
+//	local file  = <data_path>/<part_dir>/<file>（CK 报告的 system.parts.path 末段）
 //
-// 因此从 system.parts.path 拿到的本地路径取末两段 (<part_dir>/<file>) 拼到 prefix
-// 上即可得到对应 S3 object 的 RPath，CheckSum 阶段 ListObjects(Prefix=path.Dir(RPath))
+// 因此从 system.parts.path 拿到的本地路径取末两段 (<part_dir>/<file>) 拼到 JoinRunKey
+// 返回值之后即可得到对应 object 的 RPath，CheckSum 阶段 ListObjects(Prefix=path.Dir(RPath))
 // 即能精确命中。
 func (a *ClickHouseAdapter) CollectChecksumOnHost(c *shardConn, run *model.BackupRun) error {
 	cluster, err := a.getCluster(run.ClusterName)
@@ -258,9 +270,8 @@ func (a *ClickHouseAdapter) CollectChecksumOnHost(c *shardConn, run *model.Backu
 					continue
 				}
 				partfile := strings.Join(segs[len(segs)-2:], "/")
-				rpath := fmt.Sprintf("%s/%s.%s/%s/data/%s/%s/%s",
-					partName, run.Database, run.Table, c.host,
-					run.Database, run.Table, partfile)
+				keyPrefix := storage.JoinRunKey(run.StoragePrefix, partName, run.Database, run.Table, c.host)
+				rpath := fmt.Sprintf("%s/data/%s/%s/%s", keyPrefix, run.Database, run.Table, partfile)
 				run.Partitions[i].PathInfo[rpath] = model.PathInfo{
 					Host:  c.host,
 					RPath: rpath,

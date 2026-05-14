@@ -55,17 +55,18 @@ func (s *Service) SubmitRestore(cluster string, req RestoreRequest) (string, err
 
 	now := s.now()
 	run := model.BackupRun{
-		RunID:       uuid.New(),
-		PolicyID:    src.PolicyID,
-		ClusterName: src.ClusterName,
-		Database:    src.Database,
-		Table:       src.Table,
-		Operation:   model.OP_RESTORE,
-		TriggerType: model.TRIGGER_MANUAL_RESTORE,
-		Instance:    s.self,
-		Status:      model.BACKUP_STATUS_QUEUED,
-		Partitions:  partitions,
-		CreateTime:  now,
+		RunID:         uuid.New(),
+		PolicyID:      src.PolicyID,
+		ClusterName:   src.ClusterName,
+		Database:      src.Database,
+		Table:         src.Table,
+		Operation:     model.OP_RESTORE,
+		TriggerType:   model.TRIGGER_MANUAL_RESTORE,
+		Instance:      s.self,
+		Status:        model.BACKUP_STATUS_QUEUED,
+		StoragePrefix: src.StoragePrefix, // 必须透传源 run 的 prefix（不能用当前 cluster 名）：老备份 prefix="" 才能找到老 S3 对象
+		Partitions:    partitions,
+		CreateTime:    now,
 	}
 	if err := s.repo.CreateRun(run); err != nil {
 		return "", err

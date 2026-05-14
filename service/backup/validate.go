@@ -43,3 +43,19 @@ func ValidateCrontabMinInterval(spec string) error {
 	}
 	return nil
 }
+
+// NextRunAfter 解析 crontab（兼容 5/6 段），返回 after 之后的下一次触发时间。
+// 与 ValidateCrontabMinInterval 共用一套 parser 选项，保证「能保存的 cron」就能算出下次时间。
+func NextRunAfter(spec string, after time.Time) (time.Time, error) {
+	parser5 := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	parser6 := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	sched, err := parser5.Parse(spec)
+	if err != nil {
+		var err6 error
+		sched, err6 = parser6.Parse(spec)
+		if err6 != nil {
+			return time.Time{}, fmt.Errorf("invalid cron: %w", err)
+		}
+	}
+	return sched.Next(after), nil
+}

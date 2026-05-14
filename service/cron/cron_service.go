@@ -58,9 +58,11 @@ func (job *CronService) Start() error {
 			if spec == SCHEDULE_DISABLED {
 				continue
 			}
-			_, _ = job.cron.AddFunc(spec, func() {
+			if _, err := job.cron.AddFunc(spec, func() {
 				_ = v()
-			})
+			}); err != nil {
+				log.Logger.Errorf("add cron job failed: job=%d, spec=%s, err=%v", k, spec, err)
+			}
 		}
 	}
 	return nil
@@ -90,14 +92,31 @@ type Job struct {
 	entryId cron.EntryID
 }
 
+// DynamicJobs 必须包级初始化：backup.Init() 在 cronSvr.Start() 之前就会调用 AddJob
+// 注册定时备份策略，写一个 nil map 会 panic 直接挂掉服务。
 var (
 	lock        sync.Mutex
-	DynamicJobs map[string]Job
+	DynamicJobs = map[string]Job{}
 )
 
 func AddJob(id, spec string, fn func() error) {
 	log.Logger.Infof("add job: %s, spec: %s", id, spec)
 	lock.Lock()
+	if old, ok := DynamicJobs[id]; ok {
+		if old.status == JOB_SCHEDULED && old.op == JOB_ADD && old.spec == spec {
+			lock.Unlock()
+			return
+		}
+		DynamicJobs[id] = Job{
+			op:      JOB_UPD,
+			spec:    spec,
+			fn:      fn,
+			status:  JOB_READY,
+			entryId: old.entryId,
+		}
+		lock.Unlock()
+		return
+	}
 	DynamicJobs[id] = Job{
 		op:     JOB_ADD,
 		spec:   spec,
@@ -136,9 +155,6 @@ func addJobFromBackups(self string) {
 }
 
 func (job *CronService) RunDynamicJobs() {
-	if DynamicJobs == nil {
-		DynamicJobs = make(map[string]Job)
-	}
 	self := net.JoinHostPort(job.config.Server.Ip, fmt.Sprint(job.config.Server.Port))
 	// ckman刚启动时，先把定时任务加上
 	addJobFromBackups(self)
@@ -165,10 +181,22 @@ func (job *CronService) RunDynamicJobs() {
 					if v.status == JOB_SCHEDULED {
 						continue
 					}
-					log.Logger.Infof("job added: %s, spec: %s", k, v.spec)
-					v.entryId, _ = job.cron.AddFunc(v.spec, func() {
+					fallthrough
+				case JOB_UPD:
+					if v.op == JOB_UPD && v.entryId != 0 {
+						job.cron.Remove(v.entryId)
+						log.Logger.Infof("job removed before update: %s", k)
+					}
+					entryID, err := job.cron.AddFunc(v.spec, func() {
 						_ = v.fn()
 					})
+					if err != nil {
+						log.Logger.Errorf("add dynamic cron job failed: job=%s, spec=%s, err=%v", k, v.spec, err)
+						continue
+					}
+					log.Logger.Infof("job added: %s, spec: %s", k, v.spec)
+					v.entryId = entryID
+					v.op = JOB_ADD
 					v.status = JOB_SCHEDULED
 					DynamicJobs[k] = v
 				case JOB_DEL:

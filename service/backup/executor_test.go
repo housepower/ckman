@@ -26,15 +26,20 @@ type fakeStorage struct {
 	cleaned  []string
 }
 
-func (f *fakeStorage) Init() error                                                         { return nil }
-func (f *fakeStorage) BackupSQL(d, t, p, k string) string                                  { return fmt.Sprintf(" PARTITION '%s'", p) }
-func (f *fakeStorage) RestoreSQL(d, t, p, k string) string                                 { return fmt.Sprintf(" PARTITION '%s'", p) }
-func (f *fakeStorage) CleanPartition(d, t, h, p string) error {
-	f.cleaned = append(f.cleaned, p)
+func (f *fakeStorage) Init() error                         { return nil }
+func (f *fakeStorage) BackupSQL(d, t, p, k string) string  { return fmt.Sprintf(" PARTITION '%s'", p) }
+func (f *fakeStorage) RestoreSQL(d, t, p, k string) string { return fmt.Sprintf(" PARTITION '%s'", p) }
+func (f *fakeStorage) CleanPartition(host, keyPrefix string) error {
+	_ = host
+	f.cleaned = append(f.cleaned, keyPrefix)
 	return f.cleanErr
 }
-func (f *fakeStorage) CheckPartition(h, d, t, p string, _ map[string]model.PathInfo) error { return nil }
-func (f *fakeStorage) Type() string                                                         { return "fake" }
+func (f *fakeStorage) CheckPartition(host, keyPrefix string, _ map[string]model.PathInfo) error {
+	_ = host
+	_ = keyPrefix
+	return nil
+}
+func (f *fakeStorage) Type() string { return "fake" }
 
 type fakeExecRepo struct {
 	*memRepo
@@ -114,9 +119,9 @@ func TestExecutor_Init_PartitionListErrorDoesNotDropList(t *testing.T) {
 	}
 }
 
-func TestExecutor_Init_MergesNewPartitionsWithPrev(t *testing.T) {
-	// prev 有 20250506 (success)，新枚举 20250506/07/08；合并后应有 3 条，
-	// 老的保留 success，新的标 waiting
+func TestExecutor_Init_ExcludesPreviouslySuccessfulPartitions(t *testing.T) {
+	// prev 有 20250506 (success) 和 20250507 (failed)，新枚举 20250506/07/08；
+	// 本次 run 只应包含未成功备份过的 20250507/08，且均为 waiting。
 	repo := newFakeExecRepo(model.BackupPolicy{
 		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
 		BackupStyle: model.BACKUP_STYLE_INCR,
@@ -135,6 +140,7 @@ func TestExecutor_Init_MergesNewPartitionsWithPrev(t *testing.T) {
 		getLastRunPartitions: func(cluster, db, table string) ([]model.BackupRunPartition, error) {
 			return []model.BackupRunPartition{
 				{Partition: "20250506", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+				{Partition: "20250507", Status: model.BACKUP_PARTITION_STATUS_FAILED},
 			}, nil
 		},
 	}
@@ -142,18 +148,21 @@ func TestExecutor_Init_MergesNewPartitionsWithPrev(t *testing.T) {
 		t.Fatalf("init: %v", err)
 	}
 	rn, _ := repo.GetRun("r1")
-	if len(rn.Partitions) != 3 {
-		t.Fatalf("expected 3 merged, got %d", len(rn.Partitions))
+	if len(rn.Partitions) != 2 {
+		t.Fatalf("expected 2 partitions after excluding previous success, got %d", len(rn.Partitions))
 	}
 	statusByPart := map[string]string{}
 	for _, p := range rn.Partitions {
 		statusByPart[p.Partition] = p.Status
 	}
-	if statusByPart["20250506"] != model.BACKUP_PARTITION_STATUS_SUCCESS {
-		t.Fatalf("prev success should be retained")
+	if _, ok := statusByPart["20250506"]; ok {
+		t.Fatalf("prev success should not be retained in current run")
 	}
 	if statusByPart["20250507"] != model.BACKUP_PARTITION_STATUS_WAITING {
-		t.Fatalf("new partitions should be waiting")
+		t.Fatalf("prev failed partition should be retried as waiting")
+	}
+	if statusByPart["20250508"] != model.BACKUP_PARTITION_STATUS_WAITING {
+		t.Fatalf("new partition should be waiting")
 	}
 }
 
@@ -566,15 +575,15 @@ func TestRealStages_Restore_SkipsNonWaiting(t *testing.T) {
 // ── Check stage tests ─────────────────────────────────────────────────────────
 
 type checksumStorage struct {
-	check func(host, db, table, partition string, pi map[string]model.PathInfo) error
+	check func(host, keyPrefix string, pi map[string]model.PathInfo) error
 }
 
-func (s *checksumStorage) Init() error                                      { return nil }
-func (s *checksumStorage) BackupSQL(_, _, _, _ string) string               { return "" }
-func (s *checksumStorage) RestoreSQL(_, _, _, _ string) string              { return "" }
-func (s *checksumStorage) CleanPartition(_, _, _, _ string) error           { return nil }
-func (s *checksumStorage) CheckPartition(host, db, table, partition string, pi map[string]model.PathInfo) error {
-	return s.check(host, db, table, partition, pi)
+func (s *checksumStorage) Init() error                         { return nil }
+func (s *checksumStorage) BackupSQL(_, _, _, _ string) string  { return "" }
+func (s *checksumStorage) RestoreSQL(_, _, _, _ string) string { return "" }
+func (s *checksumStorage) CleanPartition(_, _ string) error    { return nil }
+func (s *checksumStorage) CheckPartition(host, keyPrefix string, pi map[string]model.PathInfo) error {
+	return s.check(host, keyPrefix, pi)
 }
 func (s *checksumStorage) Type() string { return "fake" }
 
@@ -582,8 +591,14 @@ func TestRealStages_Check_AllPartitionsValidated(t *testing.T) {
 	// 修 #3：3 个 success partition 全要被校验，旧版 return 写在 for 内只校验第一个
 	checked := map[string]int{}
 	storage := &checksumStorage{
-		check: func(host, db, table, p string, _ map[string]model.PathInfo) error {
-			checked[p]++
+		check: func(host, keyPrefix string, _ map[string]model.PathInfo) error {
+			_ = host
+			// keyPrefix 形如 "<partition>/db.table/host"，提取首段做计数
+			seg := keyPrefix
+			if i := strings.Index(seg, "/"); i >= 0 {
+				seg = seg[:i]
+			}
+			checked[seg]++
 			return nil
 		},
 	}
@@ -613,9 +628,9 @@ func TestRealStages_Check_FirstFailureRetainedButContinues(t *testing.T) {
 	// p2 失败，p1 / p3 仍校验。返回首个错。
 	count := 0
 	storage := &checksumStorage{
-		check: func(_, _, _, p string, _ map[string]model.PathInfo) error {
+		check: func(_, keyPrefix string, _ map[string]model.PathInfo) error {
 			count++
-			if p == "20250508" {
+			if strings.HasPrefix(keyPrefix, "20250508/") {
 				return errors.New("md5 mismatch")
 			}
 			return nil
@@ -643,7 +658,7 @@ func TestRealStages_Check_FirstFailureRetainedButContinues(t *testing.T) {
 func TestRealStages_Check_SkipsNonSuccess(t *testing.T) {
 	// 仅校验 SUCCESS 状态的 partition
 	called := 0
-	storage := &checksumStorage{check: func(_, _, _, _ string, _ map[string]model.PathInfo) error { called++; return nil }}
+	storage := &checksumStorage{check: func(_, _ string, _ map[string]model.PathInfo) error { called++; return nil }}
 	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
 	repo.runs["r1"] = model.BackupRun{
 		RunID: "r1",

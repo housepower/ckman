@@ -54,23 +54,24 @@ func TestLocal_RestoreSQL(t *testing.T) {
 	}
 }
 
-func TestLocal_CleanPartition_RejectsBadIdentifier(t *testing.T) {
-	// 即便 sshOpts 注入正常，identifier 中带反引号 / 引号也应被拒
+func TestLocal_CleanPartition_RejectsBadKeyPrefix(t *testing.T) {
+	// 即便 sshOpts 注入正常，keyPrefix 中带 .. / 绝对路径也应被拒
 	l := NewLocal(model.TargetLocal{Path: "/data/backups"}, "",
 		func(string) common.SshOptions { return common.SshOptions{} })
 	if err := l.Init(); err != nil {
 		t.Fatal(err)
 	}
-	err := l.CleanPartition("bad`db", "t", "h", "20250508")
-	if err == nil {
-		t.Fatal("identifier with backtick should reject")
+	for _, bad := range []string{"", "/abs/path", "a/../b", "a/./b", "a//b"} {
+		if err := l.CleanPartition("h", bad); err == nil {
+			t.Errorf("keyPrefix %q should reject", bad)
+		}
 	}
 }
 
 func TestLocal_CleanPartition_NoSshOpts(t *testing.T) {
 	l := NewLocal(model.TargetLocal{Path: "/data/backups"}, "", nil)
 	_ = l.Init()
-	if err := l.CleanPartition("d", "t", "h", "p"); err == nil {
+	if err := l.CleanPartition("h", "p/d.t/h"); err == nil {
 		t.Fatal("CleanPartition without sshOpts should error")
 	}
 }

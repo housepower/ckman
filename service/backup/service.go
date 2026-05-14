@@ -49,16 +49,17 @@ func (s *Service) SubmitForPolicy(p model.BackupPolicy, trigger string) (string,
 
 	now := s.now()
 	run := model.BackupRun{
-		RunID:       uuid.New(),
-		PolicyID:    p.PolicyID,
-		ClusterName: p.ClusterName,
-		Database:    p.Database,
-		Table:       p.Table,
-		Operation:   model.OP_BACKUP,
-		TriggerType: trigger,
-		Instance:    p.Instance,
-		Status:      model.BACKUP_STATUS_QUEUED,
-		CreateTime:  now,
+		RunID:         uuid.New(),
+		PolicyID:      p.PolicyID,
+		ClusterName:   p.ClusterName,
+		Database:      p.Database,
+		Table:         p.Table,
+		Operation:     model.OP_BACKUP,
+		TriggerType:   trigger,
+		Instance:      p.Instance,
+		Status:        model.BACKUP_STATUS_QUEUED,
+		StoragePrefix: p.ClusterName, // 新 run 把 cluster 名落到 storage key 前缀；老 run 反序列化为 "" 兼容老路径
+		CreateTime:    now,
 	}
 
 	// 1. policy.enabled=false 时仍被 cron 触发（disable→reconcile 之间最多 60s 窗口）

@@ -176,22 +176,23 @@ type BackupPolicy struct {
 }
 
 type BackupRun struct {
-	RunID        string               `json:"run_id"`
-	PolicyID     string               `json:"policy_id"`
-	ClusterName  string               `json:"cluster_name"`
-	Database     string               `json:"database"`
-	Table        string               `json:"table"`
-	Operation    string               `json:"operation"`    // backup | restore
-	TriggerType  string               `json:"trigger_type"` // cron | manual_immediate | ...
-	Instance     string               `json:"instance"`
-	Status       string               `json:"status"` // queued | running | success | failed | skipped | interrupted
-	StatusReason string               `json:"status_reason"`
-	Partitions   []BackupRunPartition `json:"partitions"`
-	StartedAt    time.Time            `json:"started_at"`
-	FinishedAt   time.Time            `json:"finished_at"`
-	Elapsed      int                  `json:"elapsed"`
-	ErrorMsg     string               `json:"error_msg"`
-	CreateTime   time.Time            `json:"create_time"`
+	RunID         string               `json:"run_id"`
+	PolicyID      string               `json:"policy_id"`
+	ClusterName   string               `json:"cluster_name"`
+	Database      string               `json:"database"`
+	Table         string               `json:"table"`
+	Operation     string               `json:"operation"`    // backup | restore
+	TriggerType   string               `json:"trigger_type"` // cron | manual_immediate | ...
+	Instance      string               `json:"instance"`
+	Status        string               `json:"status"` // queued | running | success | failed | skipped | interrupted
+	StatusReason  string               `json:"status_reason"`
+	StoragePrefix string               `json:"storage_prefix"` // S3/local key 中位于 partition 之前的层级；新 run 填 cluster_name，老 run 反序列化为 "" 兼容老路径
+	Partitions    []BackupRunPartition `json:"partitions"`
+	StartedAt     time.Time            `json:"started_at"`
+	FinishedAt    time.Time            `json:"finished_at"`
+	Elapsed       int                  `json:"elapsed"`
+	ErrorMsg      string               `json:"error_msg"`
+	CreateTime    time.Time            `json:"create_time"`
 }
 
 type BackupRunPartition struct {
