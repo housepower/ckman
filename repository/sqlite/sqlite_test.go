@@ -367,3 +367,80 @@ func TestSQLite_BackupRunCRUD(t *testing.T) {
 		t.Fatalf("delete: %v", err)
 	}
 }
+
+// ─── Migration tests ──────────────────────────────────────────────────────────
+
+func TestMigrateFromJSON(t *testing.T) {
+	dir := t.TempDir()
+	src, err := os.ReadFile("testdata/legacy_clusters.json")
+	if err != nil {
+		t.Fatalf("read testdata: %v", err)
+	}
+	legacyPath := filepath.Join(dir, "clusters.json")
+	if err := os.WriteFile(legacyPath, src, 0644); err != nil {
+		t.Fatalf("write legacy: %v", err)
+	}
+
+	sp := NewSQLitePersistent()
+	if err := sp.Init(LocalConfig{Format: "json", ConfigDir: dir, ConfigFile: "clusters"}); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	if _, err := sp.GetClusterbyName("ck1"); err != nil {
+		t.Fatalf("cluster ck1 missing after migrate: %v", err)
+	}
+	if _, err := sp.GetLogicClusterbyName("L1"); err != nil {
+		t.Fatalf("logic L1 missing: %v", err)
+	}
+	if _, err := sp.GetBackupPolicy("p1"); err != nil {
+		t.Fatalf("policy p1 missing: %v", err)
+	}
+	if _, err := sp.GetBackupRun("br1"); err != nil {
+		t.Fatalf("run br1 missing: %v", err)
+	}
+
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Fatalf("legacy file should have been renamed away (err=%v)", err)
+	}
+	matches, _ := filepath.Glob(legacyPath + ".migrated.*")
+	if len(matches) != 1 {
+		t.Fatalf("expected one .migrated.* file, got %d", len(matches))
+	}
+
+	v, _ := readMeta(sp.Client, METAKEY_MIGRATED_FROM)
+	if v == "" || v == META_FRESH_INSTALL {
+		t.Fatalf("migrated_from not set correctly: %q", v)
+	}
+}
+
+func TestMigrateIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	src, _ := os.ReadFile("testdata/legacy_clusters.json")
+	_ = os.WriteFile(filepath.Join(dir, "clusters.json"), src, 0644)
+
+	sp1 := NewSQLitePersistent()
+	if err := sp1.Init(LocalConfig{Format: "json", ConfigDir: dir, ConfigFile: "clusters"}); err != nil {
+		t.Fatalf("first init: %v", err)
+	}
+	v1, _ := readMeta(sp1.Client, METAKEY_MIGRATED_FROM)
+
+	sp2 := NewSQLitePersistent()
+	if err := sp2.Init(LocalConfig{Format: "json", ConfigDir: dir, ConfigFile: "clusters"}); err != nil {
+		t.Fatalf("second init: %v", err)
+	}
+	v2, _ := readMeta(sp2.Client, METAKEY_MIGRATED_FROM)
+	if v1 != v2 {
+		t.Fatalf("meta changed on idempotent re-init: %q -> %q", v1, v2)
+	}
+}
+
+func TestMigrateLegacyCorrupt(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "clusters.json"), []byte("{not valid json"), 0644)
+
+	sp := NewSQLitePersistent()
+	err := sp.Init(LocalConfig{Format: "json", ConfigDir: dir, ConfigFile: "clusters"})
+	if err == nil {
+		t.Fatalf("expected init to fail on corrupt legacy file")
+	}
+}

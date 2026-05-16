@@ -137,19 +137,6 @@ func writeMeta(db *gorm.DB, key, value string) error {
 	return nil
 }
 
-// migrateLegacyIfAny is a TEMPORARY STUB for WU6.
-// Real implementation lands in WU13 (Plan Task 18).
-// For now: check _meta, mark fresh install if empty, else no-op.
-func (sp *SQLitePersistent) migrateLegacyIfAny() error {
-	cur, err := readMeta(sp.Client, METAKEY_MIGRATED_FROM)
-	if err != nil {
-		return err
-	}
-	if cur != "" {
-		return nil
-	}
-	return writeMeta(sp.Client, METAKEY_MIGRATED_FROM, META_FRESH_INSTALL)
-}
 
 // ─── Cluster ──────────────────────────────────────────────────────────────────
 
