@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/hjson/hjson-go/v4"
@@ -41,6 +42,51 @@ func ResetForTest() {
 	GlobalConfig = CKManConfig{}
 	appliers = nil
 	lastAppliedHash = ""
+}
+
+// mergeFromNacos 将 remote 中非 bootstrap、非保留段的非零字段覆盖到 local。
+// 规则见 docs/superpowers/specs/2026-05-16-nacos-config-hotreload-design.md。
+func mergeFromNacos(local, remote *CKManConfig) {
+	// 1. Log：DeepEqual 零值判定后整段覆盖
+	if !reflect.DeepEqual(remote.Log, CKManLogConfig{}) {
+		local.Log = remote.Log
+	}
+
+	// 2. Cron：同上
+	if !reflect.DeepEqual(remote.Cron, CronJob{}) {
+		local.Cron = remote.Cron
+	}
+
+	// 3. ClickHouse：同上
+	if !reflect.DeepEqual(remote.ClickHouse, ClickHouseOpts{}) {
+		local.ClickHouse = remote.ClickHouse
+	}
+
+	// 4. Server 段内非 bootstrap 字段：单字段非零时覆盖（不能整段 DeepEqual）。
+	if remote.Server.SessionTimeout != 0 {
+		local.Server.SessionTimeout = remote.Server.SessionTimeout
+	}
+	if remote.Server.SwaggerEnable {
+		local.Server.SwaggerEnable = remote.Server.SwaggerEnable
+	}
+	if remote.Server.PublicKey != "" {
+		local.Server.PublicKey = remote.Server.PublicKey
+	}
+	if remote.Server.TaskInterval != 0 {
+		local.Server.TaskInterval = remote.Server.TaskInterval
+	}
+	if remote.Server.Metric {
+		local.Server.Metric = remote.Server.Metric
+	}
+	if remote.Server.MetricPath != "" {
+		local.Server.MetricPath = remote.Server.MetricPath
+	}
+	if remote.Server.Pprof {
+		local.Server.Pprof = remote.Server.Pprof
+	}
+
+	// ConfigFile / Version / Nacos / Server.Ip,Port,Https,Cert,Key,PkgPath / PersistentPolicy /
+	// PersistentConfig 永不覆盖。
 }
 
 // parseRemote 按本地配置文件后缀解析 Nacos 推送的内容。
