@@ -58,11 +58,16 @@ func DumpFromDB(dbPath, outPath string) error {
 	return nil
 }
 
+// trimExtBase 只剥已知 legacy-format 扩展名（.json/.yaml/.yml）。
+// 不剥任意"看似扩展名"的后缀 —— 否则 timestamp 形态（如 .20260516-032940）
+// 会被误识为扩展名导致信息丢失。
 func trimExtBase(p string) string {
 	base := filepath.Base(p)
 	ext := filepath.Ext(base)
-	if ext == "" {
+	switch ext {
+	case ".json", ".yaml", ".yml":
+		return base[:len(base)-len(ext)]
+	default:
 		return base
 	}
-	return base[:len(base)-len(ext)]
 }
