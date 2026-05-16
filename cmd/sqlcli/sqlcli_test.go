@@ -1,8 +1,11 @@
 package sqlcli
 
 import (
+	"bytes"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/housepower/ckman/log"
 )
@@ -99,5 +102,100 @@ func TestTranslate_PassThrough(t *testing.T) {
 	in := "SELECT * FROM tbl_cluster WHERE cluster_name = 'ck1'"
 	if got := Translate(in, BackendSQLite); got != in {
 		t.Errorf("expected pass-through, got %q", got)
+	}
+}
+
+func sampleRows() ([]string, [][]interface{}) {
+	cols := []string{"id", "name", "comment", "created_at"}
+	rows := [][]interface{}{
+		{int64(1), "ck1", "prod", time.Date(2026, 5, 16, 10, 30, 45, 0, time.UTC)},
+		{int64(2), "ck2", nil, time.Date(2026, 5, 16, 11, 2, 11, 0, time.UTC)},
+	}
+	return cols, rows
+}
+
+func TestRender_Table_Basic(t *testing.T) {
+	cols, rows := sampleRows()
+	var buf bytes.Buffer
+	RenderTable(&buf, cols, rows, RenderOptions{})
+	out := buf.String()
+	for _, want := range []string{"id", "name", "comment", "ck1", "ck2", "(NULL)"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("table missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+func TestRender_Table_Truncate(t *testing.T) {
+	cols := []string{"v"}
+	longStr := strings.Repeat("x", 100)
+	rows := [][]interface{}{{longStr}}
+	var buf bytes.Buffer
+	RenderTable(&buf, cols, rows, RenderOptions{TruncateAt: 60})
+	out := buf.String()
+	if strings.Contains(out, longStr) {
+		t.Errorf("expected truncation, got full string in:\n%s", out)
+	}
+	if !strings.Contains(out, "...") {
+		t.Errorf("expected ellipsis marker")
+	}
+}
+
+func TestRender_Vertical_Basic(t *testing.T) {
+	cols, rows := sampleRows()
+	var buf bytes.Buffer
+	RenderVertical(&buf, cols, rows, RenderOptions{})
+	out := buf.String()
+	if !strings.Contains(out, "1. row") || !strings.Contains(out, "2. row") {
+		t.Errorf("vertical missing row markers:\n%s", out)
+	}
+	if !strings.Contains(out, "id:") || !strings.Contains(out, "name:") {
+		t.Errorf("vertical missing field labels")
+	}
+}
+
+func TestRender_JSON_NullAndTime(t *testing.T) {
+	cols, rows := sampleRows()
+	var buf bytes.Buffer
+	RenderJSON(&buf, cols, rows)
+	out := buf.String()
+	// NDJSON: one JSON object per line
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 NDJSON lines, got %d", len(lines))
+	}
+	if !strings.Contains(lines[1], `"comment":null`) {
+		t.Errorf("NULL not rendered as JSON null: %s", lines[1])
+	}
+	if !strings.Contains(lines[0], `"created_at":"2026-05-16T10:30:45Z"`) {
+		t.Errorf("time not RFC3339 in: %s", lines[0])
+	}
+}
+
+func TestRender_CSV_Escaping(t *testing.T) {
+	cols := []string{"a", "b"}
+	rows := [][]interface{}{
+		{"hello, world", `quote "inside"`},
+		{"line1\nline2", nil},
+	}
+	var buf bytes.Buffer
+	RenderCSV(&buf, cols, rows)
+	out := buf.String()
+	if !strings.Contains(out, `"hello, world"`) {
+		t.Errorf("comma not quoted: %s", out)
+	}
+	if !strings.Contains(out, `"quote ""inside"""`) {
+		t.Errorf("inner quote not escaped: %s", out)
+	}
+}
+
+func TestRender_JSON_NoHTMLEscape(t *testing.T) {
+	cols := []string{"sql"}
+	rows := [][]interface{}{{"a < 10 & b > 1"}}
+	var buf bytes.Buffer
+	RenderJSON(&buf, cols, rows)
+	out := buf.String()
+	if !strings.Contains(out, "a < 10 & b > 1") {
+		t.Errorf("expected raw HTML chars, got %s", out)
 	}
 }
