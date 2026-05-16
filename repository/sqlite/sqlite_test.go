@@ -181,3 +181,42 @@ func TestSQLite_QueryHistoryCRUD(t *testing.T) {
 		t.Fatalf("delete: %v", err)
 	}
 }
+
+func TestSQLite_TaskCRUD(t *testing.T) {
+	sp := newTestSP(t)
+	task := model.Task{TaskId: "t1", Status: model.TaskStatusWaiting, ServerIp: "1.2.3.4"}
+	if err := sp.CreateTask(task); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := sp.GetTaskbyTaskId("t1")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.TaskId != "t1" {
+		t.Fatalf("unexpected: %+v", got)
+	}
+
+	// While Waiting, GetPengdingTasks for matching IP should return it.
+	pending, _ := sp.GetPengdingTasks("1.2.3.4")
+	if len(pending) != 1 {
+		t.Fatalf("expected 1 pending task while waiting, got %d", len(pending))
+	}
+
+	task.Status = model.TaskStatusRunning
+	if err := sp.UpdateTask(task); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	pending2, _ := sp.GetPengdingTasks("1.2.3.4")
+	if len(pending2) != 0 {
+		t.Fatalf("running task should not be pending: %d", len(pending2))
+	}
+
+	if c := sp.GetEffectiveTaskCount(); c != 1 {
+		t.Fatalf("effective count: %d", c)
+	}
+
+	if err := sp.DeleteTask("t1"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+}

@@ -375,3 +375,93 @@ func (sp *SQLitePersistent) GetEarliestQuery(cluster string) (model.QueryHistory
 		QuerySql: tbl.QuerySql, CreateTime: tbl.CreateTime,
 	}, nil
 }
+
+// ─── Task ─────────────────────────────────────────────────────────────────────
+
+func (sp *SQLitePersistent) CreateTask(task model.Task) error {
+	task.CreateTime = time.Now()
+	task.UpdateTime = task.CreateTime
+	raw, err := json.Marshal(task)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tbl := TblTask{TaskId: task.TaskId, Status: task.Status, Task: string(raw)}
+	return wrapError(sp.Client.Create(&tbl).Error)
+}
+
+func (sp *SQLitePersistent) UpdateTask(task model.Task) error {
+	task.UpdateTime = time.Now()
+	raw, err := json.Marshal(task)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tx := sp.Client.Model(&TblTask{}).Where("task_id = ?", task.TaskId).Updates(map[string]interface{}{
+		"status": task.Status,
+		"config": string(raw),
+	})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) DeleteTask(id string) error {
+	return wrapError(sp.Client.Where("task_id = ?", id).Delete(&TblTask{}).Error)
+}
+
+func (sp *SQLitePersistent) GetAllTasks() ([]model.Task, error) {
+	var tbls []TblTask
+	if err := sp.Client.Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.Task, 0, len(tbls))
+	for _, tbl := range tbls {
+		var t model.Task
+		if err := json.Unmarshal([]byte(tbl.Task), &t); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		out = append(out, t)
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) GetEffectiveTaskCount() int64 {
+	var count int64
+	sp.Client.Model(&TblTask{}).
+		Where("status IN (?, ?)", model.TaskStatusRunning, model.TaskStatusWaiting).
+		Count(&count)
+	return count
+}
+
+func (sp *SQLitePersistent) GetPengdingTasks(serverIp string) ([]model.Task, error) {
+	var tbls []TblTask
+	if err := sp.Client.Where("status = ?", model.TaskStatusWaiting).Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.Task, 0, len(tbls))
+	for _, tbl := range tbls {
+		var task model.Task
+		if err := json.Unmarshal([]byte(tbl.Task), &task); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		if task.ServerIp == serverIp {
+			out = append(out, task)
+		}
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) GetTaskbyTaskId(id string) (model.Task, error) {
+	var tbl TblTask
+	if err := sp.Client.Where("task_id = ?", id).First(&tbl).Error; err != nil {
+		return model.Task{}, wrapError(err)
+	}
+	var task model.Task
+	if err := json.Unmarshal([]byte(tbl.Task), &task); err != nil {
+		return model.Task{}, errors.Wrap(err, "")
+	}
+	return task, nil
+}
