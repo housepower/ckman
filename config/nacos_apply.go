@@ -1,7 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"sync"
+
+	"github.com/hjson/hjson-go/v4"
+	"gopkg.in/yaml.v3"
 )
 
 // Applier 是热生效回调。old 为 merge 前的 GlobalConfig 快照，new 为 merge 后的 &GlobalConfig。
@@ -37,4 +41,23 @@ func ResetForTest() {
 	GlobalConfig = CKManConfig{}
 	appliers = nil
 	lastAppliedHash = ""
+}
+
+// parseRemote 按本地配置文件后缀解析 Nacos 推送的内容。
+// fmtExt 应为 ".hjson" / ".json" / ".yaml"；其他后缀返回错误。
+func parseRemote(data []byte, fmtExt string) (CKManConfig, error) {
+	var out CKManConfig
+	switch fmtExt {
+	case FORMAT_HJSON, FORMAT_JSON:
+		if err := hjson.Unmarshal(data, &out); err != nil {
+			return CKManConfig{}, err
+		}
+	case FORMAT_YAML:
+		if err := yaml.Unmarshal(data, &out); err != nil {
+			return CKManConfig{}, err
+		}
+	default:
+		return CKManConfig{}, fmt.Errorf("unsupported config format %q", fmtExt)
+	}
+	return out, nil
 }
