@@ -3,6 +3,7 @@ package sqlite
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	sqlitedriver "github.com/glebarez/sqlite"
 	"github.com/housepower/ckman/common"
@@ -277,4 +278,100 @@ func (sp *SQLitePersistent) UpdateLogicCluster(logic string, physics []string) e
 
 func (sp *SQLitePersistent) DeleteLogicCluster(clusterName string) error {
 	return wrapError(sp.Client.Where("logic_name = ?", clusterName).Delete(&TblLogic{}).Error)
+}
+
+// ─── QueryHistory ─────────────────────────────────────────────────────────────
+
+func (sp *SQLitePersistent) GetAllQueryHistory() (map[string]model.QueryHistory, error) {
+	var tbls []TblQueryHistory
+	if err := sp.Client.Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make(map[string]model.QueryHistory, len(tbls))
+	for _, tbl := range tbls {
+		out[tbl.CheckSum] = model.QueryHistory{
+			CheckSum: tbl.CheckSum, Cluster: tbl.Cluster,
+			QuerySql: tbl.QuerySql, CreateTime: tbl.CreateTime,
+		}
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) GetQueryHistoryByCluster(cluster string) ([]model.QueryHistory, error) {
+	var tbls []TblQueryHistory
+	if err := sp.Client.Where("cluster = ?", cluster).Order("create_time DESC").Limit(100).Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.QueryHistory, 0, len(tbls))
+	for _, tbl := range tbls {
+		out = append(out, model.QueryHistory{
+			CheckSum: tbl.CheckSum, Cluster: tbl.Cluster,
+			QuerySql: tbl.QuerySql, CreateTime: tbl.CreateTime,
+		})
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) GetQueryHistoryByCheckSum(checksum string) (model.QueryHistory, error) {
+	var tbl TblQueryHistory
+	if err := sp.Client.Where("checksum = ?", checksum).First(&tbl).Error; err != nil {
+		return model.QueryHistory{}, wrapError(err)
+	}
+	return model.QueryHistory{
+		CheckSum: tbl.CheckSum, Cluster: tbl.Cluster,
+		QuerySql: tbl.QuerySql, CreateTime: tbl.CreateTime,
+	}, nil
+}
+
+func (sp *SQLitePersistent) CreateQueryHistory(qh model.QueryHistory) error {
+	qh.CreateTime = time.Now()
+	tbl := TblQueryHistory{
+		CheckSum: qh.CheckSum, Cluster: qh.Cluster,
+		QuerySql: qh.QuerySql, CreateTime: qh.CreateTime,
+	}
+	return wrapError(sp.Client.Create(&tbl).Error)
+}
+
+func (sp *SQLitePersistent) UpdateQueryHistory(qh model.QueryHistory) error {
+	qh.CreateTime = time.Now()
+	tx := sp.Client.Model(&TblQueryHistory{}).Where("checksum = ?", qh.CheckSum).Updates(map[string]interface{}{
+		"cluster":     qh.Cluster,
+		"query":       qh.QuerySql,
+		"create_time": qh.CreateTime,
+	})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) DeleteQueryHistory(checksum string) error {
+	tx := sp.Client.Where("checksum = ?", checksum).Delete(&TblQueryHistory{})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) GetQueryHistoryCount(cluster string) int64 {
+	var count int64
+	sp.Client.Model(&TblQueryHistory{}).Where("cluster = ?", cluster).Count(&count)
+	return count
+}
+
+func (sp *SQLitePersistent) GetEarliestQuery(cluster string) (model.QueryHistory, error) {
+	var tbl TblQueryHistory
+	if err := sp.Client.Where("cluster = ?", cluster).Order("create_time ASC").First(&tbl).Error; err != nil {
+		return model.QueryHistory{}, wrapError(err)
+	}
+	return model.QueryHistory{
+		CheckSum: tbl.CheckSum, Cluster: tbl.Cluster,
+		QuerySql: tbl.QuerySql, CreateTime: tbl.CreateTime,
+	}, nil
 }

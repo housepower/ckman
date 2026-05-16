@@ -138,3 +138,46 @@ func TestSQLite_TxRollback(t *testing.T) {
 		t.Fatalf("expected ErrRecordNotFound, got %v", err)
 	}
 }
+
+func TestSQLite_QueryHistoryCRUD(t *testing.T) {
+	sp := newTestSP(t)
+	qh := model.QueryHistory{CheckSum: "qh1", Cluster: "ck1", QuerySql: "SELECT 1"}
+	if err := sp.CreateQueryHistory(qh); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := sp.GetQueryHistoryByCheckSum("qh1")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.QuerySql != "SELECT 1" {
+		t.Fatalf("unexpected: %+v", got)
+	}
+
+	qh.QuerySql = "SELECT 2"
+	if err := sp.UpdateQueryHistory(qh); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	got2, _ := sp.GetQueryHistoryByCheckSum("qh1")
+	if got2.QuerySql != "SELECT 2" {
+		t.Fatalf("update lost: %+v", got2)
+	}
+
+	if c := sp.GetQueryHistoryCount("ck1"); c != 1 {
+		t.Fatalf("count: %d", c)
+	}
+	all, _ := sp.GetAllQueryHistory()
+	if len(all) != 1 {
+		t.Fatalf("all: %d", len(all))
+	}
+	byCluster, _ := sp.GetQueryHistoryByCluster("ck1")
+	if len(byCluster) != 1 {
+		t.Fatalf("by cluster: %d", len(byCluster))
+	}
+	if _, err := sp.GetEarliestQuery("ck1"); err != nil {
+		t.Fatalf("earliest: %v", err)
+	}
+
+	if err := sp.DeleteQueryHistory("qh1"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+}
