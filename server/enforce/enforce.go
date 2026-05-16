@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/repository"
 )
 
 const (
@@ -24,9 +25,9 @@ type Model struct {
 }
 
 type Enforcer struct {
-	model   Model
-	guest   []Policy
-	orinary []Policy
+	model    Model
+	guest    []Policy
+	ordinary []Policy
 }
 
 var DefaultModel = Model{
@@ -39,9 +40,9 @@ var e *Enforcer
 
 func init() {
 	e = &Enforcer{
-		model:   DefaultModel,
-		guest:   GuestPolicies(),
-		orinary: OrdinaryPolicies(),
+		model:    DefaultModel,
+		guest:    GuestPolicies(),
+		ordinary: OrdinaryPolicies(),
 	}
 }
 
@@ -67,17 +68,21 @@ func Enforce(username, url, method string) bool {
 
 	var policies []Policy
 	if username == common.InternalOrdinaryName {
-		policies = e.orinary
+		policies = e.ordinary
 	} else {
-		userinfo, err := common.GetUserInfo(username)
-		if err != nil {
+		user, err := repository.Ps.GetUserByName(username)
+		if err != nil || !user.Enabled {
 			return false
 		}
-		switch userinfo.Policy {
+		switch user.Policy {
 		case common.GUEST:
 			policies = e.guest
 		case common.ORDINARY:
-			policies = e.orinary
+			policies = e.ordinary
+		case common.ADMIN:
+			return true
+		default:
+			return false
 		}
 	}
 	for _, policy := range policies {

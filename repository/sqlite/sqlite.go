@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/housepower/ckman/common"
@@ -80,6 +81,7 @@ func (sp *SQLitePersistent) Init(cfgIn interface{}) error {
 		&TblBackupPolicy{},
 		&TblBackupRun{},
 		&TblMeta{},
+		&TblUser{},
 	); err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -882,6 +884,80 @@ func decodeBackupRuns(tbls []TblBackupRun) ([]model.BackupRun, error) {
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+func (sp *SQLitePersistent) UserExists(username string) bool {
+	_, err := sp.GetUserByName(username)
+	return err == nil
+}
+
+func (sp *SQLitePersistent) GetUserByName(username string) (model.CkmanUser, error) {
+	var tbl TblUser
+	if err := sp.Client.Where("username = ?", username).First(&tbl).Error; err != nil {
+		return model.CkmanUser{}, wrapError(err)
+	}
+	return tblUserToModel(tbl), nil
+}
+
+func (sp *SQLitePersistent) GetAllUsers() ([]model.CkmanUser, error) {
+	var tbls []TblUser
+	if err := sp.Client.Order("username ASC").Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.CkmanUser, 0, len(tbls))
+	for _, t := range tbls {
+		out = append(out, tblUserToModel(t))
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) CreateUser(u model.CkmanUser) error {
+	tbl := TblUser{
+		Username:     u.Username,
+		PasswordHash: u.PasswordHash,
+		Policy:       u.Policy,
+		Enabled:      u.Enabled,
+	}
+	if err := sp.Client.Create(&tbl).Error; err != nil {
+		if isUniqueViolation(err) {
+			return repository.ErrRecordExists
+		}
+		return wrapError(err)
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) UpdateUser(u model.CkmanUser) error {
+	updates := map[string]interface{}{
+		"password_hash": u.PasswordHash,
+		"policy":        u.Policy,
+		"enabled":       u.Enabled,
+	}
+	tx := sp.Client.Model(&TblUser{}).Where("username = ?", u.Username).Updates(updates)
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) DeleteUser(username string) error {
+	tx := sp.Client.Unscoped().Where("username = ?", username).Delete(&TblUser{})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func isUniqueViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }
 
 // Compile-time guarantee that *SQLitePersistent satisfies PersistentMgr.

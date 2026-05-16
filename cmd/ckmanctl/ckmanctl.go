@@ -2,7 +2,6 @@ package main
 
 /*
 ckmanctl migrate -f /etc/ckman/conf/migrate.hjson
-ckmanctl password
 ckmanctl get znodes --path
 ckmanctl delete znodes  cluster suball
 ckmanctl delete znodes  cluster replica_queue
@@ -18,7 +17,6 @@ import (
 	"github.com/housepower/ckman/cmd/dumpjson"
 	"github.com/housepower/ckman/cmd/metacache"
 	"github.com/housepower/ckman/cmd/migrate"
-	"github.com/housepower/ckman/cmd/password"
 	"github.com/housepower/ckman/cmd/sqlcli"
 	"github.com/housepower/ckman/cmd/upgrade"
 	"github.com/housepower/ckman/cmd/znodes"
@@ -42,8 +40,6 @@ var (
 	sql_vertical = sqlCmd.Flag("vertical", "render rows vertically (mysql \\G)").Short('E').Bool()
 	sql_notrunc  = sqlCmd.Flag("no-truncate", "do not truncate long cell values").Short('N').Bool()
 
-	passCmd = kingpin.Command("password", "encrypt password")
-	p_cwd   = passCmd.Flag("cwd", "current working directory").Short('p').Default("/etc/ckman").String()
 	// ckmanctl get znodes /clickhouse/tables/chenyc1 -r -s 20
 	getCmd       = kingpin.Command("get", "get options")
 	g_znodes     = getCmd.Command("znodes", "get znodes")
@@ -91,8 +87,6 @@ func main() {
 		migrate.MigrateHandle(*m_conf)
 	case "dump-to-json":
 		runDumpToJSON(*d_conf, *d_output)
-	case "password":
-		password.PasswordHandle(*p_cwd)
 	case "get":
 		znodes.ZCntHandle(znodes.ZCntOpts{
 			Path:       *gz_path,

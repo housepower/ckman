@@ -71,6 +71,7 @@ func (mp *DM8Persistent) Init(config interface{}) error {
 		&TblBackup{},
 		&TblBackupPolicy{},
 		&TblBackupRun{},
+		&TblUser{}, // Phase 1 用户管理
 	)
 	if err != nil {
 		return errors.Wrap(err, "")
@@ -903,6 +904,86 @@ func (mp *DM8Persistent) GetAllBackupRuns() ([]model.BackupRun, error) {
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+func (mp *DM8Persistent) UserExists(username string) bool {
+	_, err := mp.GetUserByName(username)
+	return err == nil
+}
+
+func (mp *DM8Persistent) GetUserByName(username string) (model.CkmanUser, error) {
+	var tbl TblUser
+	if err := mp.Client.Where("username = ?", username).First(&tbl).Error; err != nil {
+		return model.CkmanUser{}, wrapError(err)
+	}
+	return tblUserToModel(tbl), nil
+}
+
+func (mp *DM8Persistent) GetAllUsers() ([]model.CkmanUser, error) {
+	var tbls []TblUser
+	if err := mp.Client.Order("username ASC").Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.CkmanUser, 0, len(tbls))
+	for _, t := range tbls {
+		out = append(out, tblUserToModel(t))
+	}
+	return out, nil
+}
+
+func (mp *DM8Persistent) CreateUser(u model.CkmanUser) error {
+	tbl := TblUser{
+		Username:     u.Username,
+		PasswordHash: u.PasswordHash,
+		Policy:       u.Policy,
+		Enabled:      u.Enabled,
+	}
+	if err := mp.Client.Create(&tbl).Error; err != nil {
+		if isUniqueViolationDM8(err) {
+			return repository.ErrRecordExists
+		}
+		return wrapError(err)
+	}
+	return nil
+}
+
+func (mp *DM8Persistent) UpdateUser(u model.CkmanUser) error {
+	updates := map[string]interface{}{
+		"password_hash": u.PasswordHash,
+		"policy":        u.Policy,
+		"enabled":       u.Enabled,
+	}
+	tx := mp.Client.Model(&TblUser{}).Where("username = ?", u.Username).Updates(updates)
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (mp *DM8Persistent) DeleteUser(username string) error {
+	tx := mp.Client.Unscoped().Where("username = ?", username).Delete(&TblUser{})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func isUniqueViolationDM8(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "ORA-00001") ||
+		strings.Contains(msg, "唯一性约束") ||
+		strings.Contains(msg, "unique constraint")
 }
 
 func NewDM8Persistent() *DM8Persistent {

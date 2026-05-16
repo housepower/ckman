@@ -9,4 +9,6 @@ const (
 	DM8_MAX_OPEN_CONNS_DEFAULT int    = 100
 	DM8_MAX_LIFETIME_DEFAULT   int    = 3600
 	DM8_MAX_IDLE_TIME_DEFAULT  int    = 10
+
+	DM8_TBL_USER string = "tbl_user"
 )

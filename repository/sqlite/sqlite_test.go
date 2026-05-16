@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
@@ -535,4 +537,171 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+func TestSeedAdminFromInitPersistent(t *testing.T) {
+	// Stage a temp config so InitPersistent picks SQLite.
+	dir := t.TempDir()
+	saved := config.GlobalConfig
+	t.Cleanup(func() { config.GlobalConfig = saved })
+
+	config.GlobalConfig.Server.PersistentPolicy = SQLitePersistentName
+	config.GlobalConfig.PersistentConfig = map[string]map[string]interface{}{
+		SQLitePersistentName: {
+			"config_dir":  dir,
+			"config_file": "test.db",
+		},
+	}
+	repository.Ps = nil
+	if err := repository.InitPersistent(); err != nil {
+		t.Fatalf("first InitPersistent failed: %v", err)
+	}
+
+	got, err := repository.Ps.GetUserByName(common.DefaultAdminName)
+	if err != nil {
+		t.Fatalf("admin not seeded: %v", err)
+	}
+	if got.Policy != common.ADMIN {
+		t.Errorf("expected admin policy, got %q", got.Policy)
+	}
+	if !got.Enabled {
+		t.Errorf("expected enabled=true")
+	}
+
+	// Idempotent: re-initializing must not duplicate or fail.
+	repository.Ps = nil
+	if err := repository.InitPersistent(); err != nil {
+		t.Fatalf("second InitPersistent failed: %v", err)
+	}
+	all, err := repository.Ps.GetAllUsers()
+	if err != nil {
+		t.Fatalf("get all users failed: %v", err)
+	}
+	if len(all) != 1 {
+		t.Errorf("expected 1 user after re-init, got %d", len(all))
+	}
+}
+
+func TestUserCRUD(t *testing.T) {
+	sp := newTestSP(t)
+
+	user := model.CkmanUser{
+		Username:     "alice",
+		PasswordHash: "hashvalue",
+		Policy:       "ordinary",
+		Enabled:      true,
+	}
+	if err := sp.CreateUser(user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	if !sp.UserExists("alice") {
+		t.Fatalf("UserExists should return true")
+	}
+
+	got, err := sp.GetUserByName("alice")
+	if err != nil {
+		t.Fatalf("GetUserByName: %v", err)
+	}
+	if got.Username != "alice" {
+		t.Fatalf("unexpected username: %q", got.Username)
+	}
+	if got.Policy != "ordinary" {
+		t.Fatalf("unexpected policy: %q", got.Policy)
+	}
+	if !got.Enabled {
+		t.Fatalf("expected enabled=true")
+	}
+
+	// Duplicate insert → ErrRecordExists
+	err = sp.CreateUser(user)
+	if !errors.Is(err, repository.ErrRecordExists) {
+		t.Fatalf("expected ErrRecordExists, got %v", err)
+	}
+
+	// Update
+	user.Policy = "guest"
+	user.Enabled = false
+	user.PasswordHash = "newhash"
+	if err := sp.UpdateUser(user); err != nil {
+		t.Fatalf("UpdateUser: %v", err)
+	}
+	got2, _ := sp.GetUserByName("alice")
+	if got2.Policy != "guest" {
+		t.Fatalf("policy not updated: %q", got2.Policy)
+	}
+	if got2.Enabled {
+		t.Fatalf("expected enabled=false")
+	}
+	if got2.PasswordHash != "newhash" {
+		t.Fatalf("password_hash not updated: %q", got2.PasswordHash)
+	}
+
+	// GetAll
+	all, err := sp.GetAllUsers()
+	if err != nil {
+		t.Fatalf("GetAllUsers: %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("expected 1 user, got %d", len(all))
+	}
+
+	// Delete
+	if err := sp.DeleteUser("alice"); err != nil {
+		t.Fatalf("DeleteUser: %v", err)
+	}
+	if sp.UserExists("alice") {
+		t.Fatalf("UserExists should return false after delete")
+	}
+	_, err = sp.GetUserByName("alice")
+	if !errors.Is(err, repository.ErrRecordNotFound) {
+		t.Fatalf("expected ErrRecordNotFound, got %v", err)
+	}
+
+	// Delete missing → ErrRecordNotFound
+	err = sp.DeleteUser("ghost")
+	if !errors.Is(err, repository.ErrRecordNotFound) {
+		t.Fatalf("expected ErrRecordNotFound for ghost, got %v", err)
+	}
+}
+
+func TestCreateAfterDeleteAllowsReuse(t *testing.T) {
+	sp := newTestSP(t)
+
+	user := model.CkmanUser{
+		Username:     "alice",
+		PasswordHash: "h1",
+		Policy:       "ordinary",
+		Enabled:      true,
+	}
+	if err := sp.CreateUser(user); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if err := sp.DeleteUser("alice"); err != nil {
+		t.Fatalf("DeleteUser: %v", err)
+	}
+
+	// Same username must be reusable after delete (proves hard delete).
+	user2 := model.CkmanUser{
+		Username:     "alice",
+		PasswordHash: "h2",
+		Policy:       "guest",
+		Enabled:      false,
+	}
+	if err := sp.CreateUser(user2); err != nil {
+		t.Fatalf("CreateUser after delete: %v", err)
+	}
+
+	got, err := sp.GetUserByName("alice")
+	if err != nil {
+		t.Fatalf("GetUserByName: %v", err)
+	}
+	if got.Policy != "guest" {
+		t.Fatalf("expected policy=guest, got %q", got.Policy)
+	}
+	if got.PasswordHash != "h2" {
+		t.Fatalf("expected password_hash=h2, got %q", got.PasswordHash)
+	}
+	if got.Enabled {
+		t.Fatalf("expected enabled=false")
+	}
 }

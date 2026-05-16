@@ -109,6 +109,25 @@ func (mp *PostgresPersistent) Init(config interface{}) error {
 			return errors.Wrap(err, "create backup tables")
 		}
 	}
+
+	// tbl_user: Phase 1 用户管理
+	userTblSQLs := []string{
+		`CREATE TABLE IF NOT EXISTS tbl_user (
+			id            SERIAL PRIMARY KEY,
+			created_at    TIMESTAMP,
+			updated_at    TIMESTAMP,
+			username      VARCHAR(32) NOT NULL,
+			password_hash VARCHAR(64) NOT NULL,
+			policy        VARCHAR(16) NOT NULL,
+			enabled       BOOLEAN NOT NULL DEFAULT true
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_name ON tbl_user(username)`,
+	}
+	for _, sql := range userTblSQLs {
+		if err := mp.Client.Exec(sql).Error; err != nil {
+			return errors.Wrap(err, "create user table")
+		}
+	}
 	return nil
 }
 
@@ -932,6 +951,80 @@ func (mp *PostgresPersistent) GetAllBackupRuns() ([]model.BackupRun, error) {
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+func (mp *PostgresPersistent) UserExists(username string) bool {
+	_, err := mp.GetUserByName(username)
+	return err == nil
+}
+
+func (mp *PostgresPersistent) GetUserByName(username string) (model.CkmanUser, error) {
+	var tbl TblUser
+	if err := mp.Client.Where("username = ?", username).First(&tbl).Error; err != nil {
+		return model.CkmanUser{}, wrapError(err)
+	}
+	return tblUserToModel(tbl), nil
+}
+
+func (mp *PostgresPersistent) GetAllUsers() ([]model.CkmanUser, error) {
+	var tbls []TblUser
+	if err := mp.Client.Order("username ASC").Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.CkmanUser, 0, len(tbls))
+	for _, t := range tbls {
+		out = append(out, tblUserToModel(t))
+	}
+	return out, nil
+}
+
+func (mp *PostgresPersistent) CreateUser(u model.CkmanUser) error {
+	tbl := TblUser{
+		Username:     u.Username,
+		PasswordHash: u.PasswordHash,
+		Policy:       u.Policy,
+		Enabled:      u.Enabled,
+	}
+	if err := mp.Client.Create(&tbl).Error; err != nil {
+		if isUniqueViolationPostgres(err) {
+			return repository.ErrRecordExists
+		}
+		return wrapError(err)
+	}
+	return nil
+}
+
+func (mp *PostgresPersistent) UpdateUser(u model.CkmanUser) error {
+	updates := map[string]interface{}{
+		"password_hash": u.PasswordHash,
+		"policy":        u.Policy,
+		"enabled":       u.Enabled,
+	}
+	tx := mp.Client.Model(&TblUser{}).Where("username = ?", u.Username).Updates(updates)
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (mp *PostgresPersistent) DeleteUser(username string) error {
+	tx := mp.Client.Where("username = ?", username).Delete(&TblUser{})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func isUniqueViolationPostgres(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "duplicate key value")
 }
 
 func NewPostgresPersistent() *PostgresPersistent {

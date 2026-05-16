@@ -3,7 +3,9 @@ package repository
 import (
 	"time"
 
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
 )
@@ -99,6 +101,15 @@ type PersistentBackupRunService interface {
 	GetAllBackupRuns() ([]model.BackupRun, error)
 }
 
+type PersistentUserService interface {
+	GetUserByName(username string) (model.CkmanUser, error)
+	UserExists(username string) bool
+	GetAllUsers() ([]model.CkmanUser, error)
+	CreateUser(u model.CkmanUser) error
+	UpdateUser(u model.CkmanUser) error
+	DeleteUser(username string) error
+}
+
 type PersistentMgr interface {
 	PersistentBase
 	PersistentClusterService
@@ -108,6 +119,7 @@ type PersistentMgr interface {
 	PersistentBackupService           // 老接口保留
 	PersistentBackupPolicyService     // 新增
 	PersistentBackupRunService        // 新增
+	PersistentUserService             // 新增 — Phase 1 用户管理
 }
 
 func RegistePersistent(fn func() PersistentFactory) {
@@ -126,6 +138,36 @@ func GetPersistentByName(name string) PersistentMgr {
 	if factory, ok := PersistentRegistry[name]; ok {
 		return factory.CreatePersistent()
 	}
+	return nil
+}
+
+func seedAdminIfAbsent() error {
+	if Ps.UserExists(common.DefaultAdminName) {
+		return nil
+	}
+	md5pw := common.Md5CheckSum(common.DefaultAdminPassword)
+	hash, err := common.HashPassword(md5pw)
+	if err != nil {
+		return errors.Wrap(err, "hash default admin password")
+	}
+	now := time.Now().Unix()
+	err = Ps.CreateUser(model.CkmanUser{
+		Username:     common.DefaultAdminName,
+		PasswordHash: hash,
+		Policy:       common.ADMIN,
+		Enabled:      true,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	})
+	if err != nil {
+		if errors.Is(err, ErrRecordExists) {
+			return nil // multi-instance race: another instance won, treat as success
+		}
+		return err
+	}
+	log.Logger.Warnf("bootstrap: seeded admin user %q with default password %q.",
+		common.DefaultAdminName, common.DefaultAdminPassword)
+	log.Logger.Warnf("bootstrap: please log in via Web UI and change the password immediately.")
 	return nil
 }
 
@@ -149,5 +191,5 @@ func InitPersistent() error {
 	if err := Ps.Init(pcfg); err != nil {
 		return err
 	}
-	return nil
+	return seedAdminIfAbsent()
 }

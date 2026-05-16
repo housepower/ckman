@@ -13,6 +13,7 @@ const (
 	SQLITE_TBL_BACKUP_POLICY = "tbl_backup_policy"
 	SQLITE_TBL_BACKUP_RUN    = "tbl_backup_run"
 	SQLITE_TBL_META          = "tbl_meta"
+	SQLITE_TBL_USER          = "tbl_user"
 )
 
 const (

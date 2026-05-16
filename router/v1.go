@@ -76,6 +76,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	uiController.RegistSchemaInstance()
 	taskController := controller.NewTaskController(WrapMsg)
 	dataManageController := controller.NewDataManageController(config, WrapMsg)
+	userController := controller.NewUserController(config, WrapMsg)
 
 	groupV1.POST("/ck/cluster", ckController.ImportCluster)
 	groupV1.GET("/ck/cluster", ckController.GetClusters)
@@ -166,4 +167,12 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.GET(fmt.Sprintf("/data_manage/backup/table/:%s/:database/:table/runs", controller.ClickHouseClusterPath), dataManageController.ListRunsByTable)
 	groupV1.GET(fmt.Sprintf("/data_manage/disks/:%s", controller.ClickHouseClusterPath), dataManageController.GetClusterDisks)
 	groupV1.GET(fmt.Sprintf("/data_manage/tables/:%s/:database/summary", controller.ClickHouseClusterPath), dataManageController.GetTablePartitionSummary)
+
+	groupV1.GET("/user/me", userController.Me)
+	groupV1.PUT("/user/password", userController.ChangeMyPassword)
+	groupV1.GET("/users", userController.List)
+	groupV1.POST("/users", userController.Create)
+	groupV1.PUT(fmt.Sprintf("/users/:%s", controller.UsernamePath), userController.Update)
+	groupV1.DELETE(fmt.Sprintf("/users/:%s", controller.UsernamePath), userController.Delete)
+	groupV1.PUT(fmt.Sprintf("/users/:%s/password", controller.UsernamePath), userController.ResetPassword)
 }

@@ -3,8 +3,8 @@ module github.com/housepower/ckman
 go 1.24
 
 require (
-	github.com/chzyer/readline v1.5.1
 	github.com/MakeNowJust/heredoc v1.0.0
+	github.com/chzyer/readline v1.5.1
 	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -28,7 +28,6 @@ require (
 	github.com/valyala/fastjson v1.6.3
 	go.uber.org/zap v1.25.0
 	golang.org/x/crypto v0.21.0
-	golang.org/x/term v0.18.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/sevlyar/go-daemon.v0 v0.1.5
 )
