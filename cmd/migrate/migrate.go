@@ -27,11 +27,6 @@ type MigrateConfig struct {
 	PsConf map[string]PersistentConfig `json:"persistent_config"`
 }
 
-var (
-	psrc repository.PersistentMgr
-	pdst repository.PersistentMgr
-)
-
 func ParseConfig(conf string) (MigrateConfig, error) {
 	var config MigrateConfig
 	f, err := os.Open(conf)
@@ -71,84 +66,90 @@ func PersistentCheck(config MigrateConfig, typo string) (repository.PersistentMg
 	return ps, nil
 }
 
-func Migrate() error {
-	clusters, err := psrc.GetAllClusters()
+func MigrateBetween(src, dst repository.PersistentMgr) error {
+	clusters, err := src.GetAllClusters()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get clusters")
 	}
-
 	if len(clusters) == 0 {
 		log.Logger.Warnf("clusters have 0 records, will migrate nothing")
 	}
 
-	logics, err := psrc.GetAllLogicClusters()
+	logics, err := src.GetAllLogicClusters()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get logics")
 	}
-
-	historys, err := psrc.GetAllQueryHistory()
+	historys, err := src.GetAllQueryHistory()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get query history")
 	}
-
-	tasks, err := psrc.GetAllTasks()
+	tasks, err := src.GetAllTasks()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get tasks")
 	}
-
 	var backups []model.Backup
 	for _, conf := range clusters {
-		b, err := psrc.GetAllBackups(conf.Cluster)
+		b, err := src.GetAllBackups(conf.Cluster)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "get backups")
 		}
 		backups = append(backups, b...)
 	}
-
-	if err = pdst.Begin(); err != nil {
-		return errors.Wrap(err, "")
+	policies, err := src.GetAllBackupPolicies()
+	if err != nil {
+		return errors.Wrap(err, "get backup policies")
 	}
+	runs, err := src.GetAllBackupRuns()
+	if err != nil {
+		return errors.Wrap(err, "get backup runs")
+	}
+
+	if err = dst.Begin(); err != nil {
+		return errors.Wrap(err, "begin")
+	}
+	rollback := func(e error) error {
+		_ = dst.Rollback()
+		return errors.Wrap(e, "")
+	}
+
 	for _, cluster := range clusters {
-		err = pdst.CreateCluster(cluster)
-		if err != nil {
-			_ = pdst.Rollback()
-			return errors.Wrap(err, "")
+		if err = dst.CreateCluster(cluster); err != nil {
+			return rollback(err)
 		}
 	}
 	for logic, physics := range logics {
-		err = pdst.CreateLogicCluster(logic, physics)
-		if err != nil {
-			_ = pdst.Rollback()
-			return errors.Wrap(err, "")
+		if err = dst.CreateLogicCluster(logic, physics); err != nil {
+			return rollback(err)
 		}
 	}
-
 	for _, v := range historys {
-		err = pdst.CreateQueryHistory(v)
-		if err != nil {
-			_ = pdst.Rollback()
-			return errors.Wrap(err, "")
+		if err = dst.CreateQueryHistory(v); err != nil {
+			return rollback(err)
 		}
 	}
-
 	for _, v := range tasks {
-		err = pdst.CreateTask(v)
-		if err != nil {
-			_ = pdst.Rollback()
-			return errors.Wrap(err, "")
+		if err = dst.CreateTask(v); err != nil {
+			return rollback(err)
 		}
 	}
-
 	for _, v := range backups {
-		err = pdst.CreateBackup(v)
-		if err != nil {
-			_ = pdst.Rollback()
-			return errors.Wrap(err, "")
+		if err = dst.CreateBackup(v); err != nil {
+			return rollback(err)
+		}
+	}
+	for _, p := range policies {
+		if err = dst.CreateBackupPolicy(p); err != nil {
+			return rollback(err)
+		}
+	}
+	for _, r := range runs {
+		if err = dst.CreateBackupRun(r); err != nil {
+			return rollback(err)
 		}
 	}
 
-	if err = pdst.Commit(); err != nil {
-		return errors.Wrap(err, "")
+	if err = dst.Commit(); err != nil {
+		return rollback(err)
 	}
 	return nil
 }
@@ -159,20 +160,19 @@ func MigrateHandle(conf string) {
 		fmt.Printf("parse config file %s failed: %v\n", conf, err)
 		return
 	}
-	psrc, err = PersistentCheck(config, config.Source)
+	src, err := PersistentCheck(config, config.Source)
 	if err != nil {
 		fmt.Printf("source [%s] err: %v\n", config.Source, err)
 		return
 	}
-	pdst, err = PersistentCheck(config, config.Target)
+	dst, err := PersistentCheck(config, config.Target)
 	if err != nil {
 		fmt.Printf("target [%s] err: %v\n", config.Target, err)
 		return
 	}
-
-	if err = Migrate(); err != nil {
+	if err := MigrateBetween(src, dst); err != nil {
 		fmt.Printf("migrate failed: %v\n", err)
 		return
 	}
-	fmt.Printf("Form [%s] migrate to [%s] success!\n", config.Source, config.Target)
+	fmt.Printf("From [%s] migrate to [%s] success!\n", config.Source, config.Target)
 }
