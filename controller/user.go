@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"path/filepath"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -9,6 +8,7 @@ import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/model"
+	"github.com/housepower/ckman/repository"
 	"github.com/patrickmn/go-cache"
 )
 
@@ -39,19 +39,21 @@ func NewUserController(config *config.CKManConfig, wrapfunc Wrapfunc) *UserContr
 // @Router /api/login [post]
 func (controller *UserController) Login(c *gin.Context) {
 	var req model.LoginReq
-	c.Request.Header.Get("")
-	common.LoadUsers(filepath.Dir(controller.config.ConfigFile))
 	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
 
-	userinfo, err := common.GetUserInfo(req.Username)
+	user, err := repository.Ps.GetUserByName(req.Username)
 	if err != nil {
 		controller.wrapfunc(c, model.E_USER_VERIFY_FAIL, err)
 		return
 	}
-	if pass := common.ComparePassword(userinfo.Password, req.Password); !pass {
+	if !user.Enabled {
+		controller.wrapfunc(c, model.E_LOGIN_DISABLED, nil)
+		return
+	}
+	if pass := common.ComparePassword(user.PasswordHash, req.Password); !pass {
 		controller.wrapfunc(c, model.E_PASSWORD_VERIFY_FAIL, nil)
 		return
 	}
@@ -60,7 +62,6 @@ func (controller *UserController) Login(c *gin.Context) {
 	claims := common.CustomClaims{
 		StandardClaims: jwt.StandardClaims{
 			IssuedAt: time.Now().Unix(),
-			// ExpiresAt: time.Now().Add(time.Second * time.Duration(d.config.Server.SessionTimeout)).Unix(),
 		},
 		Name:     req.Username,
 		ClientIP: c.ClientIP(),
@@ -72,10 +73,13 @@ func (controller *UserController) Login(c *gin.Context) {
 	}
 
 	rsp := model.LoginRsp{
-		Username: req.Username,
+		Username: user.Username,
 		Token:    token,
+		Policy:   user.Policy,
+		Enabled:  user.Enabled,
 	}
-	TokenCache.SetDefault(token, time.Now().Add(time.Second*time.Duration(controller.config.Server.SessionTimeout)).Unix())
+	TokenCache.SetDefault(token,
+		time.Now().Add(time.Second*time.Duration(controller.config.Server.SessionTimeout)).Unix())
 
 	controller.wrapfunc(c, model.E_SUCCESS, rsp)
 }
