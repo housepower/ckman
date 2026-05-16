@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	sqlitedriver "github.com/glebarez/sqlite"
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -146,4 +148,133 @@ func (sp *SQLitePersistent) migrateLegacyIfAny() error {
 		return nil
 	}
 	return writeMeta(sp.Client, METAKEY_MIGRATED_FROM, META_FRESH_INSTALL)
+}
+
+// ─── Cluster ──────────────────────────────────────────────────────────────────
+
+func (sp *SQLitePersistent) ClusterExists(cluster string) bool {
+	_, err := sp.GetClusterbyName(cluster)
+	return err == nil
+}
+
+func (sp *SQLitePersistent) GetClusterbyName(cluster string) (model.CKManClickHouseConfig, error) {
+	var tbl TblCluster
+	if err := sp.Client.Where("cluster_name = ?", cluster).First(&tbl).Error; err != nil {
+		return model.CKManClickHouseConfig{}, wrapError(err)
+	}
+	var conf model.CKManClickHouseConfig
+	if err := json.Unmarshal([]byte(tbl.Config), &conf); err != nil {
+		return model.CKManClickHouseConfig{}, errors.Wrap(err, "")
+	}
+	repository.DecodePasswd(&conf)
+	return conf, nil
+}
+
+func (sp *SQLitePersistent) GetAllClusters() (map[string]model.CKManClickHouseConfig, error) {
+	var tbls []TblCluster
+	if err := sp.Client.Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make(map[string]model.CKManClickHouseConfig, len(tbls))
+	for _, tbl := range tbls {
+		var conf model.CKManClickHouseConfig
+		if err := json.Unmarshal([]byte(tbl.Config), &conf); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		repository.DecodePasswd(&conf)
+		out[conf.Cluster] = conf
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) CreateCluster(conf model.CKManClickHouseConfig) error {
+	repository.EncodePasswd(&conf)
+	raw, err := json.Marshal(conf)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tbl := TblCluster{ClusterName: conf.Cluster, Config: string(raw)}
+	return wrapError(sp.Client.Create(&tbl).Error)
+}
+
+func (sp *SQLitePersistent) UpdateCluster(conf model.CKManClickHouseConfig) error {
+	repository.EncodePasswd(&conf)
+	raw, err := json.Marshal(conf)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tx := sp.Client.Model(&TblCluster{}).Where("cluster_name = ?", conf.Cluster).Updates(map[string]interface{}{
+		"config": string(raw),
+	})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) DeleteCluster(clusterName string) error {
+	return wrapError(sp.Client.Where("cluster_name = ?", clusterName).Delete(&TblCluster{}).Error)
+}
+
+// ─── Logic Cluster ────────────────────────────────────────────────────────────
+
+func (sp *SQLitePersistent) GetLogicClusterbyName(logic string) ([]string, error) {
+	var tbl TblLogic
+	if err := sp.Client.Where("logic_name = ?", logic).First(&tbl).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	var physics []string
+	if err := json.Unmarshal([]byte(tbl.PhysicClusters), &physics); err != nil {
+		return nil, errors.Wrap(err, "")
+	}
+	return common.ArrayDistinct(physics), nil
+}
+
+func (sp *SQLitePersistent) GetAllLogicClusters() (map[string][]string, error) {
+	var tbls []TblLogic
+	if err := sp.Client.Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make(map[string][]string, len(tbls))
+	for _, tbl := range tbls {
+		var physics []string
+		if err := json.Unmarshal([]byte(tbl.PhysicClusters), &physics); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		out[tbl.LogicCluster] = common.ArrayDistinct(physics)
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) CreateLogicCluster(logic string, physics []string) error {
+	raw, err := json.Marshal(common.ArrayDistinct(physics))
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tbl := TblLogic{LogicCluster: logic, PhysicClusters: string(raw)}
+	return wrapError(sp.Client.Create(&tbl).Error)
+}
+
+func (sp *SQLitePersistent) UpdateLogicCluster(logic string, physics []string) error {
+	raw, err := json.Marshal(common.ArrayDistinct(physics))
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tx := sp.Client.Model(&TblLogic{}).Where("logic_name = ?", logic).Updates(map[string]interface{}{
+		"physic_clusters": string(raw),
+	})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) DeleteLogicCluster(clusterName string) error {
+	return wrapError(sp.Client.Where("logic_name = ?", clusterName).Delete(&TblLogic{}).Error)
 }
