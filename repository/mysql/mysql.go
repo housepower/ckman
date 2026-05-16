@@ -2,7 +2,6 @@ package mysql
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
-	driver "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"moul.io/zapgorm2"
 )
@@ -28,17 +26,21 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 	}
 	mp.Config = config.(MysqlConfig)
 	mp.Config.Normalize()
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		mp.Config.User,
-		mp.Config.Password,
-		mp.Config.Host,
-		mp.Config.Port,
-		mp.Config.DataBase)
-
-	log.Logger.Debugf("mysql dsn:%s", dsn)
+	cfgMap := map[string]interface{}{
+		"host":     mp.Config.Host,
+		"port":     mp.Config.Port,
+		"user":     mp.Config.User,
+		"password": mp.Config.Password,
+		"database": mp.Config.DataBase,
+	}
+	dialector, err := BuildDialector(cfgMap)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	log.Logger.Debugf("mysql dsn: using BuildDialector")
 	logger := zapgorm2.New(log.ZapLog)
 	logger.SetAsDefault()
-	db, err := gorm.Open(driver.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(dialector, &gorm.Config{
 		Logger: logger,
 	})
 	if err != nil {

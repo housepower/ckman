@@ -2,10 +2,8 @@ package sqlite
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
-	sqlitedriver "github.com/glebarez/sqlite"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -55,11 +53,18 @@ func (sp *SQLitePersistent) Init(cfgIn interface{}) error {
 	sp.Config = cfgIn.(LocalConfig)
 	sp.Config.Normalize()
 
-	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(on)", sp.Config.DBPath())
-
+	cfgMap := map[string]interface{}{
+		"format":      sp.Config.Format,
+		"config_dir":  sp.Config.ConfigDir,
+		"config_file": sp.Config.ConfigFile,
+	}
+	dialector, err := BuildDialector(cfgMap)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
 	logger := zapgorm2.New(log.ZapLog)
 	logger.SetAsDefault()
-	db, err := gorm.Open(sqlitedriver.Open(dsn), &gorm.Config{Logger: logger})
+	db, err := gorm.Open(dialector, &gorm.Config{Logger: logger})
 	if err != nil {
 		return errors.Wrap(err, "")
 	}

@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
-	driver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"moul.io/zapgorm2"
 )
@@ -28,17 +26,21 @@ func (mp *PostgresPersistent) Init(config interface{}) error {
 	}
 	mp.Config = config.(PostgresConfig)
 	mp.Config.Normalize()
-	dsn := fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=disable",
-		mp.Config.Host,
-		mp.Config.Port,
-		mp.Config.User,
-		mp.Config.DataBase,
-		mp.Config.Password)
-
-	log.Logger.Debugf("postgres dsn:%s", dsn)
+	cfgMap := map[string]interface{}{
+		"host":     mp.Config.Host,
+		"port":     mp.Config.Port,
+		"user":     mp.Config.User,
+		"password": mp.Config.Password,
+		"database": mp.Config.DataBase,
+	}
+	dialector, err := BuildDialector(cfgMap)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	log.Logger.Debugf("postgres dsn: using BuildDialector")
 	logger := zapgorm2.New(log.ZapLog)
 	logger.SetAsDefault()
-	db, err := gorm.Open(driver.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(dialector, &gorm.Config{
 		Logger: logger,
 	})
 	if err != nil {

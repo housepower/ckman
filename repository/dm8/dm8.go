@@ -2,7 +2,6 @@ package dm8
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
-	driver "github.com/wanlay/gorm-dm8"
 	dmSchema "github.com/wanlay/gorm-dm8/schema"
 	"gorm.io/gorm"
 	"moul.io/zapgorm2"
@@ -29,16 +27,20 @@ func (mp *DM8Persistent) Init(config interface{}) error {
 	}
 	mp.Config = config.(DM8Config)
 	mp.Config.Normalize()
-	dsn := fmt.Sprintf("dm://%s:%s@%s:%d?autoCommit=true",
-		mp.Config.User,
-		mp.Config.Password,
-		mp.Config.Host,
-		mp.Config.Port)
-
-	log.Logger.Debugf("DM8 dsn:%s", dsn)
+	cfgMap := map[string]interface{}{
+		"host":     mp.Config.Host,
+		"port":     mp.Config.Port,
+		"user":     mp.Config.User,
+		"password": mp.Config.Password,
+	}
+	dialector, err := BuildDialector(cfgMap)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	log.Logger.Debugf("DM8 dsn: using BuildDialector")
 	logger := zapgorm2.New(log.ZapLog)
 	logger.SetAsDefault()
-	db, err := gorm.Open(driver.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(dialector, &gorm.Config{
 		Logger:                                   logger,
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})

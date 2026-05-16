@@ -1,11 +1,15 @@
 package sqlite
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
 
+	sqlitedriver "github.com/glebarez/sqlite"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 // LocalConfig 字段名与旧 repository/local 完全一致，
@@ -42,4 +46,21 @@ func (loc *LocalConfig) LegacyJSONPath() string {
 // LegacyYAMLPath 返回旧 YAML 文件路径（迁移用）。
 func (loc *LocalConfig) LegacyYAMLPath() string {
 	return path.Join(loc.ConfigDir, fmt.Sprintf("%s.yaml", loc.ConfigFile))
+}
+
+// BuildDialector 把 ckman.hjson 中 persistent_config.local 节点转换为 GORM Dialector。
+// 用法：sqlcli 等工具想拿原始 *gorm.DB 而不触发 Init() 的迁移路径时，调此函数 + gorm.Open。
+// 入参 cfgMap 取自 config.GlobalConfig.PersistentConfig["local"]。
+func BuildDialector(cfgMap map[string]interface{}) (gorm.Dialector, error) {
+	cfg := LocalConfig{}
+	data, err := json.Marshal(cfgMap)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal cfgMap")
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, errors.Wrap(err, "unmarshal cfgMap")
+	}
+	cfg.Normalize()
+	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(on)", cfg.DBPath())
+	return sqlitedriver.Open(dsn), nil
 }
