@@ -148,6 +148,10 @@ func runSQLCmd(confPath, query, format string, vertical, noTrunc bool) {
 		os.Exit(1)
 	}
 	policy := config.GlobalConfig.Server.PersistentPolicy
+	if policy == "" {
+		fmt.Fprintf(os.Stderr, "persistent_policy not set in %s\n", confPath)
+		os.Exit(1)
+	}
 	cfgMap := config.GlobalConfig.PersistentConfig[policy]
 	opts := sqlcli.Options{
 		Policy:     policy,

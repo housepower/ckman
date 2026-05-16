@@ -7,6 +7,7 @@ import (
 	"github.com/housepower/ckman/repository/sqlite"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // Backend 标识当前 sqlcli 连接到了哪个后端。
@@ -64,7 +65,9 @@ func OpenDB(policy string, cfgMap map[string]interface{}) (*gorm.DB, Backend, er
 	if err != nil {
 		return nil, BackendUnknown, errors.Wrap(err, "build dialector")
 	}
-	db, err := gorm.Open(dialector, &gorm.Config{})
+	db, err := gorm.Open(dialector, &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		return nil, BackendUnknown, errors.Wrap(err, "open db")
 	}

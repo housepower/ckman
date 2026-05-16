@@ -181,7 +181,11 @@ func runWriteQuery(opts Options, db *gorm.DB, sqlText string, start time.Time) e
 		return errors.Wrap(res.Error, "exec")
 	}
 	dur := time.Since(start)
-	fmt.Fprintf(opts.Out, "%d row%s affected (%s)\n", res.RowsAffected, plural(int(res.RowsAffected)), formatDuration(dur))
+	summary := opts.Out
+	if opts.Format == "json" || opts.Format == "csv" {
+		summary = opts.ErrOut
+	}
+	fmt.Fprintf(summary, "%d row%s affected (%s)\n", res.RowsAffected, plural(int(res.RowsAffected)), formatDuration(dur))
 	return nil
 }
 
