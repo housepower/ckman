@@ -10,6 +10,7 @@ ckmanctl delete znodes  cluster replica_queue
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -18,6 +19,7 @@ import (
 	"github.com/housepower/ckman/cmd/metacache"
 	"github.com/housepower/ckman/cmd/migrate"
 	"github.com/housepower/ckman/cmd/password"
+	"github.com/housepower/ckman/cmd/sqlcli"
 	"github.com/housepower/ckman/cmd/upgrade"
 	"github.com/housepower/ckman/cmd/znodes"
 	"github.com/housepower/ckman/config"
@@ -32,6 +34,13 @@ var (
 	dumpCmd  = kingpin.Command("dump-to-json", "export local SQLite db as legacy clusters.json")
 	d_conf   = dumpCmd.Flag("conf", "ckman config file path").Short('c').Default("/etc/ckman/conf/ckman.hjson").String()
 	d_output = dumpCmd.Flag("output", "output JSON file").Short('o').Default("conf/clusters.json").String()
+
+	sqlCmd       = kingpin.Command("sql", "interactive SQL shell against ckman's persistent backend")
+	sql_conf     = sqlCmd.Flag("conf", "ckman config file path").Short('c').Default("/etc/ckman/conf/ckman.hjson").String()
+	sql_query    = sqlCmd.Flag("query", "single-shot SQL; non-empty means run-and-exit").Short('q').String()
+	sql_format   = sqlCmd.Flag("format", "output format: table | json | csv").Default("table").String()
+	sql_vertical = sqlCmd.Flag("vertical", "render rows vertically (mysql \\G)").Short('E').Bool()
+	sql_notrunc  = sqlCmd.Flag("no-truncate", "do not truncate long cell values").Short('N').Bool()
 
 	passCmd = kingpin.Command("password", "encrypt password")
 	p_cwd   = passCmd.Flag("cwd", "current working directory").Short('p').Default("/etc/ckman").String()
@@ -128,6 +137,29 @@ func main() {
 				Cleanup:    *ub_cleanup,
 			})
 		}
+	case "sql":
+		runSQLCmd(*sql_conf, *sql_query, *sql_format, *sql_vertical, *sql_notrunc)
+	}
+}
+
+func runSQLCmd(confPath, query, format string, vertical, noTrunc bool) {
+	if err := config.ParseConfigFile(confPath, ""); err != nil {
+		fmt.Printf("parse config %s failed: %v\n", confPath, err)
+		os.Exit(1)
+	}
+	policy := config.GlobalConfig.Server.PersistentPolicy
+	cfgMap := config.GlobalConfig.PersistentConfig[policy]
+	opts := sqlcli.Options{
+		Policy:     policy,
+		ConfMap:    cfgMap,
+		Query:      query,
+		Format:     format,
+		Vertical:   vertical,
+		NoTruncate: noTrunc,
+	}
+	if err := sqlcli.Run(opts); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 }
 
