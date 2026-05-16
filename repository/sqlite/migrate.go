@@ -35,6 +35,19 @@ func (sp *SQLitePersistent) migrateLegacyIfAny() error {
 		return writeMeta(sp.Client, METAKEY_MIGRATED_FROM, META_FRESH_INSTALL)
 	}
 
+	// 崩溃恢复：上一次 runLegacyMigration 可能已经提交了数据但在 writeMeta 之前死掉
+	// （MigrateBetween 的 tx 与 _meta 写是两次独立提交）。重新启动时若 tbl_cluster 已有行，
+	// 直接补上 _meta 标记，避免重跑迁移碰到 UNIQUE 冲突无法启动。
+	var clusterCount int64
+	if err := sp.Client.Model(&TblCluster{}).Count(&clusterCount).Error; err == nil && clusterCount > 0 {
+		stamp := fmt.Sprintf("%s@%s (recovered)", filepath.Base(legacyPath), time.Now().UTC().Format(time.RFC3339))
+		if err := writeMeta(sp.Client, METAKEY_MIGRATED_FROM, stamp); err != nil {
+			return errors.Wrap(err, "finalize recovered migration meta")
+		}
+		log.Logger.Warnf("local persistent: prior migration left data committed without meta marker; finalized as %q", stamp)
+		return nil
+	}
+
 	return sp.runLegacyMigration(legacyPath)
 }
 

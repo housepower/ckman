@@ -444,3 +444,54 @@ func TestMigrateLegacyCorrupt(t *testing.T) {
 		t.Fatalf("expected init to fail on corrupt legacy file")
 	}
 }
+
+// TestMigrateRecoveryFromHalfCommit 验证：上次迁移已提交数据但 _meta 写入失败的场景下，
+// 下次启动不会报 UNIQUE 冲突，而是补上 _meta 标记继续运行。
+func TestMigrateRecoveryFromHalfCommit(t *testing.T) {
+	dir := t.TempDir()
+	src, _ := os.ReadFile("testdata/legacy_clusters.json")
+	legacyPath := filepath.Join(dir, "clusters.json")
+	if err := os.WriteFile(legacyPath, src, 0644); err != nil {
+		t.Fatalf("write legacy: %v", err)
+	}
+
+	// 第一次启动：完成迁移（包括改名 + meta）
+	sp1 := NewSQLitePersistent()
+	if err := sp1.Init(LocalConfig{Format: "json", ConfigDir: dir, ConfigFile: "clusters"}); err != nil {
+		t.Fatalf("first init: %v", err)
+	}
+
+	// 模拟"meta 丢失"：把改名后的 legacy 文件改回 + 清空 _meta
+	matches, _ := filepath.Glob(legacyPath + ".migrated.*")
+	if len(matches) != 1 {
+		t.Fatalf("expected one migrated backup, got %d", len(matches))
+	}
+	if err := os.Rename(matches[0], legacyPath); err != nil {
+		t.Fatalf("restore legacy: %v", err)
+	}
+	if err := sp1.Client.Exec("DELETE FROM tbl_meta WHERE key = ?", METAKEY_MIGRATED_FROM).Error; err != nil {
+		t.Fatalf("clear meta: %v", err)
+	}
+
+	// 第二次启动：应当检测到已有数据，写恢复标记，不重跑迁移
+	sp2 := NewSQLitePersistent()
+	if err := sp2.Init(LocalConfig{Format: "json", ConfigDir: dir, ConfigFile: "clusters"}); err != nil {
+		t.Fatalf("second init should recover, got: %v", err)
+	}
+	v, _ := readMeta(sp2.Client, METAKEY_MIGRATED_FROM)
+	if v == "" {
+		t.Fatalf("recovery did not write meta")
+	}
+	if !contains(v, "(recovered)") {
+		t.Fatalf("recovery marker missing: %q", v)
+	}
+}
+
+func contains(s, sub string) bool {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}
