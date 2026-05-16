@@ -160,3 +160,29 @@ func TestLocal_MarkRunRunningIfQueued(t *testing.T) {
 		t.Fatalf("second mark should false: ok=%v err=%v", ok2, err)
 	}
 }
+
+func TestLocal_GetAllBackupPolicies(t *testing.T) {
+	lp := newTestLP(t)
+	_ = lp.CreateBackupPolicy(model.BackupPolicy{PolicyID: "p1", ClusterName: "ckA"})
+	_ = lp.CreateBackupPolicy(model.BackupPolicy{PolicyID: "p2", ClusterName: "ckB"})
+	all, err := lp.GetAllBackupPolicies()
+	if err != nil {
+		t.Fatalf("get all: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("expected 2 policies, got %d", len(all))
+	}
+}
+
+func TestLocal_GetAllBackupRuns(t *testing.T) {
+	lp := newTestLP(t)
+	_ = lp.CreateBackupRun(model.BackupRun{RunID: "r1", PolicyID: "p1"})
+	_ = lp.CreateBackupRun(model.BackupRun{RunID: "r2", PolicyID: "p2"})
+	all, err := lp.GetAllBackupRuns()
+	if err != nil {
+		t.Fatalf("get all: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("expected 2 runs, got %d", len(all))
+	}
+}
