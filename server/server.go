@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -115,7 +114,6 @@ func (server *ApiServer) Start() error {
 	groupApi := r.Group("/api")
 	groupApi.POST("/login", userController.Login)
 	// add authenticate middleware for /api
-	common.LoadUsers(filepath.Dir(server.config.ConfigFile))
 	groupApi.Use(ginJWTAuth())
 	groupApi.Use(ginRefreshTokenExpires())
 	groupApi.Use(ginEnforce())
