@@ -195,3 +195,44 @@ func TestMergeFromNacos_ServerNonBootstrapSingleFieldOverride(t *testing.T) {
 		t.Errorf("Server.Port should remain 8808, got %d", local.Server.Port)
 	}
 }
+
+func TestDiffBootstrap_DetectsAllFields(t *testing.T) {
+	t.Cleanup(ResetForTest)
+	local := newLocal()
+	remote := newLocal()
+	remote.Server.Ip = "x"
+	remote.Server.Port = 1
+	remote.Server.Https = true
+	remote.Server.CertFile = "x"
+	remote.Server.KeyFile = "x"
+	remote.Server.PkgPath = "x"
+	remote.Server.PersistentPolicy = "mysql"
+	remote.PersistentConfig = map[string]map[string]interface{}{"mysql": {"x": 1}}
+	remote.Nacos.Password = "new"
+
+	diffs := diffBootstrap(&local, &remote)
+	got := map[string]bool{}
+	for _, d := range diffs {
+		got[d.field] = true
+	}
+	expected := []string{
+		"Server.Ip", "Server.Port", "Server.Https",
+		"Server.CertFile", "Server.KeyFile", "Server.PkgPath",
+		"Server.PersistentPolicy", "PersistentConfig", "Nacos",
+	}
+	for _, name := range expected {
+		if !got[name] {
+			t.Errorf("expected diff to contain %q, diffs=%+v", name, diffs)
+		}
+	}
+}
+
+func TestDiffBootstrap_NoChangeNoDiff(t *testing.T) {
+	t.Cleanup(ResetForTest)
+	local := newLocal()
+	remote := newLocal()
+	diffs := diffBootstrap(&local, &remote)
+	if len(diffs) != 0 {
+		t.Errorf("expected no diffs, got %+v", diffs)
+	}
+}

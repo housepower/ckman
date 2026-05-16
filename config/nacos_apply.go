@@ -89,6 +89,51 @@ func mergeFromNacos(local, remote *CKManConfig) {
 	// PersistentConfig 永不覆盖。
 }
 
+// bootstrapDiff 描述一个被忽略的 bootstrap 字段变更。
+type bootstrapDiff struct {
+	field string
+	old   interface{}
+	new   interface{}
+}
+
+// diffBootstrap 返回 remote 想改、但 merge 不会覆盖的 bootstrap 字段列表。
+// 用于在 ApplyNacosUpdate 中输出 WARN 提示运维手动重启。
+func diffBootstrap(local, remote *CKManConfig) []bootstrapDiff {
+	var diffs []bootstrapDiff
+	add := func(field string, oldV, newV interface{}) {
+		diffs = append(diffs, bootstrapDiff{field: field, old: oldV, new: newV})
+	}
+
+	if local.Server.Ip != remote.Server.Ip && remote.Server.Ip != "" {
+		add("Server.Ip", local.Server.Ip, remote.Server.Ip)
+	}
+	if local.Server.Port != remote.Server.Port && remote.Server.Port != 0 {
+		add("Server.Port", local.Server.Port, remote.Server.Port)
+	}
+	if local.Server.Https != remote.Server.Https {
+		add("Server.Https", local.Server.Https, remote.Server.Https)
+	}
+	if local.Server.CertFile != remote.Server.CertFile && remote.Server.CertFile != "" {
+		add("Server.CertFile", local.Server.CertFile, remote.Server.CertFile)
+	}
+	if local.Server.KeyFile != remote.Server.KeyFile && remote.Server.KeyFile != "" {
+		add("Server.KeyFile", local.Server.KeyFile, remote.Server.KeyFile)
+	}
+	if local.Server.PkgPath != remote.Server.PkgPath && remote.Server.PkgPath != "" {
+		add("Server.PkgPath", local.Server.PkgPath, remote.Server.PkgPath)
+	}
+	if local.Server.PersistentPolicy != remote.Server.PersistentPolicy && remote.Server.PersistentPolicy != "" {
+		add("Server.PersistentPolicy", local.Server.PersistentPolicy, remote.Server.PersistentPolicy)
+	}
+	if len(remote.PersistentConfig) > 0 && !reflect.DeepEqual(local.PersistentConfig, remote.PersistentConfig) {
+		add("PersistentConfig", "<map>", "<map>")
+	}
+	if !reflect.DeepEqual(remote.Nacos, CKManNacosConfig{}) && !reflect.DeepEqual(local.Nacos, remote.Nacos) {
+		add("Nacos", "<section>", "<section>")
+	}
+	return diffs
+}
+
 // parseRemote 按本地配置文件后缀解析 Nacos 推送的内容。
 // fmtExt 应为 ".hjson" / ".json" / ".yaml"；其他后缀返回错误。
 func parseRemote(data []byte, fmtExt string) (CKManConfig, error) {
