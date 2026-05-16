@@ -25,6 +25,15 @@ func NewSQLitePersistent() *SQLitePersistent {
 	return &SQLitePersistent{}
 }
 
+// AttachReadOnly binds an externally-opened (typically read-only) gorm.DB
+// to this SQLitePersistent instance. Used exclusively by the dump-to-json
+// tool to read SQLite without triggering migration or write paths.
+// Do NOT use from business code.
+func (sp *SQLitePersistent) AttachReadOnly(db *gorm.DB) {
+	sp.Client = db
+	sp.ParentDB = db
+}
+
 func (sp *SQLitePersistent) UnmarshalConfig(configMap map[string]interface{}) interface{} {
 	var cfg LocalConfig
 	data, err := json.Marshal(configMap)

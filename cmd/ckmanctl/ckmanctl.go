@@ -9,21 +9,29 @@ ckmanctl delete znodes  cluster replica_queue
 */
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/alecthomas/kingpin/v2"
 
+	"github.com/housepower/ckman/cmd/dumpjson"
 	"github.com/housepower/ckman/cmd/metacache"
 	"github.com/housepower/ckman/cmd/migrate"
 	"github.com/housepower/ckman/cmd/password"
 	"github.com/housepower/ckman/cmd/upgrade"
 	"github.com/housepower/ckman/cmd/znodes"
+	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/repository/sqlite"
 )
 
 var (
 	migrateCmd = kingpin.Command("migrate", "migrate cluster config from old repersistence to new persistence")
 	m_conf     = migrateCmd.Flag("conf", "migrate config file path").Default("/etc/ckman/conf/migrate.hjson").Short('c').String()
+
+	dumpCmd  = kingpin.Command("dump-to-json", "export local SQLite db as legacy clusters.json")
+	d_conf   = dumpCmd.Flag("conf", "ckman config file path").Short('c').Default("/etc/ckman/conf/ckman.hjson").String()
+	d_output = dumpCmd.Flag("output", "output JSON file").Short('o').Default("conf/clusters.json").String()
 
 	passCmd = kingpin.Command("password", "encrypt password")
 	p_cwd   = passCmd.Flag("cwd", "current working directory").Short('p').Default("/etc/ckman").String()
@@ -72,6 +80,8 @@ func main() {
 	switch firstCmd {
 	case "migrate":
 		migrate.MigrateHandle(*m_conf)
+	case "dump-to-json":
+		runDumpToJSON(*d_conf, *d_output)
 	case "password":
 		password.PasswordHandle(*p_cwd)
 	case "get":
@@ -119,4 +129,30 @@ func main() {
 			})
 		}
 	}
+}
+
+func runDumpToJSON(confPath, outPath string) {
+	if err := config.ParseConfigFile(confPath, ""); err != nil {
+		fmt.Printf("parse config %s failed: %v\n", confPath, err)
+		return
+	}
+	locCfg := sqlite.LocalConfig{}
+	if c, ok := config.GlobalConfig.PersistentConfig["local"]; ok {
+		if fmtv, ok := c["format"].(string); ok {
+			locCfg.Format = fmtv
+		}
+		if dir, ok := c["config_dir"].(string); ok {
+			locCfg.ConfigDir = dir
+		}
+		if name, ok := c["config_file"].(string); ok {
+			locCfg.ConfigFile = name
+		}
+	}
+	locCfg.Normalize()
+
+	if err := dumpjson.DumpFromDB(locCfg.DBPath(), outPath); err != nil {
+		fmt.Printf("dump failed: %v\n", err)
+		return
+	}
+	fmt.Printf("Dumped %s -> %s\n", locCfg.DBPath(), outPath)
 }
