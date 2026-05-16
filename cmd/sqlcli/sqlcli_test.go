@@ -3,6 +3,7 @@ package sqlcli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -118,7 +119,9 @@ func sampleRows() ([]string, [][]interface{}) {
 func TestRender_Table_Basic(t *testing.T) {
 	cols, rows := sampleRows()
 	var buf bytes.Buffer
-	RenderTable(&buf, cols, rows, RenderOptions{})
+	if err := RenderTable(&buf, cols, rows, RenderOptions{}); err != nil {
+		t.Fatalf("RenderTable: %v", err)
+	}
 	out := buf.String()
 	for _, want := range []string{"id", "name", "comment", "ck1", "ck2", "(NULL)"} {
 		if !strings.Contains(out, want) {
@@ -132,7 +135,9 @@ func TestRender_Table_Truncate(t *testing.T) {
 	longStr := strings.Repeat("x", 100)
 	rows := [][]interface{}{{longStr}}
 	var buf bytes.Buffer
-	RenderTable(&buf, cols, rows, RenderOptions{TruncateAt: 60})
+	if err := RenderTable(&buf, cols, rows, RenderOptions{TruncateAt: 60}); err != nil {
+		t.Fatalf("RenderTable: %v", err)
+	}
 	out := buf.String()
 	if strings.Contains(out, longStr) {
 		t.Errorf("expected truncation, got full string in:\n%s", out)
@@ -145,7 +150,9 @@ func TestRender_Table_Truncate(t *testing.T) {
 func TestRender_Vertical_Basic(t *testing.T) {
 	cols, rows := sampleRows()
 	var buf bytes.Buffer
-	RenderVertical(&buf, cols, rows, RenderOptions{})
+	if err := RenderVertical(&buf, cols, rows, RenderOptions{}); err != nil {
+		t.Fatalf("RenderVertical: %v", err)
+	}
 	out := buf.String()
 	if !strings.Contains(out, "1. row") || !strings.Contains(out, "2. row") {
 		t.Errorf("vertical missing row markers:\n%s", out)
@@ -158,7 +165,9 @@ func TestRender_Vertical_Basic(t *testing.T) {
 func TestRender_JSON_NullAndTime(t *testing.T) {
 	cols, rows := sampleRows()
 	var buf bytes.Buffer
-	RenderJSON(&buf, cols, rows)
+	if err := RenderJSON(&buf, cols, rows); err != nil {
+		t.Fatalf("RenderJSON: %v", err)
+	}
 	out := buf.String()
 	// NDJSON: one JSON object per line
 	lines := strings.Split(strings.TrimSpace(out), "\n")
@@ -180,7 +189,9 @@ func TestRender_CSV_Escaping(t *testing.T) {
 		{"line1\nline2", nil},
 	}
 	var buf bytes.Buffer
-	RenderCSV(&buf, cols, rows)
+	if err := RenderCSV(&buf, cols, rows); err != nil {
+		t.Fatalf("RenderCSV: %v", err)
+	}
 	out := buf.String()
 	if !strings.Contains(out, `"hello, world"`) {
 		t.Errorf("comma not quoted: %s", out)
@@ -194,7 +205,9 @@ func TestRender_JSON_NoHTMLEscape(t *testing.T) {
 	cols := []string{"sql"}
 	rows := [][]interface{}{{"a < 10 & b > 1"}}
 	var buf bytes.Buffer
-	RenderJSON(&buf, cols, rows)
+	if err := RenderJSON(&buf, cols, rows); err != nil {
+		t.Fatalf("RenderJSON: %v", err)
+	}
 	out := buf.String()
 	if !strings.Contains(out, "a < 10 & b > 1") {
 		t.Errorf("expected raw HTML chars, got %s", out)
@@ -316,5 +329,94 @@ func TestRunSingleShot_JSON_StdoutClean(t *testing.T) {
 	// The summary line should land on stderr
 	if !strings.Contains(stderr.String(), "1 row in set") {
 		t.Errorf("expected summary on stderr, got: %q", stderr.String())
+	}
+}
+
+func TestRunSingleShot_TypeFidelity_JSON(t *testing.T) {
+	dir := t.TempDir()
+	db, _, err := OpenDB("local", map[string]interface{}{
+		"config_dir":  dir,
+		"config_file": "testdb",
+	})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE typed (
+		i INTEGER, f REAL, s TEXT, b BLOB, n INTEGER
+	)`).Error; err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO typed VALUES (42, 3.14, 'hi', X'DEADBEEF', NULL)`).Error; err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	sqlDB, _ := db.DB()
+	_ = sqlDB.Close()
+
+	var stdout, stderr bytes.Buffer
+	opts := Options{
+		ConfMap: map[string]interface{}{"config_dir": dir, "config_file": "testdb"},
+		Policy:  "local",
+		Query:   "SELECT i, f, s, n FROM typed",
+		Format:  "json",
+		Out:     &stdout,
+		ErrOut:  &stderr,
+	}
+	if err := RunSingleShot(opts); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	out := strings.TrimSpace(stdout.String())
+	// Integer 42 must be unquoted; float 3.14 unquoted; string "hi" quoted; n null.
+	if !strings.Contains(out, `"i":42`) {
+		t.Errorf("integer not preserved as number: %q", out)
+	}
+	if !strings.Contains(out, `"f":3.14`) {
+		t.Errorf("float not preserved as number: %q", out)
+	}
+	if !strings.Contains(out, `"s":"hi"`) {
+		t.Errorf("string not preserved: %q", out)
+	}
+	if !strings.Contains(out, `"n":null`) {
+		t.Errorf("NULL not preserved as null: %q", out)
+	}
+}
+
+func TestRun_UnknownFormat(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	opts := Options{
+		Policy:  "local",
+		ConfMap: map[string]interface{}{},
+		Query:   "SELECT 1",
+		Format:  "yaml",
+		Out:     &stdout,
+		ErrOut:  &stderr,
+	}
+	err := Run(opts)
+	if err == nil {
+		t.Fatalf("expected error for unknown format")
+	}
+	if !strings.Contains(err.Error(), "unknown --format") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+type failingWriter struct {
+	failAfter int
+	count     int
+}
+
+func (fw *failingWriter) Write(p []byte) (int, error) {
+	fw.count++
+	if fw.count >= fw.failAfter {
+		return 0, fmt.Errorf("simulated write failure")
+	}
+	return len(p), nil
+}
+
+func TestRender_WriteError(t *testing.T) {
+	cols, rows := sampleRows()
+	fw := &failingWriter{failAfter: 1}
+	err := RenderJSON(fw, cols, rows)
+	if err == nil {
+		t.Errorf("expected RenderJSON to surface write error")
 	}
 }

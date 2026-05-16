@@ -1,7 +1,6 @@
 package sqlcli
 
 import (
-	"database/sql"
 	"fmt"
 	"io"
 	"os"
@@ -45,10 +44,23 @@ func (o *Options) normalize() {
 	}
 }
 
+// validateFormat returns an error if f is not a recognized output format.
+func validateFormat(f string) error {
+	switch f {
+	case "table", "json", "csv":
+		return nil
+	default:
+		return errors.Errorf("unknown --format %q (allowed: table | json | csv)", f)
+	}
+}
+
 // Run 是 ckmanctl sql 子命令的统一入口。
 // Query 非空时进入单次模式后退出；否则进 REPL。
 func Run(opts Options) error {
 	opts.normalize()
+	if err := validateFormat(opts.Format); err != nil {
+		return err
+	}
 	if opts.Query != "" {
 		return RunSingleShot(opts)
 	}
@@ -140,20 +152,20 @@ func runReadQuery(opts Options, db *gorm.DB, sqlText string, start time.Time) er
 	}
 	var result [][]interface{}
 	for rows.Next() {
+		row := make([]interface{}, len(cols))
 		scanTargets := make([]interface{}, len(cols))
-		scanValues := make([]sql.RawBytes, len(cols))
-		for i := range scanTargets {
-			scanTargets[i] = &scanValues[i]
+		for i := range row {
+			scanTargets[i] = &row[i]
 		}
 		if err := rows.Scan(scanTargets...); err != nil {
 			return errors.Wrap(err, "scan")
 		}
-		row := make([]interface{}, len(cols))
-		for i, raw := range scanValues {
-			if raw == nil {
-				row[i] = nil
-			} else {
-				row[i] = string(raw)
+		// database/sql with *interface{} target hands back driver-native types:
+		// int64 / float64 / bool / string / []byte / time.Time / nil. Normalize
+		// []byte → string for human-readable output; renderers handle the rest.
+		for i, v := range row {
+			if b, ok := v.([]byte); ok {
+				row[i] = string(b)
 			}
 		}
 		result = append(result, row)
@@ -162,7 +174,9 @@ func runReadQuery(opts Options, db *gorm.DB, sqlText string, start time.Time) er
 		return errors.Wrap(err, "rows iteration")
 	}
 	dur := time.Since(start)
-	renderRows(opts, cols, result)
+	if err := renderRows(opts, cols, result); err != nil {
+		return errors.Wrap(err, "render")
+	}
 	summary := opts.Out
 	if opts.Format == "json" || opts.Format == "csv" {
 		summary = opts.ErrOut
@@ -189,9 +203,9 @@ func runWriteQuery(opts Options, db *gorm.DB, sqlText string, start time.Time) e
 	return nil
 }
 
-func renderRows(opts Options, cols []string, rows [][]interface{}) {
+func renderRows(opts Options, cols []string, rows [][]interface{}) error {
 	if len(rows) == 0 && opts.Format == "table" {
-		return
+		return nil
 	}
 	truncate := DefaultTruncate
 	if opts.NoTruncate {
@@ -199,15 +213,14 @@ func renderRows(opts Options, cols []string, rows [][]interface{}) {
 	}
 	switch opts.Format {
 	case "json":
-		RenderJSON(opts.Out, cols, rows)
+		return RenderJSON(opts.Out, cols, rows)
 	case "csv":
-		RenderCSV(opts.Out, cols, rows)
+		return RenderCSV(opts.Out, cols, rows)
 	default:
 		if opts.Vertical {
-			RenderVertical(opts.Out, cols, rows, RenderOptions{TruncateAt: truncate})
-		} else {
-			RenderTable(opts.Out, cols, rows, RenderOptions{TruncateAt: truncate})
+			return RenderVertical(opts.Out, cols, rows, RenderOptions{TruncateAt: truncate})
 		}
+		return RenderTable(opts.Out, cols, rows, RenderOptions{TruncateAt: truncate})
 	}
 }
 

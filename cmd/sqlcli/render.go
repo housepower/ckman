@@ -7,8 +7,6 @@ import (
 	"io"
 	"strings"
 	"time"
-
-	"github.com/housepower/ckman/log"
 )
 
 // RenderOptions 控制 table / vertical 渲染的截断和列宽。
@@ -18,10 +16,28 @@ type RenderOptions struct {
 
 const DefaultTruncate = 60
 
+// errWriter wraps an io.Writer and captures the first write error so
+// callers can check once at the end rather than after every write.
+type errWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (ew *errWriter) Write(p []byte) (int, error) {
+	if ew.err != nil {
+		return 0, ew.err
+	}
+	n, err := ew.w.Write(p)
+	if err != nil {
+		ew.err = err
+	}
+	return n, err
+}
+
 // RenderTable 按 mysql 客户端的 ASCII table 样式渲染。
-func RenderTable(w io.Writer, cols []string, rows [][]interface{}, opts RenderOptions) {
+func RenderTable(w io.Writer, cols []string, rows [][]interface{}, opts RenderOptions) error {
 	if len(rows) == 0 {
-		return
+		return nil
 	}
 	truncate := opts.TruncateAt
 	widths := make([]int, len(cols))
@@ -40,13 +56,15 @@ func RenderTable(w io.Writer, cols []string, rows [][]interface{}, opts RenderOp
 		}
 	}
 	sep := buildSep(widths)
-	fmt.Fprintln(w, sep)
-	fmt.Fprintln(w, buildRow(cols, widths))
-	fmt.Fprintln(w, sep)
+	ew := &errWriter{w: w}
+	fmt.Fprintln(ew, sep)
+	fmt.Fprintln(ew, buildRow(cols, widths))
+	fmt.Fprintln(ew, sep)
 	for _, row := range formatted {
-		fmt.Fprintln(w, buildRow(row, widths))
+		fmt.Fprintln(ew, buildRow(row, widths))
 	}
-	fmt.Fprintln(w, sep)
+	fmt.Fprintln(ew, sep)
+	return ew.err
 }
 
 func buildSep(widths []int) string {
@@ -72,7 +90,7 @@ func buildRow(cells []string, widths []int) string {
 }
 
 // RenderVertical 按 mysql `\G` 样式：一行一行展示。
-func RenderVertical(w io.Writer, cols []string, rows [][]interface{}, opts RenderOptions) {
+func RenderVertical(w io.Writer, cols []string, rows [][]interface{}, opts RenderOptions) error {
 	truncate := opts.TruncateAt
 	maxLabel := 0
 	for _, c := range cols {
@@ -80,17 +98,19 @@ func RenderVertical(w io.Writer, cols []string, rows [][]interface{}, opts Rende
 			maxLabel = len(c)
 		}
 	}
+	ew := &errWriter{w: w}
 	for ri, row := range rows {
-		fmt.Fprintf(w, "*************************** %d. row ***************************\n", ri+1)
+		fmt.Fprintf(ew, "*************************** %d. row ***************************\n", ri+1)
 		for ci, v := range row {
-			fmt.Fprintf(w, "%*s: %s\n", maxLabel, cols[ci], formatCell(v, truncate))
+			fmt.Fprintf(ew, "%*s: %s\n", maxLabel, cols[ci], formatCell(v, truncate))
 		}
 	}
+	return ew.err
 }
 
 // RenderJSON 输出 NDJSON：每行一个 JSON 对象。
 // NULL → null；time.Time → RFC3339；[]byte → base64（json.Marshal 默认行为）。
-func RenderJSON(w io.Writer, cols []string, rows [][]interface{}) {
+func RenderJSON(w io.Writer, cols []string, rows [][]interface{}) error {
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	for _, row := range rows {
@@ -102,15 +122,20 @@ func RenderJSON(w io.Writer, cols []string, rows [][]interface{}) {
 				obj[cols[ci]] = v
 			}
 		}
-		_ = enc.Encode(obj)
+		if err := enc.Encode(obj); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // RenderCSV 输出 RFC4180 CSV，第一行为表头。
 // NULL → 空字符串；time.Time → RFC3339；其他 → fmt.Sprintf("%v")。
-func RenderCSV(w io.Writer, cols []string, rows [][]interface{}) {
+func RenderCSV(w io.Writer, cols []string, rows [][]interface{}) error {
 	cw := csv.NewWriter(w)
-	_ = cw.Write(cols)
+	if err := cw.Write(cols); err != nil {
+		return err
+	}
 	for _, row := range rows {
 		record := make([]string, len(row))
 		for i, v := range row {
@@ -127,12 +152,12 @@ func RenderCSV(w io.Writer, cols []string, rows [][]interface{}) {
 				record[i] = fmt.Sprintf("%v", x)
 			}
 		}
-		_ = cw.Write(record)
+		if err := cw.Write(record); err != nil {
+			return err
+		}
 	}
 	cw.Flush()
-	if err := cw.Error(); err != nil {
-		log.Logger.Warnf("csv flush: %v", err)
-	}
+	return cw.Error()
 }
 
 // formatCell 把任意类型转字符串，含 NULL 渲染、时间格式、可选截断。

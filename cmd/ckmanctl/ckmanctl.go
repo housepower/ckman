@@ -144,7 +144,7 @@ func main() {
 
 func runSQLCmd(confPath, query, format string, vertical, noTrunc bool) {
 	if err := config.ParseConfigFile(confPath, ""); err != nil {
-		fmt.Printf("parse config %s failed: %v\n", confPath, err)
+		fmt.Fprintf(os.Stderr, "parse config %s failed: %v\n", confPath, err)
 		os.Exit(1)
 	}
 	policy := config.GlobalConfig.Server.PersistentPolicy
