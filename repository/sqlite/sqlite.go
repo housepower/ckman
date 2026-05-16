@@ -914,15 +914,17 @@ func (sp *SQLitePersistent) GetAllUsers() ([]model.CkmanUser, error) {
 }
 
 func (sp *SQLitePersistent) CreateUser(u model.CkmanUser) error {
-	tx := sp.Client.Exec(
-		"INSERT INTO "+SQLITE_TBL_USER+" (username, password_hash, policy, enabled) VALUES (?, ?, ?, ?)",
-		u.Username, u.PasswordHash, u.Policy, u.Enabled,
-	)
-	if tx.Error != nil {
-		if isUniqueViolation(tx.Error) {
+	tbl := TblUser{
+		Username:     u.Username,
+		PasswordHash: u.PasswordHash,
+		Policy:       u.Policy,
+		Enabled:      u.Enabled,
+	}
+	if err := sp.Client.Create(&tbl).Error; err != nil {
+		if isUniqueViolation(err) {
 			return repository.ErrRecordExists
 		}
-		return wrapError(tx.Error)
+		return wrapError(err)
 	}
 	return nil
 }

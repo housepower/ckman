@@ -71,7 +71,7 @@ type TblUser struct {
 	Username     string `gorm:"index:idx_user_name,unique; column:username; size:32; not null"`
 	PasswordHash string `gorm:"column:password_hash; size:64; not null"`
 	Policy       string `gorm:"column:policy; size:16; not null"`
-	Enabled      bool   `gorm:"column:enabled; not null; default:true"`
+	Enabled      bool   `gorm:"column:enabled; not null"`
 }
 
 func (TblUser) TableName() string { return DM8_TBL_USER }
