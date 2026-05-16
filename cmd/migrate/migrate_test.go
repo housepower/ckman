@@ -7,7 +7,7 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
-	_ "github.com/housepower/ckman/repository/local"
+	"github.com/housepower/ckman/repository/legacyjson"
 )
 
 func TestMain(m *testing.M) {
@@ -15,27 +15,23 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func newLocalPM(t *testing.T) repository.PersistentMgr {
+func newLegacyJSON(t *testing.T) repository.PersistentMgr {
 	t.Helper()
 	dir := t.TempDir()
-	ps := repository.GetPersistentByName("local")
-	if ps == nil {
-		t.Fatalf("local backend not registered")
-	}
-	cfg := ps.UnmarshalConfig(map[string]interface{}{
-		"format":      "json",
-		"config_dir":  dir,
-		"config_file": "test_clusters",
+	ps, err := legacyjson.NewReader(legacyjson.LocalConfig{
+		Format:     "json",
+		ConfigDir:  dir,
+		ConfigFile: "test_clusters",
 	})
-	if err := ps.Init(cfg); err != nil {
-		t.Fatalf("init: %v", err)
+	if err != nil {
+		t.Fatalf("init legacyjson: %v", err)
 	}
 	return ps
 }
 
 func TestMigrateBetween_CoversAllEntities(t *testing.T) {
-	src := newLocalPM(t)
-	dst := newLocalPM(t)
+	src := newLegacyJSON(t)
+	dst := newLegacyJSON(t)
 
 	if err := src.CreateCluster(model.CKManClickHouseConfig{Cluster: "ck1"}); err != nil {
 		t.Fatalf("src create cluster: %v", err)
