@@ -163,10 +163,14 @@ func runReadQuery(opts Options, db *gorm.DB, sqlText string, start time.Time) er
 	}
 	dur := time.Since(start)
 	renderRows(opts, cols, result)
+	summary := opts.Out
+	if opts.Format == "json" || opts.Format == "csv" {
+		summary = opts.ErrOut
+	}
 	if len(result) == 0 {
-		fmt.Fprintf(opts.Out, "Empty set (%s)\n", formatDuration(dur))
+		fmt.Fprintf(summary, "Empty set (%s)\n", formatDuration(dur))
 	} else {
-		fmt.Fprintf(opts.Out, "%d row%s in set (%s)\n", len(result), plural(len(result)), formatDuration(dur))
+		fmt.Fprintf(summary, "%d row%s in set (%s)\n", len(result), plural(len(result)), formatDuration(dur))
 	}
 	return nil
 }

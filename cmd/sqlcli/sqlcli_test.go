@@ -2,6 +2,7 @@ package sqlcli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -264,5 +265,56 @@ func TestRunSingleShot_SQLite(t *testing.T) {
 	out := buf.String()
 	if !strings.Contains(out, `"name":"alice"`) {
 		t.Errorf("expected alice in output, got:\n%s", out)
+	}
+}
+
+func TestRunSingleShot_JSON_StdoutClean(t *testing.T) {
+	dir := t.TempDir()
+	db, _, err := OpenDB("local", map[string]interface{}{
+		"config_dir":  dir,
+		"config_file": "testdb",
+	})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.Exec("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)").Error; err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if err := db.Exec("INSERT INTO t VALUES (1, 'alice')").Error; err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	sqlDB, _ := db.DB()
+	_ = sqlDB.Close()
+
+	var stdout, stderr bytes.Buffer
+	opts := Options{
+		ConfMap: map[string]interface{}{
+			"config_dir":  dir,
+			"config_file": "testdb",
+		},
+		Policy: "local",
+		Query:  "SELECT * FROM t",
+		Format: "json",
+		Out:    &stdout,
+		ErrOut: &stderr,
+	}
+	if err := RunSingleShot(opts); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	// stdout must be parseable as NDJSON (no summary line)
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		if line == "" {
+			continue
+		}
+		var obj map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &obj); err != nil {
+			t.Errorf("stdout line not valid JSON: %q (full stdout=%q)", line, stdout.String())
+		}
+	}
+
+	// The summary line should land on stderr
+	if !strings.Contains(stderr.String(), "1 row in set") {
+		t.Errorf("expected summary on stderr, got: %q", stderr.String())
 	}
 }
