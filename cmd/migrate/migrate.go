@@ -6,11 +6,8 @@ import (
 	"os"
 
 	"github.com/hjson/hjson-go/v4"
-	"github.com/housepower/ckman/log"
-	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	_ "github.com/housepower/ckman/repository/dm8"
-	_ "github.com/housepower/ckman/repository/local"
 	_ "github.com/housepower/ckman/repository/mysql"
 	_ "github.com/housepower/ckman/repository/postgres"
 	"github.com/pkg/errors"
@@ -26,11 +23,6 @@ type MigrateConfig struct {
 	Target string
 	PsConf map[string]PersistentConfig `json:"persistent_config"`
 }
-
-var (
-	psrc repository.PersistentMgr
-	pdst repository.PersistentMgr
-)
 
 func ParseConfig(conf string) (MigrateConfig, error) {
 	var config MigrateConfig
@@ -71,86 +63,10 @@ func PersistentCheck(config MigrateConfig, typo string) (repository.PersistentMg
 	return ps, nil
 }
 
-func Migrate() error {
-	clusters, err := psrc.GetAllClusters()
-	if err != nil {
-		return err
-	}
-
-	if len(clusters) == 0 {
-		log.Logger.Warnf("clusters have 0 records, will migrate nothing")
-	}
-
-	logics, err := psrc.GetAllLogicClusters()
-	if err != nil {
-		return err
-	}
-
-	historys, err := psrc.GetAllQueryHistory()
-	if err != nil {
-		return err
-	}
-
-	tasks, err := psrc.GetAllTasks()
-	if err != nil {
-		return err
-	}
-
-	var backups []model.Backup
-	for _, conf := range clusters {
-		b, err := psrc.GetAllBackups(conf.Cluster)
-		if err != nil {
-			return err
-		}
-		backups = append(backups, b...)
-	}
-
-	if err = pdst.Begin(); err != nil {
-		return errors.Wrap(err, "")
-	}
-	for _, cluster := range clusters {
-		err = pdst.CreateCluster(cluster)
-		if err != nil {
-			_ = pdst.Rollback()
-			return errors.Wrap(err, "")
-		}
-	}
-	for logic, physics := range logics {
-		err = pdst.CreateLogicCluster(logic, physics)
-		if err != nil {
-			_ = pdst.Rollback()
-			return errors.Wrap(err, "")
-		}
-	}
-
-	for _, v := range historys {
-		err = pdst.CreateQueryHistory(v)
-		if err != nil {
-			_ = pdst.Rollback()
-			return errors.Wrap(err, "")
-		}
-	}
-
-	for _, v := range tasks {
-		err = pdst.CreateTask(v)
-		if err != nil {
-			_ = pdst.Rollback()
-			return errors.Wrap(err, "")
-		}
-	}
-
-	for _, v := range backups {
-		err = pdst.CreateBackup(v)
-		if err != nil {
-			_ = pdst.Rollback()
-			return errors.Wrap(err, "")
-		}
-	}
-
-	if err = pdst.Commit(); err != nil {
-		return errors.Wrap(err, "")
-	}
-	return nil
+// MigrateBetween 保留为向后兼容入口；实际实现在 repository.MigrateBetween。
+// 移到 repository 包是为了避免 repository/sqlite 启动期迁移反向 import 本包。
+func MigrateBetween(src, dst repository.PersistentMgr) error {
+	return repository.MigrateBetween(src, dst)
 }
 
 func MigrateHandle(conf string) {
@@ -159,20 +75,19 @@ func MigrateHandle(conf string) {
 		fmt.Printf("parse config file %s failed: %v\n", conf, err)
 		return
 	}
-	psrc, err = PersistentCheck(config, config.Source)
+	src, err := PersistentCheck(config, config.Source)
 	if err != nil {
 		fmt.Printf("source [%s] err: %v\n", config.Source, err)
 		return
 	}
-	pdst, err = PersistentCheck(config, config.Target)
+	dst, err := PersistentCheck(config, config.Target)
 	if err != nil {
 		fmt.Printf("target [%s] err: %v\n", config.Target, err)
 		return
 	}
-
-	if err = Migrate(); err != nil {
+	if err := MigrateBetween(src, dst); err != nil {
 		fmt.Printf("migrate failed: %v\n", err)
 		return
 	}
-	fmt.Printf("Form [%s] migrate to [%s] success!\n", config.Source, config.Target)
+	fmt.Printf("From [%s] migrate to [%s] success!\n", config.Source, config.Target)
 }

@@ -1,4 +1,4 @@
-package local
+package legacyjson
 
 const (
 	LocalPersistentName    string = "local"

@@ -25,7 +25,7 @@
 - 重构 `cmd/migrate.Migrate()` 为可复用函数 `MigrateBetween(src, dst)`，顺手补全缺失的 BackupPolicy / BackupRun 迁移
 - 在 `repository.PersistentMgr` 接口上新增 `GetAllBackupPolicies()` / `GetAllBackupRuns()`，各后端补实现
 - 新增 `ckmanctl dump-to-json` 子命令，将 SQLite 数据离线导出为 legacy JSON，用于降级场景
-- ckman 优雅关闭时自动写一份 `clusters.json.shutdown_snapshot.<ts>` 兜底快照
+- ckman 优雅关闭时自动写一份 `clusters.json.shutdown_snapshot.<ts>.json` 兜底快照
 
 **本次不包含（YAGNI）：**
 - SQLite → JSON 反向降级路径（仅以"手动改名"作为已知操作记录）
@@ -289,7 +289,7 @@ INFO local persistent: migrated from conf/clusters.json -> conf/clusters.db
 5. `sqlite3 conf/clusters.db ".schema"` 看七张表 + `_meta` 表存在
 6. `ckmanctl migrate -f migrate.hjson` 把 sqlite 数据搬到 mysql，验证 BackupPolicy / Run 也搬过去了
 7. `ckmanctl dump-to-json -c conf/ckman.hjson -o /tmp/dump.json` → 用旧版 ckman 二进制把 `/tmp/dump.json` 作为 `clusters.json` 启动，UI 数据齐全（降级路径端到端验证）
-8. `systemctl stop ckman` 后检查 `conf/` 目录出现 `clusters.json.shutdown_snapshot.<ts>` 文件
+8. `systemctl stop ckman` 后检查 `conf/` 目录出现 `clusters.json.shutdown_snapshot.<ts>.json` 文件
 
 ## 11. 依赖变更
 
@@ -343,7 +343,7 @@ systemctl start ckman
 
 ### 14.2 优雅关闭快照（最多丢上一次启动后的写）
 
-ckman 收到 SIGTERM 走优雅关闭路径时，触发一次 `dump-to-json`，输出到 `conf/clusters.json.shutdown_snapshot.<ts>`。
+ckman 收到 SIGTERM 走优雅关闭路径时，触发一次 `dump-to-json`，输出到 `conf/clusters.json.shutdown_snapshot.<ts>.json`。
 
 **收益：** 即使运维忘记跑 `ckmanctl dump-to-json`，只要服务是 `systemctl stop` 这种正常停止，最近一次的快照永远在。降级时把这个文件 `mv` 成 `clusters.json` 即可。
 

@@ -8,11 +8,14 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
+	"github.com/housepower/ckman/cmd/dumpjson"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/repository"
+	"github.com/housepower/ckman/repository/sqlite"
 	"github.com/housepower/ckman/service/backup"
 	"github.com/housepower/ckman/service/cron"
 	"github.com/housepower/ckman/service/runner"
@@ -20,7 +23,7 @@ import (
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	_ "github.com/housepower/ckman/repository/dm8"
-	_ "github.com/housepower/ckman/repository/local"
+	_ "github.com/housepower/ckman/repository/sqlite"
 	_ "github.com/housepower/ckman/repository/mysql"
 	_ "github.com/housepower/ckman/repository/postgres"
 	"github.com/housepower/ckman/server"
@@ -176,7 +179,41 @@ func termHandler() error {
 
 	common.CloseConns(hosts)
 
+	if err := writeShutdownSnapshot(); err != nil {
+		log.Logger.Warnf("shutdown snapshot failed: %v", err)
+	}
+
 	return nil
+}
+
+// writeShutdownSnapshot writes a JSON snapshot of the SQLite DB so that the
+// operator has an emergency fallback for downgrading after a graceful stop.
+// Best-effort: only attempts the dump if the local backend is in use; failures
+// only log a Warn so they cannot block shutdown.
+func writeShutdownSnapshot() error {
+	if config.GlobalConfig.Server.PersistentPolicy != "local" {
+		return nil
+	}
+	locCfg := sqlite.LocalConfig{}
+	if c, ok := config.GlobalConfig.PersistentConfig["local"]; ok {
+		if fmtv, ok := c["format"].(string); ok {
+			locCfg.Format = fmtv
+		}
+		if dir, ok := c["config_dir"].(string); ok {
+			locCfg.ConfigDir = dir
+		}
+		if name, ok := c["config_file"].(string); ok {
+			locCfg.ConfigFile = name
+		}
+	}
+	locCfg.Normalize()
+
+	ts := time.Now().UTC().Format("20060102-150405")
+	// DumpFromDB 内部会按需补 .json 扩展名（legacyjson.Normalize 行为）。
+	// 最终落盘名形如 clusters.json.shutdown_snapshot.<ts>.json。
+	snapshotBase := fmt.Sprintf("%s.json.shutdown_snapshot.%s", locCfg.ConfigFile, ts)
+	outPath := filepath.Join(locCfg.ConfigDir, snapshotBase)
+	return dumpjson.DumpFromDB(locCfg.DBPath(), outPath)
 }
 
 // func reloadHandler() error {

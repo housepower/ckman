@@ -1,4 +1,4 @@
-package local
+package legacyjson
 
 import (
 	"encoding/json"
@@ -808,4 +808,24 @@ func (lp *LocalPersistent) MarkRunRunningIfQueued(runID, instance string, starte
 		_ = lp.dump()
 	}
 	return true, nil
+}
+
+func (lp *LocalPersistent) GetAllBackupPolicies() ([]model.BackupPolicy, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	out := make([]model.BackupPolicy, 0, len(lp.Data.BackupPolicy))
+	for _, p := range lp.Data.BackupPolicy {
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+func (lp *LocalPersistent) GetAllBackupRuns() ([]model.BackupRun, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	out := make([]model.BackupRun, 0, len(lp.Data.BackupRun))
+	for _, r := range lp.Data.BackupRun {
+		out = append(out, r)
+	}
+	return out, nil
 }

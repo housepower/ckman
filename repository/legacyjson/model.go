@@ -1,4 +1,4 @@
-package local
+package legacyjson
 
 import (
 	"github.com/housepower/ckman/model"

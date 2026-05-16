@@ -83,6 +83,7 @@ type PersistentBackupPolicyService interface {
 	GetBackupPolicy(policyID string) (model.BackupPolicy, error)
 	GetBackupPoliciesByCluster(cluster string) ([]model.BackupPolicy, error)
 	GetActiveScheduledPolicies(instance string) ([]model.BackupPolicy, error) // enabled+scheduled+!deleted+instance==
+	GetAllBackupPolicies() ([]model.BackupPolicy, error)
 }
 
 type PersistentBackupRunService interface {
@@ -95,6 +96,7 @@ type PersistentBackupRunService interface {
 	GetRunsInFlightByPolicy(policyID string) ([]model.BackupRun, error)
 	GetRunsInFlightByInstance(instance string) ([]model.BackupRun, error)
 	MarkRunRunningIfQueued(runID, instance string, startedAt time.Time) (bool, error)
+	GetAllBackupRuns() ([]model.BackupRun, error)
 }
 
 type PersistentMgr interface {

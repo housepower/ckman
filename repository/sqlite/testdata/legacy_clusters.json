@@ -1,0 +1,43 @@
+{
+  "clusters": {
+    "ck1": {
+      "cluster": "ck1",
+      "comment": "from-legacy",
+      "hosts": ["10.0.0.1"]
+    }
+  },
+  "logics": {
+    "L1": ["ck1"]
+  },
+  "query_history": {
+    "qh1": {
+      "CheckSum": "qh1",
+      "Cluster": "ck1",
+      "QuerySql": "SELECT 1",
+      "CreateTime": "2025-01-01T00:00:00Z"
+    }
+  },
+  "tasks": {},
+  "backup": {},
+  "backup_policy": {
+    "p1": {
+      "policy_id": "p1",
+      "cluster_name": "ck1",
+      "database": "db",
+      "table": "t",
+      "schedule_type": "scheduled",
+      "enabled": true,
+      "deleted": false
+    }
+  },
+  "backup_run": {
+    "br1": {
+      "run_id": "br1",
+      "policy_id": "p1",
+      "cluster_name": "ck1",
+      "database": "db",
+      "table": "t",
+      "status": "queued"
+    }
+  }
+}

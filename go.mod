@@ -45,9 +45,10 @@ require (
 	github.com/wanlay/gorm-dm8 v1.0.5
 	golang.org/x/sync v0.4.0
 	gopkg.in/yaml.v3 v3.0.1
+	github.com/glebarez/sqlite v1.4.6
 	gorm.io/driver/mysql v1.3.3
 	gorm.io/driver/postgres v1.3.4
-	gorm.io/gorm v1.23.5
+	gorm.io/gorm v1.23.8
 	moul.io/zapgorm2 v1.1.3
 )
 
@@ -68,8 +69,10 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
+	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
@@ -120,6 +123,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -139,4 +143,8 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	modernc.org/libc v1.22.5 // indirect
+	modernc.org/mathutil v1.5.0 // indirect
+	modernc.org/memory v1.5.0 // indirect
+	modernc.org/sqlite v1.23.1 // indirect
 )

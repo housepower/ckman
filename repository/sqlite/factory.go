@@ -1,4 +1,4 @@
-package local
+package sqlite
 
 import "github.com/housepower/ckman/repository"
 
@@ -9,11 +9,11 @@ func init() {
 type Factory struct{}
 
 func (factory *Factory) CreatePersistent() repository.PersistentMgr {
-	return NewLocalPersistent()
+	return NewSQLitePersistent()
 }
 
 func (factory *Factory) GetPersistentName() string {
-	return LocalPersistentName
+	return SQLitePersistentName
 }
 
 func NewFactory() repository.PersistentFactory {
