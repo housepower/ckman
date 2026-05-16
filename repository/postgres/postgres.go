@@ -898,6 +898,40 @@ func wrapError(err error) error {
 	return err
 }
 
+func (mp *PostgresPersistent) GetAllBackupPolicies() ([]model.BackupPolicy, error) {
+	var tbls []TblBackupPolicy
+	tx := mp.Client.Find(&tbls)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	out := make([]model.BackupPolicy, 0, len(tbls))
+	for _, tbl := range tbls {
+		var p model.BackupPolicy
+		if err := json.Unmarshal([]byte(tbl.Policy), &p); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+func (mp *PostgresPersistent) GetAllBackupRuns() ([]model.BackupRun, error) {
+	var tbls []TblBackupRun
+	tx := mp.Client.Find(&tbls)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	out := make([]model.BackupRun, 0, len(tbls))
+	for _, tbl := range tbls {
+		var r model.BackupRun
+		if err := json.Unmarshal([]byte(tbl.Run), &r); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
 func NewPostgresPersistent() *PostgresPersistent {
 	return &PostgresPersistent{}
 }
