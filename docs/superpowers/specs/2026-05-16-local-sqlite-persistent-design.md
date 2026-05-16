@@ -327,7 +327,7 @@ ckmanctl dump-to-json -c /etc/ckman/conf/ckman.hjson -o conf/clusters.json
 - 复用 `MigrateBetween(sqlite, legacyjson)` 反向调用
 - 输出文件采用 legacy JSON 格式（旧二进制原生兼容）
 
-**降级标准流程：**
+**降级标准流程（推荐先 stop）：**
 ```
 systemctl stop ckman
 ckmanctl dump-to-json -c conf/ckman.hjson -o conf/clusters.json
@@ -336,6 +336,8 @@ mv conf/clusters.db conf/clusters.db.bak
 # 换回旧二进制
 systemctl start ckman
 ```
+
+**ckman 仍在运行也能跑** —— 工具以 `?mode=ro` + `BEGIN DEFERRED` 打开 db，拿事务开始那一刻的一致快照。后续 ckman 写入不影响输出，但也不会出现在结果里（详见 §15）。这种用法适合"先粗略导一份，再 stop 服务后 dump 一次拿增量"的灰度回退。
 
 **适用：** 计划性降级；新旧版本数据 schema 兼容。
 
@@ -367,3 +369,52 @@ mv conf/clusters.db conf/clusters.db.broken
 | 紧急降级，ckman 还能 graceful stop | ✅ 推荐 | ✅ 自动可用 | 兜底 |
 | 紧急降级，ckman 已被 kill -9 | ✅（只要 db 文件没坏） | ❌ | ✅ |
 | `clusters.db` 文件损坏 | ❌ | ✅（若上次有过 graceful stop） | ✅ |
+
+## 15. 并发访问与一致性
+
+### 15.1 多进程访问 `clusters.db`
+
+SQLite 通过文件级 fcntl 锁支持多进程访问：
+
+| 访问组合 | WAL 模式（本设计） | 备注 |
+|---|---|---|
+| 多个进程并发读 | ✅ 不互斥 | 各进程独立打开只读句柄即可 |
+| 一个写（ckman） + 多个读（ckmanctl） | ✅ 不互斥 | 读不阻塞写，写不阻塞读 |
+| 多个进程同时写 | ❌ 串行 | 后者拿写锁失败 → `busy_timeout=5000` 自动重试 5 秒，超时报错 |
+
+**文件系统约束：** 必须支持 POSIX advisory locking。
+- 本地 ext4 / xfs / btrfs ✅
+- NFS ❌（已知 SQLite 在 NFS 上行为不可靠）
+- ckman 默认安装路径 `/etc/ckman/conf` 通常在本地盘 —— 设计文档显式声明"`clusters.db` 必须放在本地文件系统"
+
+### 15.2 ckmanctl 工具的快照语义
+
+`ckmanctl dump-to-json` 和 `ckmanctl migrate` 在 ckman 运行期间使用时：
+
+**实现要点：**
+- DSN 加 `?mode=ro`，确保只读打开，绝不参与写锁竞争
+- 工具开始时执行 `BEGIN DEFERRED`，整个导出过程在同一个读事务里完成
+- 输出代表"事务开始那一刻"的一致快照
+
+**用户视角：**
+- 工具不会因为 ckman 在写而失败或读到脏数据
+- ckman 在工具运行**期间**写入的数据**不会**出现在导出结果中（事务隔离）
+- 工具退出时间和事务开始时间可能差几秒，差异可忽略
+
+**stdout 提示：** 工具运行后打印一行
+```
+Snapshot captured at 2026-05-16T10:30:45Z (ckman pid=12345 still running; writes after this point are not included)
+```
+让运维显式知晓快照边界。
+
+### 15.3 多 ckman 实例共享同一 `clusters.db`
+
+**不支持。** 即使 SQLite 支持多写者协调，ckman 内部的 cron 调度、master 节点选举等都假设单实例对持久层独占。多实例部署必须用 MySQL / Postgres backend，这点和旧 JSON 行为一致。
+
+### 15.4 测试用例补充
+
+在 §10.3 中新增：
+
+| 用例 | 验证点 |
+|---|---|
+| `TestDumpToJSON_ConcurrentWithWrites` | 起一个 goroutine 持续写 SQLite 集群表；并发跑 `dump-to-json`；导出文件中数据是一致快照，不出现半截 row 或字段错位 |
