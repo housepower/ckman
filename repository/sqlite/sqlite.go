@@ -914,17 +914,15 @@ func (sp *SQLitePersistent) GetAllUsers() ([]model.CkmanUser, error) {
 }
 
 func (sp *SQLitePersistent) CreateUser(u model.CkmanUser) error {
-	tbl := TblUser{
-		Username:     u.Username,
-		PasswordHash: u.PasswordHash,
-		Policy:       u.Policy,
-		Enabled:      u.Enabled,
-	}
-	if err := sp.Client.Create(&tbl).Error; err != nil {
-		if isUniqueViolation(err) {
+	tx := sp.Client.Exec(
+		"INSERT INTO "+SQLITE_TBL_USER+" (username, password_hash, policy, enabled) VALUES (?, ?, ?, ?)",
+		u.Username, u.PasswordHash, u.Policy, u.Enabled,
+	)
+	if tx.Error != nil {
+		if isUniqueViolation(tx.Error) {
 			return repository.ErrRecordExists
 		}
-		return wrapError(err)
+		return wrapError(tx.Error)
 	}
 	return nil
 }
@@ -946,7 +944,7 @@ func (sp *SQLitePersistent) UpdateUser(u model.CkmanUser) error {
 }
 
 func (sp *SQLitePersistent) DeleteUser(username string) error {
-	tx := sp.Client.Where("username = ?", username).Delete(&TblUser{})
+	tx := sp.Client.Unscoped().Where("username = ?", username).Delete(&TblUser{})
 	if tx.Error != nil {
 		return wrapError(tx.Error)
 	}

@@ -966,7 +966,7 @@ func (mp *DM8Persistent) UpdateUser(u model.CkmanUser) error {
 }
 
 func (mp *DM8Persistent) DeleteUser(username string) error {
-	tx := mp.Client.Where("username = ?", username).Delete(&TblUser{})
+	tx := mp.Client.Unscoped().Where("username = ?", username).Delete(&TblUser{})
 	if tx.Error != nil {
 		return wrapError(tx.Error)
 	}

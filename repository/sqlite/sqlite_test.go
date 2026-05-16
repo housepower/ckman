@@ -618,3 +618,45 @@ func TestUserCRUD(t *testing.T) {
 		t.Fatalf("expected ErrRecordNotFound for ghost, got %v", err)
 	}
 }
+
+func TestCreateAfterDeleteAllowsReuse(t *testing.T) {
+	sp := newTestSP(t)
+
+	user := model.CkmanUser{
+		Username:     "alice",
+		PasswordHash: "h1",
+		Policy:       "ordinary",
+		Enabled:      true,
+	}
+	if err := sp.CreateUser(user); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if err := sp.DeleteUser("alice"); err != nil {
+		t.Fatalf("DeleteUser: %v", err)
+	}
+
+	// Same username must be reusable after delete (proves hard delete).
+	user2 := model.CkmanUser{
+		Username:     "alice",
+		PasswordHash: "h2",
+		Policy:       "guest",
+		Enabled:      false,
+	}
+	if err := sp.CreateUser(user2); err != nil {
+		t.Fatalf("CreateUser after delete: %v", err)
+	}
+
+	got, err := sp.GetUserByName("alice")
+	if err != nil {
+		t.Fatalf("GetUserByName: %v", err)
+	}
+	if got.Policy != "guest" {
+		t.Fatalf("expected policy=guest, got %q", got.Policy)
+	}
+	if got.PasswordHash != "h2" {
+		t.Fatalf("expected password_hash=h2, got %q", got.PasswordHash)
+	}
+	if got.Enabled {
+		t.Fatalf("expected enabled=false")
+	}
+}

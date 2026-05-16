@@ -960,7 +960,7 @@ func (mp *MysqlPersistent) UpdateUser(u model.CkmanUser) error {
 }
 
 func (mp *MysqlPersistent) DeleteUser(username string) error {
-	tx := mp.Client.Where("username = ?", username).Delete(&TblUser{})
+	tx := mp.Client.Unscoped().Where("username = ?", username).Delete(&TblUser{})
 	if tx.Error != nil {
 		return wrapError(tx.Error)
 	}
