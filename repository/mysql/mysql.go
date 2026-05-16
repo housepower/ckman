@@ -70,6 +70,7 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 		&TblBackup{},
 		&TblBackupPolicy{}, // 新增
 		&TblBackupRun{},    // 新增
+		&TblUser{},         // Phase 1 用户管理
 	)
 	if err != nil {
 		return errors.Wrap(err, "")
@@ -897,6 +898,80 @@ func (mp *MysqlPersistent) GetAllBackupRuns() ([]model.BackupRun, error) {
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+func (mp *MysqlPersistent) UserExists(username string) bool {
+	_, err := mp.GetUserByName(username)
+	return err == nil
+}
+
+func (mp *MysqlPersistent) GetUserByName(username string) (model.CkmanUser, error) {
+	var tbl TblUser
+	if err := mp.Client.Where("username = ?", username).First(&tbl).Error; err != nil {
+		return model.CkmanUser{}, wrapError(err)
+	}
+	return tblUserToModel(tbl), nil
+}
+
+func (mp *MysqlPersistent) GetAllUsers() ([]model.CkmanUser, error) {
+	var tbls []TblUser
+	if err := mp.Client.Order("username ASC").Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.CkmanUser, 0, len(tbls))
+	for _, t := range tbls {
+		out = append(out, tblUserToModel(t))
+	}
+	return out, nil
+}
+
+func (mp *MysqlPersistent) CreateUser(u model.CkmanUser) error {
+	tbl := TblUser{
+		Username:     u.Username,
+		PasswordHash: u.PasswordHash,
+		Policy:       u.Policy,
+		Enabled:      u.Enabled,
+	}
+	if err := mp.Client.Create(&tbl).Error; err != nil {
+		if isUniqueViolationMySQL(err) {
+			return repository.ErrRecordExists
+		}
+		return wrapError(err)
+	}
+	return nil
+}
+
+func (mp *MysqlPersistent) UpdateUser(u model.CkmanUser) error {
+	updates := map[string]interface{}{
+		"password_hash": u.PasswordHash,
+		"policy":        u.Policy,
+		"enabled":       u.Enabled,
+	}
+	tx := mp.Client.Model(&TblUser{}).Where("username = ?", u.Username).Updates(updates)
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (mp *MysqlPersistent) DeleteUser(username string) error {
+	tx := mp.Client.Where("username = ?", username).Delete(&TblUser{})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func isUniqueViolationMySQL(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "Duplicate entry")
 }
 
 func NewMysqlPersistent() *MysqlPersistent {

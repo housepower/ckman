@@ -536,3 +536,85 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
+
+func TestUserCRUD(t *testing.T) {
+	sp := newTestSP(t)
+
+	user := model.CkmanUser{
+		Username:     "alice",
+		PasswordHash: "hashvalue",
+		Policy:       "ordinary",
+		Enabled:      true,
+	}
+	if err := sp.CreateUser(user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	if !sp.UserExists("alice") {
+		t.Fatalf("UserExists should return true")
+	}
+
+	got, err := sp.GetUserByName("alice")
+	if err != nil {
+		t.Fatalf("GetUserByName: %v", err)
+	}
+	if got.Username != "alice" {
+		t.Fatalf("unexpected username: %q", got.Username)
+	}
+	if got.Policy != "ordinary" {
+		t.Fatalf("unexpected policy: %q", got.Policy)
+	}
+	if !got.Enabled {
+		t.Fatalf("expected enabled=true")
+	}
+
+	// Duplicate insert → ErrRecordExists
+	err = sp.CreateUser(user)
+	if !errors.Is(err, repository.ErrRecordExists) {
+		t.Fatalf("expected ErrRecordExists, got %v", err)
+	}
+
+	// Update
+	user.Policy = "guest"
+	user.Enabled = false
+	user.PasswordHash = "newhash"
+	if err := sp.UpdateUser(user); err != nil {
+		t.Fatalf("UpdateUser: %v", err)
+	}
+	got2, _ := sp.GetUserByName("alice")
+	if got2.Policy != "guest" {
+		t.Fatalf("policy not updated: %q", got2.Policy)
+	}
+	if got2.Enabled {
+		t.Fatalf("expected enabled=false")
+	}
+	if got2.PasswordHash != "newhash" {
+		t.Fatalf("password_hash not updated: %q", got2.PasswordHash)
+	}
+
+	// GetAll
+	all, err := sp.GetAllUsers()
+	if err != nil {
+		t.Fatalf("GetAllUsers: %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("expected 1 user, got %d", len(all))
+	}
+
+	// Delete
+	if err := sp.DeleteUser("alice"); err != nil {
+		t.Fatalf("DeleteUser: %v", err)
+	}
+	if sp.UserExists("alice") {
+		t.Fatalf("UserExists should return false after delete")
+	}
+	_, err = sp.GetUserByName("alice")
+	if !errors.Is(err, repository.ErrRecordNotFound) {
+		t.Fatalf("expected ErrRecordNotFound, got %v", err)
+	}
+
+	// Delete missing → ErrRecordNotFound
+	err = sp.DeleteUser("ghost")
+	if !errors.Is(err, repository.ErrRecordNotFound) {
+		t.Fatalf("expected ErrRecordNotFound for ghost, got %v", err)
+	}
+}

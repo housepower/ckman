@@ -99,6 +99,15 @@ type PersistentBackupRunService interface {
 	GetAllBackupRuns() ([]model.BackupRun, error)
 }
 
+type PersistentUserService interface {
+	GetUserByName(username string) (model.CkmanUser, error)
+	UserExists(username string) bool
+	GetAllUsers() ([]model.CkmanUser, error)
+	CreateUser(u model.CkmanUser) error
+	UpdateUser(u model.CkmanUser) error
+	DeleteUser(username string) error
+}
+
 type PersistentMgr interface {
 	PersistentBase
 	PersistentClusterService
@@ -108,6 +117,7 @@ type PersistentMgr interface {
 	PersistentBackupService           // 老接口保留
 	PersistentBackupPolicyService     // 新增
 	PersistentBackupRunService        // 新增
+	PersistentUserService             // 新增 — Phase 1 用户管理
 }
 
 func RegistePersistent(fn func() PersistentFactory) {

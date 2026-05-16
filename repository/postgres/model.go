@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"time"
+
+	"github.com/housepower/ckman/model"
 )
 
 type TblCluster struct {
@@ -87,3 +89,27 @@ type TblBackupRun struct {
 }
 
 func (v TblBackupRun) TableName() string { return PG_TBL_BACKUP_RUN }
+
+type TblUser struct {
+	ID           uint      `gorm:"column:id;primaryKey;autoIncrement"`
+	CreatedAt    time.Time `gorm:"column:created_at"`
+	UpdatedAt    time.Time `gorm:"column:updated_at"`
+	Username     string    `gorm:"index:idx_user_name,unique; column:username; size:32; not null"`
+	PasswordHash string    `gorm:"column:password_hash; size:64; not null"`
+	Policy       string    `gorm:"column:policy; size:16; not null"`
+	Enabled      bool      `gorm:"column:enabled; not null; default:true"`
+}
+
+func (TblUser) TableName() string { return POSTGRES_TBL_USER }
+
+func tblUserToModel(t TblUser) model.CkmanUser {
+	return model.CkmanUser{
+		ID:           int64(t.ID),
+		Username:     t.Username,
+		PasswordHash: t.PasswordHash,
+		Policy:       t.Policy,
+		Enabled:      t.Enabled,
+		CreatedAt:    t.CreatedAt.Unix(),
+		UpdatedAt:    t.UpdatedAt.Unix(),
+	}
+}

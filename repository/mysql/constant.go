@@ -16,4 +16,5 @@ const (
 	MYSQL_TBL_BACKUP        string = "tbl_backup"
 	MYSQL_TBL_BACKUP_POLICY string = "tbl_backup_policy"
 	MYSQL_TBL_BACKUP_RUN    string = "tbl_backup_run"
+	MYSQL_TBL_USER          string = "tbl_user"
 )

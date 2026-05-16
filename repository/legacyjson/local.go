@@ -829,3 +829,23 @@ func (lp *LocalPersistent) GetAllBackupRuns() ([]model.BackupRun, error) {
 	}
 	return out, nil
 }
+
+// ─── User (legacy JSON does not store users; no-op stubs for interface compliance) ─
+
+func (lp *LocalPersistent) GetUserByName(_ string) (model.CkmanUser, error) {
+	return model.CkmanUser{}, repository.ErrRecordNotFound
+}
+
+func (lp *LocalPersistent) UserExists(_ string) bool { return false }
+
+func (lp *LocalPersistent) GetAllUsers() ([]model.CkmanUser, error) {
+	return []model.CkmanUser{}, nil
+}
+
+func (lp *LocalPersistent) CreateUser(_ model.CkmanUser) error { return nil }
+
+func (lp *LocalPersistent) UpdateUser(_ model.CkmanUser) error {
+	return repository.ErrRecordNotFound
+}
+
+func (lp *LocalPersistent) DeleteUser(_ string) error { return repository.ErrRecordNotFound }
