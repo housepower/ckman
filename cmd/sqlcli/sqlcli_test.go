@@ -199,3 +199,70 @@ func TestRender_JSON_NoHTMLEscape(t *testing.T) {
 		t.Errorf("expected raw HTML chars, got %s", out)
 	}
 }
+
+func TestIsReadStatement(t *testing.T) {
+	cases := []struct {
+		in   string
+		want bool
+	}{
+		{"SELECT * FROM t", true},
+		{"select 1", true},
+		{"WITH cte AS (SELECT 1) SELECT * FROM cte", true},
+		{"PRAGMA table_info(x)", true},
+		{"EXPLAIN SELECT 1", true},
+		{"SHOW TABLES", true},
+		{"DESC tbl", true},
+		{"DESCRIBE tbl", true},
+		{"INSERT INTO t VALUES (1)", false},
+		{"UPDATE t SET a=1", false},
+		{"DELETE FROM t", false},
+		{"CREATE TABLE t (a int)", false},
+		{"DROP TABLE t", false},
+		{"BEGIN", false},
+		{"COMMIT", false},
+	}
+	for _, c := range cases {
+		if got := isReadStatement(c.in); got != c.want {
+			t.Errorf("isReadStatement(%q) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
+func TestRunSingleShot_SQLite(t *testing.T) {
+	dir := t.TempDir()
+	db, _, err := OpenDB("local", map[string]interface{}{
+		"config_dir":  dir,
+		"config_file": "testdb",
+	})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.Exec("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)").Error; err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if err := db.Exec("INSERT INTO t VALUES (1, 'alice')").Error; err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	sqlDB, _ := db.DB()
+	_ = sqlDB.Close()
+
+	var buf bytes.Buffer
+	opts := Options{
+		ConfMap: map[string]interface{}{
+			"config_dir":  dir,
+			"config_file": "testdb",
+		},
+		Policy: "local",
+		Query:  "SELECT * FROM t",
+		Format: "json",
+		Out:    &buf,
+		ErrOut: &buf,
+	}
+	if err := RunSingleShot(opts); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, `"name":"alice"`) {
+		t.Errorf("expected alice in output, got:\n%s", out)
+	}
+}
