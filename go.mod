@@ -3,6 +3,7 @@ module github.com/housepower/ckman
 go 1.24
 
 require (
+	github.com/chzyer/readline v1.5.1
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/davecgh/go-spew v1.1.1
@@ -38,6 +39,7 @@ require (
 	github.com/arl/statsviz v0.5.1
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/bramvdbogaerde/go-scp v1.2.0
+	github.com/glebarez/sqlite v1.4.6
 	github.com/go-basic/uuid v1.0.0
 	github.com/hjson/hjson-go/v4 v4.2.0
 	github.com/imdario/mergo v0.3.12
@@ -45,7 +47,6 @@ require (
 	github.com/wanlay/gorm-dm8 v1.0.5
 	golang.org/x/sync v0.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	github.com/glebarez/sqlite v1.4.6
 	gorm.io/driver/mysql v1.3.3
 	gorm.io/driver/postgres v1.3.4
 	gorm.io/gorm v1.23.8
