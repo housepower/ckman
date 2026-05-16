@@ -30,6 +30,8 @@ func GuestPolicies() []Policy {
 		{"/metric/query_range/*", GET},
 		{"/version", GET},
 		{"/instances", GET},
+		{"/user/me", GET},
+		{"/user/password", PUT},
 		{"/ui/schema", GET},
 		{"/task/*", GET},
 		{"/task/lists", GET},

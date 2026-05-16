@@ -261,6 +261,13 @@ definitions:
         example: 2181
         type: integer
     type: object
+  model.ChangeMyPasswordReq:
+    properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    type: object
   model.CkImportConfig:
     properties:
       cluster:
@@ -462,6 +469,21 @@ definitions:
         items:
           $ref: '#/definitions/model.CkTableTTL'
         type: array
+    type: object
+  model.CreateUserReq:
+    properties:
+      enabled:
+        example: true
+        type: boolean
+      password:
+        example: PlainPass1!
+        type: string
+      policy:
+        example: ordinary
+        type: string
+      username:
+        example: alice
+        type: string
     type: object
   model.DMLOnLogicReq:
     properties:
@@ -768,6 +790,11 @@ definitions:
         example: t123
         type: string
     type: object
+  model.ResetPasswordReq:
+    properties:
+      new_password:
+        type: string
+    type: object
   model.Storage:
     properties:
       disks:
@@ -778,6 +805,27 @@ definitions:
         items:
           $ref: '#/definitions/model.Policy'
         type: array
+    type: object
+  model.UpdateUserReq:
+    properties:
+      enabled:
+        type: boolean
+      policy:
+        example: guest
+        type: string
+    type: object
+  model.UserListItem:
+    properties:
+      created_at:
+        type: integer
+      enabled:
+        type: boolean
+      policy:
+        type: string
+      updated_at:
+        type: integer
+      username:
+        type: string
     type: object
   model.Volumn:
     properties:
@@ -2659,6 +2707,117 @@ paths:
       summary: 获取正在运行的任务个数
       tags:
       - task
+  /api/v1/user/me:
+    get:
+      description: Get the current logged-in user
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UserListItem'
+      summary: 获取当前登录用户信息
+      tags:
+      - user
+  /api/v1/user/password:
+    put:
+      description: Change current user's own password (requires old password)
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.ChangeMyPasswordReq'
+      responses:
+        "200":
+          description: ""
+      summary: 修改自己的密码
+      tags:
+      - user
+  /api/v1/users:
+    get:
+      description: List all users (admin only)
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.UserListItem'
+            type: array
+      summary: 获取所有用户
+      tags:
+      - user
+    post:
+      description: Create a non-admin user (admin only)
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateUserReq'
+      responses:
+        "200":
+          description: ""
+      summary: 创建用户
+      tags:
+      - user
+  /api/v1/users/{username}:
+    delete:
+      description: Hard-delete a user and revoke their tokens (admin only)
+      parameters:
+      - description: username
+        in: path
+        name: username
+        required: true
+        type: string
+      responses:
+        "200":
+          description: ""
+      summary: 删除用户
+      tags:
+      - user
+    put:
+      description: Update policy and/or enabled flag (admin only)
+      parameters:
+      - description: username
+        in: path
+        name: username
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateUserReq'
+      responses:
+        "200":
+          description: ""
+      summary: 更新用户角色或启用状态
+      tags:
+      - user
+  /api/v1/users/{username}/password:
+    put:
+      description: Admin resets another user's password without needing the old password
+      parameters:
+      - description: username
+        in: path
+        name: username
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.ResetPasswordReq'
+      responses:
+        "200":
+          description: ""
+      summary: 重置他人密码
+      tags:
+      - user
   /api/v1/zk/replicated_queue/{clusterName}:
     get:
       consumes:

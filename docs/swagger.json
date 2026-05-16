@@ -2878,6 +2878,176 @@
                 }
             }
         },
+        "/api/v1/user/me": {
+            "get": {
+                "description": "Get the current logged-in user",
+                "tags": [
+                    "user"
+                ],
+                "summary": "获取当前登录用户信息",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.UserListItem"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/password": {
+            "put": {
+                "description": "Change current user's own password (requires old password)",
+                "tags": [
+                    "user"
+                ],
+                "summary": "修改自己的密码",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ChangeMyPasswordReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/users": {
+            "get": {
+                "description": "List all users (admin only)",
+                "tags": [
+                    "user"
+                ],
+                "summary": "获取所有用户",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.UserListItem"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a non-admin user (admin only)",
+                "tags": [
+                    "user"
+                ],
+                "summary": "创建用户",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CreateUserReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/users/{username}": {
+            "put": {
+                "description": "Update policy and/or enabled flag (admin only)",
+                "tags": [
+                    "user"
+                ],
+                "summary": "更新用户角色或启用状态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "username",
+                        "name": "username",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateUserReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "description": "Hard-delete a user and revoke their tokens (admin only)",
+                "tags": [
+                    "user"
+                ],
+                "summary": "删除用户",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "username",
+                        "name": "username",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/users/{username}/password": {
+            "put": {
+                "description": "Admin resets another user's password without needing the old password",
+                "tags": [
+                    "user"
+                ],
+                "summary": "重置他人密码",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "username",
+                        "name": "username",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ResetPasswordReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/zk/replicated_queue/{clusterName}": {
             "get": {
                 "security": [
@@ -3360,6 +3530,17 @@
                 }
             }
         },
+        "model.ChangeMyPasswordReq": {
+            "type": "object",
+            "properties": {
+                "new_password": {
+                    "type": "string"
+                },
+                "old_password": {
+                    "type": "string"
+                }
+            }
+        },
         "model.CkImportConfig": {
             "type": "object",
             "properties": {
@@ -3639,6 +3820,27 @@
                     "items": {
                         "$ref": "#/definitions/model.CkTableTTL"
                     }
+                }
+            }
+        },
+        "model.CreateUserReq": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "password": {
+                    "type": "string",
+                    "example": "PlainPass1!"
+                },
+                "policy": {
+                    "type": "string",
+                    "example": "ordinary"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "alice"
                 }
             }
         },
@@ -4087,6 +4289,14 @@
                 }
             }
         },
+        "model.ResetPasswordReq": {
+            "type": "object",
+            "properties": {
+                "new_password": {
+                    "type": "string"
+                }
+            }
+        },
         "model.Storage": {
             "type": "object",
             "properties": {
@@ -4101,6 +4311,38 @@
                     "items": {
                         "$ref": "#/definitions/model.Policy"
                     }
+                }
+            }
+        },
+        "model.UpdateUserReq": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "policy": {
+                    "type": "string",
+                    "example": "guest"
+                }
+            }
+        },
+        "model.UserListItem": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "policy": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
                 }
             }
         },
