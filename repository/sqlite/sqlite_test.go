@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -308,5 +309,61 @@ func TestSQLite_BackupPolicyCRUD(t *testing.T) {
 	got3, _ := sp.GetBackupPolicy("p1")
 	if !got3.Deleted {
 		t.Fatalf("delete should soft-delete: %+v", got3)
+	}
+}
+
+func TestSQLite_BackupRunCRUD(t *testing.T) {
+	sp := newTestSP(t)
+	r := model.BackupRun{
+		RunID: "r1", PolicyID: "p1", ClusterName: "ck1",
+		Database: "db", Table: "t",
+		Status:    model.BACKUP_STATUS_QUEUED,
+		StartedAt: time.Now(),
+	}
+	if err := sp.CreateBackupRun(r); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := sp.GetBackupRun("r1")
+	if err != nil || got.RunID != "r1" {
+		t.Fatalf("get: %v %+v", err, got)
+	}
+
+	inflight, _ := sp.GetRunsInFlightByPolicy("p1")
+	if len(inflight) != 1 {
+		t.Fatalf("inflight by policy: %d", len(inflight))
+	}
+
+	ok, err := sp.MarkRunRunningIfQueued("r1", "1.2.3.4", time.Now())
+	if err != nil || !ok {
+		t.Fatalf("mark running: ok=%v err=%v", ok, err)
+	}
+
+	got2, _ := sp.GetBackupRun("r1")
+	if got2.Status != model.BACKUP_STATUS_RUNNING {
+		t.Fatalf("status not updated: %+v", got2)
+	}
+
+	inflight2, _ := sp.GetRunsInFlightByInstance("1.2.3.4")
+	if len(inflight2) != 1 {
+		t.Fatalf("inflight by instance: %d", len(inflight2))
+	}
+
+	byPolicy, _ := sp.GetRunsByPolicy("p1", 10, time.Time{})
+	if len(byPolicy) != 1 {
+		t.Fatalf("by policy: %d", len(byPolicy))
+	}
+
+	byTable, _ := sp.GetRunsByTable("ck1", "db", "t", 7)
+	if len(byTable) != 1 {
+		t.Fatalf("by table: %d", len(byTable))
+	}
+
+	all, _ := sp.GetAllBackupRuns()
+	if len(all) != 1 {
+		t.Fatalf("all: %d", len(all))
+	}
+
+	if err := sp.DeleteBackupRun("r1"); err != nil {
+		t.Fatalf("delete: %v", err)
 	}
 }

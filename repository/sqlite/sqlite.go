@@ -713,3 +713,175 @@ func (sp *SQLitePersistent) GetAllBackupPolicies() ([]model.BackupPolicy, error)
 	}
 	return out, nil
 }
+
+// ─── BackupRun ────────────────────────────────────────────────────────────────
+
+func (sp *SQLitePersistent) CreateBackupRun(r model.BackupRun) error {
+	if r.CreateTime.IsZero() {
+		r.CreateTime = time.Now()
+	}
+	raw, err := json.Marshal(r)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tbl := TblBackupRun{
+		RunID: r.RunID, PolicyID: r.PolicyID,
+		ClusterName: r.ClusterName, Database: r.Database, Table: r.Table,
+		Status: r.Status, Instance: r.Instance,
+		StartedAt:  r.StartedAt,
+		Run:        string(raw),
+		CreateTime: r.CreateTime,
+	}
+	return wrapError(sp.Client.Create(&tbl).Error)
+}
+
+func (sp *SQLitePersistent) UpdateBackupRun(r model.BackupRun) error {
+	raw, err := json.Marshal(r)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tx := sp.Client.Model(&TblBackupRun{}).Where("run_id = ?", r.RunID).Updates(map[string]interface{}{
+		"status":     r.Status,
+		"instance":   r.Instance,
+		"started_at": r.StartedAt,
+		"run":        string(raw),
+	})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) DeleteBackupRun(runID string) error {
+	tx := sp.Client.Where("run_id = ?", runID).Delete(&TblBackupRun{})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) GetBackupRun(runID string) (model.BackupRun, error) {
+	var tbl TblBackupRun
+	if err := sp.Client.Where("run_id = ?", runID).First(&tbl).Error; err != nil {
+		return model.BackupRun{}, wrapError(err)
+	}
+	var r model.BackupRun
+	if err := json.Unmarshal([]byte(tbl.Run), &r); err != nil {
+		return model.BackupRun{}, errors.Wrap(err, "")
+	}
+	return r, nil
+}
+
+func (sp *SQLitePersistent) GetRunsByPolicy(policyID string, limit int, before time.Time) ([]model.BackupRun, error) {
+	q := sp.Client.Where("policy_id = ?", policyID)
+	if !before.IsZero() {
+		q = q.Where("started_at < ?", before)
+	}
+	q = q.Order("started_at DESC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	var tbls []TblBackupRun
+	if err := q.Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	return decodeBackupRuns(tbls)
+}
+
+func (sp *SQLitePersistent) GetRunsByTable(cluster, database, table string, sinceDays int) ([]model.BackupRun, error) {
+	cutoff := time.Now().AddDate(0, 0, -sinceDays)
+	var tbls []TblBackupRun
+	if err := sp.Client.Where(
+		"cluster_name = ? AND database_name = ? AND table_name = ? AND started_at > ?",
+		cluster, database, table, cutoff,
+	).Order("started_at DESC").Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	return decodeBackupRuns(tbls)
+}
+
+func (sp *SQLitePersistent) GetRunsInFlightByPolicy(policyID string) ([]model.BackupRun, error) {
+	var tbls []TblBackupRun
+	if err := sp.Client.Where("policy_id = ? AND status IN (?, ?)",
+		policyID, model.BACKUP_STATUS_QUEUED, model.BACKUP_STATUS_RUNNING).Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	return decodeBackupRuns(tbls)
+}
+
+func (sp *SQLitePersistent) GetRunsInFlightByInstance(instance string) ([]model.BackupRun, error) {
+	var tbls []TblBackupRun
+	if err := sp.Client.Where("instance = ? AND status IN (?, ?)",
+		instance, model.BACKUP_STATUS_QUEUED, model.BACKUP_STATUS_RUNNING).Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	return decodeBackupRuns(tbls)
+}
+
+func (sp *SQLitePersistent) MarkRunRunningIfQueued(runID, instance string, startedAt time.Time) (bool, error) {
+	// First fetch the existing row to update its JSON blob atomically.
+	var tbl TblBackupRun
+	if err := sp.Client.Where("run_id = ? AND status = ?", runID, model.BACKUP_STATUS_QUEUED).
+		First(&tbl).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Row not found or not in QUEUED state — CAS failed.
+			return false, nil
+		}
+		return false, wrapError(err)
+	}
+
+	// Decode, mutate, re-encode.
+	var r model.BackupRun
+	if err := json.Unmarshal([]byte(tbl.Run), &r); err != nil {
+		return false, errors.Wrap(err, "")
+	}
+	r.Status = model.BACKUP_STATUS_RUNNING
+	r.Instance = instance
+	r.StartedAt = startedAt
+	raw, err := json.Marshal(r)
+	if err != nil {
+		return false, errors.Wrap(err, "")
+	}
+
+	tx := sp.Client.Model(&TblBackupRun{}).
+		Where("run_id = ? AND status = ?", runID, model.BACKUP_STATUS_QUEUED).
+		Updates(map[string]interface{}{
+			"status":     model.BACKUP_STATUS_RUNNING,
+			"instance":   instance,
+			"started_at": startedAt,
+			"run":        string(raw),
+		})
+	if tx.Error != nil {
+		return false, wrapError(tx.Error)
+	}
+	return tx.RowsAffected == 1, nil
+}
+
+func (sp *SQLitePersistent) GetAllBackupRuns() ([]model.BackupRun, error) {
+	var tbls []TblBackupRun
+	if err := sp.Client.Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	return decodeBackupRuns(tbls)
+}
+
+func decodeBackupRuns(tbls []TblBackupRun) ([]model.BackupRun, error) {
+	out := make([]model.BackupRun, 0, len(tbls))
+	for _, tbl := range tbls {
+		var r model.BackupRun
+		if err := json.Unmarshal([]byte(tbl.Run), &r); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+// Compile-time guarantee that *SQLitePersistent satisfies PersistentMgr.
+var _ repository.PersistentMgr = (*SQLitePersistent)(nil)
