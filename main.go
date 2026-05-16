@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"syscall"
 	"time"
 
@@ -115,10 +116,17 @@ func main() {
 	if err != nil {
 		log.Logger.Fatalf("Failed to init nacos client, %v", err)
 	}
-	err = nacosClient.Start(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
-	if err != nil {
-		log.Logger.Fatalf("Failed to start nacos client, %v", err)
+
+	// 在 InitLogger 之后注入 nacos_apply 使用的 logger（config 不能反向 import log）。
+	config.SetNacosLogger(log.Logger)
+
+	// 启动期尝试从 Nacos 拉取配置并合并到 GlobalConfig；失败/不可达则沿用本地，启动不阻塞。
+	if err := nacosClient.PullAndMerge(&config.GlobalConfig); err != nil {
+		log.Logger.Warnf("pull nacos config at startup: %v", err)
 	}
+
+	// log applier 在 Log 段变化时重建 logger；其余 applier 待对应服务 Start 完成后再注册。
+	config.RegisterApplier("log", logApplier)
 
 	zookeeper.ZkServiceCache = cache.New(time.Hour, time.Minute)
 	zookeeper.ZkServiceCache.OnEvicted(func(key string, value interface{}) {
@@ -150,7 +158,15 @@ func main() {
 	if err = cronSvr.Start(); err != nil {
 		log.Logger.Fatalf("Failed to start cron service, %v", err)
 	}
-	defer cronSvr.Stop()
+	defer func() { cronSvr.Stop() }()
+	config.RegisterApplier("cron", cronApplier(&cronSvr))
+	config.RegisterApplier("ck", ckPoolApplier)
+
+	err = nacosClient.Start(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
+	if err != nil {
+		log.Logger.Fatalf("Failed to start nacos client, %v", err)
+	}
+
 	//block here, waiting for terminal signal
 	handleSignal(signalCh)
 }
@@ -282,4 +298,46 @@ func DumpConfig(conf config.CKManConfig) {
 		return
 	}
 	log.Logger.Infof("%v", string(data))
+}
+
+// logApplier 在 Log 段变更时重新初始化 logger 并把新 logger 注入 config 包。
+func logApplier(old, new *config.CKManConfig) {
+	if reflect.DeepEqual(old.Log, new.Log) {
+		return
+	}
+	log.InitLogger(LogFilePath, &new.Log)
+	config.SetNacosLogger(log.Logger)
+	log.Logger.Infof("log config reloaded: %+v", new.Log)
+}
+
+// cronApplier 在 Cron 段变更时停止旧调度器并启动新调度器。
+// svrPtr 是 main.go 中 cronSvr 变量的地址；applier 内通过它替换实例。
+func cronApplier(svrPtr **cron.CronService) config.Applier {
+	return func(old, new *config.CKManConfig) {
+		if reflect.DeepEqual(old.Cron, new.Cron) {
+			return
+		}
+		(*svrPtr).Stop()
+		ns := cron.NewCronService(*new)
+		if err := ns.Start(); err != nil {
+			log.Logger.Errorf("cron reload failed: %v", err)
+			return
+		}
+		*svrPtr = ns
+		log.Logger.Infof("cron reloaded")
+	}
+}
+
+// ckPoolApplier 在 ClickHouse 段变更时关闭现有连接，下次取连接走新参数。
+func ckPoolApplier(old, new *config.CKManConfig) {
+	if reflect.DeepEqual(old.ClickHouse, new.ClickHouse) {
+		return
+	}
+	var hosts []string
+	common.ConnectPool.Range(func(k, _ interface{}) bool {
+		hosts = append(hosts, k.(string))
+		return true
+	})
+	common.CloseConns(hosts)
+	log.Logger.Infof("clickhouse pool reloaded: %+v", new.ClickHouse)
 }
