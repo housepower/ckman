@@ -465,3 +465,125 @@ func (sp *SQLitePersistent) GetTaskbyTaskId(id string) (model.Task, error) {
 	}
 	return task, nil
 }
+
+// ─── Backup ───────────────────────────────────────────────────────────────────
+
+func (sp *SQLitePersistent) CreateBackup(backup model.Backup) error {
+	backup.CreateTime = time.Now()
+	backup.UpdateTime = backup.CreateTime
+	raw, err := json.Marshal(backup)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tbl := TblBackup{
+		BackupId: backup.BackupId, ClusterName: backup.ClusterName,
+		UpdateTime: backup.UpdateTime.Format("2006-01-02 15:04:05.999"),
+		Backup:     string(raw),
+	}
+	return wrapError(sp.Client.Create(&tbl).Error)
+}
+
+func (sp *SQLitePersistent) UpdateBackup(backup model.Backup) error {
+	backup.UpdateTime = time.Now()
+	raw, err := json.Marshal(backup)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tx := sp.Client.Model(&TblBackup{}).Where("backup_id = ?", backup.BackupId).Updates(map[string]interface{}{
+		"cluster_name": backup.ClusterName,
+		"update_time":  backup.UpdateTime.Format("2006-01-02 15:04:05.999"),
+		"backup":       string(raw),
+	})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) DeleteBackup(id string) error {
+	return wrapError(sp.Client.Where("backup_id = ?", id).Delete(&TblBackup{}).Error)
+}
+
+func (sp *SQLitePersistent) GetAllBackups(cluster string) ([]model.Backup, error) {
+	var tbls []TblBackup
+	if err := sp.Client.Where("cluster_name = ?", cluster).Order("update_time DESC").Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.Backup, 0, len(tbls))
+	for _, tbl := range tbls {
+		var b model.Backup
+		if err := json.Unmarshal([]byte(tbl.Backup), &b); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		out = append(out, b)
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) GetBackupById(id string) (model.Backup, error) {
+	var tbl TblBackup
+	if err := sp.Client.Where("backup_id = ?", id).First(&tbl).Error; err != nil {
+		return model.Backup{}, wrapError(err)
+	}
+	var b model.Backup
+	if err := json.Unmarshal([]byte(tbl.Backup), &b); err != nil {
+		return model.Backup{}, errors.Wrap(err, "")
+	}
+	return b, nil
+}
+
+func (sp *SQLitePersistent) GetBackupByTable(cluster, database, table string) (model.Backup, error) {
+	var tbls []TblBackup
+	if err := sp.Client.Where("cluster_name = ?", cluster).Find(&tbls).Error; err != nil {
+		return model.Backup{}, wrapError(err)
+	}
+	for _, tbl := range tbls {
+		var b model.Backup
+		if err := json.Unmarshal([]byte(tbl.Backup), &b); err != nil {
+			return model.Backup{}, errors.Wrap(err, "")
+		}
+		if b.Database == database && b.Table == table {
+			return b, nil
+		}
+	}
+	return model.Backup{}, repository.ErrRecordNotFound
+}
+
+func (sp *SQLitePersistent) GetbackupByOperation(operation string) ([]model.Backup, error) {
+	var tbls []TblBackup
+	if err := sp.Client.Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.Backup, 0)
+	for _, tbl := range tbls {
+		var b model.Backup
+		if err := json.Unmarshal([]byte(tbl.Backup), &b); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		if b.Operation == operation {
+			out = append(out, b)
+		}
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) GetBackupByShechuleType(scheduleType string) ([]model.Backup, error) {
+	var tbls []TblBackup
+	if err := sp.Client.Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.Backup, 0)
+	for _, tbl := range tbls {
+		var b model.Backup
+		if err := json.Unmarshal([]byte(tbl.Backup), &b); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		if b.ScheduleType == scheduleType {
+			out = append(out, b)
+		}
+	}
+	return out, nil
+}

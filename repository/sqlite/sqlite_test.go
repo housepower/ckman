@@ -220,3 +220,44 @@ func TestSQLite_TaskCRUD(t *testing.T) {
 		t.Fatalf("delete: %v", err)
 	}
 }
+
+func TestSQLite_BackupCRUD(t *testing.T) {
+	sp := newTestSP(t)
+	b := model.Backup{
+		BackupId: "b1", ClusterName: "ck1",
+		Database: "db", Table: "t",
+		Operation: "BACKUP", ScheduleType: "ONCE",
+	}
+	if err := sp.CreateBackup(b); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := sp.GetBackupById("b1")
+	if err != nil || got.BackupId != "b1" {
+		t.Fatalf("get by id: %v %+v", err, got)
+	}
+	byTable, err := sp.GetBackupByTable("ck1", "db", "t")
+	if err != nil || byTable.BackupId != "b1" {
+		t.Fatalf("get by table: %v %+v", err, byTable)
+	}
+	all, _ := sp.GetAllBackups("ck1")
+	if len(all) != 1 {
+		t.Fatalf("all: %d", len(all))
+	}
+	byOp, _ := sp.GetbackupByOperation("BACKUP")
+	if len(byOp) != 1 {
+		t.Fatalf("by op: %d", len(byOp))
+	}
+	bySched, _ := sp.GetBackupByShechuleType("ONCE")
+	if len(bySched) != 1 {
+		t.Fatalf("by sched: %d", len(bySched))
+	}
+
+	b.Operation = "RESTORE"
+	if err := sp.UpdateBackup(b); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	if err := sp.DeleteBackup("b1"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+}
