@@ -261,3 +261,52 @@ func TestSQLite_BackupCRUD(t *testing.T) {
 		t.Fatalf("delete: %v", err)
 	}
 }
+
+func TestSQLite_BackupPolicyCRUD(t *testing.T) {
+	sp := newTestSP(t)
+	p := model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ck1",
+		Database: "db", Table: "t",
+		Instance: "1.2.3.4", ScheduleType: model.BACKUP_SCHEDULED,
+		Enabled: true,
+	}
+	if err := sp.CreateBackupPolicy(p); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := sp.GetBackupPolicy("p1")
+	if err != nil || got.PolicyID != "p1" {
+		t.Fatalf("get: %v %+v", err, got)
+	}
+
+	got.Crontab = "0 5 * * *"
+	if err := sp.UpdateBackupPolicy(got); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	got2, _ := sp.GetBackupPolicy("p1")
+	if got2.Crontab != "0 5 * * *" {
+		t.Fatalf("update lost: %+v", got2)
+	}
+
+	byCluster, _ := sp.GetBackupPoliciesByCluster("ck1")
+	if len(byCluster) != 1 {
+		t.Fatalf("by cluster: %d", len(byCluster))
+	}
+
+	active, _ := sp.GetActiveScheduledPolicies("1.2.3.4")
+	if len(active) != 1 {
+		t.Fatalf("active: %d", len(active))
+	}
+
+	all, _ := sp.GetAllBackupPolicies()
+	if len(all) != 1 {
+		t.Fatalf("all: %d", len(all))
+	}
+
+	if err := sp.DeleteBackupPolicy("p1"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	got3, _ := sp.GetBackupPolicy("p1")
+	if !got3.Deleted {
+		t.Fatalf("delete should soft-delete: %+v", got3)
+	}
+}

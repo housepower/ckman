@@ -587,3 +587,129 @@ func (sp *SQLitePersistent) GetBackupByShechuleType(scheduleType string) ([]mode
 	}
 	return out, nil
 }
+
+// ─── BackupPolicy ─────────────────────────────────────────────────────────────
+
+func (sp *SQLitePersistent) CreateBackupPolicy(p model.BackupPolicy) error {
+	if p.CreateTime.IsZero() {
+		p.CreateTime = time.Now()
+	}
+	p.UpdateTime = time.Now()
+	raw, err := json.Marshal(p)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tbl := TblBackupPolicy{
+		PolicyID: p.PolicyID, ClusterName: p.ClusterName,
+		Database: p.Database, Table: p.Table, Instance: p.Instance,
+		ScheduleType: p.ScheduleType,
+		Enabled:      p.Enabled, Deleted: false,
+		Policy:     string(raw),
+		UpdateTime: p.UpdateTime.Format("2006-01-02 15:04:05.999"),
+	}
+	return wrapError(sp.Client.Create(&tbl).Error)
+}
+
+func (sp *SQLitePersistent) UpdateBackupPolicy(p model.BackupPolicy) error {
+	p.UpdateTime = time.Now()
+	raw, err := json.Marshal(p)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	tx := sp.Client.Model(&TblBackupPolicy{}).Where("policy_id = ?", p.PolicyID).Updates(map[string]interface{}{
+		"cluster_name":  p.ClusterName,
+		"database_name": p.Database,
+		"table_name":    p.Table,
+		"instance":      p.Instance,
+		"schedule_type": p.ScheduleType,
+		"enabled":       p.Enabled,
+		"deleted":       p.Deleted,
+		"policy":        string(raw),
+		"update_time":   p.UpdateTime.Format("2006-01-02 15:04:05.999"),
+	})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) DeleteBackupPolicy(policyID string) error {
+	tx := sp.Client.Model(&TblBackupPolicy{}).Where("policy_id = ?", policyID).Updates(map[string]interface{}{
+		"deleted":     true,
+		"enabled":     false,
+		"update_time": time.Now().Format("2006-01-02 15:04:05.999"),
+	})
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (sp *SQLitePersistent) GetBackupPolicy(policyID string) (model.BackupPolicy, error) {
+	var tbl TblBackupPolicy
+	if err := sp.Client.Where("policy_id = ?", policyID).First(&tbl).Error; err != nil {
+		return model.BackupPolicy{}, wrapError(err)
+	}
+	var p model.BackupPolicy
+	if err := json.Unmarshal([]byte(tbl.Policy), &p); err != nil {
+		return model.BackupPolicy{}, errors.Wrap(err, "")
+	}
+	p.Deleted = tbl.Deleted
+	p.Enabled = tbl.Enabled
+	return p, nil
+}
+
+func (sp *SQLitePersistent) GetBackupPoliciesByCluster(cluster string) ([]model.BackupPolicy, error) {
+	var tbls []TblBackupPolicy
+	if err := sp.Client.Where("cluster_name = ? AND deleted = ?", cluster, false).Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.BackupPolicy, 0, len(tbls))
+	for _, tbl := range tbls {
+		var p model.BackupPolicy
+		if err := json.Unmarshal([]byte(tbl.Policy), &p); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) GetActiveScheduledPolicies(instance string) ([]model.BackupPolicy, error) {
+	var tbls []TblBackupPolicy
+	if err := sp.Client.Where("instance = ? AND enabled = ? AND schedule_type = ? AND deleted = ?",
+		instance, true, model.BACKUP_SCHEDULED, false).Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.BackupPolicy, 0, len(tbls))
+	for _, tbl := range tbls {
+		var p model.BackupPolicy
+		if err := json.Unmarshal([]byte(tbl.Policy), &p); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+func (sp *SQLitePersistent) GetAllBackupPolicies() ([]model.BackupPolicy, error) {
+	var tbls []TblBackupPolicy
+	if err := sp.Client.Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	out := make([]model.BackupPolicy, 0, len(tbls))
+	for _, tbl := range tbls {
+		var p model.BackupPolicy
+		if err := json.Unmarshal([]byte(tbl.Policy), &p); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
