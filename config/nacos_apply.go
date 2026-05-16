@@ -213,6 +213,8 @@ func ApplyNacosUpdate(data []byte, fmtExt string) error {
 		nacosLogger.Debugf("nacos config unchanged (sha=%s), skip", hash)
 		return nil
 	}
+	// 值拷贝即可：CKManConfig 中唯一的引用类型 PersistentConfig 是 bootstrap 字段，
+	// mergeFromNacos 不会改写它，因此 oldSnapshot 与 GlobalConfig 不会通过 map 别名互相影响。
 	oldSnapshot := GlobalConfig
 	diffs := diffBootstrap(&GlobalConfig, &remote)
 	mergeFromNacos(&GlobalConfig, &remote)

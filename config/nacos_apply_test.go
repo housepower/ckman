@@ -340,3 +340,35 @@ func TestApplyInitialNacos_SetsHashSkipsAppliers(t *testing.T) {
 		t.Errorf("same-content update after initial should be deduped, calls=%d", calls)
 	}
 }
+
+// TestMergeFromNacos_OneWayBoolGate documents an intentional limitation:
+// non-bootstrap Server bool fields (SwaggerEnable / Metric / Pprof) use a
+// "non-zero override" rule, where Go's zero value for bool is false. As a
+// consequence, a remote value of false cannot turn off a local true.
+// Operators must edit ckman.hjson directly to disable a feature once enabled.
+func TestMergeFromNacos_OneWayBoolGate(t *testing.T) {
+	t.Cleanup(ResetForTest)
+	local := newLocal()
+	local.Server.Metric = true
+	local.Server.Pprof = true
+	local.Server.SwaggerEnable = true
+
+	remote := CKManConfig{
+		Server: CKManServerConfig{
+			Metric:        false,
+			Pprof:         false,
+			SwaggerEnable: false,
+		},
+	}
+	mergeFromNacos(&local, &remote)
+
+	if !local.Server.Metric {
+		t.Error("Metric: documented behaviour is that Nacos cannot turn off (false ignored)")
+	}
+	if !local.Server.Pprof {
+		t.Error("Pprof: documented behaviour is that Nacos cannot turn off (false ignored)")
+	}
+	if !local.Server.SwaggerEnable {
+		t.Error("SwaggerEnable: documented behaviour is that Nacos cannot turn off (false ignored)")
+	}
+}

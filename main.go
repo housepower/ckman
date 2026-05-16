@@ -121,8 +121,13 @@ func main() {
 	config.SetNacosLogger(log.Logger)
 
 	// 启动期尝试从 Nacos 拉取配置并合并到 GlobalConfig；失败/不可达则沿用本地，启动不阻塞。
-	if err := nacosClient.PullAndMerge(&config.GlobalConfig); err != nil {
-		log.Logger.Warnf("pull nacos config at startup: %v", err)
+	// 备份 Log 段以便在 merge 后立即按新值重建 logger（ApplyInitialNacos 故意不触发 applier）。
+	logBefore := config.GlobalConfig.Log
+	nacosClient.PullAndMerge(&config.GlobalConfig)
+	if !reflect.DeepEqual(logBefore, config.GlobalConfig.Log) {
+		log.InitLogger(LogFilePath, &config.GlobalConfig.Log)
+		config.SetNacosLogger(log.Logger)
+		log.Logger.Infof("log config updated by nacos at startup: %+v", config.GlobalConfig.Log)
 	}
 
 	// log applier 在 Log 段变化时重建 logger；其余 applier 待对应服务 Start 完成后再注册。
