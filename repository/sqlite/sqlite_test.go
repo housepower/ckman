@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
@@ -535,6 +537,49 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+func TestSeedAdminFromInitPersistent(t *testing.T) {
+	// Stage a temp config so InitPersistent picks SQLite.
+	dir := t.TempDir()
+	saved := config.GlobalConfig
+	t.Cleanup(func() { config.GlobalConfig = saved })
+
+	config.GlobalConfig.Server.PersistentPolicy = SQLitePersistentName
+	config.GlobalConfig.PersistentConfig = map[string]map[string]interface{}{
+		SQLitePersistentName: {
+			"config_dir":  dir,
+			"config_file": "test.db",
+		},
+	}
+	repository.Ps = nil
+	if err := repository.InitPersistent(); err != nil {
+		t.Fatalf("first InitPersistent failed: %v", err)
+	}
+
+	got, err := repository.Ps.GetUserByName(common.DefaultAdminName)
+	if err != nil {
+		t.Fatalf("admin not seeded: %v", err)
+	}
+	if got.Policy != common.ADMIN {
+		t.Errorf("expected admin policy, got %q", got.Policy)
+	}
+	if !got.Enabled {
+		t.Errorf("expected enabled=true")
+	}
+
+	// Idempotent: re-initializing must not duplicate or fail.
+	repository.Ps = nil
+	if err := repository.InitPersistent(); err != nil {
+		t.Fatalf("second InitPersistent failed: %v", err)
+	}
+	all, err := repository.Ps.GetAllUsers()
+	if err != nil {
+		t.Fatalf("get all users failed: %v", err)
+	}
+	if len(all) != 1 {
+		t.Errorf("expected 1 user after re-init, got %d", len(all))
+	}
 }
 
 func TestUserCRUD(t *testing.T) {

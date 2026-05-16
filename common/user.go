@@ -15,6 +15,8 @@ const (
 
 	DefaultAdminName     = "ckman"
 	InternalOrdinaryName = "ordinary"
+
+	DefaultAdminPassword = "Ckman123456!"
 )
 
 type UserInfo struct {
