@@ -19,6 +19,7 @@ import (
 var GlobalConfig CKManConfig
 var ClusterNodes []ClusterNode = nil
 var ClusterMutex sync.RWMutex
+var ConfigMutex sync.RWMutex
 
 const (
 	FORMAT_JSON  string = ".json"
@@ -81,15 +82,17 @@ type CKManLogConfig struct {
 }
 
 type CKManNacosConfig struct {
-	Enabled      bool
-	Hosts        []string
-	Port         uint64
-	UserName     string `yaml:"user_name" json:"user_name"`
-	Password     string
-	NamespaceId  string `yaml:"namespace_id" json:"namespace_id"`
-	Group        string
-	DataID       string `yaml:"data_id" json:"data_id"`
-	BeatInterval int64  `yaml:"beat_interval" json:"beat_interval"`
+	Enabled        bool
+	Hosts          []string
+	Port           uint64
+	UserName       string `yaml:"user_name" json:"user_name"`
+	Password       string
+	NamespaceId    string `yaml:"namespace_id" json:"namespace_id"`
+	CfgNamespaceId string `yaml:"cfg_namespace_id" json:"cfg_namespace_id"`
+	Group          string
+	DataID         string `yaml:"data_id" json:"data_id"`
+	BeatInterval   int64  `yaml:"beat_interval" json:"beat_interval"`
+	SyncConfig     bool   `yaml:"sync_config" json:"sync_config"`
 }
 
 func fillDefault(c *CKManConfig) {
@@ -115,6 +118,7 @@ func fillDefault(c *CKManConfig) {
 	c.ClickHouse.MaxIdleConns = 2
 	c.ClickHouse.ConnMaxIdleTime = 10
 	c.Nacos.BeatInterval = 5000
+	c.Nacos.SyncConfig = true
 }
 
 func MergeEnv() {
