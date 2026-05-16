@@ -41,6 +41,7 @@ func GuestPolicies() []Policy {
 		{"/ck/vm/*", GET},
 		{"/metric/query_metric/*", GET},
 		{"/data_manage/backup/*", GET},
-		{"/data_manage/backup_history/*", GET},
+		{"/data_manage/disks/*", GET},
+		{"/data_manage/tables/*", GET},
 	}
 }
