@@ -445,6 +445,47 @@ func TestMigrateLegacyCorrupt(t *testing.T) {
 	}
 }
 
+// TestMigrateRecoveryFromHalfCommit_OtherTable 验证：legacy 文件里 clusters={}
+// 但 query_history 非空，第一次迁移后清掉 _meta，重启时仍然能识别为已迁移。
+// 这条覆盖 codex review 提到的"cluster=0 但其他表非空"的边界。
+func TestMigrateRecoveryFromHalfCommit_OtherTable(t *testing.T) {
+	dir := t.TempDir()
+	historyOnly := []byte(`{
+		"clusters": {},
+		"logics": {},
+		"query_history": {"qh1": {"CheckSum": "qh1", "Cluster": "ck", "QuerySql": "SELECT 1"}},
+		"tasks": {}, "backup": {}, "backup_policy": {}, "backup_run": {}
+	}`)
+	legacyPath := filepath.Join(dir, "clusters.json")
+	if err := os.WriteFile(legacyPath, historyOnly, 0644); err != nil {
+		t.Fatalf("write legacy: %v", err)
+	}
+
+	sp1 := NewSQLitePersistent()
+	if err := sp1.Init(LocalConfig{Format: "json", ConfigDir: dir, ConfigFile: "clusters"}); err != nil {
+		t.Fatalf("first init: %v", err)
+	}
+	matches, _ := filepath.Glob(legacyPath + ".migrated.*")
+	if len(matches) != 1 {
+		t.Fatalf("expected one migrated backup, got %d", len(matches))
+	}
+	if err := os.Rename(matches[0], legacyPath); err != nil {
+		t.Fatalf("restore legacy: %v", err)
+	}
+	if err := sp1.Client.Exec("DELETE FROM tbl_meta WHERE key = ?", METAKEY_MIGRATED_FROM).Error; err != nil {
+		t.Fatalf("clear meta: %v", err)
+	}
+
+	sp2 := NewSQLitePersistent()
+	if err := sp2.Init(LocalConfig{Format: "json", ConfigDir: dir, ConfigFile: "clusters"}); err != nil {
+		t.Fatalf("second init should recover even with empty cluster table: %v", err)
+	}
+	v, _ := readMeta(sp2.Client, METAKEY_MIGRATED_FROM)
+	if !contains(v, "(recovered)") {
+		t.Fatalf("recovery marker missing: %q", v)
+	}
+}
+
 // TestMigrateRecoveryFromHalfCommit 验证：上次迁移已提交数据但 _meta 写入失败的场景下，
 // 下次启动不会报 UNIQUE 冲突，而是补上 _meta 标记继续运行。
 func TestMigrateRecoveryFromHalfCommit(t *testing.T) {

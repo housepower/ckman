@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/housepower/ckman/cmd/migrate"
 	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/repository/legacyjson"
 	"github.com/pkg/errors"
 )
@@ -18,7 +18,7 @@ import (
 //  2. Locate the legacy file based on Config.Format (or auto-sniff json then yaml).
 //  3. If no legacy file, write _meta.migrated_from = META_FRESH_INSTALL and return.
 //  4. Read legacy file via legacyjson.NewReader.
-//  5. Copy all entity types via cmd/migrate.MigrateBetween (runs its own tx on SQLite).
+//  5. Copy all entity types via repository.MigrateBetween (runs its own tx on SQLite).
 //  6. Write _meta.migrated_from = "<legacy filename>@<ISO8601>" and _meta.schema_version.
 //  7. Rename legacy file with .migrated.<ts> suffix (rename failure is Warn only, non-fatal).
 func (sp *SQLitePersistent) migrateLegacyIfAny() error {
@@ -36,10 +36,9 @@ func (sp *SQLitePersistent) migrateLegacyIfAny() error {
 	}
 
 	// 崩溃恢复：上一次 runLegacyMigration 可能已经提交了数据但在 writeMeta 之前死掉
-	// （MigrateBetween 的 tx 与 _meta 写是两次独立提交）。重新启动时若 tbl_cluster 已有行，
-	// 直接补上 _meta 标记，避免重跑迁移碰到 UNIQUE 冲突无法启动。
-	var clusterCount int64
-	if err := sp.Client.Model(&TblCluster{}).Count(&clusterCount).Error; err == nil && clusterCount > 0 {
+	// （MigrateBetween 的 tx 与 _meta 写是两次独立提交）。检查所有 7 张实体表，
+	// 任意一张非空都视为"上次已 commit"，直接补 _meta 标记，避免重跑迁移碰到 UNIQUE 冲突。
+	if sp.anyEntityTableHasRows() {
 		stamp := fmt.Sprintf("%s@%s (recovered)", filepath.Base(legacyPath), time.Now().UTC().Format(time.RFC3339))
 		if err := writeMeta(sp.Client, METAKEY_MIGRATED_FROM, stamp); err != nil {
 			return errors.Wrap(err, "finalize recovered migration meta")
@@ -84,7 +83,7 @@ func (sp *SQLitePersistent) runLegacyMigration(legacyPath string) error {
 	}
 
 	// MigrateBetween manages its own Begin/Commit on dst (sp).
-	if err := migrate.MigrateBetween(src, sp); err != nil {
+	if err := repository.MigrateBetween(src, sp); err != nil {
 		return errors.Wrap(err, "migrate")
 	}
 
@@ -115,6 +114,22 @@ func formatFromPath(p string) string {
 
 func trimExt(name string) string {
 	return name[:len(name)-len(filepath.Ext(name))]
+}
+
+// anyEntityTableHasRows 返回 true 当任意一张实体表（_meta 除外）已经有数据。
+// 用于检测"上次迁移已 commit 但 _meta 未写入"的部分提交状态，避免重跑迁移触发 UNIQUE 冲突。
+func (sp *SQLitePersistent) anyEntityTableHasRows() bool {
+	tables := []interface{}{
+		&TblCluster{}, &TblLogic{}, &TblQueryHistory{},
+		&TblTask{}, &TblBackup{}, &TblBackupPolicy{}, &TblBackupRun{},
+	}
+	for _, t := range tables {
+		var n int64
+		if err := sp.Client.Model(t).Count(&n).Error; err == nil && n > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func renameLegacyWithTimestamp(legacyPath string) error {

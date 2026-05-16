@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 
 	sqlitedriver "github.com/glebarez/sqlite"
-	"github.com/housepower/ckman/cmd/migrate"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/repository/legacyjson"
 	"github.com/housepower/ckman/repository/sqlite"
 	"github.com/pkg/errors"
@@ -50,7 +50,7 @@ func DumpFromDB(dbPath, outPath string) error {
 		return errors.Wrap(err, "open legacy writer")
 	}
 
-	if err := migrate.MigrateBetween(src, dst); err != nil {
+	if err := repository.MigrateBetween(src, dst); err != nil {
 		return errors.Wrap(err, "dump")
 	}
 
