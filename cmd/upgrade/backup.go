@@ -13,7 +13,7 @@ import (
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	_ "github.com/housepower/ckman/repository/dm8"
-	_ "github.com/housepower/ckman/repository/local"
+	_ "github.com/housepower/ckman/repository/sqlite"
 	_ "github.com/housepower/ckman/repository/mysql"
 	_ "github.com/housepower/ckman/repository/postgres"
 )
