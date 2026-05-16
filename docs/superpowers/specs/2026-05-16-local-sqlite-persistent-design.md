@@ -19,11 +19,13 @@
 
 **本次包含：**
 - 新增 `repository/sqlite` 包，作为 `persistent_policy = "local"` 的实现
-- 把现有 `repository/local` 重命名为 `repository/legacyjson`，移除注册，仅作为迁移读源
+- 把现有 `repository/local` 重命名为 `repository/legacyjson`，移除注册，仅作为迁移读源 / dump 工具的写入目标
 - 启动时自动检测旧 JSON / YAML 文件并迁移到 SQLite，旧文件加时间戳后缀保留
 - 在 SQLite 内建 `_meta` 表记录迁移信息，保证幂等
 - 重构 `cmd/migrate.Migrate()` 为可复用函数 `MigrateBetween(src, dst)`，顺手补全缺失的 BackupPolicy / BackupRun 迁移
 - 在 `repository.PersistentMgr` 接口上新增 `GetAllBackupPolicies()` / `GetAllBackupRuns()`，各后端补实现
+- 新增 `ckmanctl dump-to-json` 子命令，将 SQLite 数据离线导出为 legacy JSON，用于降级场景
+- ckman 优雅关闭时自动写一份 `clusters.json.shutdown_snapshot.<ts>` 兜底快照
 
 **本次不包含（YAGNI）：**
 - SQLite → JSON 反向降级路径（仅以"手动改名"作为已知操作记录）
@@ -55,7 +57,8 @@ repository/
 │   ├── migrate.go                # 调用 legacyjson + cmd/migrate.MigrateBetween
 │   └── sqlite_test.go
 ├── legacyjson/                   # 由原 repository/local/ 重命名而来
-│   ├── reader.go                 # 暴露 NewReader(cfg) PersistentMgr —— 仅供迁移读源
+│   ├── reader.go                 # NewReader(cfg) PersistentMgr —— 用于启动期迁移读源
+│   ├── writer.go                 # NewWriter(cfg) PersistentMgr —— 用于 dump-to-json / shutdown snapshot
 │   ├── model.go                  # 原 PersistentData 结构
 │   ├── helper.go                 # 排序、辅助方法
 │   └── （删除 init() 中的 RegistePersistent）
@@ -224,12 +227,9 @@ type PersistentBackupRunService interface {
 
 **`LocalConfig.Normalize()` 关键调整：** 不再用 `Format` 拼后缀，统一拼 `.db`。基名复用 `ConfigFile`，扩展名强制 `.db`。
 
-### 8.2 降级路径（已知操作，非自动）
+### 8.2 降级路径
 
-用户回滚到旧版 ckman 二进制：
-1. `.migrated.<ts>` 文件留在原位，手动 `mv clusters.json.migrated.<ts> clusters.json`
-2. `clusters.db` 文件旧版二进制不认识，安全无害
-3. 若启动 SQLite 版后产生了新数据，那部分数据无法回写到 JSON —— 此为已知约束
+详见 §14。简言之：推荐用 `ckmanctl dump-to-json` 离线导出 JSON 后再换二进制；紧急情况可手动改回 `.migrated.<ts>` 文件，代价是丢失升级后所有变更。
 
 ### 8.3 错误映射
 
@@ -272,7 +272,15 @@ INFO local persistent: migrated from conf/clusters.json -> conf/clusters.db
 
 补 `TestMigrateBetween_localToSQLite`，验证 BackupPolicy / BackupRun 也搬运（锁住 `MigrateBetween` 修复）。
 
-### 10.3 人工验收清单
+### 10.3 `ckmanctl dump-to-json` 测试
+
+| 用例 | 验证点 |
+|---|---|
+| `TestDumpToJSON_RoundTrip` | 准备 SQLite db（含全部七张表数据），跑 `dump-to-json`，再用 `legacyjson.NewReader` 读出，逐张表 deep-equal |
+| `TestDumpToJSON_PasswordObfuscation` | 集群密码字段在导出 JSON 中保持加密形态（与升级前 JSON 字节兼容） |
+| `TestDumpToJSON_OfflineMode` | ckman 服务未启动也能正常执行（直接打开 db 文件） |
+
+### 10.4 人工验收清单
 
 1. `make build && make test` 全绿
 2. 拿一份脱敏现网 `clusters.json` 放进 `conf/`，启动 ckman → 看日志一行 "Migrated ..."
@@ -280,6 +288,8 @@ INFO local persistent: migrated from conf/clusters.json -> conf/clusters.db
 4. 重启一次，日志中**不再**出现 "Migrated" 字样
 5. `sqlite3 conf/clusters.db ".schema"` 看七张表 + `_meta` 表存在
 6. `ckmanctl migrate -f migrate.hjson` 把 sqlite 数据搬到 mysql，验证 BackupPolicy / Run 也搬过去了
+7. `ckmanctl dump-to-json -c conf/ckman.hjson -o /tmp/dump.json` → 用旧版 ckman 二进制把 `/tmp/dump.json` 作为 `clusters.json` 启动，UI 数据齐全（降级路径端到端验证）
+8. `systemctl stop ckman` 后检查 `conf/` 目录出现 `clusters.json.shutdown_snapshot.<ts>` 文件
 
 ## 11. 依赖变更
 
@@ -296,6 +306,64 @@ INFO local persistent: migrated from conf/clusters.json -> conf/clusters.db
 
 ## 13. 已知操作记录（运维）
 
-- **降级**：手动 `mv conf/clusters.json.migrated.<ts> conf/clusters.json`，删除或备份 `conf/clusters.db`，回滚二进制后启动
-- **强制重迁**：删除 `conf/clusters.db`，把 `.migrated.<ts>` 文件改回 `.json`，启动 ckman
+- **降级**：见 §14
+- **强制重迁**：删除 `conf/clusters.db` 和 `_meta` 记录，把 `.migrated.<ts>` 文件改回 `.json`，启动 ckman
 - **查看 SQLite 数据**：`sqlite3 conf/clusters.db` 标准命令行，或任何 SQLite GUI 工具
+
+## 14. 降级路径
+
+降级 = 用户因为新版 bug、性能回退等原因，需要回到旧版 ckman 二进制。
+旧二进制只识别 JSON，不识别 SQLite。设计三层兜底，按数据损失从小到大：
+
+### 14.1 推荐路径：`ckmanctl dump-to-json`（零损失）
+
+新增子命令：
+```
+ckmanctl dump-to-json -c /etc/ckman/conf/ckman.hjson -o conf/clusters.json
+```
+
+**实现：**
+- 不依赖 ckman 服务运行，直接读 `clusters.db` 文件
+- 复用 `MigrateBetween(sqlite, legacyjson)` 反向调用
+- 输出文件采用 legacy JSON 格式（旧二进制原生兼容）
+
+**降级标准流程：**
+```
+systemctl stop ckman
+ckmanctl dump-to-json -c conf/ckman.hjson -o conf/clusters.json
+# 备份并移除 clusters.db 防止新二进制重启时再次迁移覆盖 JSON
+mv conf/clusters.db conf/clusters.db.bak
+# 换回旧二进制
+systemctl start ckman
+```
+
+**适用：** 计划性降级；新旧版本数据 schema 兼容。
+
+### 14.2 优雅关闭快照（最多丢上一次启动后的写）
+
+ckman 收到 SIGTERM 走优雅关闭路径时，触发一次 `dump-to-json`，输出到 `conf/clusters.json.shutdown_snapshot.<ts>`。
+
+**收益：** 即使运维忘记跑 `ckmanctl dump-to-json`，只要服务是 `systemctl stop` 这种正常停止，最近一次的快照永远在。降级时把这个文件 `mv` 成 `clusters.json` 即可。
+
+**不适用场景：** `kill -9` / 进程崩溃 / 断电 —— 拿不到关闭钩子。
+
+### 14.3 最后兜底：手动改回 `.migrated.<ts>`（丢升级后所有变更）
+
+`.migrated.<ts>` 文件是升级时刻的 JSON 快照，永远留在磁盘。极端情况下（SQLite 文件损坏、`dump-to-json` 也跑不通）：
+
+```
+mv conf/clusters.json.migrated.<ts> conf/clusters.json
+mv conf/clusters.db conf/clusters.db.broken
+# 启动旧二进制
+```
+
+**代价：** 丢失升级以来的所有数据变更（新增集群、任务历史、备份执行记录等）。
+
+### 14.4 三层组合的覆盖矩阵
+
+| 场景 | 14.1 | 14.2 | 14.3 |
+|---|---|---|---|
+| 计划性降级 | ✅ 推荐 | 兜底 | 兜底 |
+| 紧急降级，ckman 还能 graceful stop | ✅ 推荐 | ✅ 自动可用 | 兜底 |
+| 紧急降级，ckman 已被 kill -9 | ✅（只要 db 文件没坏） | ❌ | ✅ |
+| `clusters.db` 文件损坏 | ❌ | ✅（若上次有过 graceful stop） | ✅ |
