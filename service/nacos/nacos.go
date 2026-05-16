@@ -68,10 +68,19 @@ func InitNacosClient(config *config.CKManNacosConfig, log string) (*NacosClient,
 			return nil, errors.Wrap(err, "")
 		}
 
+		// Config client may use a different namespace from naming (借鉴 cell)。
+		cfgClientConfig := clientConfig
+		if config.CfgNamespaceId != "" {
+			if config.CfgNamespaceId == "public" {
+				cfgClientConfig.NamespaceId = ""
+			} else {
+				cfgClientConfig.NamespaceId = config.CfgNamespaceId
+			}
+		}
 		// Create config client for dynamic configuration
 		configClient, err := clients.NewConfigClient(
 			vo.NacosClientParam{
-				ClientConfig:  &clientConfig,
+				ClientConfig:  &cfgClientConfig,
 				ServerConfigs: serverConfigs,
 			},
 		)
@@ -149,9 +158,11 @@ func (c *NacosClient) Start(ipHttp string, portHttp int) error {
 		return errors.Wrap(err, "")
 	}
 
-	err = c.ListenConfig()
-	if err != nil {
-		return errors.Wrap(err, "")
+	if config.GlobalConfig.Nacos.SyncConfig {
+		err = c.ListenConfig()
+		if err != nil {
+			return errors.Wrap(err, "")
+		}
 	}
 
 	var metadata map[string]string
@@ -236,7 +247,13 @@ func (c *NacosClient) ListenConfig() error {
 	return nil
 }
 
+// ListenConfigCallback 是 Nacos config_client 的 OnChange 回调。
+// 解析格式按本地 ConfigFile 后缀确定。
 func ListenConfigCallback(namespace, group, dataId, data string) {
+	ext := filepath.Ext(config.GlobalConfig.ConfigFile)
+	if err := config.ApplyNacosUpdate([]byte(data), ext); err != nil {
+		log.Logger.Errorf("nacos config apply failed: %v", err)
+	}
 }
 
 func (c *NacosClient) Subscribe() error {
@@ -286,4 +303,36 @@ func (c *NacosClient) Unsubscribe() error {
 	} else {
 		return errors.Errorf("naming client is nil")
 	}
+}
+
+// PullAndMerge 在启动阶段从 Nacos 拉取配置并合并到 cfg。
+// 任何错误（client 未启用、SyncConfig=false、Nacos 不可达、内容为空、解析失败）
+// 都以 WARN/ERROR 形式记录，但不会导致启动失败 —— 启动绝不阻塞。
+func (c *NacosClient) PullAndMerge(cfg *config.CKManConfig) error {
+	if !c.Enabled || c.Config == nil {
+		return nil
+	}
+	if !cfg.Nacos.SyncConfig {
+		log.Logger.Infof("nacos sync_config disabled, skip pulling remote config")
+		return nil
+	}
+	content, err := c.Config.GetConfig(vo.ConfigParam{
+		DataId: c.DataId,
+		Group:  c.GroupName,
+	})
+	if err != nil {
+		log.Logger.Warnf("nacos GetConfig failed, fallback to local: %v", err)
+		return nil
+	}
+	if content == "" {
+		log.Logger.Warnf("nacos config empty (dataId=%s, group=%s), fallback to local",
+			c.DataId, c.GroupName)
+		return nil
+	}
+	ext := filepath.Ext(cfg.ConfigFile)
+	if err := config.ApplyInitialNacos([]byte(content), ext, cfg); err != nil {
+		log.Logger.Errorf("apply initial nacos config failed: %v", err)
+		return nil
+	}
+	return nil
 }
