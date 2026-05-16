@@ -1,8 +1,11 @@
 package config
 
 import (
+	"os"
 	"reflect"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 func TestParseRemote_Hjson(t *testing.T) {
@@ -234,5 +237,106 @@ func TestDiffBootstrap_NoChangeNoDiff(t *testing.T) {
 	diffs := diffBootstrap(&local, &remote)
 	if len(diffs) != 0 {
 		t.Errorf("expected no diffs, got %+v", diffs)
+	}
+}
+
+func TestMain(m *testing.M) {
+	cfg := zap.NewProductionConfig()
+	cfg.Encoding = "console"
+	l, _ := cfg.Build()
+	SetNacosLogger(l.Sugar())
+	os.Exit(m.Run())
+}
+
+func TestApplyNacosUpdate_SkipsOnSameHash(t *testing.T) {
+	t.Cleanup(ResetForTest)
+	GlobalConfig = newLocal()
+
+	var calls int
+	RegisterApplier("counter", func(_, _ *CKManConfig) { calls++ })
+
+	data := []byte(`{ log: { level: "DEBUG" } }`)
+	if err := ApplyNacosUpdate(data, ".hjson"); err != nil {
+		t.Fatalf("first apply error: %v", err)
+	}
+	if calls != 1 {
+		t.Errorf("first apply: applier calls=%d, want 1", calls)
+	}
+	if err := ApplyNacosUpdate(data, ".hjson"); err != nil {
+		t.Fatalf("second apply error: %v", err)
+	}
+	if calls != 1 {
+		t.Errorf("second apply (same hash) should not invoke applier, calls=%d", calls)
+	}
+}
+
+func TestApplyNacosUpdate_ParseError(t *testing.T) {
+	t.Cleanup(ResetForTest)
+	GlobalConfig = newLocal()
+	snap := GlobalConfig
+
+	err := ApplyNacosUpdate([]byte("not a config"), ".hjson")
+	if err == nil {
+		t.Fatal("expected parse error, got nil")
+	}
+	if !reflect.DeepEqual(GlobalConfig, snap) {
+		t.Errorf("GlobalConfig changed on parse error: got=%+v want=%+v", GlobalConfig, snap)
+	}
+}
+
+func TestApplyNacosUpdate_ApplierPanicIsolated(t *testing.T) {
+	t.Cleanup(ResetForTest)
+	GlobalConfig = newLocal()
+	var afterCalled bool
+	RegisterApplier("boom", func(_, _ *CKManConfig) { panic("boom") })
+	RegisterApplier("after", func(_, _ *CKManConfig) { afterCalled = true })
+
+	if err := ApplyNacosUpdate([]byte(`{ log: { level: "DEBUG" } }`), ".hjson"); err != nil {
+		t.Fatalf("apply error: %v", err)
+	}
+	if !afterCalled {
+		t.Error("subsequent applier was not called after panic")
+	}
+}
+
+func TestApplyNacosUpdate_AppliersInRegistrationOrder(t *testing.T) {
+	t.Cleanup(ResetForTest)
+	GlobalConfig = newLocal()
+	var order []string
+	RegisterApplier("a", func(_, _ *CKManConfig) { order = append(order, "a") })
+	RegisterApplier("b", func(_, _ *CKManConfig) { order = append(order, "b") })
+	RegisterApplier("c", func(_, _ *CKManConfig) { order = append(order, "c") })
+
+	if err := ApplyNacosUpdate([]byte(`{ log: { level: "DEBUG" } }`), ".hjson"); err != nil {
+		t.Fatalf("apply error: %v", err)
+	}
+	if !reflect.DeepEqual(order, []string{"a", "b", "c"}) {
+		t.Errorf("applier order=%v, want [a b c]", order)
+	}
+}
+
+func TestApplyInitialNacos_SetsHashSkipsAppliers(t *testing.T) {
+	t.Cleanup(ResetForTest)
+	cfg := newLocal()
+	var calls int
+	RegisterApplier("never", func(_, _ *CKManConfig) { calls++ })
+
+	data := []byte(`{ log: { level: "DEBUG" } }`)
+	if err := ApplyInitialNacos(data, ".hjson", &cfg); err != nil {
+		t.Fatalf("ApplyInitialNacos error: %v", err)
+	}
+	if calls != 0 {
+		t.Errorf("initial apply should not invoke applier, calls=%d", calls)
+	}
+	if cfg.Log.Level != "DEBUG" {
+		t.Errorf("Log.Level=%q, want DEBUG", cfg.Log.Level)
+	}
+
+	GlobalConfig = cfg
+	if err := ApplyNacosUpdate(data, ".hjson"); err != nil {
+		t.Fatalf("ApplyNacosUpdate error: %v", err)
+	}
+	if calls != 0 {
+		t.Errorf("same-content update after initial should be deduped, calls=%d", calls)
 	}
 }
