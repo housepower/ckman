@@ -224,6 +224,41 @@ func TestSQLite_TaskCRUD(t *testing.T) {
 	}
 }
 
+// Task.Step is a new field (2b-1) round-tripped through the JSON blob in
+// TblTask.Task. Verifies persistence works without a schema migration, which
+// is the same story for the other DB backends.
+func TestSQLite_TaskStepRoundTrip(t *testing.T) {
+	sp := newTestSP(t)
+	task := model.Task{
+		TaskId:   "step-1",
+		Status:   model.TaskStatusRunning,
+		ServerIp: "1.2.3.4",
+		Step:     model.StepShardingMove,
+	}
+	if err := sp.CreateTask(task); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := sp.GetTaskbyTaskId("step-1")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Step != model.StepShardingMove {
+		t.Fatalf("step not preserved on create: %+v", got.Step)
+	}
+
+	task.Step = model.StepShardingInsert
+	if err := sp.UpdateTask(task); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	got, err = sp.GetTaskbyTaskId("step-1")
+	if err != nil {
+		t.Fatalf("get after update: %v", err)
+	}
+	if got.Step != model.StepShardingInsert {
+		t.Fatalf("step not updated: %+v", got.Step)
+	}
+}
+
 func TestSQLite_BackupCRUD(t *testing.T) {
 	sp := newTestSP(t)
 	b := model.Backup{

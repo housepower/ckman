@@ -418,7 +418,8 @@ func CKRebalanceHandle(task *model.Task) error {
 
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
 	if len(conf.Shards) > 1 {
-		if err := clickhouse.RebalanceCluster(&conf, req.RTables, req.ExceptMaxShard); err != nil {
+		onStep := func(s model.Internationalization) { deploy.SetTaskStep(task, s) }
+		if err := clickhouse.RebalanceCluster(&conf, req.RTables, req.ExceptMaxShard, onStep); err != nil {
 			return errors.Wrap(err, "rebalance")
 		}
 	}

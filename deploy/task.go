@@ -110,6 +110,19 @@ func SetTaskStatus(task *model.Task, status int, msg string) error {
 	return repository.Ps.UpdateTask(*task)
 }
 
+// SetTaskStep records a top-level phase transition on the task. Used by task
+// types whose progress is naturally a sequence of named phases (rebalance,
+// archive) rather than per-host node status. Failures to persist are logged
+// but not propagated — losing a step update should never abort the underlying
+// operation.
+func SetTaskStep(task *model.Task, step model.Internationalization) {
+	task.Step = step
+	if err := repository.Ps.UpdateTask(*task); err != nil {
+		log.Logger.Errorf("%s %s update task step failed: %v", task.TaskId, task.ClusterName, err)
+	}
+	log.Logger.Infof("[%s] %s current step: %s", task.ClusterName, task.TaskType, step.EN)
+}
+
 func SetNodeStatus(task *model.Task, status model.Internationalization, host string) {
 	t := strings.Split(task.TaskType, ".")[0]
 	switch t {

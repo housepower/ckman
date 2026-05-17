@@ -65,9 +65,14 @@ type Task struct {
 	CKNodes      []NodeStatus
 	ZKNodes      []NodeStatus
 	NodeStatus   []NodeStatus
-	Message      string
-	CreateTime   time.Time
-	UpdateTime   time.Time
+	// Step is the current top-level phase for tasks whose progress is better
+	// expressed as a sequence of named phases rather than per-host node
+	// status (e.g. rebalance, archive). Empty for task types that rely on
+	// NodeStatus exclusively (deploy/upgrade/addnode/...).
+	Step       Internationalization
+	Message    string
+	CreateTime time.Time
+	UpdateTime time.Time
 }
 
 var (
@@ -88,6 +93,23 @@ var (
 	NodeStatusDone      = Internationalization{"完成", "Done"}
 	NodeStatusFailed    = Internationalization{"失败", "Failed"}
 	NodeStatusExport    = Internationalization{"导出数据", "Export"}
+)
+
+// Rebalance task phases, surfaced via Task.Step for the TaskDetail UI.
+// Some reuse NodeStatusInit / NodeStatusDone where the meaning matches.
+var (
+	StepCheckTools     = Internationalization{"环境检查", "CheckTools"}
+	StepMoveExceptHost = Internationalization{"迁移末端 shard", "MoveExceptShard"}
+	StepPartGetState   = Internationalization{"采集分区状态", "GetPartState"}
+	StepPartGenPlan    = Internationalization{"生成搬运计划", "GenPartPlan"}
+	StepPartExecute    = Internationalization{"执行分区搬运", "ExecutePartPlan"}
+	StepShardingFetch  = Internationalization{"读取表元数据", "FetchMetadata"}
+	StepShardingTmp    = Internationalization{"建临时表", "CreateTmpTable"}
+	StepShardingMove   = Internationalization{"转入临时表", "MoveBackup"}
+	StepShardingVerify = Internationalization{"校验临时表行数", "VerifyTmp"}
+	StepShardingInsert = Internationalization{"插回原表", "InsertBack"}
+	StepShardingFinal  = Internationalization{"校验最终行数", "VerifyFinal"}
+	StepShardingClean  = Internationalization{"清理临时表", "Cleanup"}
 )
 
 var (

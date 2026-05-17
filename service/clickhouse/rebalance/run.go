@@ -15,10 +15,15 @@ import (
 // the last shard's data into the host with most free space and truncates the
 // source, supporting cluster downsizing.
 //
+// onStep, if non-nil, is invoked at each top-level phase boundary so the
+// caller can surface progress (the runner task handle wires this to update
+// task.Step in the persistent layer). Pass nil if progress reporting is not
+// needed.
+//
 // This is the public entry point invoked from the runner task handle. The
 // thin wrapper at service/clickhouse.RebalanceCluster preserves the
 // pre-refactor import path.
-func Run(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool) error {
+func Run(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool, onStep func(model.Internationalization)) error {
 	conf.Normalize() // default ports, mirror NewCkService's behavior
 	conn, err := openControllerConn(conf)
 	if err != nil {
@@ -36,6 +41,7 @@ func Run(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exc
 	if err != nil {
 		return err
 	}
+	emit(onStep, model.StepCheckTools)
 	if err := checkBasicTools(conf, hosts, rtables); err != nil {
 		return err
 	}
@@ -53,19 +59,28 @@ func Run(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exc
 	log.Logger.Debugf("rebalance tables: %d, %#v", len(rtables), rtables)
 	for _, rt := range rtables {
 		if exceptMaxShard {
+			emit(onStep, model.StepMoveExceptHost)
 			if err := moveExceptToOthers(conf, exceptHost, target, rt.Database, rt.Table); err != nil {
 				return err
 			}
 		}
-		if err := runOneTable(conf, hosts, rt, conn); err != nil {
+		if err := runOneTable(conf, hosts, rt, conn, onStep); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// emit is the top-level (non-method) helper for Run/Info that don't have a
+// *Rebalancer in scope yet. Mirrors Rebalancer.setStep semantics.
+func emit(onStep func(model.Internationalization), step model.Internationalization) {
+	if onStep != nil {
+		onStep(step)
+	}
+}
+
 // runOneTable selects and executes the strategy for a single table.
-func runOneTable(conf *model.CKManClickHouseConfig, hosts []string, rt model.RebalanceTables, controllerConn *common.Conn) error {
+func runOneTable(conf *model.CKManClickHouseConfig, hosts []string, rt model.RebalanceTables, controllerConn *common.Conn, onStep func(model.Internationalization)) error {
 	rebalancer := New(Config{
 		Cluster:       conf.Cluster,
 		Hosts:         hosts,
@@ -84,6 +99,7 @@ func runOneTable(conf *model.CKManClickHouseConfig, hosts []string, rt model.Reb
 		// Shardingkey is harmless for ByPartition (ignored) and consumed by
 		// ByShardingKey.Validate to look up the column's ClickHouse type.
 		Shardingkey: rt,
+		OnStep:      onStep,
 	})
 	defer rebalancer.Close()
 

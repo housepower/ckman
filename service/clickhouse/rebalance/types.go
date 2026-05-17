@@ -62,6 +62,11 @@ type Config struct {
 	ConnOpt       model.ConnetOption
 	AllowLossRate float64
 	SaveTemps     bool
+
+	// OnStep, if set, is invoked at each top-level phase boundary so the
+	// caller (typically the runner task handle) can surface progress in the
+	// task record. nil-safe; callers that don't care leave it unset.
+	OnStep func(step model.Internationalization)
 }
 
 // Rebalancer is the runtime container threaded through a Strategy. It owns
@@ -94,4 +99,13 @@ func New(cfg Config) *Rebalancer {
 // Close releases any pooled ClickHouse connections opened for this run.
 func (r *Rebalancer) Close() {
 	common.CloseConns(r.Hosts)
+}
+
+// setStep dispatches a phase transition to the optional OnStep callback. nil
+// callback is a no-op so unit tests and direct in-package callers don't have
+// to wire one up.
+func (r *Rebalancer) setStep(step model.Internationalization) {
+	if r.OnStep != nil {
+		r.OnStep(step)
+	}
 }

@@ -337,18 +337,25 @@ func (r *Rebalancer) rsyncAndAttach(tbl *TblPartitions, patt, srcDir, dstDir, ds
 // doRebalanceByPart orchestrates one table's partition rebalance: collect
 // state, plan moves, then execute per-host in parallel. The first error
 // returned by any worker wins and is propagated to the caller.
+//
+// Three outer phases are reported via setStep (GetState / GenPlan / Execute);
+// the inner helpers are pure compute or per-host work and don't emit their
+// own step transitions.
 func (r *Rebalancer) doRebalanceByPart() error {
 	if !r.IsReplica {
 		if r.sshErr = r.initSSHConns(); r.sshErr != nil {
 			log.Logger.Warnf("[rebalance]failed to init ssh connections, error: %+v", r.sshErr)
 		}
 	}
+	r.setStep(model.StepPartGetState)
 	tbls, err := r.getPartState()
 	if err != nil {
 		log.Logger.Errorf("[rebalance]got error %+v", err)
 		return err
 	}
+	r.setStep(model.StepPartGenPlan)
 	r.generatePartPlan(tbls)
+	r.setStep(model.StepPartExecute)
 
 	var (
 		mu       sync.Mutex

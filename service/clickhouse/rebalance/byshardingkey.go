@@ -40,29 +40,35 @@ func (ByShardingKey) Validate(r *Rebalancer, ctrlConn *common.Conn) error {
 // consistent retry covers that without inviting infinite retry loops.
 func (ByShardingKey) Run(r *Rebalancer) error {
 	start := time.Now()
+	r.setStep(model.StepShardingFetch)
 	log.Logger.Info("[rebalance] STEP InitCKConns")
 	if err := r.InitCKConns(true); err != nil {
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
+	r.setStep(model.StepShardingTmp)
 	log.Logger.Info("[rebalance] STEP CreateTemporaryTable")
 	if err := r.createTemporaryTable(); err != nil {
 		return err
 	}
+	r.setStep(model.StepShardingMove)
 	log.Logger.Info("[rebalance] STEP MoveBackup")
 	if err := r.moveBackup(); err != nil {
 		return err
 	}
+	r.setStep(model.StepShardingVerify)
 	if err := r.checkCounts(r.TmpTable); err != nil {
 		time.Sleep(5 * time.Second)
 		if err := r.checkCounts(r.TmpTable); err != nil {
 			return err
 		}
 	}
+	r.setStep(model.StepShardingInsert)
 	log.Logger.Info("[rebalance] STEP InsertPlan")
 	if err := r.insertPlan(); err != nil {
 		return errors.Wrapf(err, "table %s.%s rebalance failed, data can be corrupted, please move back from temp table[%s] manually", r.Database, r.Table, r.TmpTable)
 	}
+	r.setStep(model.StepShardingFinal)
 	if err := r.checkCounts(r.Table); err != nil {
 		time.Sleep(5 * time.Second)
 		if err := r.checkCounts(r.Table); err != nil {
@@ -70,6 +76,7 @@ func (ByShardingKey) Run(r *Rebalancer) error {
 		}
 	}
 	if !r.SaveTemps {
+		r.setStep(model.StepShardingClean)
 		log.Logger.Info("[rebalance] STEP Cleanup")
 		r.dropTmpTable()
 	}

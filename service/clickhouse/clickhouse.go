@@ -1371,9 +1371,10 @@ func GetRebalanceInfo(conf *model.CKManClickHouseConfig, rtables []model.Rebalan
 
 // RebalanceCluster runs a rebalance for the requested tables. Thin wrapper
 // kept for the legacy import path; implementation lives in
-// service/clickhouse/rebalance.
-func RebalanceCluster(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool) error {
-	return rebalance.Run(conf, rtables, exceptMaxShard)
+// service/clickhouse/rebalance. onStep is the per-phase progress callback
+// (nil when progress reporting is not needed).
+func RebalanceCluster(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool, onStep func(model.Internationalization)) error {
+	return rebalance.Run(conf, rtables, exceptMaxShard, onStep)
 }
 
 func GroupUniqArray(conf *model.CKManClickHouseConfig, req model.GroupUniqArrayReq) error {
