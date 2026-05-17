@@ -130,38 +130,52 @@ func (runner *RunnerService) CheckTaskEvent() {
 
 func (runner *RunnerService) ProcesswithTaskType(task model.Task) error {
 	log.Logger.Infof("task %s %s %s is triggered", task.TaskId, task.ClusterName, task.TaskType)
-	err := deploy.SetTaskStatus(&task, model.TaskStatusRunning, model.TaskStatusMap[model.TaskStatusRunning])
-	if err != nil {
-		return err
-	}
 
-	// Each task gets its own cancellable context. Register in cancels so
-	// StopTask can interrupt it; deregister on return so a finished task's
-	// id doesn't accumulate.
+	// Register cancel BEFORE marking the task Running so the controller's
+	// Cancel can find this taskId the moment it's in flight. If Store happened
+	// after SetTaskStatus, a Stop click in between would fall through to the
+	// "flag-only" fallback even though the goroutine is alive.
 	ctx, cancel := context.WithCancel(context.Background())
 	runner.cancels.Store(task.TaskId, cancel)
+	// Defers run LIFO: panic-recover runs first (records state via
+	// SetTaskStatus, which itself bails on terminal status); cancel cleanup
+	// runs last.
 	defer func() {
-		runner.cancels.Delete(task.TaskId)
 		cancel()
+		runner.cancels.Delete(task.TaskId)
 	}()
-
 	defer func() {
 		if err := recover(); err != nil {
-			//update task status failed while task panic
 			_ = deploy.SetTaskStatus(&task, model.TaskStatusFailed, "panic")
 			log.Logger.Errorf("panic: %v", string(debug.Stack()))
 		}
 	}()
+
+	// Defend against the window where the user clicked Stop between
+	// GetPengdingTasks and now: the task may already be Stopped in DB while
+	// our local copy still says Waiting. Without this check the handler would
+	// run to completion on a task the user already cancelled — only the DB
+	// writes would no-op via deploy/task.go's isTerminalStatus guard.
+	if fresh, err := repository.Ps.GetTaskbyTaskId(task.TaskId); err == nil && fresh.Status != model.TaskStatusWaiting {
+		log.Logger.Infof("task %s no longer Waiting (status=%d), skipping handler", task.TaskId, fresh.Status)
+		return nil
+	}
+
+	if err := deploy.SetTaskStatus(&task, model.TaskStatusRunning, model.TaskStatusMap[model.TaskStatusRunning]); err != nil {
+		return err
+	}
+
 	if err := TaskHandleFunc[task.TaskType](ctx, &task); err != nil {
-		// If the task was cancelled the controller already flipped the DB
-		// row to Stopped (with up-to-date Step/NodeStatus from a fresh read).
-		// Don't touch the DB here: our local task copy still has
-		// Status=Running from the top of this func, and any UpdateTask with
-		// that stale copy would trample the controller's Stopped back to
-		// Running — exactly the "fake stop" Phase 3 is meant to fix.
+		// If the task was cancelled the controller already wrote Stopped
+		// using a fresh-read row. Return nil here: cancellation is a
+		// user-driven action, not a runner failure, and shouldn't surface
+		// in CheckTaskEvent's error log. Also don't touch the DB — our
+		// local task copy still has Status=Running and any UpdateTask
+		// would trample Stopped (deploy/task.go's terminal guard catches
+		// most paths but the cancel branch is the one we control directly).
 		if ctx.Err() != nil {
 			log.Logger.Infof("task %s cancelled: %v", task.TaskId, err)
-			return err
+			return nil
 		}
 		deploy.SetNodeStatus(&task, model.NodeStatusFailed, model.ALL_NODES_DEFAULT)
 		_ = deploy.SetTaskStatus(&task, model.TaskStatusFailed, err.Error())
