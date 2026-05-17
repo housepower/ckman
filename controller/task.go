@@ -57,6 +57,7 @@ func (controller *TaskController) GetTaskStatusById(c *gin.Context) {
 		ClusterName: task.ClusterName,
 		Type:        strings.Split(task.TaskType, ".")[0],
 		Option:      model.TaskOptionMap[task.TaskType],
+		Step:        task.Step,
 	}
 
 	resp.NodeStatus = common.TernaryExpression(

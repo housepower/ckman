@@ -145,7 +145,11 @@ type TaskStatusResp struct {
 	ClusterName string
 	Type        string
 	Option      Internationalization
-	NodeStatus  []NodeStatus
+	// Step is the current top-level phase for tasks whose progress is
+	// expressed as a sequence of named phases (rebalance, archive). Empty
+	// for task types that drive progress through NodeStatus exclusively.
+	Step       Internationalization
+	NodeStatus []NodeStatus
 }
 
 type TaskResp struct {
