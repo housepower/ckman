@@ -1566,6 +1566,65 @@ func (controller *ClickHouseController) GetRebalanceInfo(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, rebalanceInfo)
 }
 
+// @Summary 获取均衡执行计划
+// @Description 预演均衡集群的操作（不真正搬移数据），返回每张表的具体计划。
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Param req body model.RebalanceTableReq true "request body"
+// @Success 200 {string} json "{"code":"0000","msg":"success","data":{"tables":[]}}"
+// @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
+// @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
+// @Router /api/v1/ck/rebalance_plan/{clusterName} [post]
+func (controller *ClickHouseController) GetRebalancePlan(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+
+	conf, err := repository.Ps.GetClusterbyName(clusterName)
+	if err != nil {
+		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	var req model.RebalanceTableReq
+	if c.Request.Body != http.NoBody {
+		params, ok := SchemaUIMapping[GET_SCHEMA_UI_REBALANCE]
+		if !ok {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, "")
+			return
+		}
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+			return
+		}
+		if err = params.UnmarshalConfig(string(body), &req); err != nil {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+			return
+		}
+		data, err := json.MarshalIndent(req, "", "  ")
+		if err != nil {
+			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+			return
+		}
+		log.Logger.Debugf("[request] | %s | %s | %s \n%v ", c.Request.Host, c.Request.Method, c.Request.URL, string(data))
+	}
+
+	// shard==1: nothing to plan, return an empty plan
+	if len(conf.Shards) <= 1 {
+		controller.wrapfunc(c, model.E_SUCCESS, &model.RebalancePlan{})
+		return
+	}
+
+	plan, err := clickhouse.RebalancePlan(&conf, req.RTables, req.ExceptMaxShard)
+	if err != nil {
+		controller.wrapfunc(c, model.E_TBL_ALTER_FAILED, err)
+		return
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, plan)
+}
+
 // @Summary 均衡集群
 // @Description 均衡集群，可以按照partition和shardingkey均衡，如果没有指定shardingkey，默认按照
 // @version 1.0

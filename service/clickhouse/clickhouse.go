@@ -1378,6 +1378,13 @@ func RebalanceCluster(conf *model.CKManClickHouseConfig, rtables []model.Rebalan
 	return rebalance.Run(conf, rtables, exceptMaxShard, onStep)
 }
 
+// RebalancePlan computes the rebalance preview: what RebalanceCluster would
+// do given the cluster's current state, without moving any data. Thin
+// wrapper kept for the legacy import path.
+func RebalancePlan(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool) (*model.RebalancePlan, error) {
+	return rebalance.Plan(conf, rtables, exceptMaxShard)
+}
+
 func GroupUniqArray(conf *model.CKManClickHouseConfig, req model.GroupUniqArrayReq) error {
 	//创建本地聚合表，本地物化视图，分布式聚合表，分布式视图
 	if err := CreateViewOnCluster(conf, req); err != nil {

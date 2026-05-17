@@ -79,6 +79,83 @@ func emit(onStep func(model.Internationalization), step model.Internationalizati
 	}
 }
 
+// Plan computes the rebalance preview: what Run would do given the cluster's
+// current state, without moving any data. Uses the same paddingKeys + Strategy
+// pipeline so the plan reliably matches what a subsequent Run will attempt;
+// inter-call drift (writes between Plan and Run) is unavoidable and acceptable
+// — the UI tells the user "preview as of now".
+func Plan(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool) (*model.RebalancePlan, error) {
+	conf.Normalize()
+	conn, err := openControllerConn(conf)
+	if err != nil {
+		return nil, err
+	}
+	rtables, err = paddingKeys(conn, conf.Cluster, rtables)
+	if err != nil {
+		return nil, err
+	}
+	hosts, err := common.GetShardAvaliableHosts(conf)
+	if err != nil {
+		return nil, err
+	}
+	// Mirror Run's precondition check: surface missing rsync/awk at preview
+	// time rather than letting the user "confirm execute" and only then
+	// discover the cluster isn't ready.
+	if err := checkBasicTools(conf, hosts, rtables); err != nil {
+		return nil, err
+	}
+
+	plan := &model.RebalancePlan{Tables: make([]model.TablePlan, 0, len(rtables))}
+	if exceptMaxShard {
+		exceptHost := hosts[len(hosts)-1]
+		remainingHosts := hosts[:len(hosts)-1]
+		target, err := checkDiskSpace(remainingHosts, exceptHost)
+		if err != nil {
+			return nil, err
+		}
+		plan.ExceptShardDrain = &model.ExceptShardDrain{SrcHost: exceptHost, DstHost: target}
+		hosts = remainingHosts
+	}
+
+	for _, rt := range rtables {
+		tp, err := planOneTable(conf, hosts, rt, conn)
+		if err != nil {
+			return nil, err
+		}
+		plan.Tables = append(plan.Tables, tp)
+	}
+	return plan, nil
+}
+
+// planOneTable is the Plan-mode counterpart of runOneTable. Same Rebalancer
+// construction, same Validate, but calls Strategy.Plan instead of Run.
+func planOneTable(conf *model.CKManClickHouseConfig, hosts []string, rt model.RebalanceTables, controllerConn *common.Conn) (model.TablePlan, error) {
+	rebalancer := New(Config{
+		Cluster:       conf.Cluster,
+		Hosts:         hosts,
+		Database:      rt.Database,
+		Table:         rt.Table,
+		TmpTable:      "tmp_" + rt.Table,
+		DistTable:     rt.DistTable,
+		DataDir:       conf.Path,
+		OsUser:        conf.SshUser,
+		OsPassword:    conf.SshPassword,
+		OsPort:        conf.SshPort,
+		ConnOpt:       conf.GetConnOption(),
+		AllowLossRate: rt.AllowLossRate,
+		SaveTemps:     rt.SaveTemps,
+		IsReplica:     conf.IsReplica,
+		Shardingkey:   rt,
+	})
+	defer rebalancer.Close()
+
+	strategy := PickStrategy(rt)
+	if err := strategy.Validate(rebalancer, controllerConn); err != nil {
+		return model.TablePlan{}, err
+	}
+	return strategy.Plan(rebalancer)
+}
+
 // runOneTable selects and executes the strategy for a single table.
 func runOneTable(conf *model.CKManClickHouseConfig, hosts []string, rt model.RebalanceTables, controllerConn *common.Conn, onStep func(model.Internationalization)) error {
 	rebalancer := New(Config{

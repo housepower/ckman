@@ -30,6 +30,23 @@ func (r *Rebalancer) InitCKConns(withShardingkey bool) error {
 	return r.fetchTableMetadata()
 }
 
+// fetchEngineOnly does the cheap subset of fetchTableMetadata: returns just
+// the engine name for the target table. Used by ByPartition.Plan, which
+// needs the engine to display in the preview but doesn't care about
+// sortingkey or oriCount (those are shardingkey-specific).
+func fetchEngineOnly(r *Rebalancer) (string, error) {
+	conn := common.GetConnection(r.Hosts[0])
+	if conn == nil {
+		return "", fmt.Errorf("[rebalance]can't get connection: %s", r.Hosts[0])
+	}
+	var engine string
+	query := fmt.Sprintf("SELECT engine FROM system.tables WHERE database = '%s' AND table = '%s'", r.Database, r.Table)
+	if err := conn.QueryRow(query).Scan(&engine); err != nil {
+		return "", err
+	}
+	return engine, nil
+}
+
 // fetchTableMetadata pulls engine_full / sorting key / original row count from
 // the first host so that the shardingkey path can build the tmp table with the
 // same engine clause and verify nothing was lost in the round trip.

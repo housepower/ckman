@@ -40,6 +40,57 @@ func (ByPartition) Name() string { return model.RebalancePolicyPartition }
 // preconditions beyond the cluster-wide tool checks done in Run.
 func (ByPartition) Validate(*Rebalancer, *common.Conn) error { return nil }
 
+// Plan runs the same partition-state collection and plan-generation that Run
+// would, then reports the resulting moves without executing them. Bytes per
+// move are captured from the per-shard partition snapshot before the plan
+// algorithm consumes (and clears) the size maps.
+func (ByPartition) Plan(r *Rebalancer) (model.TablePlan, error) {
+	plan := model.TablePlan{
+		Database: r.Database,
+		Table:    r.Table,
+		Strategy: model.RebalancePolicyPartition,
+	}
+	if err := r.InitCKConns(false); err != nil {
+		return plan, err
+	}
+	// Engine is not needed by the partition strategy itself, but the UI
+	// renders it on every plan card alongside the strategy badge — keep
+	// parity with ByShardingKey.Plan, which gets engine for free from
+	// InitCKConns(true)'s fetchTableMetadata.
+	if engine, err := fetchEngineOnly(r); err == nil {
+		plan.Engine = engine
+	}
+	if err := r.getRepTables(); err != nil {
+		return plan, err
+	}
+	tbls, err := r.getPartState()
+	if err != nil {
+		return plan, err
+	}
+	// Snapshot per-(host, partition) sizes before generatePartPlan consumes
+	// the Partitions map (it deletes chosen partitions in-flight and nils
+	// the map at the end).
+	sizes := make(map[string]map[string]uint64, len(tbls))
+	for _, tbl := range tbls {
+		sizes[tbl.Host] = make(map[string]uint64, len(tbl.Partitions))
+		for patt, sz := range tbl.Partitions {
+			sizes[tbl.Host][patt] = sz
+		}
+	}
+	r.generatePartPlan(tbls)
+	for _, tbl := range tbls {
+		for patt, dst := range tbl.ToMoveOut {
+			plan.Moves = append(plan.Moves, model.PartitionMove{
+				Partition: patt,
+				SrcHost:   tbl.Host,
+				DstHost:   dst,
+				Bytes:     sizes[tbl.Host][patt],
+			})
+		}
+	}
+	return plan, nil
+}
+
 func (ByPartition) Run(r *Rebalancer) error {
 	if err := r.InitCKConns(false); err != nil {
 		log.Logger.Errorf("[rebalance]got error %+v", err)

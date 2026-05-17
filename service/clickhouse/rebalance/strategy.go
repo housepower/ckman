@@ -14,10 +14,17 @@ import (
 // ctrlConn is a control-plane connection (typically to one of the cluster's
 // hosts, opened by the orchestrator) for metadata lookups that don't need
 // shard-level fan-out. Validate may ignore it if no metadata work is needed.
+//
+// Plan inspects current cluster state and reports the moves/reshuffle that
+// Run would perform if invoked right now. It must not mutate cluster data;
+// it may open pooled connections and run read-only queries. Used by the
+// rebalance_plan preview endpoint to power confirm-before-execute UIs.
+//
 // Run executes the full lifecycle for one table.
 type Strategy interface {
 	Name() string
 	Validate(r *Rebalancer, ctrlConn *common.Conn) error
+	Plan(r *Rebalancer) (model.TablePlan, error)
 	Run(r *Rebalancer) error
 }
 

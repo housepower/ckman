@@ -30,6 +30,45 @@ func (ByShardingKey) Validate(r *Rebalancer, ctrlConn *common.Conn) error {
 	return getShardingType(&r.Shardingkey, ctrlConn)
 }
 
+// Plan reports the reshuffle's scale (rows, bytes, sharding key, shard count)
+// without doing any of the actual work. Reuses InitCKConns(true) to fetch
+// engine and oriCount which already populate r; one extra cluster()-wide
+// query covers total bytes for the tmp-disk estimate.
+func (ByShardingKey) Plan(r *Rebalancer) (model.TablePlan, error) {
+	plan := model.TablePlan{
+		Database: r.Database,
+		Table:    r.Table,
+		Strategy: model.RebalancePolicyShardingKey,
+	}
+	if err := r.InitCKConns(true); err != nil {
+		return plan, err
+	}
+	plan.Engine = r.Engine
+
+	var totalBytes, compressedBytes uint64
+	bytesQuery := fmt.Sprintf(`SELECT
+  toUInt64(coalesce(sum(data_uncompressed_bytes), 0)),
+  toUInt64(coalesce(sum(data_compressed_bytes), 0))
+FROM cluster('%s', 'system.parts') WHERE active AND database = '%s' AND table = '%s'`, r.Cluster, r.Database, r.Table)
+	log.Logger.Debugf(bytesQuery)
+	conn := common.GetConnection(r.Hosts[0])
+	if conn == nil {
+		return plan, fmt.Errorf("[rebalance]can't get connection: %s", r.Hosts[0])
+	}
+	if err := conn.QueryRow(bytesQuery).Scan(&totalBytes, &compressedBytes); err != nil {
+		return plan, errors.Wrapf(err, "query %s failed", bytesQuery)
+	}
+
+	plan.Reshuffle = &model.ReshuffleSummary{
+		TotalRows:       r.OriCount,
+		TotalBytes:      totalBytes,
+		CompressedBytes: compressedBytes,
+		Shards:          len(r.Hosts),
+		ShardingKey:     r.Shardingkey.ShardingKey,
+	}
+	return plan, nil
+}
+
 // Run executes the full lifecycle: open connections + metadata fetch, create
 // the per-cluster tmp table, move the original data into tmp, verify count,
 // re-insert filtered by hash modulo host index, verify count again, and

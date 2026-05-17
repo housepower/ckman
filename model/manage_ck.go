@@ -143,6 +143,58 @@ type RebalanceTableReq struct {
 	ExceptMaxShard bool              `json:"except_max_shard"` // remove the max shard's data to other shards
 }
 
+// RebalancePlan is the preview returned by /rebalance_plan: what the
+// rebalance WOULD do given the cluster's current state. Computed off the same
+// code path as a real Run (paddingKeys + Strategy.Plan), but stops before any
+// data is actually moved. UI uses this for a "confirm-before-execute" step.
+type RebalancePlan struct {
+	// ExceptShardDrain is populated when except_max_shard is true: the last
+	// shard's data will be drained into the host with most free space before
+	// the per-table strategy runs on the remaining shards.
+	ExceptShardDrain *ExceptShardDrain `json:"except_shard_drain,omitempty"`
+	Tables           []TablePlan       `json:"tables"`
+}
+
+type ExceptShardDrain struct {
+	SrcHost string `json:"src_host"`
+	DstHost string `json:"dst_host"`
+}
+
+// TablePlan describes what one table's rebalance will do. For the partition
+// strategy this is a concrete list of partition moves; for the shardingkey
+// strategy it's a summary of the reshuffle's scale (the actual row movement
+// is computed at run time by the cluster() insert).
+type TablePlan struct {
+	Database  string                 `json:"database"`
+	Table     string                 `json:"table"`
+	Strategy  string                 `json:"strategy"` // "partition" | "shardingkey"
+	Engine    string                 `json:"engine"`
+	Moves     []PartitionMove        `json:"moves,omitempty"`
+	Reshuffle *ReshuffleSummary      `json:"reshuffle,omitempty"`
+	Warnings  []Internationalization `json:"warnings,omitempty"`
+}
+
+// PartitionMove is one (src → dst) hop for one partition under the partition
+// strategy. Bytes is compressed (the actual transfer size for the FETCH /
+// rsync paths).
+type PartitionMove struct {
+	Partition string `json:"partition"`
+	SrcHost   string `json:"src_host"`
+	DstHost   string `json:"dst_host"`
+	Bytes     uint64 `json:"bytes"`
+}
+
+// ReshuffleSummary describes the shardingkey strategy's scale: how much data
+// will be moved through the tmp table and on what key. The UI uses this to
+// estimate execution time / disk footprint requirements.
+type ReshuffleSummary struct {
+	TotalRows       uint64 `json:"total_rows"`
+	TotalBytes      uint64 `json:"total_bytes"`      // uncompressed
+	CompressedBytes uint64 `json:"compressed_bytes"` // estimated tmp disk usage
+	Shards          int    `json:"shards"`
+	ShardingKey     string `json:"sharding_key"`
+}
+
 type TypeInfo struct {
 	Type     int
 	Nullable bool
