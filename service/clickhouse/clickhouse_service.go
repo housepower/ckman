@@ -614,64 +614,6 @@ func (ck *CkService) ShowCreateTable(tbname, database string) (string, error) {
 	return schema, nil
 }
 
-type RebalanceTables struct {
-	Database  string
-	DistTable string
-	Table     string
-	Columns   []string
-}
-
-func (ck *CkService) GetRebalanceTables() ([]RebalanceTables, error) {
-	query := fmt.Sprintf(`SELECT
-    t2.database AS database,
-	t2.name AS dist,
-    t2.local AS table,
-    groupArray(t1.name) AS rows
-FROM system.columns AS t1
-INNER JOIN
-(
-	SELECT
-    database,
-	name,
-    (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[2] AS cluster,
-    (extractAllGroups(engine_full, '(Distributed\\(\')(.*)\',\\s+\'(.*)\',\\s+\'(.*)\'(.*)')[1])[4] AS local
-FROM system.tables
-WHERE match(engine, 'Distributed') AND (database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')
-AND cluster = '%s')
-) AS t2 ON t1.table = t2.name and t1.database=t2.database
-WHERE (multiSearchAny(t1.type, ['Int', 'Float', 'Date', 'String', 'Decimal']) = '1')
-GROUP BY
-    database,
-	dist,
-    table
-ORDER BY 
-    database
-`, ck.Config.Cluster)
-
-	log.Logger.Debug(query)
-	rows, err := ck.Conn.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	tblLists := make([]RebalanceTables, 0)
-	for rows.Next() {
-		var database, dist, table string
-		var cols []string
-		err = rows.Scan(&database, &dist, &table, &cols)
-		if err != nil {
-			return nil, err
-		}
-		tblLists = append(tblLists, RebalanceTables{
-			Database:  database,
-			DistTable: dist,
-			Table:     table,
-			Columns:   cols,
-		})
-	}
-	return tblLists, nil
-}
-
 func (ck *CkService) GetTblLists() (map[string]map[string][]string, error) {
 	query := `SELECT
     t2.database AS database,
