@@ -1362,10 +1362,11 @@ func RestoreReplicaTable(conf *model.CKManClickHouseConfig, host, database, tabl
 	return nil
 }
 
-// GetRebalanceInfo returns the current row/byte distribution per (host, table)
-// for the requested table patterns. Thin wrapper kept for the legacy import
-// path; implementation lives in service/clickhouse/rebalance.
-func GetRebalanceInfo(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables) ([]*model.RebalanceInfo, error) {
+// GetRebalanceInfo returns the per-table row/byte distribution (grouped by
+// table, with per-shard breakdown) for the requested table patterns. Thin
+// wrapper kept for the legacy import path; implementation lives in
+// service/clickhouse/rebalance.
+func GetRebalanceInfo(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables) ([]model.TableRebalanceInfo, error) {
 	return rebalance.Info(conf, rtables)
 }
 

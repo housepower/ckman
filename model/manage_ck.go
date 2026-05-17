@@ -108,13 +108,34 @@ type RebalanceTables struct {
 	DistTable     string   `json:"-"`
 }
 
-type RebalanceInfo struct {
-	Database string `json:"database" example:"default"`
-	Table    string `json:"table" example:"t123"`
-	Host     string `json:"host" example:"192.168.0.1"`
-	ShardNum int    `json:"shard_num" example:"1"`
-	Rows     uint64 `json:"rows" example:"10000000000"`
-	Size     string `json:"size" example:"10000000000"`
+// TableRebalanceInfo is the per-table view returned by the rebalance_info
+// endpoint. Replaces the older flat RebalanceInfo, which forced the frontend
+// to re-group rows client-side and gave no per-table summary fields. Shards
+// is the per-shard breakdown; the top-level fields are table-wide summaries
+// (engine, imbalance, warnings) so the UI can render at-a-glance status.
+//
+// Warnings carry ZH+EN text so the UI doesn't have to localize string-keyed
+// messages — matches the existing pattern used by Task.Step / NodeStatus.
+type TableRebalanceInfo struct {
+	Database       string                 `json:"database" example:"default"`
+	Table          string                 `json:"table" example:"t123"`
+	DistTable      string                 `json:"dist_table,omitempty" example:"t123_all"`
+	Engine         string                 `json:"engine" example:"ReplicatedMergeTree"`
+	ImbalanceRatio float64                `json:"imbalance_ratio" example:"0.23"`
+	Warnings       []Internationalization `json:"warnings,omitempty"`
+	Shards         []ShardRebalanceInfo   `json:"shards"`
+}
+
+// ShardRebalanceInfo carries one shard's data footprint for a single table.
+// Bytes is uncompressed (matches the original "size" semantic); CompressedBytes
+// is the on-disk footprint, useful for capacity / move-cost estimation.
+type ShardRebalanceInfo struct {
+	Host            string `json:"host" example:"192.168.0.1"`
+	ShardNum        int    `json:"shard_num" example:"1"`
+	Rows            uint64 `json:"rows" example:"10000000000"`
+	Bytes           uint64 `json:"bytes" example:"10737418240"`
+	CompressedBytes uint64 `json:"compressed_bytes" example:"2147483648"`
+	PartitionCount  uint64 `json:"partition_count" example:"365"`
 }
 
 type RebalanceTableReq struct {
