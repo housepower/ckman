@@ -1,8 +1,11 @@
 package rebalance
 
 import (
+	"context"
+
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
+	"github.com/pkg/errors"
 )
 
 // Strategy is the per-table rebalance algorithm. Two implementations are
@@ -20,12 +23,14 @@ import (
 // it may open pooled connections and run read-only queries. Used by the
 // rebalance_plan preview endpoint to power confirm-before-execute UIs.
 //
-// Run executes the full lifecycle for one table.
+// Run executes the full lifecycle for one table. ctx is checked at the
+// strategy's natural iteration boundaries (per partition move, per insert
+// batch) so a Stop request actually interrupts the in-flight rebalance.
 type Strategy interface {
 	Name() string
 	Validate(r *Rebalancer, ctrlConn *common.Conn) error
 	Plan(r *Rebalancer) (model.TablePlan, error)
-	Run(r *Rebalancer) error
+	Run(ctx context.Context, r *Rebalancer) error
 }
 
 // PickStrategy chooses the algorithm for one table based on its requested policy.
@@ -36,4 +41,18 @@ func PickStrategy(t model.RebalanceTables) Strategy {
 		return ByShardingKey{}
 	}
 	return ByPartition{}
+}
+
+// checkCtx returns a wrapped ctx.Err() when the rebalance has been cancelled.
+// Strategies and the orchestrator call this at iteration boundaries (per-table,
+// per-partition, per-batch) so cancellation surfaces promptly without making
+// every helper take a ctx argument.
+func checkCtx(ctx context.Context) error {
+	if ctx == nil {
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return errors.Wrap(err, "rebalance cancelled")
+	}
+	return nil
 }

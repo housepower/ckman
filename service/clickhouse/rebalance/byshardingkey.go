@@ -1,6 +1,7 @@
 package rebalance
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -77,7 +78,7 @@ FROM cluster('%s', 'system.parts') WHERE active AND database = '%s' AND table = 
 // CheckCounts is retried once after 5s because the cluster() function uses a
 // distributed query whose freshness lags slightly; a one-shot eventually-
 // consistent retry covers that without inviting infinite retry loops.
-func (ByShardingKey) Run(r *Rebalancer) error {
+func (ByShardingKey) Run(ctx context.Context, r *Rebalancer) error {
 	start := time.Now()
 	r.setStep(model.StepShardingFetch)
 	log.Logger.Info("[rebalance] STEP InitCKConns")
@@ -85,14 +86,20 @@ func (ByShardingKey) Run(r *Rebalancer) error {
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
+	if err := checkCtx(ctx); err != nil {
+		return err
+	}
 	r.setStep(model.StepShardingTmp)
 	log.Logger.Info("[rebalance] STEP CreateTemporaryTable")
 	if err := r.createTemporaryTable(); err != nil {
 		return err
 	}
+	if err := checkCtx(ctx); err != nil {
+		return err
+	}
 	r.setStep(model.StepShardingMove)
 	log.Logger.Info("[rebalance] STEP MoveBackup")
-	if err := r.moveBackup(); err != nil {
+	if err := r.moveBackup(ctx); err != nil {
 		return err
 	}
 	r.setStep(model.StepShardingVerify)
@@ -102,9 +109,12 @@ func (ByShardingKey) Run(r *Rebalancer) error {
 			return err
 		}
 	}
+	if err := checkCtx(ctx); err != nil {
+		return err
+	}
 	r.setStep(model.StepShardingInsert)
 	log.Logger.Info("[rebalance] STEP InsertPlan")
-	if err := r.insertPlan(); err != nil {
+	if err := r.insertPlan(ctx); err != nil {
 		return errors.Wrapf(err, "table %s.%s rebalance failed, data can be corrupted, please move back from temp table[%s] manually", r.Database, r.Table, r.TmpTable)
 	}
 	r.setStep(model.StepShardingFinal)
@@ -202,7 +212,7 @@ func (r *Rebalancer) checkCounts(tableName string) error {
 // preserving the original behavior. Whichever assignment wins becomes the
 // returned error; either way the caller learns the rebalance failed. A future
 // PR can tighten this the way DoRebalanceByPart was tightened in Phase 1.
-func (r *Rebalancer) insertPlan() error {
+func (r *Rebalancer) insertPlan(ctx context.Context) error {
 	var lastError error
 	var wg sync.WaitGroup
 	for idx, host := range r.Hosts {
@@ -232,6 +242,10 @@ func (r *Rebalancer) insertPlan() error {
 			log.Logger.Debugf("host:[%s], parts: %v", host, partitions)
 
 			for i, partition := range partitions {
+				if err := checkCtx(ctx); err != nil {
+					lastError = err
+					return
+				}
 				q := fmt.Sprintf("INSERT INTO `%s`.`%s` SELECT * FROM cluster('%s', '%s.%s') WHERE _partition_id = '%s' AND %s %% %d = %d SETTINGS insert_deduplicate=false,max_execution_time=0,max_insert_threads=8",
 					r.Database, r.Table, r.Cluster, r.Database, r.TmpTable, partition, ShardingFunc(r.Shardingkey), len(r.Hosts), idx)
 				log.Logger.Debugf("[%s](%d/%d) %s", host, i+1, len(partitions), q)
@@ -252,7 +266,7 @@ func (r *Rebalancer) insertPlan() error {
 // pending re-insertion.
 //
 // See insertPlan for a note on the racy lastError pattern preserved here.
-func (r *Rebalancer) moveBackup() error {
+func (r *Rebalancer) moveBackup(ctx context.Context) error {
 	var wg sync.WaitGroup
 	var lastError error
 	for _, host := range r.Hosts {
@@ -281,6 +295,10 @@ func (r *Rebalancer) moveBackup() error {
 			log.Logger.Debugf("host:[%s], partitions: %v", host, partitions)
 
 			for idx, partition := range partitions {
+				if err := checkCtx(ctx); err != nil {
+					lastError = err
+					return
+				}
 				q := fmt.Sprintf("ALTER TABLE `%s`.`%s` MOVE PARTITION ID '%s' TO TABLE `%s`.`%s`", r.Database, r.Table, partition, r.Database, r.TmpTable)
 				log.Logger.Debugf("[%s](%d/%d) %s", host, idx+1, len(partitions), q)
 				if err := conn.Exec(q); err != nil {

@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -13,27 +14,39 @@ import (
 	"github.com/pkg/errors"
 )
 
-func DeployCkCluster(task *model.Task, d deploy.CKDeploy) error {
+func DeployCkCluster(ctx context.Context, task *model.Task, d deploy.CKDeploy) error {
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
 	if err := d.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusPrepare, model.ALL_NODES_DEFAULT)
 	if err := d.Prepare(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusPrepare.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusInstall, model.ALL_NODES_DEFAULT)
 	if err := d.Install(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInstall.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusConfig, model.ALL_NODES_DEFAULT)
 	if err := d.Config(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfig.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusStart, model.ALL_NODES_DEFAULT)
 	if err := d.Start(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusStart.EN)
@@ -47,10 +60,13 @@ func DeployCkCluster(task *model.Task, d deploy.CKDeploy) error {
 	return nil
 }
 
-func DestroyCkCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKManClickHouseConfig) error {
+func DestroyCkCluster(ctx context.Context, task *model.Task, d deploy.CKDeploy, conf *model.CKManClickHouseConfig) error {
 	deploy.SetNodeStatus(task, model.NodeStatusStop, model.ALL_NODES_DEFAULT)
 	_ = d.Stop()
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusUninstall, model.ALL_NODES_DEFAULT)
 	if err := d.Uninstall(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInstall.EN)
@@ -60,6 +76,9 @@ func DestroyCkCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKManClic
 		return nil
 	}
 	//clear zkNode
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusClearData, model.ALL_NODES_DEFAULT)
 	service, err := zookeeper.GetZkService(conf.Cluster)
 	defer zookeeper.ZkServiceCache.Delete(conf.Cluster)
@@ -79,7 +98,7 @@ func DestroyCkCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKManClic
 	return nil
 }
 
-func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip string) error {
+func DeleteCkClusterNode(ctx context.Context, task *model.Task, conf *model.CKManClickHouseConfig, ip string) error {
 	//delete zookeeper path if need
 	deploy.SetNodeStatus(task, model.NodeStatusClearData, model.ALL_NODES_DEFAULT)
 	ifDeleteShard := false
@@ -138,6 +157,9 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 		}
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	// stop the node
 	deploy.SetNodeStatus(task, model.NodeStatusStop, model.ALL_NODES_DEFAULT)
 	d := deploy.NewCkDeploy(*conf)
@@ -174,6 +196,9 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 		}
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	// update other nodes config
 	deploy.SetNodeStatus(task, model.NodeStatusConfigExt, model.ALL_NODES_DEFAULT)
 	d = deploy.NewCkDeploy(*conf)
@@ -208,27 +233,39 @@ func DeleteCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, ip
 	return nil
 }
 
-func AddCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, d *deploy.CKDeploy) error {
+func AddCkClusterNode(ctx context.Context, task *model.Task, conf *model.CKManClickHouseConfig, d *deploy.CKDeploy) error {
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
 	if err := d.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusPrepare, model.ALL_NODES_DEFAULT)
 	if err := d.Prepare(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusPrepare.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusInstall, model.ALL_NODES_DEFAULT)
 	if err := d.Install(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInstall.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusConfig, model.ALL_NODES_DEFAULT)
 	if err := d.Config(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfig.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusStart, model.ALL_NODES_DEFAULT)
 	if err := d.Start(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusStart.EN)
@@ -240,6 +277,9 @@ func AddCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, d *de
 		//return errors.Wrapf(err, "[%s]", model.NodeStatusCheck.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	// update other nodes config
 	deploy.SetNodeStatus(task, model.NodeStatusConfigExt, model.ALL_NODES_DEFAULT)
 	d2 := deploy.NewCkDeploy(*conf)
@@ -275,7 +315,7 @@ func AddCkClusterNode(task *model.Task, conf *model.CKManClickHouseConfig, d *de
 	return nil
 }
 
-func UpgradeCkCluster(task *model.Task, d deploy.CKDeploy) error {
+func UpgradeCkCluster(ctx context.Context, task *model.Task, d deploy.CKDeploy) error {
 	switch d.Ext.Policy {
 	case model.PolicyRolling:
 		var rd deploy.CKDeploy
@@ -284,16 +324,19 @@ func UpgradeCkCluster(task *model.Task, d deploy.CKDeploy) error {
 			Shards: d.Conf.Shards,
 		}
 		for nodes := rolling.Next(); nodes != nil; nodes = rolling.Next() {
+			if err := checkCancel(ctx); err != nil {
+				return err
+			}
 			if len(nodes) == 0 {
 				continue
 			}
 			rd.Conf.Hosts = nodes
-			if err := upgradePackage(task, rd, model.MaxTimeOut); err != nil {
+			if err := upgradePackage(ctx, task, rd, model.MaxTimeOut); err != nil {
 				return err
 			}
 		}
 	case model.PolicyFull:
-		err := upgradePackage(task, d, 10)
+		err := upgradePackage(ctx, task, d, 10)
 		if err != nil && err != model.CheckTimeOutErr {
 			return err
 		}
@@ -304,7 +347,7 @@ func UpgradeCkCluster(task *model.Task, d deploy.CKDeploy) error {
 	return nil
 }
 
-func upgradePackage(task *model.Task, d deploy.CKDeploy, timeout int) error {
+func upgradePackage(ctx context.Context, task *model.Task, d deploy.CKDeploy, timeout int) error {
 	var node string
 	if d.Ext.Policy == model.PolicyRolling {
 		node = strings.Join(d.Conf.Hosts, ",")
@@ -316,26 +359,41 @@ func upgradePackage(task *model.Task, d deploy.CKDeploy, timeout int) error {
 	if err := d.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
 	}
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusStop, node)
 	if err := d.Stop(); err != nil {
 		log.Logger.Warnf("stop cluster %s failed: %v", d.Conf.Cluster, err)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusPrepare, node)
 	if err := d.Prepare(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusPrepare.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusUpgrade, node)
 	if err := d.Upgrade(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusUpgrade.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusConfig, node)
 	if err := d.Config(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfig.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusStart, node)
 	if err := d.Start(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusStart.EN)
@@ -350,10 +408,13 @@ func upgradePackage(task *model.Task, d deploy.CKDeploy, timeout int) error {
 	return nil
 }
 
-func ConfigCkCluster(task *model.Task, d deploy.CKDeploy) error {
+func ConfigCkCluster(ctx context.Context, task *model.Task, d deploy.CKDeploy) error {
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
 	if err := d.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
+	}
+	if err := checkCancel(ctx); err != nil {
+		return err
 	}
 	deploy.SetNodeStatus(task, model.NodeStatusConfig, model.ALL_NODES_DEFAULT)
 	if err := d.Config(); err != nil {
@@ -369,6 +430,9 @@ func ConfigCkCluster(task *model.Task, d deploy.CKDeploy) error {
 				Shards: d.Conf.Shards,
 			}
 			for nodes := rolling.Next(); nodes != nil; nodes = rolling.Next() {
+				if err := checkCancel(ctx); err != nil {
+					return err
+				}
 				if len(nodes) == 0 {
 					continue
 				}

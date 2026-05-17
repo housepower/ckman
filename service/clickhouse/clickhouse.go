@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"path"
@@ -1373,9 +1374,10 @@ func GetRebalanceInfo(conf *model.CKManClickHouseConfig, rtables []model.Rebalan
 // RebalanceCluster runs a rebalance for the requested tables. Thin wrapper
 // kept for the legacy import path; implementation lives in
 // service/clickhouse/rebalance. onStep is the per-phase progress callback
-// (nil when progress reporting is not needed).
-func RebalanceCluster(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool, onStep func(model.Internationalization)) error {
-	return rebalance.Run(conf, rtables, exceptMaxShard, onStep)
+// (nil when progress reporting is not needed). ctx is checked at phase
+// boundaries so the runner's Cancel can interrupt a long-running rebalance.
+func RebalanceCluster(ctx context.Context, conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool, onStep func(model.Internationalization)) error {
+	return rebalance.Run(ctx, conf, rtables, exceptMaxShard, onStep)
 }
 
 // RebalancePlan computes the rebalance preview: what RebalanceCluster would

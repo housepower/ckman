@@ -1,13 +1,15 @@
 package runner
 
 import (
+	"context"
+
 	"github.com/housepower/ckman/deploy"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
 )
 
-func DeployKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
+func DeployKeeperCluster(ctx context.Context, task *model.Task, d deploy.CKDeploy) error {
 	kd := deploy.NewKeeperDeploy(*d.Conf, d.Packages)
 	kd.Ext = d.Ext
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
@@ -15,21 +17,33 @@ func DeployKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusPrepare, model.ALL_NODES_DEFAULT)
 	if err := kd.Prepare(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusPrepare.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusInstall, model.ALL_NODES_DEFAULT)
 	if err := kd.Install(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInstall.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusConfig, model.ALL_NODES_DEFAULT)
 	if err := kd.Config(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfig.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusStart, model.ALL_NODES_DEFAULT)
 	if err := kd.Start(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusStart.EN)
@@ -44,11 +58,14 @@ func DeployKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
 	return nil
 }
 
-func DestroyKeeperCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKManClickHouseConfig) error {
+func DestroyKeeperCluster(ctx context.Context, task *model.Task, d deploy.CKDeploy, conf *model.CKManClickHouseConfig) error {
 	kd := deploy.NewKeeperDeploy(*d.Conf, d.Packages)
 	deploy.SetNodeStatus(task, model.NodeStatusStop, model.ALL_NODES_DEFAULT)
 	_ = kd.Stop()
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusUninstall, model.ALL_NODES_DEFAULT)
 	if err := kd.Uninstall(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInstall.EN)
@@ -57,10 +74,10 @@ func DestroyKeeperCluster(task *model.Task, d deploy.CKDeploy, conf *model.CKMan
 	return nil
 }
 
-func UpgradeKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
+func UpgradeKeeperCluster(ctx context.Context, task *model.Task, d deploy.CKDeploy) error {
 	kd := deploy.NewKeeperDeploy(*d.Conf, d.Packages)
 	kd.Ext = d.Ext
-	err := upgradeKeeperPackage(task, *kd, 30)
+	err := upgradeKeeperPackage(ctx, task, *kd, 30)
 	if err != nil {
 		return err
 	}
@@ -68,31 +85,46 @@ func UpgradeKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
 	return nil
 }
 
-func upgradeKeeperPackage(task *model.Task, d deploy.KeeperDeploy, timeout int) error {
+func upgradeKeeperPackage(ctx context.Context, task *model.Task, d deploy.KeeperDeploy, timeout int) error {
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
 	if err := d.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
+	}
+	if err := checkCancel(ctx); err != nil {
+		return err
 	}
 	deploy.SetNodeStatus(task, model.NodeStatusStop, model.ALL_NODES_DEFAULT)
 	if err := d.Stop(); err != nil {
 		log.Logger.Warnf("stop cluster %s failed: %v", d.Conf.Cluster, err)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusPrepare, model.ALL_NODES_DEFAULT)
 	if err := d.Prepare(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusPrepare.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusUpgrade, model.ALL_NODES_DEFAULT)
 	if err := d.Upgrade(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusUpgrade.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusConfig, model.ALL_NODES_DEFAULT)
 	if err := d.Config(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfig.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusStart, model.ALL_NODES_DEFAULT)
 	if err := d.Start(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusStart.EN)
@@ -107,12 +139,15 @@ func upgradeKeeperPackage(task *model.Task, d deploy.KeeperDeploy, timeout int) 
 	return nil
 }
 
-func ConfigKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
+func ConfigKeeperCluster(ctx context.Context, task *model.Task, d deploy.CKDeploy) error {
 	kd := deploy.NewKeeperDeploy(*d.Conf, d.Packages)
 	kd.Ext = d.Ext
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
 	if err := kd.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
+	}
+	if err := checkCancel(ctx); err != nil {
+		return err
 	}
 	deploy.SetNodeStatus(task, model.NodeStatusConfig, model.ALL_NODES_DEFAULT)
 	if err := kd.Config(); err != nil {
@@ -120,6 +155,9 @@ func ConfigKeeperCluster(task *model.Task, d deploy.CKDeploy) error {
 	}
 
 	if kd.Ext.Restart {
+		if err := checkCancel(ctx); err != nil {
+			return err
+		}
 		deploy.SetNodeStatus(task, model.NodeStatusRestart, model.ALL_NODES_DEFAULT)
 		err := kd.Restart()
 		if err != nil && err != model.CheckTimeOutErr {

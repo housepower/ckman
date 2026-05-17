@@ -1,7 +1,9 @@
 package runner
 
 import (
+	"context"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/housepower/ckman/common"
@@ -12,11 +14,23 @@ import (
 	"github.com/housepower/ckman/repository"
 )
 
+// Default is the process-wide runner instance, set by main.go after construction.
+// Exposed so the task controller can reach Cancel() without an injection chain
+// through every gin handler. nil-safe: Cancel returns false if Default isn't set
+// (e.g. during early startup or in unit tests).
+var Default *RunnerService
+
 type RunnerService struct {
 	Pool     *common.WorkerPool
 	ServerIp string
 	Interval int
 	Done     chan struct{}
+	// cancels maps an in-flight taskId to its cancel func so StopTask can
+	// actually interrupt the goroutine instead of just flipping a DB flag.
+	// Entries are added when ProcesswithTaskType starts a task and removed
+	// when it returns. sync.Map fits the read-mostly access pattern (Cancel
+	// is rare; Store/Delete happen once per task).
+	cancels sync.Map
 }
 
 func NewRunnerService(serverIp string, config config.CKManServerConfig) *RunnerService {
@@ -26,6 +40,56 @@ func NewRunnerService(serverIp string, config config.CKManServerConfig) *RunnerS
 		Pool:     common.NewWorkerPool(8, 16), // for tasks, 8 goroutines is enough
 		Done:     make(chan struct{}),
 	}
+}
+
+// Boot recovers tasks that were left in Running status when the previous
+// ckman process exited unexpectedly (crash / kill / restart). Without this,
+// such tasks would stay Running forever — the polling loop only picks up
+// Waiting tasks, so nobody would ever update their status.
+//
+// Policy: mark orphan Running tasks as Failed rather than re-enqueue. Most
+// task types (deploy, addnode, archive, rebalance) are not idempotent; a
+// half-done op can leave hosts in an inconsistent state that auto-retry would
+// only worsen. Letting the operator see "ckman restarted while task was
+// running" and decide manually is the safe default.
+//
+// Only tasks owned by this server (matching ServerIp) are touched, so in a
+// multi-instance deployment each ckman heals its own orphans.
+func (runner *RunnerService) Boot() {
+	tasks, err := repository.Ps.GetAllTasks()
+	if err != nil {
+		log.Logger.Errorf("runner boot: list tasks failed: %v", err)
+		return
+	}
+	const reason = "ckman restarted while task was running"
+	for _, task := range tasks {
+		if task.ServerIp != runner.ServerIp || task.Status != model.TaskStatusRunning {
+			continue
+		}
+		t := task
+		if err := deploy.SetTaskStatus(&t, model.TaskStatusFailed, reason); err != nil {
+			log.Logger.Errorf("runner boot: mark task %s failed: %v", t.TaskId, err)
+			continue
+		}
+		log.Logger.Warnf("runner boot: task %s (%s/%s) recovered as failed", t.TaskId, t.ClusterName, t.TaskType)
+	}
+}
+
+// Cancel asks the runner to interrupt the in-flight task with the given id.
+// Returns true if the task was found in the in-flight registry (cancellation
+// signal delivered). Returns false if the task is not currently running on
+// this instance — either it already finished, hasn't been picked up yet, or
+// it's owned by a different ckman in a multi-instance deployment.
+//
+// The actual cancellation is cooperative: handlers must check ctx.Err() at
+// phase boundaries. See handle.go and the rebalance package for the wiring.
+func (runner *RunnerService) Cancel(taskId string) bool {
+	v, ok := runner.cancels.Load(taskId)
+	if !ok {
+		return false
+	}
+	v.(context.CancelFunc)()
+	return true
 }
 
 func (runner *RunnerService) Start() {
@@ -70,6 +134,17 @@ func (runner *RunnerService) ProcesswithTaskType(task model.Task) error {
 	if err != nil {
 		return err
 	}
+
+	// Each task gets its own cancellable context. Register in cancels so
+	// StopTask can interrupt it; deregister on return so a finished task's
+	// id doesn't accumulate.
+	ctx, cancel := context.WithCancel(context.Background())
+	runner.cancels.Store(task.TaskId, cancel)
+	defer func() {
+		runner.cancels.Delete(task.TaskId)
+		cancel()
+	}()
+
 	defer func() {
 		if err := recover(); err != nil {
 			//update task status failed while task panic
@@ -77,7 +152,15 @@ func (runner *RunnerService) ProcesswithTaskType(task model.Task) error {
 			log.Logger.Errorf("panic: %v", string(debug.Stack()))
 		}
 	}()
-	if err := TaskHandleFunc[task.TaskType](&task); err != nil {
+	if err := TaskHandleFunc[task.TaskType](ctx, &task); err != nil {
+		// If the task was cancelled the controller already flipped the DB
+		// status to Stopped; respect that and only log here. Otherwise it's
+		// a real failure.
+		if ctx.Err() != nil {
+			deploy.SetNodeStatus(&task, model.NodeStatusFailed, model.ALL_NODES_DEFAULT)
+			log.Logger.Infof("task %s cancelled: %v", task.TaskId, err)
+			return err
+		}
 		deploy.SetNodeStatus(&task, model.NodeStatusFailed, model.ALL_NODES_DEFAULT)
 		_ = deploy.SetTaskStatus(&task, model.TaskStatusFailed, err.Error())
 		return err

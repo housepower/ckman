@@ -148,6 +148,14 @@ func main() {
 	log.Logger.Infof("start backup service success (self=%s, max_concurrent=%d)", self, 8)
 
 	runnerServ := runner.NewRunnerService(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server)
+	// Expose to controller.StopTask so it can interrupt in-flight task
+	// goroutines instead of merely flipping the DB status.
+	runner.Default = runnerServ
+	// Recover tasks left in Running status from a previous crashed process —
+	// without this they would stay Running forever (polling only picks up
+	// Waiting tasks). Must run before Start so the recovery happens before
+	// new ticks fire.
+	runnerServ.Boot()
 	runnerServ.Start()
 	defer runnerServ.Stop()
 

@@ -1,6 +1,7 @@
 package rebalance
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/housepower/ckman/common"
@@ -23,7 +24,12 @@ import (
 // This is the public entry point invoked from the runner task handle. The
 // thin wrapper at service/clickhouse.RebalanceCluster preserves the
 // pre-refactor import path.
-func Run(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool, onStep func(model.Internationalization)) error {
+//
+// ctx is checked between phases and between tables; if the user clicks Stop
+// while a partition move or insert batch is in flight, that single op is
+// allowed to finish (CH operations themselves aren't ctx-aware in this code
+// path) but the next iteration short-circuits.
+func Run(ctx context.Context, conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exceptMaxShard bool, onStep func(model.Internationalization)) error {
 	conf.Normalize() // default ports, mirror NewCkService's behavior
 	conn, err := openControllerConn(conf)
 	if err != nil {
@@ -58,13 +64,16 @@ func Run(conf *model.CKManClickHouseConfig, rtables []model.RebalanceTables, exc
 
 	log.Logger.Debugf("rebalance tables: %d, %#v", len(rtables), rtables)
 	for _, rt := range rtables {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
 		if exceptMaxShard {
 			emit(onStep, model.StepMoveExceptHost)
 			if err := moveExceptToOthers(conf, exceptHost, target, rt.Database, rt.Table); err != nil {
 				return err
 			}
 		}
-		if err := runOneTable(conf, hosts, rt, conn, onStep); err != nil {
+		if err := runOneTable(ctx, conf, hosts, rt, conn, onStep); err != nil {
 			return err
 		}
 	}
@@ -157,7 +166,7 @@ func planOneTable(conf *model.CKManClickHouseConfig, hosts []string, rt model.Re
 }
 
 // runOneTable selects and executes the strategy for a single table.
-func runOneTable(conf *model.CKManClickHouseConfig, hosts []string, rt model.RebalanceTables, controllerConn *common.Conn, onStep func(model.Internationalization)) error {
+func runOneTable(ctx context.Context, conf *model.CKManClickHouseConfig, hosts []string, rt model.RebalanceTables, controllerConn *common.Conn, onStep func(model.Internationalization)) error {
 	rebalancer := New(Config{
 		Cluster:       conf.Cluster,
 		Hosts:         hosts,
@@ -186,7 +195,7 @@ func runOneTable(conf *model.CKManClickHouseConfig, hosts []string, rt model.Reb
 	if err := strategy.Validate(rebalancer, controllerConn); err != nil {
 		return err
 	}
-	return strategy.Run(rebalancer)
+	return strategy.Run(ctx, rebalancer)
 }
 
 // Info reports the current row/byte distribution for the requested tables,

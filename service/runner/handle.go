@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/housepower/ckman/common"
@@ -13,7 +14,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-var TaskHandleFunc = map[string]func(task *model.Task) error{
+// TaskHandleFunc dispatches to a handler for the task type. The ctx is
+// cancelled when the user clicks Stop on the task (see runner.Cancel);
+// handlers are expected to check ctx.Err() at phase boundaries via
+// checkCancel so that "Stop" is more than just a DB flag flip.
+var TaskHandleFunc = map[string]func(ctx context.Context, task *model.Task) error{
 	model.TaskTypeCKDeploy:     CKDeployHandle,
 	model.TaskTypeCKUpgrade:    CKUpgradeHandle,
 	model.TaskTypeCKAddNode:    CKAddNodeHandle,
@@ -22,6 +27,19 @@ var TaskHandleFunc = map[string]func(task *model.Task) error{
 	model.TaskTypeCKSetting:    CKSettingHandle,
 	model.TaskTypeCKArchive:    CKArchiveHandle,
 	model.TaskTypeCKRebalance:  CKRebalanceHandle,
+}
+
+// checkCancel returns ctx.Err() if the task has been cancelled, nil otherwise.
+// Call between phases to surface a cooperative stop without sprinkling
+// select-default boilerplate everywhere.
+func checkCancel(ctx context.Context) error {
+	if ctx == nil {
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return errors.Wrap(err, "task cancelled")
+	}
+	return nil
 }
 
 func UnmarshalConfig(config interface{}, v interface{}) error {
@@ -42,7 +60,7 @@ func UnmarshalConfig(config interface{}, v interface{}) error {
 	return nil
 }
 
-func CKDeployHandle(task *model.Task) error {
+func CKDeployHandle(ctx context.Context, task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
 		return err
@@ -50,13 +68,16 @@ func CKDeployHandle(task *model.Task) error {
 
 	if d.Conf.KeeperWithStanalone() {
 		task.TaskType = model.TaskTypeKeeperDeploy
-		if err := DeployKeeperCluster(task, d); err != nil {
+		if err := DeployKeeperCluster(ctx, task, d); err != nil {
 			return err
 		}
 		task.TaskType = model.TaskTypeCKDeploy
 	}
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusWating, model.ALL_NODES_DEFAULT)
-	if err := DeployCkCluster(task, d); err != nil {
+	if err := DeployCkCluster(ctx, task, d); err != nil {
 		return err
 	}
 
@@ -109,7 +130,7 @@ func CKDeployHandle(task *model.Task) error {
 	return nil
 }
 
-func CKDestoryHandle(task *model.Task) error {
+func CKDestoryHandle(ctx context.Context, task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
 		return err
@@ -121,13 +142,16 @@ func CKDestoryHandle(task *model.Task) error {
 	}
 
 	common.CloseConns(conf.Hosts)
-	if err = DestroyCkCluster(task, d, &conf); err != nil {
+	if err = DestroyCkCluster(ctx, task, d, &conf); err != nil {
 		return err
 	}
 
 	if d.Conf.KeeperWithStanalone() && !d.Ext.SkipKeeper {
+		if err := checkCancel(ctx); err != nil {
+			return err
+		}
 		task.TaskType = model.TaskTypeKeeperDestory
-		if err = DestroyKeeperCluster(task, d, &conf); err != nil {
+		if err = DestroyKeeperCluster(ctx, task, d, &conf); err != nil {
 			return err
 		}
 		task.TaskType = model.TaskTypeCKDestory
@@ -175,7 +199,7 @@ func CKDestoryHandle(task *model.Task) error {
 	return nil
 }
 
-func CKDeleteNodeHandle(task *model.Task) error {
+func CKDeleteNodeHandle(ctx context.Context, task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
 		return err
@@ -187,7 +211,7 @@ func CKDeleteNodeHandle(task *model.Task) error {
 		return nil
 	}
 
-	err = DeleteCkClusterNode(task, &conf, ip)
+	err = DeleteCkClusterNode(ctx, task, &conf, ip)
 	if err != nil {
 		return err
 	}
@@ -201,7 +225,7 @@ func CKDeleteNodeHandle(task *model.Task) error {
 	return nil
 }
 
-func CKAddNodeHandle(task *model.Task) error {
+func CKAddNodeHandle(ctx context.Context, task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
 		return err
@@ -217,7 +241,7 @@ func CKAddNodeHandle(task *model.Task) error {
 		return nil
 	}
 
-	err = AddCkClusterNode(task, &conf, &d)
+	err = AddCkClusterNode(ctx, task, &conf, &d)
 	if err != nil {
 		return err
 	}
@@ -226,8 +250,14 @@ func CKAddNodeHandle(task *model.Task) error {
 		return errors.New("sourceSchemaHost is empty in deploy ext")
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusConfigExt, model.ALL_NODES_DEFAULT)
 	for _, host := range d.Conf.Hosts {
+		if err := checkCancel(ctx); err != nil {
+			return err
+		}
 		tmp := &model.CKManClickHouseConfig{
 			Hosts:    []string{host},
 			Port:     conf.Port,
@@ -268,7 +298,7 @@ func CKAddNodeHandle(task *model.Task) error {
 	return nil
 }
 
-func CKUpgradeHandle(task *model.Task) error {
+func CKUpgradeHandle(ctx context.Context, task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
 		return err
@@ -281,13 +311,16 @@ func CKUpgradeHandle(task *model.Task) error {
 
 	if d.Conf.KeeperWithStanalone() && !d.Ext.SkipKeeper {
 		task.TaskType = model.TaskTypeKeeperUpgrade
-		if err = UpgradeKeeperCluster(task, d); err != nil {
+		if err = UpgradeKeeperCluster(ctx, task, d); err != nil {
 			return err
 		}
 		task.TaskType = model.TaskTypeCKUpgrade
 	}
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusWating, model.ALL_NODES_DEFAULT)
-	err = UpgradeCkCluster(task, d)
+	err = UpgradeCkCluster(ctx, task, d)
 	if err != nil {
 		return err
 	}
@@ -301,7 +334,7 @@ func CKUpgradeHandle(task *model.Task) error {
 	return nil
 }
 
-func CKSettingHandle(task *model.Task) error {
+func CKSettingHandle(ctx context.Context, task *model.Task) error {
 	var d deploy.CKDeploy
 	if err := UnmarshalConfig(task.DeployConfig, &d); err != nil {
 		return err
@@ -318,15 +351,18 @@ func CKSettingHandle(task *model.Task) error {
 
 	if d.Conf.KeeperWithStanalone() && !d.Ext.SkipKeeper {
 		task.TaskType = model.TaskTypeKeeperSetting
-		if err := ConfigKeeperCluster(task, d); err != nil {
+		if err := ConfigKeeperCluster(ctx, task, d); err != nil {
 			return err
 		}
 		task.TaskType = model.TaskTypeCKSetting
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusWating, model.ALL_NODES_DEFAULT)
 
-	if err := ConfigCkCluster(task, d); err != nil {
+	if err := ConfigCkCluster(ctx, task, d); err != nil {
 		return err
 	}
 
@@ -362,7 +398,7 @@ func CKSettingHandle(task *model.Task) error {
 	return nil
 }
 
-func CKArchiveHandle(task *model.Task) error {
+func CKArchiveHandle(ctx context.Context, task *model.Task) error {
 	var req model.ArchiveTableReq
 	if err := UnmarshalConfig(task.DeployConfig, &req); err != nil {
 		return err
@@ -390,11 +426,17 @@ func CKArchiveHandle(task *model.Task) error {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusInit.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusClearData, model.ALL_NODES_DEFAULT)
 	if err := t.Clear(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusClearData.EN)
 	}
 
+	if err := checkCancel(ctx); err != nil {
+		return err
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusExport, model.ALL_NODES_DEFAULT)
 	if err := t.Export(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusExport.EN)
@@ -405,7 +447,7 @@ func CKArchiveHandle(task *model.Task) error {
 	return nil
 }
 
-func CKRebalanceHandle(task *model.Task) error {
+func CKRebalanceHandle(ctx context.Context, task *model.Task) error {
 	var req model.RebalanceTableReq
 	if err := UnmarshalConfig(task.DeployConfig, &req); err != nil {
 		return err
@@ -419,7 +461,7 @@ func CKRebalanceHandle(task *model.Task) error {
 	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
 	if len(conf.Shards) > 1 {
 		onStep := func(s model.Internationalization) { deploy.SetTaskStep(task, s) }
-		if err := clickhouse.RebalanceCluster(&conf, req.RTables, req.ExceptMaxShard, onStep); err != nil {
+		if err := clickhouse.RebalanceCluster(ctx, &conf, req.RTables, req.ExceptMaxShard, onStep); err != nil {
 			return errors.Wrap(err, "rebalance")
 		}
 	}

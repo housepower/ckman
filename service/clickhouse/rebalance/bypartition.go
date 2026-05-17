@@ -1,6 +1,7 @@
 package rebalance
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -91,7 +92,7 @@ func (ByPartition) Plan(r *Rebalancer) (model.TablePlan, error) {
 	return plan, nil
 }
 
-func (ByPartition) Run(r *Rebalancer) error {
+func (ByPartition) Run(ctx context.Context, r *Rebalancer) error {
 	if err := r.InitCKConns(false); err != nil {
 		log.Logger.Errorf("[rebalance]got error %+v", err)
 		return err
@@ -100,7 +101,7 @@ func (ByPartition) Run(r *Rebalancer) error {
 		log.Logger.Errorf("[rebalance]got error %+v", err)
 		return err
 	}
-	if err := r.doRebalanceByPart(); err != nil {
+	if err := r.doRebalanceByPart(ctx); err != nil {
 		log.Logger.Errorf("got error %+v", err)
 		return err
 	}
@@ -269,13 +270,16 @@ func (r *Rebalancer) generatePartPlan(tbls []*TblPartitions) {
 // non-replicated it detaches the source, rsyncs the files, and re-attaches on
 // the destination. The dst-host lock is released via defer in either helper to
 // guarantee no stranded locks on error.
-func (r *Rebalancer) executePartPlan(tbl *TblPartitions) error {
+func (r *Rebalancer) executePartPlan(ctx context.Context, tbl *TblPartitions) error {
 	if tbl.ToMoveOut == nil {
 		return nil
 	}
 	if tbl.ZooPath != "" {
 		// 带副本集群
 		for patt, dstHost := range tbl.ToMoveOut {
+			if err := checkCtx(ctx); err != nil {
+				return err
+			}
 			if err := r.fetchPartitionOnReplica(tbl.Table, patt, tbl.ZooPath, dstHost); err != nil {
 				return err
 			}
@@ -297,6 +301,9 @@ func (r *Rebalancer) executePartPlan(tbl *TblPartitions) error {
 		return nil
 	}
 	for patt, dstHost := range tbl.ToMoveOut {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
 		srcCkConn := common.GetConnection(tbl.Host)
 		dstCkConn := common.GetConnection(dstHost)
 		if srcCkConn == nil || dstCkConn == nil {
@@ -392,7 +399,7 @@ func (r *Rebalancer) rsyncAndAttach(tbl *TblPartitions, patt, srcDir, dstDir, ds
 // Three outer phases are reported via setStep (GetState / GenPlan / Execute);
 // the inner helpers are pure compute or per-host work and don't emit their
 // own step transitions.
-func (r *Rebalancer) doRebalanceByPart() error {
+func (r *Rebalancer) doRebalanceByPart(ctx context.Context) error {
 	if !r.IsReplica {
 		if r.sshErr = r.initSSHConns(); r.sshErr != nil {
 			log.Logger.Warnf("[rebalance]failed to init ssh connections, error: %+v", r.sshErr)
@@ -404,8 +411,14 @@ func (r *Rebalancer) doRebalanceByPart() error {
 		log.Logger.Errorf("[rebalance]got error %+v", err)
 		return err
 	}
+	if err := checkCtx(ctx); err != nil {
+		return err
+	}
 	r.setStep(model.StepPartGenPlan)
 	r.generatePartPlan(tbls)
+	if err := checkCtx(ctx); err != nil {
+		return err
+	}
 	r.setStep(model.StepPartExecute)
 
 	var (
@@ -418,7 +431,7 @@ func (r *Rebalancer) doRebalanceByPart() error {
 		wg.Add(1)
 		_ = common.Pool.Submit(func() {
 			defer wg.Done()
-			if e := r.executePartPlan(tbl); e != nil {
+			if e := r.executePartPlan(ctx, tbl); e != nil {
 				log.Logger.Errorf("[rebalance]host: %s, got error %+v", tbl.Host, e)
 				mu.Lock()
 				if firstErr == nil {

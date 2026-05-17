@@ -11,6 +11,7 @@ import (
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
+	"github.com/housepower/ckman/service/runner"
 )
 
 const (
@@ -194,8 +195,17 @@ func (controller *TaskController) StopTask(c *gin.Context) {
 		return
 	}
 
+	// Try to interrupt the running goroutine first. Cancel returns false if
+	// the task isn't actively running on this instance (already finished,
+	// not yet picked up, or owned by another ckman). In that case we still
+	// flip the DB status — same as the pre-3.3 behavior — so the UI/poller
+	// stop chasing a dead task.
 	task.Status = model.TaskStatusStopped
-	task.Message = "Manual cancellation, only modifies the task status, does not actually stop the task"
+	if runner.Default != nil && runner.Default.Cancel(task.TaskId) {
+		task.Message = "Manual cancellation, runner notified"
+	} else {
+		task.Message = "Manual cancellation, only modifies the task status, does not actually stop the task"
+	}
 	if err := repository.Ps.UpdateTask(task); err != nil {
 		controller.wrapfunc(c, model.E_DATA_UPDATE_FAILED, err)
 		return
