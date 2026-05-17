@@ -1621,15 +1621,17 @@ func (controller *ClickHouseController) RebalanceCluster(c *gin.Context) {
 		log.Logger.Debugf("[request] | %s | %s | %s \n%v ", c.Request.Host, c.Request.Method, c.Request.URL, string(data))
 	}
 	// if shard == 1, there is no need to rebalance
-	if len(conf.Shards) > 1 {
-		err = clickhouse.RebalanceCluster(&conf, req.RTables, req.ExceptMaxShard)
-		if err != nil {
-			controller.wrapfunc(c, model.E_TBL_ALTER_FAILED, err)
-			return
-		}
+	if len(conf.Shards) <= 1 {
+		controller.wrapfunc(c, model.E_SUCCESS, nil)
+		return
 	}
 
-	controller.wrapfunc(c, model.E_SUCCESS, nil)
+	taskId, err := deploy.CreateNewTask(clusterName, model.TaskTypeCKRebalance, &req)
+	if err != nil {
+		controller.wrapfunc(c, model.E_DATA_INSERT_FAILED, err)
+		return
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, taskId)
 }
 
 // @Summary 获取集群状态

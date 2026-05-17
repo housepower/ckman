@@ -32,6 +32,8 @@ func CreateNewTask(clusterName, taskType string, deploy interface{}) (string, er
 		conf, _ := repository.Ps.GetClusterbyName(clusterName)
 		hosts = conf.Hosts
 	case *model.RebalanceTableReq:
+		conf, _ := repository.Ps.GetClusterbyName(clusterName)
+		hosts = conf.Hosts
 	default:
 		return "", fmt.Errorf("unknown module")
 	}

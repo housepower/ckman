@@ -14,11 +14,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	sshErr error
-	locks  map[string]*sync.Mutex
-)
-
 type CKRebalance struct {
 	Cluster       string
 	Hosts         []string
@@ -41,6 +36,10 @@ type CKRebalance struct {
 	SortingKey    []string
 	AllowLossRate float64
 	SaveTemps     bool
+
+	// runtime state, scoped per-rebalancer to avoid cross-cluster contention
+	sshErr error
+	locks  map[string]*sync.Mutex
 }
 
 // TblPartitions is partitions status of a host. A host never move out and move in at the same iteration.
@@ -55,14 +54,14 @@ type TblPartitions struct {
 }
 
 func (r *CKRebalance) InitCKConns(withShardingkey bool) (err error) {
-	locks = make(map[string]*sync.Mutex)
+	r.locks = make(map[string]*sync.Mutex)
 	for _, host := range r.Hosts {
 		_, err = common.ConnectClickHouse(host, model.ClickHouseDefaultDB, r.ConnOpt)
 		if err != nil {
 			return
 		}
 		log.Logger.Infof("[rebalance]initialized clickhouse connection to %s", host)
-		locks[host] = &sync.Mutex{}
+		r.locks[host] = &sync.Mutex{}
 	}
 
 	if withShardingkey {
@@ -264,27 +263,9 @@ func (r *CKRebalance) ExecutePartPlan(tbl *TblPartitions) (err error) {
 	if tbl.ZooPath != "" {
 		// 带副本集群
 		for patt, dstHost := range tbl.ToMoveOut {
-			lock := locks[dstHost]
-
-			// There could be multiple executions on the same dest node and partition.
-			lock.Lock()
-			dstChConn := common.GetConnection(dstHost)
-			if dstChConn == nil {
-				return fmt.Errorf("[rebalance]can't get connection: %s", dstHost)
+			if err = r.fetchPartitionOnReplica(tbl.Table, patt, tbl.ZooPath, dstHost); err != nil {
+				return
 			}
-			dstQuires := []string{
-				fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION '%s' ", tbl.Table, patt),
-				fmt.Sprintf("ALTER TABLE %s FETCH PARTITION '%s' FROM '%s'", tbl.Table, patt, tbl.ZooPath),
-				fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt),
-			}
-			for _, query := range dstQuires {
-				log.Logger.Infof("[rebalance]host %s: query: %s", dstHost, query)
-				if err = dstChConn.Exec(query); err != nil {
-					err = errors.Wrapf(err, "")
-					return
-				}
-			}
-			lock.Unlock()
 
 			srcChConn := common.GetConnection(tbl.Host)
 			if srcChConn == nil {
@@ -293,83 +274,110 @@ func (r *CKRebalance) ExecutePartPlan(tbl *TblPartitions) (err error) {
 			query := fmt.Sprintf("ALTER TABLE %s DROP PARTITION '%s'", tbl.Table, patt)
 			log.Logger.Infof("[rebalance]host %s: query: %s", tbl.Host, query)
 			if err = srcChConn.Exec(query); err != nil {
-				err = errors.Wrapf(err, "")
-				return
+				return errors.Wrapf(err, "")
 			}
 		}
 		return
-	} else {
-		//不带副本集群， 公钥认证集群做不了
-		if sshErr != nil {
-			log.Logger.Warnf("[rebalance]skip execution for %s due to previous SSH error", tbl.Table)
+	}
+	//不带副本集群， 公钥认证集群做不了
+	if r.sshErr != nil {
+		log.Logger.Warnf("[rebalance]skip execution for %s due to previous SSH error", tbl.Table)
+		return
+	}
+	for patt, dstHost := range tbl.ToMoveOut {
+		srcCkConn := common.GetConnection(tbl.Host)
+		dstCkConn := common.GetConnection(dstHost)
+		if srcCkConn == nil || dstCkConn == nil {
+			return fmt.Errorf("[rebalance]can't get connection: %s & %s", tbl.Host, dstHost)
+		}
+		tableName := strings.Split(tbl.Table, ".")[1]
+		dstDir := filepath.Join(r.DataDir, fmt.Sprintf("clickhouse/data/%s/%s/detached", r.Database, tableName))
+		srcDir := dstDir + "/"
+
+		query := fmt.Sprintf("ALTER TABLE %s DETACH PARTITION '%s'", tbl.Table, patt)
+		log.Logger.Infof("[rebalance]host: %s, query: %s", tbl.Host, query)
+		if err = srcCkConn.Exec(query); err != nil {
+			return errors.Wrapf(err, "")
+		}
+
+		if err = r.rsyncAndAttach(tbl, patt, srcDir, dstDir, dstHost, dstCkConn); err != nil {
 			return
 		}
-		for patt, dstHost := range tbl.ToMoveOut {
-			srcCkConn := common.GetConnection(tbl.Host)
-			dstCkConn := common.GetConnection(dstHost)
-			if srcCkConn == nil || dstCkConn == nil {
-				log.Logger.Errorf("[rebalance]can't get connection: %s & %s", tbl.Host, dstHost)
-				return
-			}
-			lock := locks[dstHost]
-			tableName := strings.Split(tbl.Table, ".")[1]
-			dstDir := filepath.Join(r.DataDir, fmt.Sprintf("clickhouse/data/%s/%s/detached", r.Database, tableName))
-			srcDir := dstDir + "/"
 
-			query := fmt.Sprintf("ALTER TABLE %s DETACH PARTITION '%s'", tbl.Table, patt)
-			log.Logger.Infof("[rebalance]host: %s, query: %s", tbl.Host, query)
-			if err = srcCkConn.Exec(query); err != nil {
-				err = errors.Wrapf(err, "")
-				return
-			}
-
-			// There could be multiple executions on the same dest node and partition.
-			lock.Lock()
-			cmds := []string{
-				fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, srcDir, dstHost, dstDir),
-				fmt.Sprintf("rm -fr %s", srcDir),
-			}
-			sshOpts := common.SshOptions{
-				User:             r.OsUser,
-				Password:         r.OsPassword,
-				Port:             r.OsPort,
-				Host:             tbl.Host,
-				NeedSudo:         true,
-				AuthenticateType: model.SshPasswordSave,
-			}
-			var out string
-			if out, err = common.RemoteExecute(sshOpts, strings.Join(cmds, ";")); err != nil {
-				lock.Unlock()
-				return
-			}
-			log.Logger.Debugf("[rebalance]host: %s, output: %s", tbl.Host, out)
-
-			query = fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt)
-			log.Logger.Infof("[rebalance]host: %s, query: %s", dstHost, query)
-			if err = dstCkConn.Exec(query); err != nil {
-				err = errors.Wrapf(err, "")
-				lock.Unlock()
-				return
-			}
-			lock.Unlock()
-
-			query = fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION '%s'", tbl.Table, patt)
-			log.Logger.Infof("[rebalance]host: %s, query: %s", tbl.Host, query)
-			if err = srcCkConn.Exec(query); err != nil {
-				err = errors.Wrapf(err, "")
-				return
-			}
+		query = fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION '%s'", tbl.Table, patt)
+		log.Logger.Infof("[rebalance]host: %s, query: %s", tbl.Host, query)
+		if err = srcCkConn.Exec(query); err != nil {
+			return errors.Wrapf(err, "")
 		}
 	}
 	return
+}
+
+// fetchPartitionOnReplica holds the dstHost lock for the whole drop-detached/fetch/attach
+// sequence so that concurrent moves to the same dstHost serialize correctly. The lock is
+// always released via defer, even on early error returns.
+func (r *CKRebalance) fetchPartitionOnReplica(table, patt, zooPath, dstHost string) error {
+	lock := r.locks[dstHost]
+	lock.Lock()
+	defer lock.Unlock()
+
+	dstChConn := common.GetConnection(dstHost)
+	if dstChConn == nil {
+		return fmt.Errorf("[rebalance]can't get connection: %s", dstHost)
+	}
+	queries := []string{
+		fmt.Sprintf("ALTER TABLE %s DROP DETACHED PARTITION '%s' ", table, patt),
+		fmt.Sprintf("ALTER TABLE %s FETCH PARTITION '%s' FROM '%s'", table, patt, zooPath),
+		fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", table, patt),
+	}
+	for _, query := range queries {
+		log.Logger.Infof("[rebalance]host %s: query: %s", dstHost, query)
+		if err := dstChConn.Exec(query); err != nil {
+			return errors.Wrapf(err, "")
+		}
+	}
+	return nil
+}
+
+// rsyncAndAttach performs rsync-from-source plus ATTACH-on-destination under the dstHost
+// lock. Releasing via defer guarantees we don't strand the lock on early returns.
+func (r *CKRebalance) rsyncAndAttach(tbl *TblPartitions, patt, srcDir, dstDir, dstHost string, dstCkConn *common.Conn) error {
+	lock := r.locks[dstHost]
+	lock.Lock()
+	defer lock.Unlock()
+
+	cmds := []string{
+		fmt.Sprintf(`rsync -e "ssh -o StrictHostKeyChecking=false" -avp %s %s:%s`, srcDir, dstHost, dstDir),
+		fmt.Sprintf("rm -fr %s", srcDir),
+	}
+	sshOpts := common.SshOptions{
+		User:             r.OsUser,
+		Password:         r.OsPassword,
+		Port:             r.OsPort,
+		Host:             tbl.Host,
+		NeedSudo:         true,
+		AuthenticateType: model.SshPasswordSave,
+	}
+	out, err := common.RemoteExecute(sshOpts, strings.Join(cmds, ";"))
+	if err != nil {
+		return err
+	}
+	log.Logger.Debugf("[rebalance]host: %s, output: %s", tbl.Host, out)
+
+	query := fmt.Sprintf("ALTER TABLE %s ATTACH PARTITION '%s'", tbl.Table, patt)
+	log.Logger.Infof("[rebalance]host: %s, query: %s", dstHost, query)
+	if err := dstCkConn.Exec(query); err != nil {
+		return errors.Wrapf(err, "")
+	}
+	return nil
 }
 
 func (r *CKRebalance) DoRebalanceByPart() (err error) {
 
 	// initialize SSH connections only if there are some non-replicated tables
 	if !r.IsReplica {
-		if sshErr = r.InitSshConns(); sshErr != nil {
-			log.Logger.Warnf("[rebalance]failed to init ssh connections, error: %+v", sshErr)
+		if r.sshErr = r.InitSshConns(); r.sshErr != nil {
+			log.Logger.Warnf("[rebalance]failed to init ssh connections, error: %+v", r.sshErr)
 		}
 	}
 	var tbls []*TblPartitions
@@ -379,24 +387,31 @@ func (r *CKRebalance) DoRebalanceByPart() (err error) {
 	}
 	r.GeneratePartPlan(tbls)
 
-	var gotError bool
-	var wg sync.WaitGroup
+	var (
+		mu       sync.Mutex
+		firstErr error
+		wg       sync.WaitGroup
+	)
 	for i := 0; i < len(tbls); i++ {
 		tbl := tbls[i]
 		wg.Add(1)
 		_ = common.Pool.Submit(func() {
 			defer wg.Done()
-			if err := r.ExecutePartPlan(tbl); err != nil {
-				log.Logger.Errorf("[rebalance]host: %s, got error %+v", tbl.Host, err)
-				gotError = true
+			if e := r.ExecutePartPlan(tbl); e != nil {
+				log.Logger.Errorf("[rebalance]host: %s, got error %+v", tbl.Host, e)
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = e
+				}
+				mu.Unlock()
 			} else {
 				log.Logger.Infof("[rebalance]table %s host %s rebalance done", tbl.Table, tbl.Host)
 			}
 		})
 	}
 	wg.Wait()
-	if gotError {
-		return err
+	if firstErr != nil {
+		return firstErr
 	}
 	log.Logger.Infof("[rebalance]table %s.%s rebalance done", r.Database, r.Table)
 	return

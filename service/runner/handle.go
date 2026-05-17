@@ -21,6 +21,7 @@ var TaskHandleFunc = map[string]func(task *model.Task) error{
 	model.TaskTypeCKDestory:    CKDestoryHandle,
 	model.TaskTypeCKSetting:    CKSettingHandle,
 	model.TaskTypeCKArchive:    CKArchiveHandle,
+	model.TaskTypeCKRebalance:  CKRebalanceHandle,
 }
 
 func UnmarshalConfig(config interface{}, v interface{}) error {
@@ -36,6 +37,7 @@ func UnmarshalConfig(config interface{}, v interface{}) error {
 	case *deploy.CKDeploy:
 		repository.DecodePasswd(v.Conf)
 	case *model.ArchiveTableReq:
+	case *model.RebalanceTableReq:
 	}
 	return nil
 }
@@ -399,6 +401,27 @@ func CKArchiveHandle(task *model.Task) error {
 	}
 
 	t.Done(conf.Path)
+	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
+	return nil
+}
+
+func CKRebalanceHandle(task *model.Task) error {
+	var req model.RebalanceTableReq
+	if err := UnmarshalConfig(task.DeployConfig, &req); err != nil {
+		return err
+	}
+
+	conf, err := repository.Ps.GetClusterbyName(task.ClusterName)
+	if err != nil {
+		return err
+	}
+
+	deploy.SetNodeStatus(task, model.NodeStatusInit, model.ALL_NODES_DEFAULT)
+	if len(conf.Shards) > 1 {
+		if err := clickhouse.RebalanceCluster(&conf, req.RTables, req.ExceptMaxShard); err != nil {
+			return errors.Wrap(err, "rebalance")
+		}
+	}
 	deploy.SetNodeStatus(task, model.NodeStatusDone, model.ALL_NODES_DEFAULT)
 	return nil
 }
