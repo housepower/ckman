@@ -104,7 +104,25 @@ func HasEffectiveTasks(clusterName string) bool {
 	return false
 }
 
+// isTerminalStatus reports whether a task has reached a state that the runner
+// must not overwrite. Stopped is set by the controller via the user clicking
+// Stop; Success/Failed mean the task has already concluded. Any subsequent
+// runner-side update for the same task would clobber the terminal record —
+// see Phase 3 review for the lost-update scenario this prevents.
+func isTerminalStatus(s int) bool {
+	return s == model.TaskStatusStopped || s == model.TaskStatusSuccess || s == model.TaskStatusFailed
+}
+
+// SetTaskStatus persists the task's overall status. Skips the write if the
+// persisted task already reached a terminal status (typically Stopped from a
+// concurrent user Cancel) — the in-memory copy is stale and would otherwise
+// trample the terminal state back to Running/Success/Failed.
 func SetTaskStatus(task *model.Task, status int, msg string) error {
+	fresh, err := repository.Ps.GetTaskbyTaskId(task.TaskId)
+	if err == nil && isTerminalStatus(fresh.Status) && fresh.Status != status {
+		log.Logger.Infof("[%s] skip status update %d→%d: task already terminal (%d)", task.TaskId, task.Status, status, fresh.Status)
+		return nil
+	}
 	task.Status = status
 	task.Message = msg
 	return repository.Ps.UpdateTask(*task)
@@ -115,7 +133,16 @@ func SetTaskStatus(task *model.Task, status int, msg string) error {
 // archive) rather than per-host node status. Failures to persist are logged
 // but not propagated — losing a step update should never abort the underlying
 // operation.
+//
+// Like SetTaskStatus, this bails out if the persisted task has reached a
+// terminal status, to avoid trampling a concurrent Stop/Success/Failed write
+// with the stale in-memory Status=Running this caller still holds.
 func SetTaskStep(task *model.Task, step model.Internationalization) {
+	fresh, err := repository.Ps.GetTaskbyTaskId(task.TaskId)
+	if err == nil && isTerminalStatus(fresh.Status) {
+		log.Logger.Infof("[%s] skip step %s: task already terminal (status=%d)", task.TaskId, step.EN, fresh.Status)
+		return
+	}
 	task.Step = step
 	if err := repository.Ps.UpdateTask(*task); err != nil {
 		log.Logger.Errorf("%s %s update task step failed: %v", task.TaskId, task.ClusterName, err)
@@ -124,6 +151,11 @@ func SetTaskStep(task *model.Task, step model.Internationalization) {
 }
 
 func SetNodeStatus(task *model.Task, status model.Internationalization, host string) {
+	fresh, err := repository.Ps.GetTaskbyTaskId(task.TaskId)
+	if err == nil && isTerminalStatus(fresh.Status) {
+		log.Logger.Infof("[%s] skip node status %s: task already terminal (status=%d)", task.TaskId, status.EN, fresh.Status)
+		return
+	}
 	t := strings.Split(task.TaskType, ".")[0]
 	switch t {
 	case "keeper":
@@ -153,8 +185,7 @@ func SetNodeStatus(task *model.Task, status model.Internationalization, host str
 			}
 		}
 	}
-	err := repository.Ps.UpdateTask(*task)
-	if err != nil {
+	if err := repository.Ps.UpdateTask(*task); err != nil {
 		log.Logger.Errorf("%s %s update node status failed: %v", task.TaskId, task.ClusterName, err)
 	}
 	log.Logger.Infof("[%s-%s] %s current step: %s", task.ClusterName, host, task.TaskType, status.EN)

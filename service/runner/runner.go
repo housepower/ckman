@@ -154,10 +154,12 @@ func (runner *RunnerService) ProcesswithTaskType(task model.Task) error {
 	}()
 	if err := TaskHandleFunc[task.TaskType](ctx, &task); err != nil {
 		// If the task was cancelled the controller already flipped the DB
-		// status to Stopped; respect that and only log here. Otherwise it's
-		// a real failure.
+		// row to Stopped (with up-to-date Step/NodeStatus from a fresh read).
+		// Don't touch the DB here: our local task copy still has
+		// Status=Running from the top of this func, and any UpdateTask with
+		// that stale copy would trample the controller's Stopped back to
+		// Running — exactly the "fake stop" Phase 3 is meant to fix.
 		if ctx.Err() != nil {
-			deploy.SetNodeStatus(&task, model.NodeStatusFailed, model.ALL_NODES_DEFAULT)
 			log.Logger.Infof("task %s cancelled: %v", task.TaskId, err)
 			return err
 		}
