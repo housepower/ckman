@@ -22,16 +22,16 @@ func NewNodeOverrideController(wrapfunc Wrapfunc) *NodeOverrideController {
 	return c
 }
 
-func resolveCluster(c *gin.Context, wrap Wrapfunc) (model.CKManClickHouseConfig, string, bool) {
+func (ctl *NodeOverrideController) resolveCluster(c *gin.Context) (model.CKManClickHouseConfig, string, bool) {
 	clusterName := c.Param(ClickHouseClusterPath)
 	ip := c.Query("ip")
 	if ip == "" {
-		wrap(c, model.E_INVALID_PARAMS, fmt.Errorf("node ip required"))
+		ctl.wrapfunc(c, model.E_INVALID_PARAMS, fmt.Errorf("node ip required"))
 		return model.CKManClickHouseConfig{}, "", false
 	}
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
-		wrap(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
+		ctl.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
 		return model.CKManClickHouseConfig{}, "", false
 	}
 	found := false
@@ -42,7 +42,7 @@ func resolveCluster(c *gin.Context, wrap Wrapfunc) (model.CKManClickHouseConfig,
 		}
 	}
 	if !found {
-		wrap(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("ip %s not in cluster %s", ip, clusterName))
+		ctl.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("ip %s not in cluster %s", ip, clusterName))
 		return model.CKManClickHouseConfig{}, "", false
 	}
 	return conf, ip, true
@@ -59,7 +59,7 @@ func resolveCluster(c *gin.Context, wrap Wrapfunc) (model.CKManClickHouseConfig,
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":{"ip":"...","xml":"..."}}"
 // @Router /api/v1/ck/node/override/{clusterName} [get]
 func (ctl *NodeOverrideController) Get(c *gin.Context) {
-	conf, ip, ok := resolveCluster(c, ctl.wrapfunc)
+	conf, ip, ok := ctl.resolveCluster(c)
 	if !ok {
 		return
 	}
@@ -83,11 +83,11 @@ func (ctl *NodeOverrideController) Get(c *gin.Context) {
 // @Router /api/v1/ck/node/override/{clusterName} [put]
 func (ctl *NodeOverrideController) Put(c *gin.Context) {
 	var req model.NodeOverrideReq
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 		ctl.wrapfunc(c, model.E_INVALID_PARAMS, err)
 		return
 	}
-	conf, ip, ok := resolveCluster(c, ctl.wrapfunc)
+	conf, ip, ok := ctl.resolveCluster(c)
 	if !ok {
 		return
 	}
@@ -113,6 +113,10 @@ func (ctl *NodeOverrideController) Put(c *gin.Context) {
 	conf.NodeOverrides[ip] = pretty
 	if err := repository.Ps.UpdateCluster(conf); err != nil {
 		log.Logger.Errorf("update cluster after node override apply failed: %v", err)
+		// Best-effort rollback: file is on the node but ckman lost record.
+		if _, _, rerr := clickhouse.RemoveNodeOverride(&conf, ip); rerr != nil {
+			log.Logger.Errorf("rollback node override on %s also failed: %v", ip, rerr)
+		}
 		ctl.wrapfunc(c, model.E_DATA_UPDATE_FAILED, err)
 		return
 	}
@@ -130,7 +134,7 @@ func (ctl *NodeOverrideController) Put(c *gin.Context) {
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":{"reloaded":true}}"
 // @Router /api/v1/ck/node/override/{clusterName} [delete]
 func (ctl *NodeOverrideController) Delete(c *gin.Context) {
-	conf, ip, ok := resolveCluster(c, ctl.wrapfunc)
+	conf, ip, ok := ctl.resolveCluster(c)
 	if !ok {
 		return
 	}
