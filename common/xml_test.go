@@ -59,3 +59,54 @@ func TestXml(t *testing.T) {
 	err := f.Dump()
 	assert.Nil(t, err)
 }
+
+func TestPrettyXML(t *testing.T) {
+	cases := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:  "empty string",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "whitespace only",
+			input: "   \n\t  ",
+			want:  "",
+		},
+		{
+			name:  "single element",
+			input: "<clickhouse><foo>1</foo></clickhouse>",
+			want:  "<clickhouse>\n    <foo>1</foo>\n</clickhouse>",
+		},
+		{
+			name:  "nested with attributes",
+			input: `<clickhouse><merge_tree><parts_to_throw_insert>300</parts_to_throw_insert></merge_tree></clickhouse>`,
+			want:  "<clickhouse>\n    <merge_tree>\n        <parts_to_throw_insert>300</parts_to_throw_insert>\n    </merge_tree>\n</clickhouse>",
+		},
+		{
+			name:  "with attribute",
+			input: `<clickhouse><disk name="hdfs1"><type>hdfs</type></disk></clickhouse>`,
+			want:  "<clickhouse>\n    <disk name=\"hdfs1\">\n        <type>hdfs</type>\n    </disk>\n</clickhouse>",
+		},
+		{
+			name:    "invalid xml",
+			input:   "<clickhouse><foo>",
+			wantErr: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := PrettyXML(tc.input)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

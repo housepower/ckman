@@ -1,7 +1,10 @@
 package common
 
 import (
+	"bytes"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"sort"
@@ -9,6 +12,34 @@ import (
 
 	"github.com/pkg/errors"
 )
+
+// PrettyXML parses raw XML, validates syntax, and re-emits with 4-space indent.
+// Empty / whitespace-only input returns ("", nil).
+func PrettyXML(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", nil
+	}
+	dec := xml.NewDecoder(strings.NewReader(raw))
+	var buf bytes.Buffer
+	enc := xml.NewEncoder(&buf)
+	enc.Indent("", "    ")
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+		if err := enc.EncodeToken(tok); err != nil {
+			return "", err
+		}
+	}
+	if err := enc.Flush(); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
 
 type XMLFile struct {
 	name    string
