@@ -667,6 +667,11 @@ definitions:
       target_db:
         type: string
     type: object
+  model.NodeOverrideReq:
+    properties:
+      xml:
+        type: string
+    type: object
   model.OperatePartitionReq:
     properties:
       database:
@@ -1294,6 +1299,88 @@ paths:
       summary: 获取clickhouse日志
       tags:
       - clickhouse
+  /api/v1/ck/node/override/{clusterName}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除节点 config.d/node_override.xml 并 RELOAD CONFIG
+      parameters:
+      - description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: node ip
+        in: query
+        name: ip
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":"0000","msg":"ok","data":{"reloaded":true}}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 清空节点个性化配置
+      tags:
+      - clickhouse
+    get:
+      consumes:
+      - application/json
+      description: 获取指定节点的 config.d/node_override.xml 内容
+      parameters:
+      - description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: node ip
+        in: query
+        name: ip
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":"0000","msg":"ok","data":{"ip":"...","xml":"..."}}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取节点个性化配置
+      tags:
+      - clickhouse
+    put:
+      consumes:
+      - application/json
+      description: 保存并下发节点 config.d/node_override.xml；空 XML 等同于删除
+      parameters:
+      - description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: node ip
+        in: query
+        name: ip
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.NodeOverrideReq'
+      responses:
+        "200":
+          description: '{"code":"0000","msg":"ok","data":{"reloaded":true}}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 保存节点个性化配置
+      tags:
+      - clickhouse
   /api/v1/ck/node/start/{clusterName}:
     put:
       consumes:
@@ -1732,6 +1819,34 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 获取均衡信息
+      tags:
+      - clickhouse
+  /api/v1/ck/rebalance_plan/{clusterName}:
+    post:
+      consumes:
+      - application/json
+      description: 预演均衡集群的操作（不真正搬移数据），返回每张表的具体计划。
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.RebalanceTableReq'
+      responses:
+        "200":
+          description: '{"code":"5000","msg":"invalid params","data":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取均衡执行计划
       tags:
       - clickhouse
   /api/v1/ck/slow_sessions/{clusterName}:
