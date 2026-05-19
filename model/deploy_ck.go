@@ -118,7 +118,10 @@ type CKManClickHouseConfig struct {
 	Storage          *Storage
 	UsersConf        UsersConf `swaggerignore:"true"`
 	Expert        map[string]string
-	NodeOverrides map[string]string `json:"nodeOverrides,omitempty"`
+	// NodeOverrides maps host IP to a complete XML fragment written to
+	// config.d/node_override.xml on that node (hot-reloaded via SYSTEM RELOAD CONFIG).
+	// Managed exclusively through the /api/v1/ck/node/override endpoints.
+	NodeOverrides map[string]string `json:"nodeOverrides,omitempty" swaggerignore:"true"`
 
 	// don't need to regist to schema
 	Mode     string `json:"mode" swaggerignore:"true"`
