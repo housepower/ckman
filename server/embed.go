@@ -82,8 +82,18 @@ type embedFileSystem struct {
 }
 
 func (e embedFileSystem) Exists(prefix string, path string) bool {
-	_, err := e.Open(path)
-	return err == nil
+	if _, err := e.Open(path); err == nil {
+		return true
+	}
+	// io/fs.Open 不接受带 trailing slash 的目录路径（比如 "/docs/"），
+	// 这会让 VitePress 等子站点的根访问退化到 NoRoute。
+	// 这里显式检查目录索引文件是否存在。
+	if strings.HasSuffix(path, "/") {
+		if _, err := e.Open(path + INDEX); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func EmbedFolder(fsEmbed embed.FS, targetPath string) ServeFileSystem {
