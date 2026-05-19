@@ -378,7 +378,7 @@ func (d *CKDeploy) Config() error {
 			}
 			if d.Conf.NeedSudo {
 				//clear config first
-				cmd := "rm -rf /etc/clickhouse-server/config.d/*.xml /etc/clickhouse-server/users.d/*.xml"
+				cmd := "find /etc/clickhouse-server/config.d -maxdepth 1 -name '*.xml' ! -name 'node_override.xml' -delete; rm -rf /etc/clickhouse-server/users.d/*.xml"
 				if _, err = common.RemoteExecute(sshOpts, cmd); err != nil {
 					lastError = err
 					return
