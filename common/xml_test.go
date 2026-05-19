@@ -97,6 +97,11 @@ func TestPrettyXML(t *testing.T) {
 			input:   "<clickhouse><foo>",
 			wantErr: true,
 		},
+		{
+			name:  "idempotent on already-formatted input",
+			input: "<clickhouse>\n    <foo>1</foo>\n</clickhouse>",
+			want:  "<clickhouse>\n    <foo>1</foo>\n</clickhouse>",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

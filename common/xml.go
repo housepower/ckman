@@ -31,6 +31,11 @@ func PrettyXML(raw string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		if cd, ok := tok.(xml.CharData); ok {
+			if strings.TrimSpace(string(cd)) == "" {
+				continue
+			}
+		}
 		if err := enc.EncodeToken(tok); err != nil {
 			return "", err
 		}
