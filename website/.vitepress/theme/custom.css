@@ -1,0 +1,72 @@
+/* CKMAN brand palette — gold (与前端 src/app/theme/_tokens.scss 同源)
+ * gold-50  #FDF9E6   gold-500 #C9A100  (★ 品牌锚定)
+ * gold-100 #FAF1B8   gold-600 #A88500
+ * gold-200 #F4E388   gold-700 #856900
+ * gold-300 #ECCF57   gold-800 #634D00
+ * gold-400 #E0BA32   gold-900 #423300
+ */
+
+:root {
+  /* base brand ramp */
+  --vp-c-brand-1: #A88500;   /* 文本、链接（深一档保证浅底对比度 AA） */
+  --vp-c-brand-2: #C9A100;   /* hover、辅助 */
+  --vp-c-brand-3: #E0BA32;   /* 边框 hover、按钮辅助 */
+  --vp-c-brand-soft: rgba(201, 161, 0, 0.14);
+
+  /* note/tip badge background */
+  --vp-c-tip-1: #A88500;
+  --vp-c-tip-2: #C9A100;
+  --vp-c-tip-3: #E0BA32;
+  --vp-c-tip-soft: rgba(201, 161, 0, 0.14);
+
+  /* primary action button — bg 深一档保证白字 AA 对比度 */
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-bg: #A88500;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-hover-bg: #856900;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-active-text: #ffffff;
+  --vp-button-brand-active-bg: #634D00;
+
+  /* home hero name — gold gradient */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #C9A100 30%, #E0BA32);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #FAF1B8 50%, #F4E388 50%);
+  --vp-home-hero-image-filter: blur(56px);
+
+  /* code group / inline code accent */
+  --vp-custom-block-tip-border: transparent;
+  --vp-custom-block-tip-text: #634D00;
+  --vp-custom-block-tip-bg: #FDF9E6;
+  --vp-custom-block-tip-code-bg: rgba(201, 161, 0, 0.16);
+}
+
+/* Dark theme — brand 色提亮到 gold-400/300，保证暗底对比度 AA */
+.dark {
+  --vp-c-brand-1: #E0BA32;
+  --vp-c-brand-2: #ECCF57;
+  --vp-c-brand-3: #F4E388;
+  --vp-c-brand-soft: rgba(224, 186, 50, 0.18);
+
+  --vp-c-tip-1: #E0BA32;
+  --vp-c-tip-2: #ECCF57;
+  --vp-c-tip-3: #F4E388;
+  --vp-c-tip-soft: rgba(224, 186, 50, 0.18);
+
+  /* 深色下按钮背景用 gold-500，文字仍为白色（对比度足够） */
+  --vp-button-brand-bg: #C9A100;
+  --vp-button-brand-hover-bg: #E0BA32;
+  --vp-button-brand-active-bg: #ECCF57;
+  --vp-button-brand-text: #1a1500;
+  --vp-button-brand-hover-text: #1a1500;
+  --vp-button-brand-active-text: #1a1500;
+
+  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #E0BA32 30%, #ECCF57);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, rgba(201, 161, 0, 0.4) 50%, rgba(224, 186, 50, 0.4) 50%);
+
+  --vp-custom-block-tip-text: #F4E388;
+  --vp-custom-block-tip-bg: rgba(201, 161, 0, 0.10);
+  --vp-custom-block-tip-code-bg: rgba(224, 186, 50, 0.18);
+}

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CKMAN API Playground</title>
+  <link rel="icon" type="image/x-icon" href="../favicon.ico">
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+    }
+    #swagger-ui .topbar { display: none; }
+    /* CKMAN gold accent */
+    :root {
+      --swagger-ui-primary: #A88500;
+    }
+    .swagger-ui .btn.authorize { color: #A88500; border-color: #A88500; }
+    .swagger-ui .btn.authorize svg { fill: #A88500; }
+    .swagger-ui .info .title small.version-stamp { background: #A88500; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js" crossorigin></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-standalone-preset.js" crossorigin></script>
+  <script>
+    window.addEventListener('load', function () {
+      window.ui = SwaggerUIBundle({
+        url: './swagger.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset.slice(1) // 去掉 topbar
+        ],
+        plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+        layout: 'StandaloneLayout',
+        defaultModelsExpandDepth: -1,
+        defaultModelExpandDepth: 2,
+        docExpansion: 'list',
+        filter: true,
+        tryItOutEnabled: false,
+        supportedSubmitMethods: [], // 文档站只读，禁用 try-it-out
+        syntaxHighlight: { theme: 'agate' }
+      });
+    });
+  </script>
+</body>
+</html>

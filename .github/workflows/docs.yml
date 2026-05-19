@@ -1,0 +1,81 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'website/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+# 仅允许一次部署同时运行，新提交会取消上一个进行中的部署
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build VitePress site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 让 git-based "最后更新时间" 能拿到完整 history
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: website/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('website/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm install --no-audit --no-fund
+
+      - name: Build docs
+        working-directory: website
+        env:
+          # 部署到 https://<owner>.github.io/<repo>/docs/
+          DOCS_BASE: /${{ github.event.repository.name }}/docs/
+        run: npm run docs:build
+
+      - name: Reshape output for sub-path deploy
+        # Pages 工件假设根目录就是站点入口。我们想让最终 URL 是 /<repo>/docs/，
+        # 所以把 VitePress dist 整体塞进一层同名子目录，再交给 upload-pages-artifact。
+        run: |
+          mkdir -p public/docs
+          cp -r website/.vitepress/dist/. public/docs/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    # 只有 main 分支才部署到 Pages；PR 仅做 build 校验
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
