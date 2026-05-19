@@ -1,33 +1,74 @@
-[ENGLISH](./README.md)|简体中文
+[ENGLISH](./README.md) | 简体中文
 
-# 概述
-ckman是一款管理和监控`ClickHouse`集群的工具。它通过前端界面直观展示集群的相关信息，可以便捷地对集群进行部署、升级，节点的增删等。更多详细信息，请阅读[操作文档](./static/docs/ckman.md)。
+# CKMAN — ClickHouse 集群管理平台
 
-# 快速开始
-`ckman`开箱即用，快速部署并开始使用ckman，请点击[安装教程](./static/docs/deploy.md)。
+[![License](https://img.shields.io/github/license/housepower/ckman)](./LICENSE)
+[![Release](https://img.shields.io/github/v/release/housepower/ckman)](https://github.com/housepower/ckman/releases)
+[![Docs](https://img.shields.io/badge/docs-online-A88500)](https://housepower.github.io/ckman/docs/)
+[![Stars](https://img.shields.io/github/stars/housepower/ckman?style=social)](https://github.com/housepower/ckman/stargazers)
 
-# 视频教程
-- [B站:clickhouse可视化管理工具ckman使用教程](https://www.bilibili.com/video/BV1gR4y1t75Q/)
-- [头条:clickhouse可视化管理工具ckman使用教程](https://www.ixigua.com/7034858546692882983)
+**CKMAN** 是面向企业的 **ClickHouse** 集群管理 Web 控制台。部署、升级、扩缩容、监控、备份、治理 —— 一个统一界面，告别逐台 SSH。
 
-# ckman能做什么
-- 界面化管理多个集群，免去繁琐的`clickhouse`配置步骤
-- 部署、升级、销毁集群
-- 启动、停止集群
-- 增加、删除节点
-- 数据均衡
-- 提供数据归档、数据清理的接口
-- 监控表状态及`zookeeper`状态
-- 搭配`promethues`等监控工具可以展示更多监控信息
+<p align="center">
+  <img src="website/public/img/guide/architecture.png" alt="CKMAN 架构图" width="720">
+</p>
 
-# 如何升级
-如何升级ckman，详见[升级教程](./static/docs/upgrade.md)。
+## 文档
 
-# 开发规划
-请点击[规划线路图](https://github.com/housepower/ckman/wiki)。
+- **在线文档**：<https://housepower.github.io/ckman/docs/>
+- **本地访问**：启动 ckman 后访问 `http://<ckman-host>:8808/docs/`
+- **源码**：[`website/`](./website)
 
-# 关于我们
-上海擎创信息技术公司是国内智能运维`AIOps`落地解决方案供应商，本产品由擎创公司数据库研发团队主导并开源贡献给社区，大家在使用的过程中有问题可以咨询开发者陈衍长(微信号：`yudinghou`)，同时也希望大家多提`issue`，贡献代码，共同维护`ckman`，使`ClickHouse`周边生态越来越好。
+## 核心能力
 
-我们将不时在我们的公共网站上分享ckman和ClickHouse的相关动态以及实践经验，您可以关注以下公众号获取最新的社区动态。
-![ClickHome](static/docs/img/clickhome.jpg)
+- **集群全生命周期** — 部署 / 升级（含滚动）/ 销毁 / 启停 / 节点增删，Web 与 API 双通道
+- **原生监控** — 直读 ClickHouse 系统表，开箱即用；可选接入 Prometheus / Grafana
+- **表与数据治理** — 分布式表、分区、TTL、物化视图、DML、归档、purge
+- **数据备份与恢复** — 定时策略、增量去重，支持本地与 S3 存储目标
+- **角色权限** — 三级 RBAC（管理员 / 普通用户 / 游客）+ JWT + 客户端 IP 绑定 + 统一门户 token
+- **高可用部署** — 多实例 + Nacos 主节点选举 + MySQL / PostgreSQL / DM8 / SQLite 持久层
+- **ckmanctl CLI** — 持久层迁移、ZooKeeper 维护、schema 升级等运维工具
+- **多种发行格式** — rpm / deb / tar.gz / Docker / Kubernetes
+
+## 快速开始
+
+```bash
+docker run -itd -p 8808:8808 --restart unless-stopped \
+  --name ckman quay.io/housepower/ckman:latest
+```
+
+浏览器打开 `http://localhost:8808`，默认账号详见[快速开始](https://housepower.github.io/ckman/docs/guide/quick-start.html)。其他发行方式（rpm / deb / tar.gz / Kubernetes）见[安装指南](https://housepower.github.io/ckman/docs/deploy/install.html)。
+
+## 源码构建
+
+```bash
+make build VERSION=x.x.x        # 完整构建（前端 + 文档 + 后端）
+make package VERSION=x.x.x      # 打 tar.gz
+make rpm VERSION=x.x.x          # 打 rpm
+make deb VERSION=x.x.x          # 打 deb
+```
+
+依赖：Go ≥ 1.17、Node ≥ 18、yarn，构建 rpm/deb 需 [nfpm](https://github.com/goreleaser/nfpm)。
+
+## 视频教程
+
+- [B 站 — ClickHouse 可视化管理工具 ckman 使用教程](https://www.bilibili.com/video/BV1gR4y1t75Q/)
+- [头条 — ClickHouse 可视化管理工具 ckman 使用教程](https://www.ixigua.com/7034858546692882983)
+
+## 架构与概念
+
+参见[架构设计](https://housepower.github.io/ckman/docs/guide/architecture.html)与[核心概念](https://housepower.github.io/ckman/docs/guide/concepts.html)。
+
+## 贡献
+
+欢迎提 Issue 与 Pull Request，请在 PR 描述中说明动机与影响范围。维护者：**陈衍长**（微信：`yudinghou`）。
+
+## 关于我们
+
+上海擎创信息技术有限公司 — 国内 AIOps 落地解决方案供应商。CKMAN 由数据库研发团队主导研发并开源贡献给社区。
+
+<!-- TODO: 公众号二维码图片，可补到 website/public/img/community/qr.jpg 并在此处引用 -->
+
+## 协议
+
+Apache License 2.0 — 详见 [LICENSE](./LICENSE)。

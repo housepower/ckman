@@ -1,39 +1,74 @@
+ENGLISH | [简体中文](./README_ZH.md)
 
-ENGLISH|[简体中文](./README_ZH.md)
+# CKMAN — ClickHouse Cluster Manager
 
-[![pipeline status](https://code.eoitek.net/monitor/DataStorage/ckman/badges/eoi/pipeline.svg)](https://code.eoitek.net/monitor/DataStorage/ckman/-/commits/eoi)
-[![coverage report](https://code.eoitek.net/monitor/DataStorage/ckman/badges/eoi/coverage.svg)](https://code.eoitek.net/monitor/DataStorage/ckman/-/commits/eoi)
-[![Latest Release](https://code.eoitek.net/monitor/DataStorage/ckman/-/badges/release.svg)](https://code.eoitek.net/monitor/DataStorage/ckman/-/releases)
-# About ckman
-This is a tool which used to manage and monitor ClickHouse database. It visits the cluster's related information through the front-end interface, which can be easily deployed, upgraded, and the node increases to the cluster. For more information, please read [document](./docs/ckman_v2.0.0.md).
+[![License](https://img.shields.io/github/license/housepower/ckman)](./LICENSE)
+[![Release](https://img.shields.io/github/v/release/housepower/ckman)](https://github.com/housepower/ckman/releases)
+[![Docs](https://img.shields.io/badge/docs-online-A88500)](https://housepower.github.io/ckman/docs/)
+[![Stars](https://img.shields.io/github/stars/housepower/ckman?style=social)](https://github.com/housepower/ckman/stargazers)
 
-# Quik Start 
-quickly deploy and start using CKMAN, please click the [deploy document](./static/docs/deploy.md).
+**CKMAN** is an enterprise-grade web console for managing and monitoring **ClickHouse** clusters. Deploy, upgrade, scale, monitor, back up and govern your ClickHouse fleet from a single UI — no more per-node SSH.
 
-# Video Tutorial 
-- [bilibili:Clickhouse visual management tool ckman use tutorial](https://www.bilibili.com/video/BV1gR4y1t75Q/)
-- [toutiao:Clickhouse visual management tool ckman use tutorial](https://www.ixigua.com/7034858546692882983)
+<p align="center">
+  <img src="website/public/img/guide/architecture.png" alt="CKMAN architecture" width="720">
+</p>
 
-# What can ckman do?
-- Manage multiple ClickHouse cluster on WebPage, Replacing the cumbersome step configuration 
-- Deploy、upgrade、and destory cluster
-- Start and stop cluster
-- Add or delete node on ClickHouse cluster
-- Rebalance data
-- Archive and purge data 
-- Monitoring table status and `ZooKeeper` State 
-- Show more mertics with `prometheus` 
+## Documentation
 
-# How to upgrade
-You can upgrade ckman with [upgrade document](./static/docs/upgrade.md).
+- **Online**: <https://housepower.github.io/ckman/docs/>
+- **Local**: start ckman and visit `http://<ckman-host>:8808/docs/`
+- **Source**: [`website/`](./website)
 
-# RoadMap
-Please read [roadmap](https://github.com/housepower/ckman/wiki).
+## Features
 
-# About us
-EOI Technology Co., Ltd. is a domestic intelligent operation and maintenance and maintenance and land supply provider. This product is dominated by the engineering database R & D team and open source contribution to the community.   
-Everyone can consult the developer YenchangChan ( WeChat ID:` yudinghou`) during the process of use, and I hope everyone will be willing to `Issue`, contribute code, jointly maintained the` ckman`, make the ecology of the `Clickhouse`, is getting better and better. 
+- **Cluster lifecycle** — deploy / upgrade (rolling) / destroy / start-stop / node add-delete, all via Web UI or API
+- **Built-in monitoring** — query ClickHouse system tables directly; optional Prometheus / Grafana integration
+- **Table & data management** — distributed tables, partitions, TTL, materialized views, DML, archive, purge
+- **Backup & restore** — scheduled policies, incremental dedupe, local & S3 targets
+- **RBAC** — three roles (admin / ordinary / guest) + JWT + client-IP binding + unified portal token
+- **HA deployment** — multi-instance + Nacos master election + MySQL / PostgreSQL / DM8 / SQLite backends
+- **ckmanctl CLI** — persistent layer migration, ZooKeeper maintenance, schema upgrade utilities
+- **Multiple distributions** — rpm / deb / tar.gz / Docker / Kubernetes
 
-From time to time, we will share information on our public website about
-ckman and clickhouse, you can follow the following QR code to get in touch with us.
-![ClickHome](static/docs/img/clickhome.jpg)
+## Quick Start
+
+```bash
+docker run -itd -p 8808:8808 --restart unless-stopped \
+  --name ckman quay.io/housepower/ckman:latest
+```
+
+Open `http://localhost:8808` — default credentials are documented in [Quick Start](https://housepower.github.io/ckman/docs/guide/quick-start.html). Other distributions (rpm / deb / tar.gz / Kubernetes) see [Install](https://housepower.github.io/ckman/docs/deploy/install.html).
+
+## Build from Source
+
+```bash
+make build VERSION=x.x.x        # full build (frontend + docs + backend)
+make package VERSION=x.x.x      # build tar.gz
+make rpm VERSION=x.x.x          # build rpm
+make deb VERSION=x.x.x          # build deb
+```
+
+Requires Go ≥ 1.17, Node ≥ 18, yarn, and (for rpm/deb) [nfpm](https://github.com/goreleaser/nfpm).
+
+## Video Tutorials
+
+- [Bilibili — ClickHouse 可视化管理工具 ckman 使用教程](https://www.bilibili.com/video/BV1gR4y1t75Q/)
+- [Toutiao — ClickHouse 可视化管理工具 ckman 使用教程](https://www.ixigua.com/7034858546692882983)
+
+## Architecture & Concepts
+
+See [Architecture overview](https://housepower.github.io/ckman/docs/guide/architecture.html) and [Core concepts](https://housepower.github.io/ckman/docs/guide/concepts.html).
+
+## Contributing
+
+Issues and pull requests are welcome. Please describe your motivation and impact in the PR body. Maintainer: **YenchangChan** (WeChat: `yudinghou`).
+
+## About Us
+
+EOI Technology Co., Ltd. (上海擎创信息技术有限公司) — domestic AIOps solution vendor. CKMAN is developed by the database team and contributed to open source.
+
+<!-- TODO: 公众号二维码图片，可补到 website/public/img/community/qr.jpg 并在此处引用 -->
+
+## License
+
+Apache License 2.0 — see [LICENSE](./LICENSE).
