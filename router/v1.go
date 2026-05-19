@@ -77,6 +77,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	taskController := controller.NewTaskController(WrapMsg)
 	dataManageController := controller.NewDataManageController(config, WrapMsg)
 	userController := controller.NewUserController(config, WrapMsg)
+	overrideController := controller.NewNodeOverrideController(WrapMsg)
 
 	groupV1.POST("/ck/cluster", ckController.ImportCluster)
 	groupV1.GET("/ck/cluster", ckController.GetClusters)
@@ -126,6 +127,9 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.DELETE(fmt.Sprintf("/ck/node/:%s", controller.ClickHouseClusterPath), ckController.DeleteNode)
 	groupV1.PUT(fmt.Sprintf("/ck/node/start/:%s", controller.ClickHouseClusterPath), ckController.StartNode)
 	groupV1.PUT(fmt.Sprintf("/ck/node/stop/:%s", controller.ClickHouseClusterPath), ckController.StopNode)
+	groupV1.GET(fmt.Sprintf("/ck/node/override/:%s", controller.ClickHouseClusterPath), overrideController.Get)
+	groupV1.PUT(fmt.Sprintf("/ck/node/override/:%s", controller.ClickHouseClusterPath), overrideController.Put)
+	groupV1.DELETE(fmt.Sprintf("/ck/node/override/:%s", controller.ClickHouseClusterPath), overrideController.Delete)
 	groupV1.POST(fmt.Sprintf("/ck/node/log/:%s", controller.ClickHouseClusterPath), ckController.GetLog)
 	groupV1.POST(fmt.Sprintf("/ck/ping/:%s", controller.ClickHouseClusterPath), ckController.PingCluster)
 	groupV1.POST(fmt.Sprintf("/ck/purge_tables/:%s", controller.ClickHouseClusterPath), ckController.PurgeTables)
