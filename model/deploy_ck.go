@@ -117,7 +117,8 @@ type CKManClickHouseConfig struct {
 	SshPort          int    `json:"sshPort" example:"22"`
 	Storage          *Storage
 	UsersConf        UsersConf `swaggerignore:"true"`
-	Expert           map[string]string
+	Expert        map[string]string
+	NodeOverrides map[string]string `json:"nodeOverrides,omitempty"`
 
 	// don't need to regist to schema
 	Mode     string `json:"mode" swaggerignore:"true"`
