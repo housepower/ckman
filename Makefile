@@ -23,7 +23,15 @@ frontend:
 	rm -rf static/dist/*
 	make -C frontend build
 	cp -r frontend/dist static/
-	cp -r static/docs static/dist/
+
+.PHONY: docs
+docs:
+	@echo "==> building VitePress docs"
+	@cd website && (test -d node_modules || npm install --no-audit --no-fund --silent)
+	@cd website && npm run docs:build --silent
+	@mkdir -p static/dist/docs
+	@cp -r website/.vitepress/dist/. static/dist/docs/
+	@echo "==> docs embedded at static/dist/docs/ (访问 /docs/)"
 
 .PHONY: backend
 backend:
@@ -56,7 +64,7 @@ coverage:
 	gocover-cobertura < coverage.txt > coverage.xml	
 
 .PHONY: build
-build:pre frontend
+build:pre frontend docs
 	swag init
 	make backend VERSION=${VERSION}
 
