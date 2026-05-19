@@ -148,8 +148,12 @@ type TaskStatusResp struct {
 	// Step is the current top-level phase for tasks whose progress is
 	// expressed as a sequence of named phases (rebalance, archive). Empty
 	// for task types that drive progress through NodeStatus exclusively.
-	Step       Internationalization
-	NodeStatus []NodeStatus
+	Step        Internationalization
+	NodeStatus  []NodeStatus
+	Status      string
+	CreateTime  time.Time
+	UpdateTime  time.Time
+	Duration    string
 }
 
 type TaskResp struct {

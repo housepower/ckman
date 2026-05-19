@@ -53,12 +53,17 @@ func (controller *TaskController) GetTaskStatusById(c *gin.Context) {
 		controller.wrapfunc(c, model.E_DATA_SELECT_FAILED, err)
 		return
 	}
+	lastTime := common.TernaryExpression(task.Status == model.TaskStatusRunning || task.Status == model.TaskStatusWaiting, time.Now(), task.UpdateTime).(time.Time)
 	resp := model.TaskStatusResp{
 		TaskId:      task.TaskId,
 		ClusterName: task.ClusterName,
 		Type:        strings.Split(task.TaskType, ".")[0],
 		Option:      model.TaskOptionMap[task.TaskType],
 		Step:        task.Step,
+		Status:      model.TaskStatusMap[task.Status],
+		CreateTime:  task.CreateTime,
+		UpdateTime:  task.UpdateTime,
+		Duration:    common.ConvertDuration(task.CreateTime, lastTime),
 	}
 
 	resp.NodeStatus = common.TernaryExpression(
