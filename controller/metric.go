@@ -196,6 +196,7 @@ func (controller *MetricController) QueryMetric(c *gin.Context) {
 	m, ok := model.MetricMap[metric]
 	if !ok {
 		controller.wrapfunc(c, model.E_INVALID_PARAMS, fmt.Errorf("metric %s not found", metric))
+		return
 	}
 	var query string
 	if m.Table == "metric_log" {
@@ -212,7 +213,7 @@ func (controller *MetricController) QueryMetric(c *gin.Context) {
 			step, m.Unit, start, end, m.Field, step)
 	}
 	log.Logger.Debugf("query: %v", query)
-	var rsps []model.MetricRsp
+	rsps := make([]model.MetricRsp, 0, len(conf.Hosts))
 	for _, host := range conf.Hosts {
 		rsp := model.MetricRsp{
 			Metric: model.Metric{
@@ -220,19 +221,25 @@ func (controller *MetricController) QueryMetric(c *gin.Context) {
 				Name:     metric,
 				Instance: host,
 			},
+			Values: [][]interface{}{},
 		}
 		tmp := conf
 		tmp.Hosts = []string{host}
 		s := clickhouse.NewCkService(&tmp)
-		err = s.InitCkService()
-		if err != nil {
-			return
+		if err := s.InitCkService(); err != nil {
+			log.Logger.Warnf("metric query: init clickhouse service for host %s failed: %v", host, err)
+			rsps = append(rsps, rsp)
+			continue
 		}
 		data, err := s.QueryInfo(query)
 		if err != nil {
-			return
+			log.Logger.Warnf("metric query: query host %s failed: %v", host, err)
+			rsps = append(rsps, rsp)
+			continue
 		}
-		rsp.Values = data[1:]
+		if len(data) > 1 {
+			rsp.Values = data[1:]
+		}
 		rsps = append(rsps, rsp)
 	}
 	controller.wrapfunc(c, model.E_SUCCESS, rsps)
