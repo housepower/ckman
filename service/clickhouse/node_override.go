@@ -73,6 +73,7 @@ func RemoveNodeOverride(conf *model.CKManClickHouseConfig, host string) (bool, s
 		AuthenticateType: conf.AuthenticateType,
 	}
 	remote := RemoteOverridePath(conf.NeedSudo, conf.Cwd)
+	// When NeedSudo is true, RemoteExecute prepends sudo via genFinalScript, so this rm can target /etc paths.
 	if _, err := common.RemoteExecute(sshOpts, fmt.Sprintf("rm -f %s", remote)); err != nil {
 		return false, "", errors.Wrap(err, "rm node_override")
 	}
@@ -83,9 +84,17 @@ func RemoveNodeOverride(conf *model.CKManClickHouseConfig, host string) (bool, s
 }
 
 func reloadConfigOnHost(conf *model.CKManClickHouseConfig, host string) error {
-	one := *conf
-	one.Hosts = []string{host}
-	svc := NewCkService(&one)
+	tmp := &model.CKManClickHouseConfig{
+		Hosts:    []string{host},
+		Port:     conf.Port,
+		HttpPort: conf.HttpPort,
+		Protocol: conf.Protocol,
+		Secure:   conf.Secure,
+		Cluster:  conf.Cluster,
+		User:     conf.User,
+		Password: conf.Password,
+	}
+	svc := NewCkService(tmp)
 	if err := svc.InitCkService(); err != nil {
 		return err
 	}
