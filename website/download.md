@@ -28,14 +28,16 @@ function pickAsset(assets, predicate) {
 }
 
 // 每个发行格式的 SVG 图标（lucide.dev 风格的描线图，统一 24×24）
+const ICON_DL     = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
 const ICON_TARGZ  = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>';
 const ICON_RPM    = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>';
 const ICON_DEB    = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="5" rx="2"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg>';
 const ICON_DOCKER = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="2" y="14" width="3" height="3" rx="0.4"/><rect x="6" y="14" width="3" height="3" rx="0.4"/><rect x="10" y="14" width="3" height="3" rx="0.4"/><rect x="14" y="14" width="3" height="3" rx="0.4"/><rect x="6" y="10" width="3" height="3" rx="0.4"/><rect x="10" y="10" width="3" height="3" rx="0.4"/><rect x="14" y="10" width="3" height="3" rx="0.4"/><rect x="10" y="6" width="3" height="3" rx="0.4"/><path d="M18 14c1.5 0 3-1 3.5-2.5-1-.5-2 0-2.5.5-.3-1.5-1.5-2-2.5-2-.5 1.5 0 3 1.5 4z" stroke="none"/></svg>';
 
+// 即使 release.value 还没拿到，也返回 3 个 bucket（asset = null），
+// 这样卡片始终渲染 4 张，loading 时显示占位按钮，避免视觉上"卡片消失"
 const buckets = computed(() => {
-  if (!release.value) return [];
-  const a = release.value.assets || [];
+  const a = release.value?.assets || [];
   const has = (n, ...subs) => subs.every(s => n.toLowerCase().includes(s));
   return [
     {
@@ -102,15 +104,26 @@ onMounted(async () => {
     }
   } catch (_) { /* localStorage 不可用就跳过 */ }
 
+  // 加 10s 超时，避免国内网络下 fetch 永远 pending
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 10000);
   try {
-    const resp = await fetch(API_LATEST, { headers: { Accept: 'application/vnd.github+json' } });
+    const resp = await fetch(API_LATEST, {
+      headers: { Accept: 'application/vnd.github+json' },
+      signal: ctl.signal,
+    });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     release.value = data;
     try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
   } catch (e) {
-    error.value = (e && e.message) || String(e);
+    if (e && e.name === 'AbortError') {
+      error.value = '请求超时，GitHub API 可能不可达';
+    } else {
+      error.value = (e && e.message) || String(e);
+    }
   } finally {
+    clearTimeout(timer);
     loading.value = false;
   }
 });
@@ -151,27 +164,33 @@ onMounted(async () => {
           <h3 class="dl-card__title">{{ b.os }}</h3>
           <p class="dl-card__desc">{{ b.desc }}</p>
           <div class="dl-card__btns">
-            <a
-              v-for="v in b.variants"
-              :key="v.arch"
-              v-if="v.asset"
-              class="dl-arch-btn"
-              :href="v.asset.browser_download_url"
-              :download="v.asset.name"
-              :title="v.asset.name"
-            >
-              <span class="dl-arch-btn__arch">{{ v.arch }}</span>
-              <span class="dl-arch-btn__size">{{ fmtSize(v.asset.size) }}</span>
-            </a>
-            <span
-              v-for="v in b.variants"
-              :key="v.arch + '-disabled'"
-              v-if="!v.asset"
-              class="dl-arch-btn dl-arch-btn--disabled"
-            >
-              <span class="dl-arch-btn__arch">{{ v.arch }}</span>
-              <span class="dl-arch-btn__size">{{ loading ? '加载中…' : '未发布' }}</span>
-            </span>
+            <div v-for="v in b.variants" :key="v.arch" class="dl-arch-slot">
+              <a
+                v-if="v.asset"
+                class="dl-arch-btn"
+                :href="v.asset.browser_download_url"
+                :download="v.asset.name"
+                :title="v.asset.name"
+              >
+                <span class="dl-arch-btn__text">
+                  <span class="dl-arch-btn__arch">{{ v.arch }}</span>
+                  <span class="dl-arch-btn__size">{{ fmtSize(v.asset.size) }}</span>
+                </span>
+                <span class="dl-arch-btn__icon" v-html="ICON_DL"></span>
+              </a>
+              <span v-else-if="loading" class="dl-arch-btn dl-arch-btn--disabled">
+                <span class="dl-arch-btn__arch">{{ v.arch }}</span>
+                <span class="dl-arch-btn__size">加载中…</span>
+              </span>
+              <a v-else-if="error" class="dl-arch-btn" :href="RELEASE_LATEST" target="_blank" rel="noopener">
+                <span class="dl-arch-btn__arch">{{ v.arch }}</span>
+                <span class="dl-arch-btn__size">前往 GitHub →</span>
+              </a>
+              <span v-else class="dl-arch-btn dl-arch-btn--disabled">
+                <span class="dl-arch-btn__arch">{{ v.arch }}</span>
+                <span class="dl-arch-btn__size">未发布</span>
+              </span>
+            </div>
           </div>
         </div>
         <div class="dl-card">
@@ -381,12 +400,16 @@ onMounted(async () => {
 .dl-card__btns--single {
   grid-template-columns: 1fr;
 }
+.dl-arch-slot {
+  /* wrapper 用于解决 v-for + 多分支 v-if 问题，让真实按钮直接进 grid 布局 */
+  display: contents;
+}
 .dl-arch-btn {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 12px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
   background: var(--vp-c-bg-soft);
@@ -399,6 +422,15 @@ onMounted(async () => {
   border-color: var(--vp-c-brand-3);
   transform: translateY(-1px);
 }
+.dl-arch-btn:hover .dl-arch-btn__icon {
+  transform: translateY(2px);
+}
+.dl-arch-btn__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
 .dl-arch-btn__arch {
   font-family: var(--vp-font-family-mono, monospace);
   font-size: 13.5px;
@@ -410,6 +442,22 @@ onMounted(async () => {
 .dl-arch-btn__size {
   font-size: 12px;
   color: var(--vp-c-text-3);
+}
+.dl-arch-btn__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--vp-c-brand-1);
+  color: #ffffff;
+  transition: transform 0.2s ease, background 0.15s ease;
+}
+.dl-arch-btn__icon svg {
+  width: 16px;
+  height: 16px;
 }
 .dl-arch-btn--disabled {
   background: transparent;
