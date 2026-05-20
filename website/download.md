@@ -7,6 +7,9 @@ sidebar: false
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { withBase } from 'vitepress';
+import { marked } from 'marked';
+
+marked.setOptions({ gfm: true, breaks: true });
 
 const RELEASE_LATEST = 'https://github.com/housepower/ckman/releases/latest';
 const RELEASE_ALL = 'https://github.com/housepower/ckman/releases';
@@ -60,6 +63,12 @@ const buckets = computed(() => {
       asset: pickAsset(a, x => /\.deb$/i.test(x.name) && has(x.name, 'arm64')),
     },
   ];
+});
+
+// 把 release.body（GitHub 上的 markdown）渲染成 HTML，让我们能内嵌而不跳走
+const releaseHtml = computed(() => {
+  if (!release.value || !release.value.body) return '';
+  return marked.parse(release.value.body);
 });
 
 function fmtSize(bytes) {
@@ -119,8 +128,8 @@ onMounted(async () => {
         </span>
       </p>
       <div class="dl-hero__actions">
-        <a v-if="release" class="dl-btn dl-btn--primary" :href="release.html_url" target="_blank" rel="noopener">
-          查看本次发布说明
+        <a v-if="release && release.body" class="dl-btn dl-btn--primary" href="#release-notes">
+          查看本次更新
         </a>
         <a class="dl-btn dl-btn--ghost" :href="RELEASE_ALL" target="_blank" rel="noopener">
           浏览所有版本
@@ -176,7 +185,22 @@ onMounted(async () => {
       </div>
     </div>
   </section>
-  <section class="dl-section dl-section--alt">
+  <section v-if="release && release.body" id="release-notes" class="dl-section dl-section--alt">
+    <div class="dl-container">
+      <div class="dl-notes">
+        <header class="dl-notes__head">
+          <p class="dl-notes__eyebrow">本次更新</p>
+          <h2 class="dl-notes__title">{{ release.tag_name }} <span v-if="release.published_at" class="dl-notes__date">· {{ fmtDate(release.published_at) }}</span></h2>
+        </header>
+        <article class="dl-notes__body" v-html="releaseHtml"></article>
+        <p class="dl-notes__foot">
+          想看历史版本？
+          <a :href="RELEASE_ALL" target="_blank" rel="noopener">浏览 GitHub Releases 全部记录 →</a>
+        </p>
+      </div>
+    </div>
+  </section>
+  <section class="dl-section">
     <div class="dl-container">
       <div class="dl-info">
         <div>
@@ -406,6 +430,124 @@ onMounted(async () => {
 }
 .dl-card__cta--alt {
   text-decoration: none;
+}
+
+/* Release notes */
+.dl-notes {
+  max-width: 880px;
+  margin: 0 auto;
+}
+.dl-notes__head {
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+.dl-notes__eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+  font-weight: 700;
+}
+.dl-notes__title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--vp-c-text-1);
+}
+.dl-notes__date {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--vp-c-text-3);
+  letter-spacing: 0;
+}
+.dl-notes__body {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--vp-c-text-1);
+}
+.dl-notes__body h1,
+.dl-notes__body h2,
+.dl-notes__body h3,
+.dl-notes__body h4 {
+  margin: 28px 0 12px;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+}
+.dl-notes__body h1 { font-size: 22px; }
+.dl-notes__body h2 { font-size: 19px; }
+.dl-notes__body h3 { font-size: 17px; }
+.dl-notes__body h4 { font-size: 15px; color: var(--vp-c-text-2); }
+.dl-notes__body p {
+  margin: 0 0 14px;
+}
+.dl-notes__body ul,
+.dl-notes__body ol {
+  margin: 0 0 14px;
+  padding-left: 24px;
+}
+.dl-notes__body li {
+  margin: 6px 0;
+}
+.dl-notes__body a {
+  color: var(--vp-c-brand-1);
+  text-decoration: none;
+}
+.dl-notes__body a:hover {
+  text-decoration: underline;
+}
+.dl-notes__body code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--vp-c-bg);
+  font-size: 13px;
+}
+.dl-notes__body pre {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--vp-c-bg);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+.dl-notes__body pre code {
+  padding: 0;
+  background: transparent;
+}
+.dl-notes__body blockquote {
+  margin: 12px 0;
+  padding: 10px 16px;
+  border-left: 3px solid var(--vp-c-brand-3);
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-2);
+}
+.dl-notes__body hr {
+  margin: 24px 0;
+  border: 0;
+  border-top: 1px solid var(--vp-c-divider);
+}
+.dl-notes__body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+.dl-notes__foot {
+  margin: 28px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--vp-c-divider);
+  font-size: 14px;
+  color: var(--vp-c-text-2);
+}
+.dl-notes__foot a {
+  color: var(--vp-c-brand-1);
+  text-decoration: none;
+  font-weight: 600;
+}
+.dl-notes__foot a:hover {
+  text-decoration: underline;
 }
 
 /* Info block */
