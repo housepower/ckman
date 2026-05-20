@@ -39,28 +39,31 @@ const buckets = computed(() => {
   const has = (n, ...subs) => subs.every(s => n.toLowerCase().includes(s));
   return [
     {
-      key: 'tar-x86', tag: '.tar.gz', icon: ICON_TARGZ, os: 'Linux', arch: 'x86_64',
-      asset: pickAsset(a, x => /\.tar\.gz$|\.tgz$/i.test(x.name) && has(x.name, 'x86_64') || /\.tar\.gz$|\.tgz$/i.test(x.name) && has(x.name, 'amd64')),
+      key: 'tar', tag: '.tar.gz', icon: ICON_TARGZ,
+      os: 'Linux 通用归档',
+      desc: '解压即用，无依赖。适合无 root 权限或自定义工作目录场景。',
+      variants: [
+        { arch: 'x86_64', asset: pickAsset(a, x => /\.tar\.gz$|\.tgz$/i.test(x.name) && (has(x.name, 'x86_64') || has(x.name, 'amd64'))) },
+        { arch: 'arm64',  asset: pickAsset(a, x => /\.tar\.gz$|\.tgz$/i.test(x.name) && (has(x.name, 'arm64') || has(x.name, 'aarch64'))) },
+      ],
     },
     {
-      key: 'tar-arm', tag: '.tar.gz', icon: ICON_TARGZ, os: 'Linux', arch: 'arm64',
-      asset: pickAsset(a, x => /\.tar\.gz$|\.tgz$/i.test(x.name) && (has(x.name, 'arm64') || has(x.name, 'aarch64'))),
+      key: 'rpm', tag: '.rpm', icon: ICON_RPM,
+      os: 'RHEL / CentOS / Rocky',
+      desc: '自动注册 systemd 服务，工作目录 /etc/ckman。',
+      variants: [
+        { arch: 'x86_64',  asset: pickAsset(a, x => /\.rpm$/i.test(x.name) && has(x.name, 'x86_64')) },
+        { arch: 'aarch64', asset: pickAsset(a, x => /\.rpm$/i.test(x.name) && has(x.name, 'aarch64')) },
+      ],
     },
     {
-      key: 'rpm-x86', tag: '.rpm',    icon: ICON_RPM,   os: 'RHEL / CentOS / Rocky', arch: 'x86_64',
-      asset: pickAsset(a, x => /\.rpm$/i.test(x.name) && has(x.name, 'x86_64')),
-    },
-    {
-      key: 'rpm-arm', tag: '.rpm',    icon: ICON_RPM,   os: 'RHEL / CentOS / Rocky', arch: 'aarch64',
-      asset: pickAsset(a, x => /\.rpm$/i.test(x.name) && has(x.name, 'aarch64')),
-    },
-    {
-      key: 'deb-x86', tag: '.deb',    icon: ICON_DEB,   os: 'Debian / Ubuntu', arch: 'amd64',
-      asset: pickAsset(a, x => /\.deb$/i.test(x.name) && has(x.name, 'amd64')),
-    },
-    {
-      key: 'deb-arm', tag: '.deb',    icon: ICON_DEB,   os: 'Debian / Ubuntu', arch: 'arm64',
-      asset: pickAsset(a, x => /\.deb$/i.test(x.name) && has(x.name, 'arm64')),
+      key: 'deb', tag: '.deb', icon: ICON_DEB,
+      os: 'Debian / Ubuntu',
+      desc: '自动注册 systemd 服务，工作目录 /etc/ckman。',
+      variants: [
+        { arch: 'amd64', asset: pickAsset(a, x => /\.deb$/i.test(x.name) && has(x.name, 'amd64')) },
+        { arch: 'arm64', asset: pickAsset(a, x => /\.deb$/i.test(x.name) && has(x.name, 'arm64')) },
+      ],
     },
   ];
 });
@@ -141,47 +144,49 @@ onMounted(async () => {
     <div class="dl-container">
       <h2 class="dl-section__title">按平台选择 · 点击直接下载</h2>
       <div class="dl-grid">
-        <div v-for="b in buckets" :key="b.key" class="dl-card-wrap">
-          <a v-if="b.asset" class="dl-card dl-card--ready" :href="b.asset.browser_download_url" :download="b.asset.name">
-            <div class="dl-card__head">
-              <div class="dl-card__tag"><span class="dl-card__tag-icon" v-html="b.icon"></span><span>{{ b.tag }}</span></div>
-              <div class="dl-card__arch">{{ b.arch }}</div>
-            </div>
-            <h3>{{ b.os }}</h3>
-            <p class="dl-card__name" :title="b.asset.name">{{ b.asset.name }}</p>
-            <div class="dl-card__meta">
-              <span>{{ fmtSize(b.asset.size) }}</span>
-              <span v-if="b.asset.download_count != null">· 下载 {{ b.asset.download_count }} 次</span>
-            </div>
-            <span class="dl-card__cta">立即下载 ↓</span>
-          </a>
-          <div v-else class="dl-card dl-card--unavailable">
-            <div class="dl-card__head">
-              <div class="dl-card__tag"><span class="dl-card__tag-icon" v-html="b.icon"></span><span>{{ b.tag }}</span></div>
-              <div class="dl-card__arch">{{ b.arch }}</div>
-            </div>
-            <h3>{{ b.os }}</h3>
-            <p class="dl-card__name">
-              <span v-if="loading">加载中…</span>
-              <span v-else>该平台本次未发布对应安装包</span>
-            </p>
-            <a class="dl-card__cta dl-card__cta--alt" :href="RELEASE_LATEST" target="_blank" rel="noopener">
-              前往 Releases →
+        <div v-for="b in buckets" :key="b.key" class="dl-card">
+          <div class="dl-card__head">
+            <div class="dl-card__tag"><span class="dl-card__tag-icon" v-html="b.icon"></span><span>{{ b.tag }}</span></div>
+          </div>
+          <h3 class="dl-card__title">{{ b.os }}</h3>
+          <p class="dl-card__desc">{{ b.desc }}</p>
+          <div class="dl-card__btns">
+            <a
+              v-for="v in b.variants"
+              :key="v.arch"
+              v-if="v.asset"
+              class="dl-arch-btn"
+              :href="v.asset.browser_download_url"
+              :download="v.asset.name"
+              :title="v.asset.name"
+            >
+              <span class="dl-arch-btn__arch">{{ v.arch }}</span>
+              <span class="dl-arch-btn__size">{{ fmtSize(v.asset.size) }}</span>
+            </a>
+            <span
+              v-for="v in b.variants"
+              :key="v.arch + '-disabled'"
+              v-if="!v.asset"
+              class="dl-arch-btn dl-arch-btn--disabled"
+            >
+              <span class="dl-arch-btn__arch">{{ v.arch }}</span>
+              <span class="dl-arch-btn__size">{{ loading ? '加载中…' : '未发布' }}</span>
+            </span>
+          </div>
+        </div>
+        <div class="dl-card">
+          <div class="dl-card__head">
+            <div class="dl-card__tag"><span class="dl-card__tag-icon" v-html="ICON_DOCKER"></span><span>Docker</span></div>
+          </div>
+          <h3 class="dl-card__title">容器镜像</h3>
+          <p class="dl-card__desc">multi-arch 镜像，自动匹配宿主架构。</p>
+          <div class="dl-card__btns dl-card__btns--single">
+            <a class="dl-arch-btn" :href="DOCKER_REPO" target="_blank" rel="noopener">
+              <span class="dl-arch-btn__arch">quay.io/housepower/ckman</span>
+              <span class="dl-arch-btn__size">查看镜像 →</span>
             </a>
           </div>
         </div>
-        <a class="dl-card dl-card--ready" :href="DOCKER_REPO" target="_blank" rel="noopener">
-          <div class="dl-card__head">
-            <div class="dl-card__tag"><span class="dl-card__tag-icon" v-html="ICON_DOCKER"></span><span>Docker</span></div>
-            <div class="dl-card__arch">multi-arch</div>
-          </div>
-          <h3>容器镜像</h3>
-          <p class="dl-card__name"><code>quay.io/housepower/ckman:latest</code></p>
-          <div class="dl-card__meta">
-            <span>quay.io 托管</span>
-          </div>
-          <span class="dl-card__cta">查看镜像 →</span>
-        </a>
       </div>
     </div>
   </section>
@@ -328,39 +333,91 @@ onMounted(async () => {
   color: var(--vp-c-text-1);
 }
 
-/* Cards grid (3 列响应) */
+/* Cards grid (2 列) */
 .dl-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
 }
 
 .dl-card {
-  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 22px;
+  padding: 26px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 12px;
   background: var(--vp-c-bg);
-  text-decoration: none !important;
-  color: inherit !important;
-  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color 0.18s ease;
 }
-.dl-card--ready:hover {
+.dl-card:hover {
   border-color: var(--vp-c-brand-3);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px -16px rgba(201, 161, 0, 0.25);
-}
-.dl-card--unavailable {
-  opacity: 0.65;
 }
 
 .dl-card__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+}
+.dl-card__title {
+  margin: 0 0 8px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+}
+.dl-card__desc {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--vp-c-text-2);
+}
+
+/* 架构按钮组 */
+.dl-card__btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: auto;
+}
+.dl-card__btns--single {
+  grid-template-columns: 1fr;
+}
+.dl-arch-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1) !important;
+  text-decoration: none !important;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.dl-arch-btn:hover {
+  background: var(--vp-c-brand-soft);
+  border-color: var(--vp-c-brand-3);
+  transform: translateY(-1px);
+}
+.dl-arch-btn__arch {
+  font-family: var(--vp-font-family-mono, monospace);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--vp-c-brand-1);
+  word-break: break-all;
+  line-height: 1.2;
+}
+.dl-arch-btn__size {
+  font-size: 12px;
+  color: var(--vp-c-text-3);
+}
+.dl-arch-btn--disabled {
+  background: transparent;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.dl-arch-btn--disabled .dl-arch-btn__arch {
+  color: var(--vp-c-text-2);
 }
 .dl-card__tag {
   display: inline-flex;
@@ -390,48 +447,6 @@ onMounted(async () => {
   width: 12px;
   height: 12px;
 }
-.dl-card__arch {
-  font-family: var(--vp-font-family-mono, monospace);
-  font-size: 12px;
-  color: var(--vp-c-text-3);
-  letter-spacing: 0.02em;
-}
-.dl-card h3 {
-  margin: 0 0 6px;
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--vp-c-text-1);
-}
-.dl-card__name {
-  margin: 0 0 10px;
-  font-family: var(--vp-font-family-mono, monospace);
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--vp-c-text-2);
-  word-break: break-all;
-}
-.dl-card__name code {
-  padding: 0;
-  background: transparent;
-  font-size: 12px;
-}
-.dl-card__meta {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 14px;
-  font-size: 12.5px;
-  color: var(--vp-c-text-3);
-}
-.dl-card__cta {
-  margin-top: auto;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--vp-c-brand-1);
-}
-.dl-card__cta--alt {
-  text-decoration: none;
-}
-
 /* Release notes */
 .dl-notes {
   max-width: 880px;
@@ -584,10 +599,7 @@ onMounted(async () => {
 }
 
 /* Responsive */
-@media (max-width: 960px) {
-  .dl-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .dl-hero { padding: 56px 0 40px; }
   .dl-hero__title { font-size: 28px; }
   .dl-section { padding: 48px 0; }
