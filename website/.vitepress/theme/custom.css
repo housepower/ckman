@@ -70,3 +70,17 @@
   --vp-custom-block-tip-bg: rgba(201, 161, 0, 0.10);
   --vp-custom-block-tip-code-bg: rgba(224, 186, 50, 0.18);
 }
+
+/* ===== Nav 紧凑化（让多个 nav 项 + 搜索框 + GitHub icon 在中等屏宽下也能完整显示） ===== */
+.VPNavBarMenuLink {
+  padding: 0 10px !important;
+  white-space: nowrap;
+}
+.VPNavBarMenu {
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+.DocSearch-Button .DocSearch-Button-Placeholder {
+  padding: 0 12px 0 0 !important;
+  white-space: nowrap;
+}

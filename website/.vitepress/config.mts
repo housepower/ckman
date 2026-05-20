@@ -26,11 +26,11 @@ export default defineConfig({
 
     nav: [
       { text: '指南', link: '/guide/introduction', activeMatch: '/guide/' },
+      { text: '下载', link: '/download', activeMatch: '/download' },
       { text: '部署', link: '/deploy/install', activeMatch: '/deploy/' },
       { text: '配置', link: '/config/overview', activeMatch: '/config/' },
       { text: '功能', link: '/features/cluster/deploy', activeMatch: '/features/' },
       { text: '参考', link: '/reference/api', activeMatch: '/reference/' },
-      { text: '下载', link: '/download', activeMatch: '/download' },
     ],
 
     sidebar: {
@@ -133,7 +133,7 @@ export default defineConfig({
       provider: 'local',
       options: {
         translations: {
-          button: { buttonText: '搜索文档', buttonAriaLabel: '搜索文档' },
+          button: { buttonText: '搜索', buttonAriaLabel: '搜索文档' },
           modal: {
             displayDetails: '显示详情',
             resetButtonTitle: '清除搜索',
