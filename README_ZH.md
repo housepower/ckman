@@ -4,8 +4,10 @@
 
 [![License](https://img.shields.io/github/license/housepower/ckman)](./LICENSE)
 [![Release](https://img.shields.io/github/v/release/housepower/ckman)](https://github.com/housepower/ckman/releases)
-[![Docs](https://img.shields.io/badge/docs-online-A88500)](https://housepower.github.io/ckman/docs/)
+[![Website](https://img.shields.io/badge/website-housepower.github.io%2Fckman-A88500)](https://housepower.github.io/ckman/)
 [![Stars](https://img.shields.io/github/stars/housepower/ckman?style=social)](https://github.com/housepower/ckman/stargazers)
+
+> 官方站点：**<https://housepower.github.io/ckman/>**
 
 **CKMAN** 是面向企业的 **ClickHouse** 集群管理 Web 控制台。部署、升级、扩缩容、监控、备份、治理 —— 一个统一界面，告别逐台 SSH。
 
@@ -15,7 +17,7 @@
 
 ## 文档
 
-- **在线文档**：<https://housepower.github.io/ckman/docs/>
+- **官方站点**：<https://housepower.github.io/ckman/>
 - **本地访问**：启动 ckman 后访问 `http://<ckman-host>:8808/docs/`
 - **源码**：[`website/`](./website)
 

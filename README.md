@@ -4,8 +4,10 @@ ENGLISH | [简体中文](./README_ZH.md)
 
 [![License](https://img.shields.io/github/license/housepower/ckman)](./LICENSE)
 [![Release](https://img.shields.io/github/v/release/housepower/ckman)](https://github.com/housepower/ckman/releases)
-[![Docs](https://img.shields.io/badge/docs-online-A88500)](https://housepower.github.io/ckman/docs/)
+[![Website](https://img.shields.io/badge/website-housepower.github.io%2Fckman-A88500)](https://housepower.github.io/ckman/)
 [![Stars](https://img.shields.io/github/stars/housepower/ckman?style=social)](https://github.com/housepower/ckman/stargazers)
+
+> Official site: **<https://housepower.github.io/ckman/>**
 
 **CKMAN** is an enterprise-grade web console for managing and monitoring **ClickHouse** clusters. Deploy, upgrade, scale, monitor, back up and govern your ClickHouse fleet from a single UI — no more per-node SSH.
 
@@ -15,7 +17,7 @@ ENGLISH | [简体中文](./README_ZH.md)
 
 ## Documentation
 
-- **Online**: <https://housepower.github.io/ckman/docs/>
+- **Official site**: <https://housepower.github.io/ckman/>
 - **Local**: start ckman and visit `http://<ckman-host>:8808/docs/`
 - **Source**: [`website/`](./website)
 
