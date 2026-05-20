@@ -84,3 +84,19 @@
   padding: 0 12px 0 0 !important;
   white-space: nowrap;
 }
+
+/* ===== 把 "..." 折叠按钮的阈值从 1280px 降到 960px =====
+ * VitePress 默认：< 1280px 用 VPNavBarExtra（"..."）折叠 GitHub /
+ * 主题切换；≥ 1280px 才直接展开。这里覆盖让 ≥ 960px 就直接展开。
+ */
+@media (min-width: 960px) {
+  .VPNavBarExtra { display: none !important; }
+  .VPNavBarAppearance {
+    display: flex !important;
+    align-items: center;
+  }
+  .VPNavBarSocialLinks {
+    display: flex !important;
+    align-items: center;
+  }
+}
