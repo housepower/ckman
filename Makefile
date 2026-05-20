@@ -36,14 +36,14 @@ docs:
 .PHONY: backend
 backend:
 	@rm -rf ${PKGFULLDIR}
-	go build ${LDFLAGS}
-	go build ${LDFLAGS} -o cmd/ckmanctl/ckmanctl cmd/ckmanctl/ckmanctl.go
+	CGO_ENABLED=0 go build ${LDFLAGS}
+	CGO_ENABLED=0 go build ${LDFLAGS} -o cmd/ckmanctl/ckmanctl cmd/ckmanctl/ckmanctl.go
 
 .PHONY: debug
 debug:
 	@rm -rf ${PKGFULLDIR}
-	go build ${GCFLAGS} ${LDFLAGS}
-	go build ${LDFLAGS} -o cmd/ckmanctl/ckmanctl cmd/ckmanctl/ckmanctl.go
+	CGO_ENABLED=0 go build ${GCFLAGS} ${LDFLAGS}
+	CGO_ENABLED=0 go build ${LDFLAGS} -o cmd/ckmanctl/ckmanctl cmd/ckmanctl/ckmanctl.go
 
 .PHONY: pre
 pre:
