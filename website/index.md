@@ -13,6 +13,9 @@ hero:
       text: 快速开始
       link: /guide/quick-start
     - theme: alt
+      text: 下载
+      link: /download
+    - theme: alt
       text: 架构设计
       link: /guide/architecture
     - theme: alt
@@ -138,6 +141,7 @@ import { withBase } from 'vitepress';
     <p>提供 RPM · DEB · tar.gz · Docker · Kubernetes 五种发行方式，单个二进制即可启动，再大的集群也只需要一个入口。</p>
     <div class="emp-cta__actions">
       <a class="emp-btn emp-btn--primary" :href="withBase('/guide/quick-start.html')">开始部署</a>
+      <a class="emp-btn emp-btn--ghost" :href="withBase('/download.html')">下载安装包</a>
       <a class="emp-btn emp-btn--ghost" :href="withBase('/deploy/install.html')">安装手册</a>
     </div>
   </div>

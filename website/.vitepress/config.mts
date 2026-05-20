@@ -30,7 +30,7 @@ export default defineConfig({
       { text: '配置', link: '/config/overview', activeMatch: '/config/' },
       { text: '功能', link: '/features/cluster/deploy', activeMatch: '/features/' },
       { text: '参考', link: '/reference/api', activeMatch: '/reference/' },
-      { text: 'API Playground', link: '/reference/api-playground' },
+      { text: '下载', link: '/download', activeMatch: '/download' },
     ],
 
     sidebar: {
