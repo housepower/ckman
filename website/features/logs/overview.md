@@ -3,7 +3,6 @@
 在 CKMAN 界面直接查看 ClickHouse 节点的日志文件，无需 SSH 登录每台节点。
 
 ![节点日志查看](/img/features/logs/viewer.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/logs/viewer.png（日志查看界面） -->
 
 ## 支持的日志类型
 

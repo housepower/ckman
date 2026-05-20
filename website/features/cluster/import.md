@@ -18,7 +18,6 @@
 主页点击 **Import a ClickHouse Cluster**：
 
 ![导入集群表单](/img/features/cluster/import-form.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/cluster/import-form.png（导入集群表单） -->
 
 ## 表单字段
 

@@ -7,7 +7,6 @@
 集群管理页 → **Add Node**：
 
 ![增加节点](/img/features/cluster/add-node.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/cluster/add-node.png（增加节点对话框） -->
 
 ### 表单字段
 

@@ -45,10 +45,10 @@ sudo systemctl start ckman
 | 字段 | 默认值 |
 | --- | --- |
 | 用户名 | `ckman` |
-| 密码 | 见 `conf/password` 文件首次启动生成 |
+| 密码 | `Ckman123456!` |
 
 ::: warning 首次登录后请修改密码
-默认管理员密码在首次启动时随机生成，写在 `conf/password` 文件中。登录后请通过"修改密码"立刻替换。
+登录后请在「用户管理 → 修改密码」中立刻替换默认密码。
 :::
 
 ## 导入第一个集群
@@ -63,9 +63,6 @@ sudo systemctl start ckman
    - **节点 IP**：每个 shard 的副本列表
    - **ZooKeeper 节点**：如使用分布式表
 3. 点击「确定」，CKMAN 会试连每个节点，全部连通即导入成功
-
-![导入集群表单](/img/guide/quick-start/import-cluster.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/guide/quick-start/import-cluster.png（导入集群表单，框选关键字段） -->
 
 ## 下一步
 

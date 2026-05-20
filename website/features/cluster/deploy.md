@@ -28,7 +28,6 @@
 主页点击 **Create a ClickHouse Cluster** 进入部署表单：
 
 ![部署集群表单](/img/features/cluster/deploy-form.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/cluster/deploy-form.png（部署集群表单，框选关键字段） -->
 
 ## 表单字段
 

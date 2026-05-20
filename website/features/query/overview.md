@@ -3,7 +3,6 @@
 在线执行 ClickHouse 查询，并查看查询计划、导出结果、回看历史。
 
 ![Query 管理界面](/img/features/query/console.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/query/console.png（SQL 查询界面） -->
 
 ## 基本用法
 

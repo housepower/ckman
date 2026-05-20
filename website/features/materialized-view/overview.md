@@ -5,7 +5,6 @@
 通过 **物化视图** 页面创建或删除物化视图。
 
 ![物化视图](/img/features/mv/list.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/mv/list.png（物化视图列表） -->
 
 ## 状态查看
 

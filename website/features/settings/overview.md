@@ -19,7 +19,6 @@
 集群详情 → **集群配置** → 修改 → **保存**：
 
 ![集群配置](/img/features/settings/cluster-config.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/settings/cluster-config.png（集群配置编辑页） -->
 
 ## 重启判断
 

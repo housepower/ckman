@@ -3,7 +3,6 @@
 CKMAN 基于角色的访问控制（RBAC），内置三种角色。
 
 ![用户管理](/img/features/users/list.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/users/list.png（用户管理列表（含角色说明 ? 图标）） -->
 
 ## 三种角色
 

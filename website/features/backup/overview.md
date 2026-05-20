@@ -14,14 +14,12 @@ CKMAN 提供完整的备份策略管理与恢复能力。
 | 备份历史 | 可查看每次备份的详情 |
 
 ![备份策略列表](/img/features/backup/policy-list.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/backup/policy-list.png（备份策略列表） -->
 
 ## 创建备份策略
 
 **数据管理** → **新建备份策略**：
 
 ![新建策略](/img/features/backup/create-policy.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/backup/create-policy.png（新建备份策略对话框） -->
 
 关键字段：
 
@@ -63,7 +61,6 @@ CKMAN 提供完整的备份策略管理与恢复能力。
 **数据管理** → **恢复**：
 
 ![恢复](/img/features/backup/restore.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/backup/restore.png（恢复操作） -->
 
 选择历史备份记录后触发恢复任务。恢复过程：
 

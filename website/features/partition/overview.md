@@ -17,7 +17,6 @@
 支持同时查看**多张表**的分区信息（多选）。
 
 ![分区列表](/img/features/partition/list.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/partition/list.png（分区列表） -->
 
 ## 删除分区
 

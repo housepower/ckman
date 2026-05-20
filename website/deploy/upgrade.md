@@ -3,8 +3,8 @@
 升级方式与安装方式对应。
 
 ::: warning 操作前先做
-- 备份 `conf/ckman.hjson` 和 `conf/password`
-- 如果使用 `local` 持久化策略，备份 `conf/clusters.db`（旧版本可能还是 `clusters.json` / `clusters.yaml`）
+- 备份 `conf/ckman.hjson`
+- 如果使用 `local` 持久化策略，备份 `conf/clusters.db`（旧版本可能还是 `clusters.json` / `clusters.yaml`，账号也存在这里）
 - 升级期间 Web 界面短暂不可用，运维任务请提前完成
 :::
 
@@ -26,7 +26,7 @@ sudo systemctl start ckman
 ```
 
 ::: tip 配置文件保留
-rpm 升级会保留旧的 `ckman.hjson` 和 `password`。新版本默认配置写到 `ckman.hjson.rpmnew`，你可以对比差异后手动 merge。
+rpm 升级会保留旧的 `ckman.hjson`。新版本默认配置写到 `ckman.hjson.rpmnew`，你可以对比差异后手动 merge。
 :::
 
 ## tar.gz 升级
@@ -39,14 +39,12 @@ cd $WORKDIR && bin/stop
 
 # 2. 备份配置
 cp conf/ckman.hjson conf/ckman.hjson.last
-cp conf/password    conf/password.last
 
 # 3. 解压覆盖
 tar -xzvf ckman-x.x.x-YYDDMM.Linux.x86_64.tar.gz -C $WORKDIR
 
 # 4. 还原配置
 cp conf/ckman.hjson.last conf/ckman.hjson
-cp conf/password.last    conf/password
 
 # 5. 启动
 bin/start

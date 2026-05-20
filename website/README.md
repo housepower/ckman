@@ -24,23 +24,19 @@ npm run docs:build
 
 ```
 website/
-├── .vitepress/config.ts   # 站点配置（导航、侧边栏、搜索）
-├── index.md               # 首页（hero + features）
+├── .vitepress/config.mts  # 站点配置（导航、侧边栏、搜索、主题）
+├── .vitepress/theme/      # 自定义主题（CKMAN 金色品牌色覆盖）
+├── index.md               # 首页（hero + 企业风版式）
 ├── guide/                 # 入门指南
-├── deploy/                # 部署/升级/高可用
+├── deploy/                # 部署 / 升级 / 高可用
 ├── config/                # 配置文件说明
 ├── features/              # 功能介绍（按 IA 分组）
-├── reference/             # API、错误码、Changelog、FAQ
-└── public/                # 静态资源（图片放在 public/img/）
+├── reference/             # API、ckmanctl、错误码、Changelog、FAQ
+└── public/                # 静态资源（图片放在 public/img/<section>/<page>.png）
 ```
 
-## 截图待补
+## 图片约定
 
-截图占位约定：
-
-```md
-![描述](/img/section/page-name.png)
-<!-- TODO(screenshot): 描述需要框选的关键字段 -->
-```
-
-补图后删除对应 `TODO(screenshot)` 注释即可。可全局搜 `TODO(screenshot)` 找出所有待补点。
+- 路径与 markdown 路径对齐：`features/cluster/deploy.md` 引用 `/img/features/cluster/deploy-form.png`
+- 优先 PNG（截图）；示意图可用 SVG
+- 单图建议 < 500KB，超大时用 `pngquant` 或 Pillow `quantize(256)` 压一遍

@@ -13,7 +13,6 @@
 集群详情 → **Upgrade Cluster** 下拉选择目标版本 → 点击 **Upgrade**：
 
 ![升级集群](/img/features/cluster/upgrade.png)
-<!-- TODO(screenshot): 当前为占位图，请用实际截图替换 /img/features/cluster/upgrade.png（升级集群对话框） -->
 
 ## 升级策略
 
