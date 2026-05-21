@@ -294,9 +294,15 @@ func (d *KeeperDeploy) Config() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
+			// 部分 ARM 安装包未创建 clickhouse-keeper 目录，先确保存在
+			if _, err := common.RemoteExecute(sshOpts, fmt.Sprintf("mkdir -p %s", remotePath)); err != nil {
+				lastError = err
+				return
+			}
 			if d.Conf.NeedSudo {
-				//clear config first
-				cmd := "cp /etc/clickhouse-keeper/keeper_config.xml /etc/clickhouse-keeper/keeper_config.xml.last"
+				// 备份旧 keeper_config.xml；首次部署文件不存在时静默忽略
+				// 注意：genFinalScript 按 `;` 切分逐段加 sudo，因此整条 cmd 不能含 `;`，否则后半段会丢 sudo
+				cmd := "cp -f /etc/clickhouse-keeper/keeper_config.xml /etc/clickhouse-keeper/keeper_config.xml.last 2>/dev/null || true"
 				if _, err := common.RemoteExecute(sshOpts, cmd); err != nil {
 					lastError = err
 					return

@@ -376,13 +376,20 @@ func (d *CKDeploy) Config() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
+			// 部分 ARM 安装包未创建 config.d / users.d 目录，先确保存在，避免后续 SCP/find 失败
+			prepareCmds := []string{
+				fmt.Sprintf("mkdir -p %s %s", path.Join(remotePath, "config.d"), path.Join(remotePath, "users.d")),
+			}
 			if d.Conf.NeedSudo {
 				//clear config first
-				cmd := "find /etc/clickhouse-server/config.d -maxdepth 1 -name '*.xml' ! -name 'node_override.xml' -delete; rm -rf /etc/clickhouse-server/users.d/*.xml"
-				if _, err = common.RemoteExecute(sshOpts, cmd); err != nil {
-					lastError = err
-					return
-				}
+				prepareCmds = append(prepareCmds,
+					fmt.Sprintf("find %s -maxdepth 1 -name '*.xml' ! -name 'node_override.xml' -delete", path.Join(remotePath, "config.d")),
+					fmt.Sprintf("rm -rf %s/*.xml", path.Join(remotePath, "users.d")),
+				)
+			}
+			if _, err = common.RemoteExecute(sshOpts, strings.Join(prepareCmds, ";")); err != nil {
+				lastError = err
+				return
 			}
 
 			usersFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "users")
