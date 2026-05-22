@@ -5,6 +5,7 @@
   "description": "CKMAN documentation site (VitePress)",
   "scripts": {
     "docs:dev": "vitepress dev --host 0.0.0.0",
+    "predocs:build": "node scripts/fetch-latest-release.mjs",
     "docs:build": "vitepress build",
     "docs:preview": "vitepress preview"
   },

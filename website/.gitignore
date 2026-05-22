@@ -2,3 +2,6 @@ node_modules/
 .vitepress/cache/
 .vitepress/dist/
 *.log
+
+# 构建期 fetch-latest-release.mjs 生成的 GitHub Release 快照
+public/release-latest.json

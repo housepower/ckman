@@ -120,7 +120,7 @@ function fmtDate(iso) {
 }
 
 onMounted(async () => {
-  // 客户端缓存，避免每次访问都打 GitHub API（匿名限流 60/小时）
+  // 1) 客户端缓存，避免同一访客反复打 API
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (raw) {
@@ -133,7 +133,20 @@ onMounted(async () => {
     }
   } catch (_) { /* localStorage 不可用就跳过 */ }
 
-  // 加 10s 超时，避免国内网络下 fetch 永远 pending
+  // 2) 构建期生成的静态快照（scripts/fetch-latest-release.mjs 写入 public/release-latest.json）
+  //    走站内同源 fetch，零 GitHub API 调用，不受 60/h 限流约束。
+  try {
+    const resp = await fetch(withBase('/release-latest.json'), { cache: 'no-cache' });
+    if (resp.ok) {
+      const data = await resp.json();
+      release.value = data;
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
+      loading.value = false;
+      return;
+    }
+  } catch (_) { /* 静态快照不存在或拉取失败就回退到实时 API */ }
+
+  // 3) 兜底：实时 GitHub API（限流时会 403，已有用户友好的错误提示）
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 10000);
   try {
