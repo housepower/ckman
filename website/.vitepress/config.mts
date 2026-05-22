@@ -122,6 +122,26 @@ export default defineConfig({
             { text: '常见问题', link: '/reference/troubleshooting' },
           ],
         },
+        {
+          text: '发布说明',
+          items: [
+            { text: '4.0.0', link: '/release-notes/4.0.0' },
+          ],
+        },
+      ],
+      '/release-notes/': [
+        {
+          text: '发布说明',
+          items: [
+            { text: '4.0.0', link: '/release-notes/4.0.0' },
+          ],
+        },
+        {
+          text: '参考',
+          items: [
+            { text: '更新日志', link: '/reference/changelog' },
+          ],
+        },
       ],
     },
 

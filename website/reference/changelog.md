@@ -6,6 +6,10 @@ CKMAN 的完整版本变更历史维护在仓库根目录 [`CHANGELOG.md`](https
 所有版本（含 v1.x 早期版本）请查阅 [GitHub CHANGELOG](https://github.com/housepower/ckman/blob/main/CHANGELOG.md)，或在仓库内 `git log --oneline` 查看更细的提交粒度。
 :::
 
+## 发布说明
+
+- [**4.0.0**](/release-notes/4.0.0) — 备份恢复重构、用户体系、单节点 override、Nacos 热重载、SQLite 本地持久化、VitePress 文档站；含完整升级/降级/备份迁移注意事项。
+
 ## 近期亮点
 
 以下是最近一段时间的主要功能与修复（具体版本号以发布 release 为准）：
