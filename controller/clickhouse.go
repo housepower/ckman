@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
-	"io"
 	"net/http"
 	"path"
 	"reflect"
@@ -1534,27 +1533,10 @@ func (controller *ClickHouseController) GetRebalanceInfo(c *gin.Context) {
 
 	var req model.RebalanceTableReq
 	if c.Request.Body != http.NoBody {
-		params, ok := SchemaUIMapping[GET_SCHEMA_UI_REBALANCE]
-		if !ok {
-			controller.wrapfunc(c, model.E_INVALID_PARAMS, "")
-			return
-		}
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
+		if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 			return
 		}
-		err = params.UnmarshalConfig(string(body), &req)
-		if err != nil {
-			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
-			return
-		}
-		data, err := json.MarshalIndent(req, "", "  ")
-		if err != nil {
-			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
-			return
-		}
-		log.Logger.Debugf("[request] | %s | %s | %s \n%v ", c.Request.Host, c.Request.Method, c.Request.URL, string(data))
 	}
 
 	rebalanceInfo, err := clickhouse.GetRebalanceInfo(&conf, req.RTables)
@@ -1589,26 +1571,10 @@ func (controller *ClickHouseController) GetRebalancePlan(c *gin.Context) {
 
 	var req model.RebalanceTableReq
 	if c.Request.Body != http.NoBody {
-		params, ok := SchemaUIMapping[GET_SCHEMA_UI_REBALANCE]
-		if !ok {
-			controller.wrapfunc(c, model.E_INVALID_PARAMS, "")
-			return
-		}
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
+		if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 			return
 		}
-		if err = params.UnmarshalConfig(string(body), &req); err != nil {
-			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
-			return
-		}
-		data, err := json.MarshalIndent(req, "", "  ")
-		if err != nil {
-			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
-			return
-		}
-		log.Logger.Debugf("[request] | %s | %s | %s \n%v ", c.Request.Host, c.Request.Method, c.Request.URL, string(data))
 	}
 
 	// shard==1: nothing to plan, return an empty plan
@@ -1657,27 +1623,10 @@ func (controller *ClickHouseController) RebalanceCluster(c *gin.Context) {
 
 	var req model.RebalanceTableReq
 	if c.Request.Body != http.NoBody {
-		params, ok := SchemaUIMapping[GET_SCHEMA_UI_REBALANCE]
-		if !ok {
-			controller.wrapfunc(c, model.E_INVALID_PARAMS, "")
-			return
-		}
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
+		if err := model.DecodeRequestBody(c.Request, &req); err != nil {
 			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
 			return
 		}
-		err = params.UnmarshalConfig(string(body), &req)
-		if err != nil {
-			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
-			return
-		}
-		data, err := json.MarshalIndent(req, "", "  ")
-		if err != nil {
-			controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
-			return
-		}
-		log.Logger.Debugf("[request] | %s | %s | %s \n%v ", c.Request.Host, c.Request.Method, c.Request.URL, string(data))
 	}
 	// if shard == 1, there is no need to rebalance
 	if len(conf.Shards) <= 1 {
