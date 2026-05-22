@@ -15,7 +15,21 @@ func (TgzFacotry) Create() CmdAdpt {
 
 type TgzPkg struct{}
 
+// guardCwd guards against an empty/root/relative Cwd that would expand
+// "%s/bin" into "/bin" and turn Install/Uninstall/Stop into a system-wide
+// rm/cp. Upstream Deploy already validates Cwd, but this file is also reached
+// via upgrade/destroy/node-edit paths that read conf from storage.
+func guardCwd(cwd string) string {
+	if cwd == "" || cwd == "/" || !strings.HasPrefix(cwd, "/") {
+		return "echo 'tgz: invalid cwd, aborting' >&2; exit 1"
+	}
+	return ""
+}
+
 func (p *TgzPkg) StartCmd(svr, cwd, dataDir string) string {
+	if g := guardCwd(cwd); g != "" {
+		return g
+	}
 	configName := "config.xml"
 	if svr == KeeperSvrName {
 		configName = "keeper_config.xml"
@@ -36,6 +50,9 @@ func (p *TgzPkg) StartCmd(svr, cwd, dataDir string) string {
 }
 
 func (p *TgzPkg) StopCmd(svr, cwd, dataDir string) string {
+	if g := guardCwd(cwd); g != "" {
+		return g
+	}
 	pidFile := fmt.Sprintf("%s/run/%s.pid", cwd, svr)
 	statusFile := fmt.Sprintf("%s/status", dataDir)
 	bin := fmt.Sprintf("%s/bin/%s", cwd, svr)
@@ -52,6 +69,9 @@ func (p *TgzPkg) RestartCmd(svr, cwd, dataDir string) string {
 }
 
 func (p *TgzPkg) InstallCmd(svr string, pkgs Packages) string {
+	if g := guardCwd(pkgs.Cwd); g != "" {
+		return g
+	}
 	content := ""
 	if svr == CkSvrName {
 		content = fmt.Sprintf("mkdir -p %s/bin %s/etc/clickhouse-server/config.d %s/etc/clickhouse-server/users.d %s/log/clickhouse-server %s/run;",
@@ -85,5 +105,8 @@ func (p *TgzPkg) UpgradeCmd(svr string, pkgs Packages) string {
 }
 
 func (p *TgzPkg) Uninstall(svr string, pkgs Packages, version string) string {
+	if g := guardCwd(pkgs.Cwd); g != "" {
+		return g
+	}
 	return fmt.Sprintf("rm -rf %s/bin %s/etc %s/log %s/run", pkgs.Cwd, pkgs.Cwd, pkgs.Cwd, pkgs.Cwd)
 }
