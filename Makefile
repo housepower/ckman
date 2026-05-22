@@ -18,20 +18,52 @@ GCFLAGS=-gcflags "all=-N -l"
 PUB_KEY=$(shell cat resources/eoi_public_key.pub 2>/dev/null)
 export GOPROXY=https://goproxy.cn,direct
 
+# frontend：按 submodule HEAD SHA 做 stamp。SHA 没变就跳过编译，省 30-60s+。
+# 想强制重编：make frontend-force（bump submodule 也会自动失效 stamp）。
+FRONTEND_SHA := $(shell git -C frontend rev-parse HEAD 2>/dev/null || echo unknown)
+FRONTEND_STAMP := static/dist/.frontend.$(FRONTEND_SHA)
+
 .PHONY: frontend
-frontend:
-	rm -rf static/dist/*
-	make -C frontend build
-	cp -r frontend/dist static/
+frontend: $(FRONTEND_STAMP)
+
+$(FRONTEND_STAMP):
+	@echo "==> building frontend ($(FRONTEND_SHA))"
+	@rm -rf static/dist/.frontend.* static/dist/index.html static/dist/assets static/dist/static static/dist/favicon.ico
+	@make -C frontend build
+	@cp -r frontend/dist/. static/dist/
+	@touch $@
+
+.PHONY: frontend-force
+frontend-force:
+	@rm -f static/dist/.frontend.*
+	@$(MAKE) frontend
+
+# docs：按 website/ 源码 mtime 做 stamp，不改文档就跳过 VitePress 编译。
+# 强制重编：make docs-force。
+DOCS_SRC := $(shell find website -type f \
+	\( -name '*.md' -o -name '*.mts' -o -name '*.ts' -o -name '*.vue' \
+	   -o -name 'package.json' -o -name 'package-lock.json' \) \
+	-not -path '*/node_modules/*' \
+	-not -path '*/.vitepress/dist/*' \
+	-not -path '*/.vitepress/cache/*' 2>/dev/null)
+DOCS_STAMP := static/dist/docs/.stamp
 
 .PHONY: docs
-docs:
+docs: $(DOCS_STAMP)
+
+$(DOCS_STAMP): $(DOCS_SRC)
 	@echo "==> building VitePress docs"
 	@cd website && (test -d node_modules || npm install --no-audit --no-fund --silent)
 	@cd website && npm run docs:build --silent
 	@mkdir -p static/dist/docs
 	@cp -r website/.vitepress/dist/. static/dist/docs/
+	@touch $@
 	@echo "==> docs embedded at static/dist/docs/ (访问 /docs/)"
+
+.PHONY: docs-force
+docs-force:
+	@rm -f $(DOCS_STAMP)
+	@$(MAKE) docs
 
 .PHONY: backend
 backend:
