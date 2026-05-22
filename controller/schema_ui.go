@@ -13,9 +13,8 @@ import (
 )
 
 const (
-	GET_SCHEMA_UI_DEPLOY    = "deploy"
-	GET_SCHEMA_UI_CONFIG    = "config"
-	GET_SCHEMA_UI_REBALANCE = "rebalance"
+	GET_SCHEMA_UI_DEPLOY = "deploy"
+	GET_SCHEMA_UI_CONFIG = "config"
 )
 
 var SchemaUIMapping map[string]common.ConfigParams
@@ -25,9 +24,8 @@ type SchemaUIController struct {
 }
 
 var schemaHandleFunc = map[string]func() common.ConfigParams{
-	GET_SCHEMA_UI_DEPLOY:    RegistCreateClusterSchema,
-	GET_SCHEMA_UI_CONFIG:    RegistUpdateConfigSchema,
-	GET_SCHEMA_UI_REBALANCE: RegistRebalanceClusterSchema,
+	GET_SCHEMA_UI_DEPLOY: RegistCreateClusterSchema,
+	GET_SCHEMA_UI_CONFIG: RegistUpdateConfigSchema,
 }
 
 func getPkgType() []common.Candidate {
@@ -1873,81 +1871,6 @@ Non-professionals please do not fill in this`,
 	return params
 }
 
-func RegistRebalanceClusterSchema() common.ConfigParams {
-	var params common.ConfigParams = make(map[string]*common.Parameter)
-	var req model.RebalanceTableReq
-	params.MustRegister(req, "RTables", &common.Parameter{
-		LabelZH:  "均衡表配置",
-		LabelEN:  "Tables",
-		Required: "true",
-	})
-
-	params.MustRegister(req, "ExceptMaxShard", &common.Parameter{
-		LabelZH: "移除最大分片数据",
-		LabelEN: "ExceptMaxShard",
-	})
-
-	var rtable model.RebalanceTables
-	params.MustRegister(rtable, "Database", &common.Parameter{
-		LabelZH: "数据库名",
-		LabelEN: "Database",
-	})
-
-	params.MustRegister(rtable, "Table", &common.Parameter{
-		LabelZH:       "表名",
-		LabelEN:       "Table",
-		DescriptionZH: "支持正则表达式",
-		DescriptionEN: "support regexp pattern",
-	})
-
-	params.MustRegister(rtable, "Policy", &common.Parameter{
-		LabelZH:       "均衡策略",
-		LabelEN:       "Policy",
-		DescriptionZH: "均衡策略",
-		DescriptionEN: "rebalance policy",
-		Candidates: []common.Candidate{
-			{Value: "partition", LabelEN: "partition", LabelZH: "partition"},
-			{Value: "shardingkey", LabelEN: "shardingkey", LabelZH: "shardingkey"},
-		},
-		Default:  "partition",
-		Required: "true",
-	})
-
-	params.MustRegister(rtable, "ShardingKey", &common.Parameter{
-		LabelZH:       "ShardingKey",
-		LabelEN:       "ShardingKey",
-		DescriptionZH: "如果ShardingKey为空，则默认按照partition做数据均衡",
-		DescriptionEN: "if shardingkey is empty, then rebalance by partition default",
-		Required:      "true",
-		Visiable:      "Policy == 'shardingkey'",
-	})
-
-	params.MustRegister(rtable, "AllowLossRate", &common.Parameter{
-		LabelZH:       "允许错误率",
-		LabelEN:       "AllowLossRate",
-		DescriptionZH: "均衡数据过程中允许数据的丢失率",
-		DescriptionEN: "Allow the loss rate during the data balancing process",
-		Range: &common.Range{
-			Min:  0,
-			Max:  1,
-			Step: 0.01,
-		},
-		Default:  "0",
-		Required: "false",
-		Visiable: "Policy == 'shardingkey'",
-	})
-	params.MustRegister(rtable, "SaveTemps", &common.Parameter{
-		LabelZH:       "保留临时数据",
-		LabelEN:       "SaveTemps",
-		DescriptionZH: "均衡数据过程中保存原始数据到临时表",
-		DescriptionEN: "Save the original data to a temporary table during data balancing",
-		Required:      "false",
-		Visiable:      "Policy == 'shardingkey'",
-	})
-
-	return params
-}
-
 func (ui *SchemaUIController) RegistSchemaInstance() {
 	SchemaUIMapping = make(map[string]common.ConfigParams)
 	for k, v := range schemaHandleFunc {
@@ -1975,19 +1898,6 @@ func (controller *SchemaUIController) GetUISchema(c *gin.Context) {
 			return
 		}
 		schema, err = params.MarshalSchema(conf)
-		if err != nil {
-			controller.wrapfunc(c, model.E_MARSHAL_FAILED, err)
-			return
-		}
-	case GET_SCHEMA_UI_REBALANCE:
-		var req model.RebalanceTableReq
-		typo := strings.ToLower(Type)
-		params, ok := SchemaUIMapping[typo]
-		if !ok {
-			controller.wrapfunc(c, model.E_DATA_NOT_EXIST, err)
-			return
-		}
-		schema, err = params.MarshalSchema(req)
 		if err != nil {
 			controller.wrapfunc(c, model.E_MARSHAL_FAILED, err)
 			return
