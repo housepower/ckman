@@ -22,6 +22,35 @@ const release = ref(null);
 const error = ref('');
 const loading = ref(true);
 
+// 编译期列出 release-notes/ 下所有图文版发布说明文件
+// 路径形如 '../release-notes/4.0.0.md' → 提取出 '4.0.0'
+const localReleaseNotesGlob = import.meta.glob('../release-notes/*.md');
+const knownReleaseNotes = Object.keys(localReleaseNotesGlob)
+  .map(p => p.replace(/.*\/(.+)\.md$/, '$1'));
+
+// 给定 GitHub release tag（可能含前缀 v），找到对应本地图文说明 URL；找不到返回 ''
+function localReleaseNotesUrl(tag) {
+  if (!tag) return '';
+  const normalized = String(tag).replace(/^v/, '');
+  if (knownReleaseNotes.includes(normalized)) {
+    return withBase(`/release-notes/${normalized}.html`);
+  }
+  return '';
+}
+
+// hero 按钮目的地：优先本地图文版，回退到本页面 #release-notes 锚（GitHub body 内嵌区）
+const updateLink = computed(() => {
+  if (release.value) {
+    const local = localReleaseNotesUrl(release.value.tag_name);
+    if (local) return local;
+  }
+  return release.value && release.value.body ? '#release-notes' : '';
+});
+
+const updateLinkIsExternal = computed(() => {
+  return updateLink.value && !updateLink.value.startsWith('#');
+});
+
 // 把 release.assets 按格式/架构归类
 function pickAsset(assets, predicate) {
   return assets.find(predicate) || null;
@@ -144,7 +173,7 @@ onMounted(async () => {
         </span>
       </p>
       <div class="dl-hero__actions">
-        <a v-if="release && release.body" class="dl-btn dl-btn--primary" href="#release-notes">
+        <a v-if="updateLink" class="dl-btn dl-btn--primary" :href="updateLink">
           查看本次更新
         </a>
         <a class="dl-btn dl-btn--ghost" :href="RELEASE_ALL" target="_blank" rel="noopener">
@@ -209,7 +238,7 @@ onMounted(async () => {
       </div>
     </div>
   </section>
-  <section v-if="release && release.body" id="release-notes" class="dl-section dl-section--alt">
+  <section v-if="release && release.body && !updateLinkIsExternal" id="release-notes" class="dl-section dl-section--alt">
     <div class="dl-container">
       <div class="dl-notes">
         <header class="dl-notes__head">
