@@ -917,7 +917,7 @@ func GetBackgroundPool(conf *model.CKManClickHouseConfig) ([]model.BackgroundPoo
 			Host: host,
 			Pool: map[string]model.BackgroundPool{
 				"MergesAndMutations": merges,
-				"Feches":             fetches,
+				"Fetches":            fetches,
 				"Schedule":           schedule,
 				"Move":               move,
 				"Common":             comm,
@@ -931,15 +931,24 @@ func GetBackgroundPool(conf *model.CKManClickHouseConfig) ([]model.BackgroundPoo
 func getPoolMetric(service *CkService, name string) (int64, int64, float64) {
 	var task, size int64
 	var usage float64
-	query := fmt.Sprintf("SELECT value FROM system.metrics WHERE name in ('Background%sPoolTask', 'Background%sPoolSize')", name, name)
+	query := fmt.Sprintf("SELECT metric, value FROM system.metrics WHERE metric in ('Background%sPoolTask', 'Background%sPoolSize')", name, name)
 
 	data, err := service.QueryInfo(query)
 	if err != nil {
 		log.Logger.Errorf("get pool metric error: %s", err.Error())
 		return 0, 0, 0
 	}
-	task = data[1][0].(int64)
-	size = data[2][0].(int64)
+	// data[0] 是表头，data[1:] 才是数据行；IN 查询结果顺序不固定，按 metric 名分别取值，避免顺序错乱或缺行越界
+	for i := 1; i < len(data); i++ {
+		metric, _ := data[i][0].(string)
+		value, _ := data[i][1].(int64)
+		switch {
+		case strings.HasSuffix(metric, "PoolTask"):
+			task = value
+		case strings.HasSuffix(metric, "PoolSize"):
+			size = value
+		}
+	}
 	if size == 0 {
 		usage = 0
 	} else {
