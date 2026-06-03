@@ -145,19 +145,65 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) (string, error) {
 	return model.E_SUCCESS, nil
 }
 
-func getNodeInfo(service *CkService) (string, string) {
+func getNodeInfo(service *CkService) (string, string, string, string) {
+	// 磁盘仅统计 default 存储策略的 default volume 下的盘，排除冷存储/分层等其它 volume 的盘
 	query := `SELECT
 	formatReadableSize(sum(total_space) - sum(free_space)) AS used,
 		formatReadableSize(sum(total_space)) AS total, uptime() as uptime
-	FROM system.disks WHERE lower(type) = 'local'`
+	FROM system.disks
+	WHERE lower(type) = 'local'
+		AND name IN (
+			SELECT arrayJoin(disks) FROM system.storage_policies
+			WHERE policy_name = 'default' AND volume_name = 'default'
+		)`
 	value, err := service.QueryInfo(query)
 	if err != nil {
-		return "NA/NA", ""
+		return "NA/NA", "", "NA", "NA"
 	}
 	usedSpace := value[1][0].(string)
 	totalSpace := value[1][1].(string)
 	uptime := value[1][2].(uint32)
-	return fmt.Sprintf("%s/%s", usedSpace, totalSpace), common.FormatReadableTime(uptime)
+
+	// CPU 与内存均来自 system.asynchronous_metrics，对存量集群和导入集群同样可用。
+	// 为与磁盘/内存口径一致，CPU 显示为「已用核数 / 总核数」（已用核数 = 使用率 × 总核数），内存显示为「已用 / 总计」，
+	// 并对老版本缺失指标的情况降级：
+	//   - 核数：NumberOfPhysicalCPUCores（约 22.7+）→ 统计每核一行的 OSUserTimeCPU_*/CPUFrequencyMHz_* 行数；
+	//   - 使用率：OSUserTimeNormalized+OSSystemTimeNormalized（已按核归一化）→ 各核 user+system 求和 ÷ 核数；指标缺失则只显示核数；
+	//   - 内存已用：OSMemoryTotal-OSMemoryAvailable，OSMemoryAvailable 缺失则只显示总计。
+	cpu, memory := "NA", "NA"
+	hwQuery := `SELECT
+	multiIf(cores <= 0, 'NA',
+		has_usage, concat(toString(toDecimal32(least(usage, 1) * cores, 1)), ' / ', toString(cores)),
+		toString(cores)) AS cpu,
+		multiIf(mem_total <= 0, 'NA',
+			mem_avail > 0, concat(formatReadableSize(greatest(mem_total - mem_avail, 0)), ' / ', formatReadableSize(mem_total)),
+			formatReadableSize(mem_total)) AS memory
+	FROM (
+		SELECT
+			multiIf(physical > 0, toUInt64(physical), logical > 0, logical, toUInt64(0)) AS cores,
+			(user_norm + sys_norm > 0) OR (user_sum + sys_sum > 0) AS has_usage,
+			if(user_norm + sys_norm > 0, user_norm + sys_norm,
+				if(logical > 0, (user_sum + sys_sum) / logical, 0)) AS usage,
+			mem_total,
+			mem_avail
+		FROM (
+			SELECT
+				maxIf(value, metric = 'NumberOfPhysicalCPUCores') AS physical,
+				greatest(countIf(metric LIKE 'OSUserTimeCPU%'), countIf(metric LIKE 'CPUFrequencyMHz%')) AS logical,
+				sumIf(value, metric LIKE 'OSUserTimeCPU%') AS user_sum,
+				sumIf(value, metric LIKE 'OSSystemTimeCPU%') AS sys_sum,
+				maxIf(value, metric = 'OSUserTimeNormalized') AS user_norm,
+				maxIf(value, metric = 'OSSystemTimeNormalized') AS sys_norm,
+				maxIf(value, metric = 'OSMemoryTotal') AS mem_total,
+				maxIf(value, metric = 'OSMemoryAvailable') AS mem_avail
+			FROM system.asynchronous_metrics
+		)
+	)`
+	if hwValue, err := service.QueryInfo(hwQuery); err == nil {
+		cpu = hwValue[1][0].(string)
+		memory = hwValue[1][1].(string)
+	}
+	return fmt.Sprintf("%s/%s", usedSpace, totalSpace), common.FormatReadableTime(uptime), cpu, memory
 }
 
 func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode {
@@ -166,6 +212,8 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 	statusMap := make(map[string]string, len(conf.Hosts))
 	diskMap := make(map[string]string, len(conf.Hosts))
 	uptimeMap := make(map[string]string, len(conf.Hosts))
+	cpuMap := make(map[string]string, len(conf.Hosts))
+	memoryMap := make(map[string]string, len(conf.Hosts))
 	var lock sync.RWMutex
 	var wg sync.WaitGroup
 	for _, host := range conf.Hosts {
@@ -186,11 +234,13 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 				lock.Lock()
 				statusMap[innerHost] = model.CkStatusRed
 				diskMap[innerHost] = "NA/NA"
+				cpuMap[innerHost] = "NA"
+				memoryMap[innerHost] = "NA"
 				lock.Unlock()
 			} else {
 				lock.Lock()
 				statusMap[innerHost] = model.CkStatusGreen
-				diskMap[innerHost], uptimeMap[innerHost] = getNodeInfo(service)
+				diskMap[innerHost], uptimeMap[innerHost], cpuMap[innerHost], memoryMap[innerHost] = getNodeInfo(service)
 				lock.Unlock()
 			}
 		})
@@ -206,6 +256,8 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 				Status:        statusMap[replica.Ip],
 				Disk:          diskMap[replica.Ip],
 				Uptime:        uptimeMap[replica.Ip],
+				Cpu:           cpuMap[replica.Ip],
+				Memory:        memoryMap[replica.Ip],
 			}
 			statusList[index] = status
 			index++

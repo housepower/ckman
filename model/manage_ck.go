@@ -24,6 +24,8 @@ type CkClusterNode struct {
 	ReplicaNumber int    `json:"replicaNumber"`
 	Disk          string `json:"disk"`
 	Uptime        string `json:"uptime"`
+	Cpu           string `json:"cpu"`
+	Memory        string `json:"memory"`
 }
 
 type AddNodeReq struct {
