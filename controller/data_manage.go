@@ -93,6 +93,21 @@ func (c *DataManageController) RestoreData(ctx *gin.Context) {
 
 // ============== Policy 列表 / 详情 / 编辑 / 删除 ==============
 
+// GetBackupQueue GET /data_manage/backup/:cluster/queue — cluster 下执行中/排队中 run 统计
+func (c *DataManageController) GetBackupQueue(ctx *gin.Context) {
+	cluster := ctx.Param(ClickHouseClusterPath)
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	stats, err := svc.QueueStats(cluster)
+	if err != nil {
+		c.wrapfunc(ctx, model.E_DATA_SELECT_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, stats)
+}
+
 // ListPolicies GET /data_manage/backup/:cluster — 返回 cluster 下 policy 列表
 func (c *DataManageController) ListPolicies(ctx *gin.Context) {
 	cluster := ctx.Param(ClickHouseClusterPath)

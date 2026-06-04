@@ -97,6 +97,7 @@ type PersistentBackupRunService interface {
 	GetRunsByTable(cluster, database, table string, sinceDays int) ([]model.BackupRun, error)
 	GetRunsInFlightByPolicy(policyID string) ([]model.BackupRun, error)
 	GetRunsInFlightByInstance(instance string) ([]model.BackupRun, error)
+	GetRunsInFlightByCluster(cluster string) ([]model.BackupRun, error)
 	MarkRunRunningIfQueued(runID, instance string, startedAt time.Time) (bool, error)
 	GetAllBackupRuns() ([]model.BackupRun, error)
 }

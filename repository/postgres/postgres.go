@@ -876,6 +876,24 @@ func (mp *PostgresPersistent) GetRunsInFlightByInstance(instance string) ([]mode
 	return runs, nil
 }
 
+func (mp *PostgresPersistent) GetRunsInFlightByCluster(cluster string) ([]model.BackupRun, error) {
+	var tbls []TblBackupRun
+	tx := mp.Client.Where("cluster_name = ? AND status IN ?", cluster,
+		[]string{model.BACKUP_STATUS_QUEUED, model.BACKUP_STATUS_RUNNING}).Find(&tbls)
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+		return nil, errors.Wrap(tx.Error, "")
+	}
+	runs := make([]model.BackupRun, 0, len(tbls))
+	for _, tbl := range tbls {
+		var r model.BackupRun
+		if err := json.Unmarshal([]byte(tbl.Run), &r); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+		runs = append(runs, r)
+	}
+	return runs, nil
+}
+
 func (mp *PostgresPersistent) MarkRunRunningIfQueued(runID, instance string, startedAt time.Time) (bool, error) {
 	// 先取出当前记录，做早返回优化（常见路径：无人竞争时避免一次 UPDATE）
 	var tr TblBackupRun

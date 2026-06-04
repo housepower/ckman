@@ -827,6 +827,15 @@ func (sp *SQLitePersistent) GetRunsInFlightByInstance(instance string) ([]model.
 	return decodeBackupRuns(tbls)
 }
 
+func (sp *SQLitePersistent) GetRunsInFlightByCluster(cluster string) ([]model.BackupRun, error) {
+	var tbls []TblBackupRun
+	if err := sp.Client.Where("cluster_name = ? AND status IN (?, ?)",
+		cluster, model.BACKUP_STATUS_QUEUED, model.BACKUP_STATUS_RUNNING).Find(&tbls).Error; err != nil {
+		return nil, wrapError(err)
+	}
+	return decodeBackupRuns(tbls)
+}
+
 func (sp *SQLitePersistent) MarkRunRunningIfQueued(runID, instance string, startedAt time.Time) (bool, error) {
 	// First fetch the existing row to update its JSON blob atomically.
 	var tbl TblBackupRun

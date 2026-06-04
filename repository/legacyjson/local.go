@@ -790,6 +790,18 @@ func (lp *LocalPersistent) GetRunsInFlightByInstance(instance string) ([]model.B
 	return out, nil
 }
 
+func (lp *LocalPersistent) GetRunsInFlightByCluster(cluster string) ([]model.BackupRun, error) {
+	lp.lock.RLock()
+	defer lp.lock.RUnlock()
+	var out []model.BackupRun
+	for _, r := range lp.Data.BackupRun {
+		if r.ClusterName == cluster && (r.Status == model.BACKUP_STATUS_QUEUED || r.Status == model.BACKUP_STATUS_RUNNING) {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
 func (lp *LocalPersistent) MarkRunRunningIfQueued(runID, instance string, startedAt time.Time) (bool, error) {
 	lp.lock.Lock()
 	defer lp.lock.Unlock()

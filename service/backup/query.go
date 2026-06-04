@@ -32,3 +32,27 @@ func (s *Service) ListPoliciesByCluster(cluster string) ([]model.BackupPolicy, e
 func (s *Service) GetPolicy(policyID string) (model.BackupPolicy, error) {
 	return s.repo.GetPolicy(policyID)
 }
+
+// BackupQueueStats cluster 维度的 in-flight run 统计，供前端展示排队深度。
+type BackupQueueStats struct {
+	Running int `json:"running"`
+	Queued  int `json:"queued"`
+}
+
+// QueueStats 统计 cluster 下执行中 / 排队中的 run 数
+func (s *Service) QueueStats(cluster string) (BackupQueueStats, error) {
+	runs, err := repository.Ps.GetRunsInFlightByCluster(cluster)
+	if err != nil {
+		return BackupQueueStats{}, err
+	}
+	var st BackupQueueStats
+	for _, r := range runs {
+		switch r.Status {
+		case model.BACKUP_STATUS_RUNNING:
+			st.Running++
+		case model.BACKUP_STATUS_QUEUED:
+			st.Queued++
+		}
+	}
+	return st, nil
+}
