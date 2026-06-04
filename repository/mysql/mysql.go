@@ -723,7 +723,13 @@ func (mp *MysqlPersistent) UpdateBackupRun(r model.BackupRun) error {
 		"started_at": r.StartedAt,
 		"run":        string(raw),
 	})
-	return wrapError(tx.Error)
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (mp *MysqlPersistent) DeleteBackupRun(runID string) error {

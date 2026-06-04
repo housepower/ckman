@@ -3,6 +3,7 @@ package backup
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -153,7 +154,13 @@ func executeExclusive(repo ServiceRepo, inFlight *sync.Map, runID string,
 	if key == "" {
 		key = r.RunID
 	}
-	if _, loaded := inFlight.LoadOrStore(key, r.RunID); loaded {
+	if v, loaded := inFlight.LoadOrStore(key, r.RunID); loaded {
+		if v == r.RunID {
+			// 同一 run 被重复投递（异常路径）：占位的就是自己，绝不能把它标
+			// skipped——那会让持有者随后的 CAS 失败，唯一一次执行被吞掉。
+			log.Logger.Warnf("[backup] duplicate delivery of run %s, ignored", runID)
+			return
+		}
 		r.Status = model.BACKUP_STATUS_SKIPPED
 		r.StatusReason = model.REASON_OVERLAP
 		r.FinishedAt = time.Now()
@@ -167,6 +174,24 @@ func executeExclusive(repo ServiceRepo, inFlight *sync.Map, runID string,
 	if !claim(runID) {
 		return
 	}
+	// panic 防护：executor 任何阶段 panic 都不能拖垮整个 ckman 进程；
+	// 把 run 标 failed 留痕（否则状态停在 running，只能等重启 Boot 兜底）。
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Logger.Errorf("[backup] run %s panicked: %v\n%s", runID, rec, debug.Stack())
+			fr, gerr := repo.GetRun(runID)
+			if gerr != nil {
+				log.Logger.Errorf("[backup] get panicked run %s: %v", runID, gerr)
+				return
+			}
+			fr.Status = model.BACKUP_STATUS_FAILED
+			fr.ErrorMsg = fmt.Sprintf("panic: %v", rec)
+			fr.FinishedAt = time.Now()
+			if uerr := repo.UpdateRun(fr); uerr != nil {
+				log.Logger.Errorf("[backup] mark panicked run %s failed: %v", runID, uerr)
+			}
+		}
+	}()
 	execute(runID)
 }
 

@@ -141,6 +141,9 @@ func main() {
 	self := net.JoinHostPort(config.GlobalConfig.Server.Ip, fmt.Sprint(config.GlobalConfig.Server.Port))
 	chAdapter := backup.NewClickHouseAdapter()
 	backupMaxConcurrent := config.GlobalConfig.Server.BackupMaxConcurrent
+	if backupMaxConcurrent <= 0 {
+		backupMaxConcurrent = 8 // 与 backup.Init 内部归一保持一致，日志不再误报 0
+	}
 	backupStop, err := backup.Init(context.Background(), self, backupMaxConcurrent, chAdapter)
 	if err != nil {
 		log.Logger.Fatalf("init backup service failed: %v", err)

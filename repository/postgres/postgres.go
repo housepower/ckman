@@ -103,6 +103,7 @@ func (mp *PostgresPersistent) Init(config interface{}) error {
 		`CREATE INDEX IF NOT EXISTS idx_br_policy_started ON tbl_backup_run(policy_id, started_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_br_table_started ON tbl_backup_run(cluster_name, database_name, table_name, started_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_br_status_instance ON tbl_backup_run(status, instance)`,
+		`CREATE INDEX IF NOT EXISTS idx_br_cluster_status ON tbl_backup_run(cluster_name, status)`,
 	}
 	for _, sql := range backupTblSQLs {
 		if err := mp.Client.Exec(sql).Error; err != nil {
@@ -776,7 +777,13 @@ func (mp *PostgresPersistent) UpdateBackupRun(r model.BackupRun) error {
 		"started_at": r.StartedAt,
 		"run":        string(raw),
 	})
-	return wrapError(tx.Error)
+	if tx.Error != nil {
+		return wrapError(tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		return repository.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (mp *PostgresPersistent) DeleteBackupRun(runID string) error {

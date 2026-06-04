@@ -3,7 +3,10 @@ package backup
 import (
 	"context"
 	"errors"
+	"runtime/debug"
 	"sync"
+
+	"github.com/housepower/ckman/log"
 )
 
 // ExecFunc is the function signature for executing a backup run.
@@ -90,10 +93,22 @@ func (p *Pool) worker() {
 		runID := p.queue[0]
 		p.queue = p.queue[1:]
 		p.mu.Unlock()
-		// Use an independent context so that Stop does not interrupt
-		// a run that has already started executing.
-		p.exec(context.Background(), runID)
+		p.runOne(runID)
 	}
+}
+
+// runOne 执行单个 run，兜底 recover：ExecFunc panic 只损失这一次执行，
+// 不拖垮 worker goroutine 乃至整个进程（run 状态留 queued/running，
+// 由 executeExclusive 的 recover 或重启 Boot 收敛）。
+func (p *Pool) runOne(runID string) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Logger.Errorf("[backup] worker recovered from panic on run %s: %v\n%s", runID, rec, debug.Stack())
+		}
+	}()
+	// Use an independent context so that Stop does not interrupt
+	// a run that has already started executing.
+	p.exec(context.Background(), runID)
 }
 
 // Submit enqueues a runID. 队列无界（受 DefaultMaxQueue 兜底保护）；

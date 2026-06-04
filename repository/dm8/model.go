@@ -56,10 +56,10 @@ type TblBackupPolicy struct {
 type TblBackupRun struct {
 	RunID       string        `gorm:"column:run_id,primaryKey"`
 	PolicyID    string        `gorm:"column:policy_id,index:idx_br_policy_started"`
-	ClusterName string        `gorm:"column:cluster_name,index:idx_br_table_started"`
+	ClusterName string        `gorm:"column:cluster_name,index:idx_br_table_started,index:idx_br_cluster_status"`
 	Database    string        `gorm:"column:database_name,index:idx_br_table_started"`
 	Table       string        `gorm:"column:table_name,index:idx_br_table_started"`
-	Status      string        `gorm:"column:status,index:idx_br_status_instance"`
+	Status      string        `gorm:"column:status,index:idx_br_status_instance,index:idx_br_cluster_status"`
 	Instance    string        `gorm:"column:instance,index:idx_br_status_instance"`
 	StartedAt   time.Time     `gorm:"column:started_at,index:idx_br_started"`
 	Run         dmSchema.Clob `gorm:"column:run,size:1024000"`
