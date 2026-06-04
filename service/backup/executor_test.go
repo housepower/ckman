@@ -815,3 +815,25 @@ func TestRealStages_Close_OnlySuccessPartitionsDropped(t *testing.T) {
 		t.Fatalf("dropped wrong partition: %s", dropped[0])
 	}
 }
+
+// ── resolveDailyPartitionRange（窗口锚定触发时刻）──────────────────────────────
+
+func TestResolveDailyPartitionRange_AnchoredToTriggerTime(t *testing.T) {
+	// 执行时刻已是 6/5 凌晨(排队跨午夜),窗口仍按触发时刻 6/4 计算
+	e := &Executor{now: func() time.Time { return time.Date(2026, 6, 5, 1, 0, 0, 0, time.UTC) }}
+	policy := model.BackupPolicy{DaysBefore: 7, StartDate: "20250101"}
+	anchor := time.Date(2026, 6, 4, 23, 50, 0, 0, time.UTC)
+	from, to := e.resolveDailyPartitionRange(policy, anchor)
+	if from != "20250101" || to != "20260528" {
+		t.Fatalf("anchored range got %s~%s", from, to)
+	}
+	// anchor 零值(老数据)回退到当前时钟 6/5
+	if _, to = e.resolveDailyPartitionRange(policy, time.Time{}); to != "20260529" {
+		t.Fatalf("zero-anchor fallback got %s", to)
+	}
+	// 固定区间不受 anchor 影响
+	fixed := model.BackupPolicy{RangeStartDate: "20250817", RangeEndDate: "20250820"}
+	if from, to = e.resolveDailyPartitionRange(fixed, anchor); from != "20250817" || to != "20250820" {
+		t.Fatalf("fixed range got %s~%s", from, to)
+	}
+}

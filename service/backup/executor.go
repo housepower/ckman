@@ -222,7 +222,7 @@ func (e *Executor) resolveRunPartitions(r *model.BackupRun, policy model.BackupP
 		// 增量 + 按时间段：
 		// 1. 固定区间：[range_start_date, range_end_date]
 		// 2. 滚动区间：[start_date, today-days_before]，start_date 为空时不限制下界
-		fromPartition, toPartition := e.resolveDailyPartitionRange(policy)
+		fromPartition, toPartition := e.resolveDailyPartitionRange(policy, r.CreateTime)
 		newPartitions, err := e.listPartitions(e.conns[0], policy.Database, policy.Table, fromPartition, toPartition)
 		if err != nil {
 			return err
@@ -243,13 +243,20 @@ func hasFixedDailyRange(policy model.BackupPolicy) bool {
 	return strings.TrimSpace(policy.RangeStartDate) != "" && strings.TrimSpace(policy.RangeEndDate) != ""
 }
 
-func (e *Executor) resolveDailyPartitionRange(policy model.BackupPolicy) (string, string) {
+// resolveDailyPartitionRange 计算按时间段备份的分区范围。滚动窗口的上界
+// `anchor - days_before` 锚定在 run 触发时刻（CreateTime）而非执行时刻：
+// 大批量任务排队可能跨午夜，若按执行时刻计算，窗口会整体后移一天，与
+// 用户在触发当天的预期范围不符。anchor 零值（老数据）回退到当前时钟。
+func (e *Executor) resolveDailyPartitionRange(policy model.BackupPolicy, anchor time.Time) (string, string) {
 	rangeStart := strings.TrimSpace(policy.RangeStartDate)
 	rangeEnd := strings.TrimSpace(policy.RangeEndDate)
 	if rangeStart != "" || rangeEnd != "" {
 		return rangeStart, rangeEnd
 	}
-	return strings.TrimSpace(policy.StartDate), e.clock().AddDate(0, 0, -policy.DaysBefore).Format("20060102")
+	if anchor.IsZero() {
+		anchor = e.clock()
+	}
+	return strings.TrimSpace(policy.StartDate), anchor.AddDate(0, 0, -policy.DaysBefore).Format("20060102")
 }
 
 // partitionsFromNames 把分区名列表转换为 waiting 状态的 BackupRunPartition 切片。
