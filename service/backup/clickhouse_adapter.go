@@ -189,29 +189,47 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// GetLastRunPartitions 从持久层查 365 天内同表所有 success run 中已成功备份的
-// partitions。调用方用它做增量去重；不能只取最近一次 success run，否则当前 run
-// 不再记录历史 success 后，下一轮会丢失更早的去重历史。
+// GetLastRunPartitions 从持久层查 365 天内同表已成功备份的 partitions，
+// 调用方用它做增量去重。判定是分区级而非 run 级（见 successfulPartitionsFromRuns）；
+// 不能只取最近一次 run，否则当前 run 不再记录历史 success 后，下一轮会丢失
+// 更早的去重历史。
 func (a *ClickHouseAdapter) GetLastRunPartitions(cluster, db, table string) ([]model.BackupRunPartition, error) {
 	runs, err := repository.Ps.GetRunsByTable(cluster, db, table, 365)
 	if err != nil {
 		return nil, err
 	}
+	return successfulPartitionsFromRuns(runs), nil
+}
+
+// successfulPartitionsFromRuns 从 runs（须按时间新→旧排序，GetRunsByTable 保证）
+// 提取"最近一次执行结果为 success"的分区。按分区粒度判定而非 run 粒度：
+// run 整体 failed 时其中已 success 的分区仍计入去重，避免 100 个分区 1 个失败
+// 导致下一轮整表重备——重备本身又可能出现新的失败分区，失败范围反而蔓延。
+// 每个分区以最近一次终态（success/failed）记录定型：更早的 success 不能掩盖
+// 最近的 failed，因为失败的重备可能已破坏存储上同 key 的旧数据。
+// restore run 不参与备份去重；waiting/running 分区尚无结果，不定型。
+func successfulPartitionsFromRuns(runs []model.BackupRun) []model.BackupRunPartition {
 	seen := make(map[string]bool)
 	partitions := make([]model.BackupRunPartition, 0)
 	for _, r := range runs {
-		if r.Status != model.BACKUP_STATUS_SUCCESS {
+		// 只排除明确的 restore；老版本迁移来的 run Operation 可能为空，视为 backup
+		if r.Operation == model.OP_RESTORE {
 			continue
 		}
 		for _, p := range r.Partitions {
-			if p.Status != model.BACKUP_PARTITION_STATUS_SUCCESS || seen[p.Partition] {
+			if p.Status != model.BACKUP_PARTITION_STATUS_SUCCESS && p.Status != model.BACKUP_PARTITION_STATUS_FAILED {
+				continue
+			}
+			if seen[p.Partition] {
 				continue
 			}
 			seen[p.Partition] = true
-			partitions = append(partitions, p)
+			if p.Status == model.BACKUP_PARTITION_STATUS_SUCCESS {
+				partitions = append(partitions, p)
+			}
 		}
 	}
-	return partitions, nil
+	return partitions
 }
 
 // CollectChecksumOnHost 在 host 上通过 SSH 执行 md5sum，把结果填到 run.Partitions[i].PathInfo。

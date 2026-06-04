@@ -150,3 +150,83 @@ func TestClickHouseAdapter_CollectChecksumOnHost_SkipsNonWaiting(t *testing.T) {
 	}
 	_ = a.CollectChecksumOnHost(&shardConn{host: "h1"}, run)
 }
+
+// ── successfulPartitionsFromRuns（分区级去重）──────────────────────────────────
+
+func TestSuccessfulPartitionsFromRuns_PartitionLevelDedup(t *testing.T) {
+	// run 整体 failed,但其中已 success 的分区仍计入去重——
+	// 避免 1 个分区失败导致下一轮整表重备(失败范围蔓延)
+	runs := []model.BackupRun{
+		{Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_FAILED, Partitions: []model.BackupRunPartition{
+			{Partition: "20250101", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+			{Partition: "20250102", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+			{Partition: "20250103", Status: model.BACKUP_PARTITION_STATUS_FAILED},
+		}},
+	}
+	got := successfulPartitionsFromRuns(runs)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 success partitions, got %d", len(got))
+	}
+	names := map[string]bool{}
+	for _, p := range got {
+		names[p.Partition] = true
+	}
+	if !names["20250101"] || !names["20250102"] || names["20250103"] {
+		t.Fatalf("unexpected partitions: %v", names)
+	}
+}
+
+func TestSuccessfulPartitionsFromRuns_LatestTerminalStateWins(t *testing.T) {
+	// runs 按 started_at DESC 排列(新→旧)。
+	// 分区最近一次终态是 failed 时,更早的 success 不算数——
+	// 失败的重备可能已破坏存储上的旧数据。
+	runs := []model.BackupRun{
+		{Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_FAILED, Partitions: []model.BackupRunPartition{
+			{Partition: "20250101", Status: model.BACKUP_PARTITION_STATUS_FAILED},
+		}},
+		{Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_SUCCESS, Partitions: []model.BackupRunPartition{
+			{Partition: "20250101", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+		}},
+	}
+	if got := successfulPartitionsFromRuns(runs); len(got) != 0 {
+		t.Fatalf("latest failed should override older success, got %v", got)
+	}
+	// 反向:最近 success、更早 failed → 计入
+	runs[0].Partitions[0].Status = model.BACKUP_PARTITION_STATUS_SUCCESS
+	runs[1].Partitions[0].Status = model.BACKUP_PARTITION_STATUS_FAILED
+	if got := successfulPartitionsFromRuns(runs); len(got) != 1 {
+		t.Fatalf("latest success should count, got %v", got)
+	}
+}
+
+func TestSuccessfulPartitionsFromRuns_IgnoresRestoreAndNonTerminal(t *testing.T) {
+	runs := []model.BackupRun{
+		// restore run 不参与备份去重
+		{Operation: model.OP_RESTORE, Status: model.BACKUP_STATUS_SUCCESS, Partitions: []model.BackupRunPartition{
+			{Partition: "20250101", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+		}},
+		// in-flight run 的 waiting/running 分区没有结果,不定型也不掩盖更早的 success
+		{Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_RUNNING, Partitions: []model.BackupRunPartition{
+			{Partition: "20250102", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+		}},
+		{Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_SUCCESS, Partitions: []model.BackupRunPartition{
+			{Partition: "20250102", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+		}},
+	}
+	got := successfulPartitionsFromRuns(runs)
+	if len(got) != 1 || got[0].Partition != "20250102" {
+		t.Fatalf("expected only 20250102 from backup runs, got %v", got)
+	}
+}
+
+func TestSuccessfulPartitionsFromRuns_EmptyOperationTreatedAsBackup(t *testing.T) {
+	// 老版本迁移来的 run Operation 为空,应视为 backup 参与去重
+	runs := []model.BackupRun{
+		{Operation: "", Status: model.BACKUP_STATUS_SUCCESS, Partitions: []model.BackupRunPartition{
+			{Partition: "20250101", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+		}},
+	}
+	if got := successfulPartitionsFromRuns(runs); len(got) != 1 {
+		t.Fatalf("legacy run with empty operation should count, got %v", got)
+	}
+}
