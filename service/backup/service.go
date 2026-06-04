@@ -84,7 +84,8 @@ func (s *Service) SubmitForPolicy(p model.BackupPolicy, trigger string) (string,
 		return "", err
 	}
 
-	// 4. 入队；满则改 skipped(queue_full)
+	// 4. 入队；队列无界，仅在超出兜底上限（DefaultMaxQueue）或 Pool 已停止时
+	//    失败，失败则改 skipped(queue_full)
 	if !s.pool.Submit(run.RunID) {
 		run.Status = model.BACKUP_STATUS_SKIPPED
 		run.StatusReason = model.REASON_QUEUE_FULL

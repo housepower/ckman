@@ -140,12 +140,13 @@ func main() {
 
 	self := net.JoinHostPort(config.GlobalConfig.Server.Ip, fmt.Sprint(config.GlobalConfig.Server.Port))
 	chAdapter := backup.NewClickHouseAdapter()
-	backupStop, err := backup.Init(context.Background(), self, 8, chAdapter)
+	backupMaxConcurrent := config.GlobalConfig.Server.BackupMaxConcurrent
+	backupStop, err := backup.Init(context.Background(), self, backupMaxConcurrent, chAdapter)
 	if err != nil {
 		log.Logger.Fatalf("init backup service failed: %v", err)
 	}
 	defer backupStop()
-	log.Logger.Infof("start backup service success (self=%s, max_concurrent=%d)", self, 8)
+	log.Logger.Infof("start backup service success (self=%s, max_concurrent=%d)", self, backupMaxConcurrent)
 
 	runnerServ := runner.NewRunnerService(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server)
 	// Expose to controller.StopTask so it can interrupt in-flight task

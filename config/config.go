@@ -69,6 +69,8 @@ type CKManServerConfig struct {
 	PublicKey        string `yaml:"public_key" json:"public_key"`
 	PersistentPolicy string `yaml:"persistent_policy" json:"persistent_policy"`
 	TaskInterval     int    `yaml:"task_interval" json:"task_interval"`
+	// BackupMaxConcurrent 数据备份 worker 池并发度（同时执行的 run 数），<=0 时取默认值 8
+	BackupMaxConcurrent int `yaml:"backup_max_concurrent" json:"backup_max_concurrent"`
 	PkgPath          string `yaml:"pkg_path" json:"pkg_path"`
 	Metric           bool   `yaml:"metric" json:"metric"`
 	MetricPath       string `yaml:"metric_path" json:"metric_path"`
@@ -111,6 +113,7 @@ func fillDefault(c *CKManConfig) {
 	c.Server.KeyFile = path.Join(GetWorkDirectory(), "conf", "server.key")
 	c.Server.PkgPath = GetWorkDirectory()
 	c.Server.TaskInterval = 5
+	c.Server.BackupMaxConcurrent = 8
 	c.Server.Metric = true
 	c.Server.MetricPath = "/metrics"
 	c.Cron.Enabled = true

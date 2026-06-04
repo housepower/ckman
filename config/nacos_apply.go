@@ -92,6 +92,9 @@ func mergeFromNacos(local, remote *CKManConfig) {
 	if remote.Server.TaskInterval != 0 {
 		local.Server.TaskInterval = remote.Server.TaskInterval
 	}
+	if remote.Server.BackupMaxConcurrent != 0 {
+		local.Server.BackupMaxConcurrent = remote.Server.BackupMaxConcurrent
+	}
 	if remote.Server.Metric {
 		local.Server.Metric = remote.Server.Metric
 	}

@@ -15,7 +15,9 @@
     "session_timeout": 3600,
     //support local, mysql, postgres
     "persistent_policy": "local",
-    "task_interval": 5
+    "task_interval": 5,
+    // 数据备份并发执行数（worker 数），默认 8；排队不限量（上限 10000 兜底）
+    "backup_max_concurrent": 8
     //public_key:
   },
 
