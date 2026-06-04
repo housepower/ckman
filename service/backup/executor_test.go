@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -402,13 +403,14 @@ func TestExecutor_MarkFailed_FillsUnfinishedPartitions(t *testing.T) {
 func TestRealStages_Prepare_ChecksumErrorAggregated(t *testing.T) {
 	// 3 host 跑 md5sum，h2 失败；errgroup 应收集错误（修 #5）
 	// 即便有错误，已 query 成功的 rows 也必须被 close（修 rows.Close 泄漏）
+	var closedMu sync.Mutex // closeFn 在 errgroup 多 goroutine 中并发调用
 	closed := map[string]bool{}
 	conns := []*shardConn{newFakeShardConn("h1"), newFakeShardConn("h2"), newFakeShardConn("h3")}
 	queryFn := func(host string) (queryResult, error) {
 		if host == "h2" {
 			return nil, errors.New("h2 down")
 		}
-		return &fakeQueryRows{closeFn: func() { closed[host] = true }}, nil
+		return &fakeQueryRows{closeFn: func() { closedMu.Lock(); closed[host] = true; closedMu.Unlock() }}, nil
 	}
 	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1", Checksum: true})
 	repo.runs["r1"] = model.BackupRun{
