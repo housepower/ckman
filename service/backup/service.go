@@ -21,6 +21,7 @@ type ServiceRepo interface {
 	GetRun(id string) (model.BackupRun, error)
 	InFlightRunsByPolicy(policyID string) []model.BackupRun
 	InFlightRunsByInstance(instance string) []model.BackupRun // 新增，Task 14
+	InFlightRunsByCluster(cluster string) []model.BackupRun   // 队列统计（QueueStats）
 }
 
 // ServicePool 暴露入队能力。Task 11 的 Pool 实现满足。

@@ -41,12 +41,8 @@ type BackupQueueStats struct {
 
 // QueueStats 统计 cluster 下执行中 / 排队中的 run 数
 func (s *Service) QueueStats(cluster string) (BackupQueueStats, error) {
-	runs, err := repository.Ps.GetRunsInFlightByCluster(cluster)
-	if err != nil {
-		return BackupQueueStats{}, err
-	}
 	var st BackupQueueStats
-	for _, r := range runs {
+	for _, r := range s.repo.InFlightRunsByCluster(cluster) {
 		switch r.Status {
 		case model.BACKUP_STATUS_RUNNING:
 			st.Running++

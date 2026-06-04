@@ -193,6 +193,16 @@ func (r *memRepo) InFlightRunsByInstance(instance string) []model.BackupRun {
 	return out
 }
 
+func (r *memRepo) InFlightRunsByCluster(cluster string) []model.BackupRun {
+	var out []model.BackupRun
+	for _, rn := range r.runs {
+		if rn.ClusterName == cluster && (rn.Status == model.BACKUP_STATUS_QUEUED || rn.Status == model.BACKUP_STATUS_RUNNING) {
+			out = append(out, rn)
+		}
+	}
+	return out
+}
+
 // Task 6 追加：GetRun delegates to repo
 func TestService_GetRun_Delegates(t *testing.T) {
 	repo := newMemRepo()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/housepower/ckman/common"
@@ -71,6 +72,14 @@ func (PersistentRepoAdapter) InFlightRunsByInstance(instance string) []model.Bac
 	}
 	return rs
 }
+func (PersistentRepoAdapter) InFlightRunsByCluster(cluster string) []model.BackupRun {
+	rs, err := repository.Ps.GetRunsInFlightByCluster(cluster)
+	if err != nil {
+		log.Logger.Errorf("[backup] InFlightRunsByCluster: %v", err)
+		return nil
+	}
+	return rs
+}
 
 // ---- ExecRepo ----
 
@@ -125,6 +134,40 @@ func claimRun(markRunning func(runID, instance string, startedAt time.Time) (boo
 		return false
 	}
 	return true
+}
+
+// executeExclusive 在 policy 维度做进程内互斥后认领并执行 run。
+// SubmitForPolicy 的 overlap 检测（查库→建 run）不是原子的：并发提交同一
+// policy（如手动触发撞上 cron）时两个 run 都可能通过检测并入队，并发执行
+// 会写相同 storage key 互相覆盖。policy 的 run 只在其绑定 instance 上执行，
+// 因此进程内 sync.Map 互斥即可闭环；撞锁的 run 记 skipped(overlap)，与提交
+// 时的 overlap 语义一致。PolicyID 为空的老数据退化为按 runID 互斥（不互斥）。
+func executeExclusive(repo ServiceRepo, inFlight *sync.Map, runID string,
+	claim func(runID string) bool, execute func(runID string)) {
+	r, err := repo.GetRun(runID)
+	if err != nil {
+		log.Logger.Errorf("[backup] get run %s before execution: %v", runID, err)
+		return
+	}
+	key := r.PolicyID
+	if key == "" {
+		key = r.RunID
+	}
+	if _, loaded := inFlight.LoadOrStore(key, r.RunID); loaded {
+		r.Status = model.BACKUP_STATUS_SKIPPED
+		r.StatusReason = model.REASON_OVERLAP
+		r.FinishedAt = time.Now()
+		if uerr := repo.UpdateRun(r); uerr != nil {
+			log.Logger.Errorf("[backup] mark overlap run %s skipped: %v", runID, uerr)
+		}
+		log.Logger.Warnf("[backup] policy %s already has an in-flight run, run %s skipped(overlap)", r.PolicyID, runID)
+		return
+	}
+	defer inFlight.Delete(key)
+	if !claim(runID) {
+		return
+	}
+	execute(runID)
 }
 
 // newRealExecutor 为单次 run 装配一个独立 Executor。
@@ -209,16 +252,18 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 	}
 	repo := PersistentRepoAdapter{}
 
+	var inFlightPolicies sync.Map // policyID → runID，policy 维度执行互斥
 	pool := NewPool(maxConcurrent, func(ctx context.Context, runID string) {
-		if !claimRun(repository.Ps.MarkRunRunningIfQueued, runID, self) {
-			return
-		}
-		// 每个 run 一个独立 Executor：conns/storage 等 run-scoped 状态互不串扰，
-		// 多 worker 并发执行才安全（共享单例会互相覆盖/关闭对方的连接）。
-		e := newRealExecutor(repo, chAdapter)
-		if rerr := e.Run(ctx, runID); rerr != nil {
-			log.Logger.Errorf("[backup] run %s failed: %v", runID, rerr)
-		}
+		executeExclusive(repo, &inFlightPolicies, runID,
+			func(id string) bool { return claimRun(repository.Ps.MarkRunRunningIfQueued, id, self) },
+			func(id string) {
+				// 每个 run 一个独立 Executor：conns/storage 等 run-scoped 状态互不
+				// 串扰，多 worker 并发执行才安全（共享单例会互相覆盖/关闭对方的连接）。
+				e := newRealExecutor(repo, chAdapter)
+				if rerr := e.Run(ctx, id); rerr != nil {
+					log.Logger.Errorf("[backup] run %s failed: %v", id, rerr)
+				}
+			})
 	})
 
 	svc := NewService(self, repo, pool)
