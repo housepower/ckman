@@ -483,21 +483,31 @@ func (realStages) Check(ctx context.Context, e *Executor, runID string) error {
 		return err
 	}
 	var firstErr error
-	for _, p := range run.Partitions {
+	for i := range run.Partitions {
+		p := &run.Partitions[i]
 		if p.Status != model.BACKUP_PARTITION_STATUS_SUCCESS {
 			continue
 		}
 		g, _ := errgroup.WithContext(ctx)
 		for _, c := range e.conns {
 			c := c
-			pp := p
+			pp := *p
 			g.Go(func() error {
 				keyPrefix := storage.JoinRunKey(run.StoragePrefix, pp.Partition, run.Database, run.Table, c.host)
 				return e.storage.CheckPartition(c.host, keyPrefix, pp.PathInfo)
 			})
 		}
-		if err := g.Wait(); err != nil && firstErr == nil {
-			firstErr = err
+		if err := g.Wait(); err != nil {
+			// 校验失败说明该分区在存储上的产物不可信：必须回写 failed，
+			// 否则分区级增量去重会把它当成功永久跳过，坏备份再也不会重备。
+			p.Status = model.BACKUP_PARTITION_STATUS_FAILED
+			p.Msg = "checksum check failed: " + err.Error()
+			if uerr := e.repo.UpdateRun(run); uerr != nil {
+				log.Logger.Errorf("[exec] update check-failed partition run=%s: %v", runID, uerr)
+			}
+			if firstErr == nil {
+				firstErr = err
+			}
 			// 关键：不 return；继续校验后续 partition（修 #3）
 		}
 	}

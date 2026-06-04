@@ -26,6 +26,7 @@ func (f *fakeQueryRows) Close() error {
 type fakeStorage struct {
 	cleanErr error
 	cleaned  []string
+	checkErr func(keyPrefix string) error // 按 keyPrefix 决定校验结果，nil 表示全部通过
 }
 
 func (f *fakeStorage) Init() error                         { return nil }
@@ -38,7 +39,9 @@ func (f *fakeStorage) CleanPartition(host, keyPrefix string) error {
 }
 func (f *fakeStorage) CheckPartition(host, keyPrefix string, _ map[string]model.PathInfo) error {
 	_ = host
-	_ = keyPrefix
+	if f.checkErr != nil {
+		return f.checkErr(keyPrefix)
+	}
 	return nil
 }
 func (f *fakeStorage) Type() string { return "fake" }
@@ -835,5 +838,40 @@ func TestResolveDailyPartitionRange_AnchoredToTriggerTime(t *testing.T) {
 	fixed := model.BackupPolicy{RangeStartDate: "20250817", RangeEndDate: "20250820"}
 	if from, to = e.resolveDailyPartitionRange(fixed, anchor); from != "20250817" || to != "20250820" {
 		t.Fatalf("fixed range got %s~%s", from, to)
+	}
+}
+
+// ── Check 阶段：校验失败分区回写 failed ───────────────────────────────────────
+
+func TestRealStages_Check_FailedPartitionMarkedFailed(t *testing.T) {
+	// checksum 校验失败的分区必须回写 failed:分区级增量去重只信 success,
+	// 不回写的话坏备份会被永久信任、不再重备
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1", Checksum: true})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", PolicyID: "p1", Database: "db", Table: "t",
+		Partitions: []model.BackupRunPartition{
+			{Partition: "20250101", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+			{Partition: "20250102", Status: model.BACKUP_PARTITION_STATUS_SUCCESS},
+		},
+	}
+	st := &fakeStorage{checkErr: func(keyPrefix string) error {
+		if strings.Contains(keyPrefix, "20250102") {
+			return errors.New("md5 mismatch")
+		}
+		return nil
+	}}
+	e := &Executor{repo: repo, conns: []*shardConn{newFakeShardConn("h1")}, storage: st}
+	if err := (realStages{}).Check(context.Background(), e, "r1"); err == nil {
+		t.Fatal("Check should return error when a partition fails verification")
+	}
+	got, _ := repo.GetRun("r1")
+	if got.Partitions[0].Status != model.BACKUP_PARTITION_STATUS_SUCCESS {
+		t.Fatalf("verified partition should stay success, got %s", got.Partitions[0].Status)
+	}
+	if got.Partitions[1].Status != model.BACKUP_PARTITION_STATUS_FAILED {
+		t.Fatalf("check-failed partition must be marked failed, got %s", got.Partitions[1].Status)
+	}
+	if !strings.Contains(got.Partitions[1].Msg, "checksum") {
+		t.Fatalf("failure reason should be recorded, got %q", got.Partitions[1].Msg)
 	}
 }
