@@ -109,21 +109,30 @@ func (ServiceCronAdapter) Remove(id string) {
 
 var _ CronAdapter = ServiceCronAdapter{}
 
-// Init 初始化 backup 模块。在 main 中 repository.InitPersistent 之后调用。
-//
-// self: 本实例标识（host:port）。
-// maxConcurrent: worker pool 大小，<=0 则使用默认值 8。
-// chAdapter: ClickHouseAdapter，提供 ConnFactory / ListPartitions 等真实 hook。
-//
-// 返回 stop 函数，进程退出时调用以清理。
-func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickHouseAdapter) (stop func(), err error) {
-	if maxConcurrent <= 0 {
-		maxConcurrent = 8
+// claimRun 通过 CAS（queued→running）认领一次 run，返回是否应继续执行。
+// 防同一 run 重复执行（重复入队 / 多实例误触发），同时把执行中的 run 状态
+// 如实标为 running（台账与队列统计依赖它）。
+// markRunning 失败（DB 故障）时保守不执行；run 停在 queued，重启后由 Boot
+// 标 interrupted。
+func claimRun(markRunning func(runID, instance string, startedAt time.Time) (bool, error), runID, self string) bool {
+	ok, err := markRunning(runID, self, time.Now())
+	if err != nil {
+		log.Logger.Errorf("[backup] mark run %s running failed: %v, skip execution", runID, err)
+		return false
 	}
-	repo := PersistentRepoAdapter{}
+	if !ok {
+		log.Logger.Warnf("[backup] run %s is not queued (already taken or finished), skip duplicate execution", runID)
+		return false
+	}
+	return true
+}
 
-	// 真实 Executor 装配
-	exec := &Executor{
+// newRealExecutor 为单次 run 装配一个独立 Executor。
+// conns/storage 是 run-scoped 可变状态，hooks 闭包必须绑定到本实例（而非共享
+// 单例），否则多 worker 并发执行时会互相覆盖、关闭对方正在使用的连接，
+// storage 也会跨 policy 串台。
+func newRealExecutor(repo ExecRepo, chAdapter *ClickHouseAdapter) *Executor {
+	e := &Executor{
 		repo:                  repo,
 		connFactory:           chAdapter.ConnFactory,
 		listPartitions:        chAdapter.ListPartitions,
@@ -133,9 +142,9 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 		stages:                realStages{},
 	}
 
-	// execSQL hook：从 exec.conns 按 host 找 conn 直接调 Exec
-	exec.execSQL = func(host, sql string) error {
-		for _, c := range exec.conns {
+	// execSQL hook：从本实例 e.conns 按 host 找 conn 直接调 Exec
+	e.execSQL = func(host, sql string) error {
+		for _, c := range e.conns {
 			if c.host == host && c.conn != nil {
 				return c.conn.Exec(sql)
 			}
@@ -143,9 +152,9 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 		return fmt.Errorf("no conn for host %s", host)
 	}
 
-	// queryRows hook：从 exec.conns 按 host 找 conn 直接调 Query
-	exec.queryRows = func(host string) (queryResult, error) {
-		for _, c := range exec.conns {
+	// queryRows hook：从本实例 e.conns 按 host 找 conn 直接调 Query
+	e.queryRows = func(host string) (queryResult, error) {
+		for _, c := range e.conns {
 			if c.host == host && c.conn != nil {
 				return c.conn.Query("SELECT path FROM system.parts WHERE active = 1 LIMIT 1")
 			}
@@ -154,9 +163,9 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 	}
 
 	// queryPartitionStats hook：本 shard 上该 partition 的 rows / bytes / parts
-	exec.queryPartitionStats = func(host, db, table, partition string) (uint64, uint64, uint64, error) {
+	e.queryPartitionStats = func(host, db, table, partition string) (uint64, uint64, uint64, error) {
 		var conn *common.Conn
-		for _, c := range exec.conns {
+		for _, c := range e.conns {
 			if c.host == host && c.conn != nil {
 				conn = c.conn
 				break
@@ -184,9 +193,30 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 		}
 		return nrows, nbytes, nparts, nil
 	}
+	return e
+}
+
+// Init 初始化 backup 模块。在 main 中 repository.InitPersistent 之后调用。
+//
+// self: 本实例标识（host:port）。
+// maxConcurrent: worker pool 大小，<=0 则使用默认值 8。
+// chAdapter: ClickHouseAdapter，提供 ConnFactory / ListPartitions 等真实 hook。
+//
+// 返回 stop 函数，进程退出时调用以清理。
+func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickHouseAdapter) (stop func(), err error) {
+	if maxConcurrent <= 0 {
+		maxConcurrent = 8
+	}
+	repo := PersistentRepoAdapter{}
 
 	pool := NewPool(maxConcurrent, func(ctx context.Context, runID string) {
-		if rerr := exec.Run(ctx, runID); rerr != nil {
+		if !claimRun(repository.Ps.MarkRunRunningIfQueued, runID, self) {
+			return
+		}
+		// 每个 run 一个独立 Executor：conns/storage 等 run-scoped 状态互不串扰，
+		// 多 worker 并发执行才安全（共享单例会互相覆盖/关闭对方的连接）。
+		e := newRealExecutor(repo, chAdapter)
+		if rerr := e.Run(ctx, runID); rerr != nil {
 			log.Logger.Errorf("[backup] run %s failed: %v", runID, rerr)
 		}
 	})
