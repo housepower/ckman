@@ -66,12 +66,12 @@ type fakePool struct {
 	in   []string
 }
 
-func (f *fakePool) Submit(id string) bool {
+func (f *fakePool) Submit(id string) error {
 	if f.full {
-		return false
+		return ErrQueueFull
 	}
 	f.in = append(f.in, id)
-	return true
+	return nil
 }
 
 func TestService_Submit_NormalCase(t *testing.T) {

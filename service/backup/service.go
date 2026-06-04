@@ -25,7 +25,7 @@ type ServiceRepo interface {
 
 // ServicePool 暴露入队能力。Task 11 的 Pool 实现满足。
 type ServicePool interface {
-	Submit(runID string) bool
+	Submit(runID string) error
 }
 
 // Service 是 backup 提交的入口（HTTP / cron 都通过它）。
@@ -85,14 +85,18 @@ func (s *Service) SubmitForPolicy(p model.BackupPolicy, trigger string) (string,
 	}
 
 	// 4. 入队；队列无界，仅在超出兜底上限（DefaultMaxQueue）或 Pool 已停止时
-	//    失败，失败则改 skipped(queue_full)
-	if !s.pool.Submit(run.RunID) {
+	//    失败，失败则按原因改 skipped(queue_full / shutdown)
+	if serr := s.pool.Submit(run.RunID); serr != nil {
 		run.Status = model.BACKUP_STATUS_SKIPPED
-		run.StatusReason = model.REASON_QUEUE_FULL
+		if errors.Is(serr, ErrPoolStopped) {
+			run.StatusReason = model.REASON_SHUTDOWN
+		} else {
+			run.StatusReason = model.REASON_QUEUE_FULL
+		}
 		run.FinishedAt = s.now()
-		log.Logger.Warnf("[backup] queue full, run %s skipped", run.RunID)
+		log.Logger.Warnf("[backup] submit run %s failed: %v, skipped", run.RunID, serr)
 		if err := s.repo.UpdateRun(run); err != nil {
-			log.Logger.Errorf("[backup] update queue_full run failed: %v", err)
+			log.Logger.Errorf("[backup] update skipped run failed: %v", err)
 			// 不冒泡，台账状态会停在 queued，启动时会被 Boot 标 interrupted
 		}
 	}

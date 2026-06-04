@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ func TestPool_DispatchToWorker(t *testing.T) {
 	p.Start(context.Background())
 	defer p.Stop()
 
-	if !p.Submit("r1") {
+	if p.Submit("r1") != nil {
 		t.Fatal("Submit r1 should succeed")
 	}
 	deadline := time.After(time.Second)
@@ -37,7 +38,7 @@ func TestPool_UnboundedQueueAcceptsBurst(t *testing.T) {
 	p.Start(context.Background())
 
 	for i := range 200 {
-		if !p.Submit("r") {
+		if p.Submit("r") != nil {
 			t.Fatalf("Submit #%d should succeed on unbounded queue", i)
 		}
 	}
@@ -62,20 +63,26 @@ func TestPool_MaxQueueGuardReturnsFalse(t *testing.T) {
 	defer func() { close(block); p.Stop() }()
 
 	// 第 1 个被 worker 取走并阻塞在 exec
-	if !p.Submit("r") {
+	if p.Submit("r") != nil {
 		t.Fatal("first Submit should succeed")
 	}
 	time.Sleep(20 * time.Millisecond)
 
-	// 之后 5 个：4 个进队列，第 5 个超出 maxQueue 被拒绝
+	// 之后 5 个：4 个进队列，第 5 个超出 maxQueue 被拒绝（ErrQueueFull）
 	successCount := 0
+	var lastErr error
 	for range 5 {
-		if p.Submit("r") {
+		if err := p.Submit("r"); err == nil {
 			successCount++
+		} else {
+			lastErr = err
 		}
 	}
 	if successCount != 4 {
 		t.Fatalf("expected 4 success (maxQueue=4), got %d", successCount)
+	}
+	if !errors.Is(lastErr, ErrQueueFull) {
+		t.Fatalf("expected ErrQueueFull, got %v", lastErr)
 	}
 }
 
@@ -93,8 +100,33 @@ func TestPool_StopDiscardsQueuedAndRejectsSubmit(t *testing.T) {
 	if p.QueueLen() != 0 {
 		t.Fatalf("queued runs should be discarded on Stop, got %d", p.QueueLen())
 	}
-	if p.Submit("after-stop") {
-		t.Fatal("Submit after Stop should return false")
+	if err := p.Submit("after-stop"); !errors.Is(err, ErrPoolStopped) {
+		t.Fatalf("Submit after Stop should return ErrPoolStopped, got %v", err)
+	}
+}
+
+func TestPool_CtxCancelDiscardsQueueLikeStop(t *testing.T) {
+	// ctx 取消与 Stop 走同一清理：队列归零、worker 退出、Submit 拒绝
+	block := make(chan struct{})
+	defer close(block)
+	exec := func(ctx context.Context, runID string) { <-block }
+	ctx, cancel := context.WithCancel(context.Background())
+	p := NewPool(1, exec)
+	p.Start(ctx)
+	time.Sleep(20 * time.Millisecond)
+	p.Submit("running")
+	p.Submit("queued1")
+	cancel()
+	deadline := time.After(time.Second)
+	for p.QueueLen() != 0 {
+		select {
+		case <-deadline:
+			t.Fatalf("ctx cancel should discard queue, got %d", p.QueueLen())
+		case <-time.After(time.Millisecond):
+		}
+	}
+	if err := p.Submit("after-cancel"); !errors.Is(err, ErrPoolStopped) {
+		t.Fatalf("Submit after ctx cancel should return ErrPoolStopped, got %v", err)
 	}
 }
 

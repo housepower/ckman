@@ -71,11 +71,15 @@ func (s *Service) SubmitRestore(cluster string, req RestoreRequest) (string, err
 	if err := s.repo.CreateRun(run); err != nil {
 		return "", err
 	}
-	if !s.pool.Submit(run.RunID) {
+	if serr := s.pool.Submit(run.RunID); serr != nil {
 		run.Status = model.BACKUP_STATUS_SKIPPED
-		run.StatusReason = model.REASON_QUEUE_FULL
+		if errors.Is(serr, ErrPoolStopped) {
+			run.StatusReason = model.REASON_SHUTDOWN
+		} else {
+			run.StatusReason = model.REASON_QUEUE_FULL
+		}
 		run.FinishedAt = s.now()
-		log.Logger.Warnf("[backup] restore queue full, run %s skipped", run.RunID)
+		log.Logger.Warnf("[backup] submit restore run %s failed: %v, skipped", run.RunID, serr)
 		_ = s.repo.UpdateRun(run)
 	}
 	return run.RunID, nil

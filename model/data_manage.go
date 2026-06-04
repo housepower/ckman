@@ -150,6 +150,7 @@ const (
 	// Run skip / interrupt reasons
 	REASON_OVERLAP      = "overlap"
 	REASON_QUEUE_FULL   = "queue_full"
+	REASON_SHUTDOWN     = "shutdown" // ckman 停机窗口内被触发，Pool 已停止
 	REASON_DISABLED     = "disabled"
 	REASON_RESTART      = "ckman restart"
 	REASON_INST_CHANGED = "instance changed"
