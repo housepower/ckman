@@ -2604,6 +2604,63 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/data_manage/backup/table/{clusterName}/{database}/{table}/partitions/delete": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "按分区名删除备份台账记录,可选清理远端备份数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data_manage"
+                ],
+                "summary": "删除分区备份记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "database",
+                        "name": "database",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "table",
+                        "name": "table",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeletePartitionRecordsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":{\"removed_records\":2,\"deleted_runs\":1,\"warnings\":[]}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/deploy/ck": {
             "post": {
                 "security": [
@@ -4052,6 +4109,22 @@ var doc = `{
                 },
                 "table": {
                     "type": "string"
+                }
+            }
+        },
+        "model.DeletePartitionRecordsRequest": {
+            "type": "object",
+            "properties": {
+                "clean_remote": {
+                    "description": "是否同时清理远端备份数据(best-effort)",
+                    "type": "boolean"
+                },
+                "partitions": {
+                    "description": "分区名列表,必填",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

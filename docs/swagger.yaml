@@ -500,6 +500,17 @@ definitions:
       table:
         type: string
     type: object
+  model.DeletePartitionRecordsRequest:
+    properties:
+      clean_remote:
+        description: 是否同时清理远端备份数据(best-effort)
+        type: boolean
+      partitions:
+        description: 分区名列表,必填
+        items:
+          type: string
+        type: array
+    type: object
   model.Disk:
     properties:
       allowedBackup:
@@ -2525,6 +2536,43 @@ paths:
       summary: 获取物化视图状态
       tags:
       - clickhouse
+  /api/v1/data_manage/backup/table/{clusterName}/{database}/{table}/partitions/delete:
+    post:
+      consumes:
+      - application/json
+      description: 按分区名删除备份台账记录,可选清理远端备份数据
+      parameters:
+      - description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: database
+        in: path
+        name: database
+        required: true
+        type: string
+      - description: table
+        in: path
+        name: table
+        required: true
+        type: string
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.DeletePartitionRecordsRequest'
+      responses:
+        "200":
+          description: '{"retCode":"0000","retMsg":"ok","entity":{"removed_records":2,"deleted_runs":1,"warnings":[]}}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除分区备份记录
+      tags:
+      - data_manage
   /api/v1/deploy/ck:
     post:
       consumes:

@@ -264,6 +264,43 @@ func (c *DataManageController) ListRunsByPolicy(ctx *gin.Context) {
 	c.wrapfunc(ctx, model.E_SUCCESS, runs)
 }
 
+// DeletePartitionRecords POST /data_manage/backup/table/:cluster/:database/:table/partitions/delete
+// 按分区名删除该表 365 天内所有终态 run 中的分区记录(全历史,防老 success 复活),
+// 让这些分区脱离增量去重、下次备份重新备份;clean_remote 时顺带清理远端数据。
+// @Summary 删除分区备份记录
+// @Description 按分区名删除备份台账记录,可选清理远端备份数据
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags data_manage
+// @Accept  json
+// @Param clusterName path string true "cluster name"
+// @Param database path string true "database"
+// @Param table path string true "table"
+// @Param req body model.DeletePartitionRecordsRequest true "request body"
+// @Failure 200 {string} json "{"retCode":"5803","retMsg":"数据删除失败","entity":""}"
+// @Success 200 {string} json "{"retCode":"0000","retMsg":"ok","entity":{"removed_records":2,"deleted_runs":1,"warnings":[]}}"
+// @Router /api/v1/data_manage/backup/table/{clusterName}/{database}/{table}/partitions/delete [post]
+func (c *DataManageController) DeletePartitionRecords(ctx *gin.Context) {
+	cluster := ctx.Param(ClickHouseClusterPath)
+	database := ctx.Param("database")
+	table := ctx.Param("table")
+	var req model.DeletePartitionRecordsRequest
+	if err := model.DecodeRequestBody(ctx.Request, &req); err != nil {
+		c.wrapfunc(ctx, model.E_INVALID_PARAMS, err)
+		return
+	}
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	result, err := svc.DeletePartitionRecords(cluster, database, table, req.Partitions, req.CleanRemote)
+	if err != nil {
+		c.wrapfunc(ctx, model.E_DATA_DELETE_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, result)
+}
+
 // ListRunsByTable GET /data_manage/backup/table/:cluster/:database/:table/runs?days=
 func (c *DataManageController) ListRunsByTable(ctx *gin.Context) {
 	cluster := ctx.Param(ClickHouseClusterPath)

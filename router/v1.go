@@ -171,6 +171,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.DELETE("/data_manage/backup/run/:run_id", dataManageController.DeleteRun)
 	groupV1.GET("/data_manage/backup/policy/:policy_id/runs", dataManageController.ListRunsByPolicy)
 	groupV1.GET(fmt.Sprintf("/data_manage/backup/table/:%s/:database/:table/runs", controller.ClickHouseClusterPath), dataManageController.ListRunsByTable)
+	groupV1.POST(fmt.Sprintf("/data_manage/backup/table/:%s/:database/:table/partitions/delete", controller.ClickHouseClusterPath), dataManageController.DeletePartitionRecords)
 	groupV1.GET(fmt.Sprintf("/data_manage/disks/:%s", controller.ClickHouseClusterPath), dataManageController.GetClusterDisks)
 	groupV1.GET(fmt.Sprintf("/data_manage/tables/:%s/:database/summary", controller.ClickHouseClusterPath), dataManageController.GetTablePartitionSummary)
 
