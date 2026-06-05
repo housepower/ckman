@@ -102,14 +102,26 @@ func TestDeletePartitionRecords_RejectsQueuedInvisibleToTableQuery(t *testing.T)
 	}
 }
 
+// hostRecordingStorage 记录 CleanPartition 的 host+key 配对,验证 host 参数正确分发。
+type hostRecordingStorage struct {
+	fakeStorage
+	calls []string // "host|key"
+}
+
+func (h *hostRecordingStorage) CleanPartition(host, keyPrefix string) error {
+	h.calls = append(h.calls, host+"|"+keyPrefix)
+	return h.fakeStorage.CleanPartition(host, keyPrefix)
+}
+
 // cleanRemote=true 时按 run 的 policy 组装 storage,对全部副本 host 清 key。
 // 备份 key 含执行当时的 replica host 而 run 未记录,故全副本清理(幂等)。
+// hostRecordingStorage 额外验证 CleanPartition 收到的 host 参数与 key 尾段一致。
 func TestDeletePartitionRecords_CleanRemote(t *testing.T) {
 	repo := newMemRepo()
 	repo.policies["p1"] = model.BackupPolicy{PolicyID: "p1", TargetType: model.BACKUP_S3}
 	repo.runs["r1"] = mkRun("r1", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "ckA", "p1",
 		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
-	fs := &fakeStorage{}
+	fs := &hostRecordingStorage{}
 	s := NewService("self", repo, nil)
 	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
 		return []model.BackupRun{repo.runs["r1"]}, nil
@@ -138,6 +150,19 @@ func TestDeletePartitionRecords_CleanRemote(t *testing.T) {
 	for _, k := range fs.cleaned {
 		if !want[k] {
 			t.Fatalf("unexpected clean key %s", k)
+		}
+	}
+	// 验证 host 参数分发正确:key 尾段 host 与实际传参 host 必须一致。
+	wantCalls := map[string]bool{
+		"h1|ckA/20260604/dba.t1/h1": true,
+		"h2|ckA/20260604/dba.t1/h2": true,
+	}
+	if len(fs.calls) != 2 {
+		t.Fatalf("calls=%v", fs.calls)
+	}
+	for _, c := range fs.calls {
+		if !wantCalls[c] {
+			t.Fatalf("unexpected host|key call %s", c)
 		}
 	}
 }

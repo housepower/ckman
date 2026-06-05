@@ -125,10 +125,28 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 // cleanRemotePartitions best-effort 清理远端备份数据。备份 key 含执行当时的
 // replica host(JoinRunKey),而 run 未记录该 host,故对全部副本 host 逐一清理
 // (CleanPartition 对不存在的 key 是幂等 no-op)。任何失败只记 warning 不中断。
+//
+// 注意:Local 后端经 SSH 同步执行 rm,RemoteExecute 仅有连接超时(30s)而无
+// 命令级 deadline——主机可连但命令挂住(如 NFS 假死)时本调用会阻塞 HTTP 请求。
+// S3 后端为 server-side 删除,不受此影响。
+//
+// warning 数量上限 maxCleanWarnings(50):N item × M host 全失败时警告不膨胀;
+// 超限后额外失败只累计计数,返回前补一条汇总。DeletePartitionRecords 主循环里
+// 的 update/delete warning 不在此上限内(数量受 run 数约束且每条都重要)。
 func (s *Service) cleanRemotePartitions(cluster, database, table string, items []purgeCleanItem, result *DeletePartitionRecordsResult) {
+	const maxCleanWarnings = 50
+	suppressed := 0
+	warnf := func(format string, args ...interface{}) {
+		if len(result.Warnings) >= maxCleanWarnings {
+			suppressed++
+			return
+		}
+		result.Warnings = append(result.Warnings, fmt.Sprintf(format, args...))
+	}
+
 	cc, err := s.lookupCluster(cluster)
 	if err != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("get cluster %s: %v; remote data not cleaned", cluster, err))
+		warnf("get cluster %s: %v; remote data not cleaned", cluster, err)
 		return
 	}
 	var hosts []string
@@ -138,14 +156,14 @@ func (s *Service) cleanRemotePartitions(cluster, database, table string, items [
 		}
 	}
 	if len(hosts) == 0 {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("cluster %s has no hosts; remote data not cleaned", cluster))
+		warnf("cluster %s has no hosts; remote data not cleaned", cluster)
 		return
 	}
 	storages := map[string]BackupStorage{} // policyID → storage;装配失败记 nil,同 policy 不重试
 	for _, item := range items {
 		st, ok := storages[item.policyID]
 		if !ok {
-			st = s.assembleStorageForPurge(item.policyID, cc, result)
+			st = s.assembleStorageForPurge(item.policyID, cc, warnf)
 			storages[item.policyID] = st
 		}
 		if st == nil {
@@ -154,26 +172,30 @@ func (s *Service) cleanRemotePartitions(cluster, database, table string, items [
 		for _, h := range hosts {
 			key := storage.JoinRunKey(item.storagePrefix, item.partition, database, table, h)
 			if cerr := st.CleanPartition(h, key); cerr != nil {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("clean %s on %s: %v", key, h, cerr))
+				warnf("clean %s on %s: %v", key, h, cerr)
 			}
 		}
+	}
+	if suppressed > 0 {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("...and %d more clean warnings suppressed", suppressed))
 	}
 }
 
 // assembleStorageForPurge 按 policy 组装并初始化 storage;失败记 warning 返回 nil。
-func (s *Service) assembleStorageForPurge(policyID string, cc model.CKManClickHouseConfig, result *DeletePartitionRecordsResult) BackupStorage {
+// warnf 由调用方提供,支持 warning 数量上限控制。
+func (s *Service) assembleStorageForPurge(policyID string, cc model.CKManClickHouseConfig, warnf func(string, ...interface{})) BackupStorage {
 	policy, perr := s.repo.GetPolicy(policyID)
 	if perr != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("policy %s not found; its remote data not cleaned", policyID))
+		warnf("policy %s not found; its remote data not cleaned", policyID)
 		return nil
 	}
 	st := s.makeStorage(policy, cc)
 	if st == nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("policy %s: unsupported target %q; remote data not cleaned", policyID, policy.TargetType))
+		warnf("policy %s: unsupported target %q; remote data not cleaned", policyID, policy.TargetType)
 		return nil
 	}
 	if ierr := st.Init(); ierr != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("policy %s: storage init: %v; remote data not cleaned", policyID, ierr))
+		warnf("policy %s: storage init: %v; remote data not cleaned", policyID, ierr)
 		return nil
 	}
 	return st
