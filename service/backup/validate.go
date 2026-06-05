@@ -96,8 +96,18 @@ func validateDailyRange(scheduleType, backupStyle, backupType, startDate, rangeS
 		return errors.New("daily backup requires days_before > 0")
 	}
 	if startDate != "" {
-		if _, err := parseYYYYMMDD("start_date", startDate); err != nil {
+		start, err := parseYYYYMMDD("start_date", startDate)
+		if err != nil {
 			return err
+		}
+		// 立即备份:窗口 [start_date, 今天−days_before] 反转时本次必然空跑,直接拒绝。
+		// 定时备份不拦——「从未来某天开始备份」是合法语义,空窗期 run 会标 skipped。
+		if scheduleType != "scheduled" {
+			windowEnd := time.Now().AddDate(0, 0, -endDaysBefore).Format("20060102")
+			if start.Format("20060102") > windowEnd {
+				return fmt.Errorf("immediate daily backup window is empty: start_date %s is after today-%dd (%s)",
+					startDate, endDaysBefore, windowEnd)
+			}
 		}
 	}
 	return nil

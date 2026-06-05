@@ -3,6 +3,7 @@ package backup
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestValidateLocalPath(t *testing.T) {
@@ -74,5 +75,29 @@ func TestValidateCrontabMinInterval(t *testing.T) {
 	}
 	if err := ValidateCrontabMinInterval("0 * * * * *"); err == nil {
 		t.Error("6-field every-minute should reject")
+	}
+}
+
+// 立即备份 + 滚动窗口反转(start_date > 今天−days_before)时本次必然空跑,应直接拒绝;
+// 定时备份不拦:「从未来某天开始备份」合法,空窗期会被标 skipped(no_partitions)。
+func TestValidateDailyRange_ImmediateInvertedWindow(t *testing.T) {
+	today := time.Now().Format("20060102")
+	yesterday := time.Now().AddDate(0, 0, -1).Format("20060102")
+
+	// 窗口 [今天, 昨天] 反转 → 拒绝
+	if err := validateDailyRange("immediate", "incremental", "daily", today, "", "", 1); err == nil {
+		t.Fatal("expected inverted window rejection for immediate")
+	}
+	// 窗口 [昨天, 昨天] 恰好一个分区 → 放行(回归:闭区间临界值)
+	if err := validateDailyRange("immediate", "incremental", "daily", yesterday, "", "", 1); err != nil {
+		t.Fatalf("boundary date should pass: %v", err)
+	}
+	// 定时备份未来 start_date → 放行
+	if err := validateDailyRange("scheduled", "incremental", "daily", today, "", "", 1); err != nil {
+		t.Fatalf("scheduled future start_date should pass: %v", err)
+	}
+	// start_date 为空 → 放行(回归)
+	if err := validateDailyRange("immediate", "incremental", "daily", "", "", "", 1); err != nil {
+		t.Fatalf("empty start_date should pass: %v", err)
 	}
 }
