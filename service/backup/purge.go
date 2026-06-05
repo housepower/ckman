@@ -136,7 +136,7 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 func (s *Service) cleanRemotePartitions(cluster, database, table string, items []purgeCleanItem, result *DeletePartitionRecordsResult) {
 	const maxCleanWarnings = 50
 	suppressed := 0
-	warnf := func(format string, args ...interface{}) {
+	warnf := func(format string, args ...any) {
 		if len(result.Warnings) >= maxCleanWarnings {
 			suppressed++
 			return
@@ -183,7 +183,7 @@ func (s *Service) cleanRemotePartitions(cluster, database, table string, items [
 
 // assembleStorageForPurge 按 policy 组装并初始化 storage;失败记 warning 返回 nil。
 // warnf 由调用方提供,支持 warning 数量上限控制。
-func (s *Service) assembleStorageForPurge(policyID string, cc model.CKManClickHouseConfig, warnf func(string, ...interface{})) BackupStorage {
+func (s *Service) assembleStorageForPurge(policyID string, cc model.CKManClickHouseConfig, warnf func(string, ...any)) BackupStorage {
 	policy, perr := s.repo.GetPolicy(policyID)
 	if perr != nil {
 		warnf("policy %s not found; its remote data not cleaned", policyID)
