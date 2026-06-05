@@ -35,6 +35,11 @@ type Service struct {
 	repo ServiceRepo
 	pool ServicePool
 	now  func() time.Time
+
+	// DeletePartitionRecords 的可注入依赖(测试用;nil 时走生产默认,见 purge.go)
+	getRunsByTable   func(cluster, db, table string, days int) ([]model.BackupRun, error)
+	getClusterByName func(name string) (model.CKManClickHouseConfig, error)
+	storageFactory   func(policy model.BackupPolicy, cc model.CKManClickHouseConfig) BackupStorage
 }
 
 func NewService(self string, repo ServiceRepo, pool ServicePool) *Service {
