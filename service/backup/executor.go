@@ -90,6 +90,11 @@ func (e *Executor) Run(ctx context.Context, runID string) error {
 	}
 	defer e.closeConns()
 	r, _ := e.repo.GetRun(runID)
+	// 空分区:窗口内无分区 / 全部已去重 → skipped(no_partitions),不进任何阶段,
+	// 避免产生「success + 0 分区」的误导记录(无法与真备份成功区分)。
+	if r.Operation == model.OP_BACKUP && len(r.Partitions) == 0 {
+		return e.markSkippedNoPartitions(runID)
+	}
 	st := e.resolveStages()
 	if r.Operation == model.OP_BACKUP {
 		if err := st.Prepare(ctx, e, runID); err != nil {
@@ -326,6 +331,20 @@ func (e *Executor) markSuccess(runID string) error {
 		return err
 	}
 	r.Status = model.BACKUP_STATUS_SUCCESS
+	r.FinishedAt = e.clock()
+	r.Elapsed = int(r.FinishedAt.Sub(r.StartedAt).Seconds())
+	return e.repo.UpdateRun(r)
+}
+
+// markSkippedNoPartitions 把无分区可备份的 run 收口为 skipped 终态。
+// 不是错误:表没新数据/窗口暂时为空是正常情形,返回 nil 让 worker 正常收尾。
+func (e *Executor) markSkippedNoPartitions(runID string) error {
+	r, err := e.repo.GetRun(runID)
+	if err != nil {
+		return err
+	}
+	r.Status = model.BACKUP_STATUS_SKIPPED
+	r.StatusReason = model.REASON_NO_PARTITIONS
 	r.FinishedAt = e.clock()
 	r.Elapsed = int(r.FinishedAt.Sub(r.StartedAt).Seconds())
 	return e.repo.UpdateRun(r)

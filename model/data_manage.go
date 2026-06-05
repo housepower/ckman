@@ -153,7 +153,8 @@ const (
 	REASON_SHUTDOWN     = "shutdown" // ckman 停机窗口内被触发，Pool 已停止
 	REASON_DISABLED     = "disabled"
 	REASON_RESTART      = "ckman restart"
-	REASON_INST_CHANGED = "instance changed"
+	REASON_INST_CHANGED  = "instance changed"
+	REASON_NO_PARTITIONS = "no_partitions" // 本次 run 无分区可备份(窗口空/全部已去重)
 )
 
 type BackupPolicy struct {

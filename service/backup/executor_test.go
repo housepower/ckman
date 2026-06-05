@@ -841,6 +841,73 @@ func TestResolveDailyPartitionRange_AnchoredToTriggerTime(t *testing.T) {
 	}
 }
 
+// recordingStages 记录各阶段调用,用于断言空分区 run 不进入任何阶段。
+type recordingStages struct{ called []string }
+
+func (s *recordingStages) Prepare(context.Context, *Executor, string) error {
+	s.called = append(s.called, "prepare")
+	return nil
+}
+func (s *recordingStages) Backup(context.Context, *Executor, string) error {
+	s.called = append(s.called, "backup")
+	return nil
+}
+func (s *recordingStages) Restore(context.Context, *Executor, string) error {
+	s.called = append(s.called, "restore")
+	return nil
+}
+func (s *recordingStages) Check(context.Context, *Executor, string) error {
+	s.called = append(s.called, "check")
+	return nil
+}
+func (s *recordingStages) Close(context.Context, *Executor, string) error {
+	s.called = append(s.called, "close")
+	return nil
+}
+
+// 窗口反转/无新分区时 run 应标 skipped + no_partitions,不进任何 stage,
+// 不能像现在一样空跑后假装 success(与真备份成功无法区分)。
+func TestExecutor_Run_EmptyPartitions_SkippedNoPartitions(t *testing.T) {
+	repo := newFakeExecRepo(model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		BackupStyle: model.BACKUP_STYLE_INCR,
+		BackupType:  model.BACKUP_TYPE_DAILY_PARTITION,
+		StartDate:   "20260604", DaysBefore: 1,
+	})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP,
+		Status:     model.BACKUP_STATUS_RUNNING,
+		CreateTime: time.Date(2026, 6, 4, 1, 0, 0, 0, time.Local), // 当天触发,窗口反转
+	}
+	st := &recordingStages{}
+	e := &Executor{
+		repo:   repo,
+		stages: st,
+		connFactory: func(string) ([]*shardConn, error) {
+			return []*shardConn{newFakeShardConn("h1")}, nil
+		},
+		listPartitions: func(_ *shardConn, db, table, from, to string) ([]string, error) {
+			return nil, nil // 反转窗口扫不到任何分区
+		},
+	}
+	if err := e.Run(context.Background(), "r1"); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	rn, _ := repo.GetRun("r1")
+	if rn.Status != model.BACKUP_STATUS_SKIPPED {
+		t.Fatalf("expected skipped, got %s", rn.Status)
+	}
+	if rn.StatusReason != model.REASON_NO_PARTITIONS {
+		t.Fatalf("expected no_partitions, got %q", rn.StatusReason)
+	}
+	if rn.FinishedAt.IsZero() {
+		t.Fatal("FinishedAt not set")
+	}
+	if len(st.called) != 0 {
+		t.Fatalf("stages should not run for empty-partition run, got %v", st.called)
+	}
+}
+
 // ── Check 阶段：校验失败分区回写 failed ───────────────────────────────────────
 
 func TestRealStages_Check_FailedPartitionMarkedFailed(t *testing.T) {
