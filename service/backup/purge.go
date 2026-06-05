@@ -6,6 +6,7 @@ import (
 
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
+	"github.com/housepower/ckman/service/backup/storage"
 )
 
 // DeletePartitionRecordsResult 删除分区备份记录的执行结果。
@@ -121,8 +122,61 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 	return result, nil
 }
 
-// cleanRemotePartitions best-effort 清理远端备份数据(Task 5 完整实现)。
+// cleanRemotePartitions best-effort 清理远端备份数据。备份 key 含执行当时的
+// replica host(JoinRunKey),而 run 未记录该 host,故对全部副本 host 逐一清理
+// (CleanPartition 对不存在的 key 是幂等 no-op)。任何失败只记 warning 不中断。
 func (s *Service) cleanRemotePartitions(cluster, database, table string, items []purgeCleanItem, result *DeletePartitionRecordsResult) {
+	cc, err := s.lookupCluster(cluster)
+	if err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("get cluster %s: %v; remote data not cleaned", cluster, err))
+		return
+	}
+	var hosts []string
+	for _, shard := range cc.Shards {
+		for _, rep := range shard.Replicas {
+			hosts = append(hosts, rep.Ip)
+		}
+	}
+	if len(hosts) == 0 {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("cluster %s has no hosts; remote data not cleaned", cluster))
+		return
+	}
+	storages := map[string]BackupStorage{} // policyID → storage;装配失败记 nil,同 policy 不重试
+	for _, item := range items {
+		st, ok := storages[item.policyID]
+		if !ok {
+			st = s.assembleStorageForPurge(item.policyID, cc, result)
+			storages[item.policyID] = st
+		}
+		if st == nil {
+			continue
+		}
+		for _, h := range hosts {
+			key := storage.JoinRunKey(item.storagePrefix, item.partition, database, table, h)
+			if cerr := st.CleanPartition(h, key); cerr != nil {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("clean %s on %s: %v", key, h, cerr))
+			}
+		}
+	}
+}
+
+// assembleStorageForPurge 按 policy 组装并初始化 storage;失败记 warning 返回 nil。
+func (s *Service) assembleStorageForPurge(policyID string, cc model.CKManClickHouseConfig, result *DeletePartitionRecordsResult) BackupStorage {
+	policy, perr := s.repo.GetPolicy(policyID)
+	if perr != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("policy %s not found; its remote data not cleaned", policyID))
+		return nil
+	}
+	st := s.makeStorage(policy, cc)
+	if st == nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("policy %s: unsupported target %q; remote data not cleaned", policyID, policy.TargetType))
+		return nil
+	}
+	if ierr := st.Init(); ierr != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("policy %s: storage init: %v; remote data not cleaned", policyID, ierr))
+		return nil
+	}
+	return st
 }
 
 // ── 可注入依赖(测试注入 fake;nil 时走生产默认) ────────────────────────

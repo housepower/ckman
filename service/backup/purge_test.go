@@ -102,6 +102,109 @@ func TestDeletePartitionRecords_RejectsQueuedInvisibleToTableQuery(t *testing.T)
 	}
 }
 
+// cleanRemote=true 时按 run 的 policy 组装 storage,对全部副本 host 清 key。
+// 备份 key 含执行当时的 replica host 而 run 未记录,故全副本清理(幂等)。
+func TestDeletePartitionRecords_CleanRemote(t *testing.T) {
+	repo := newMemRepo()
+	repo.policies["p1"] = model.BackupPolicy{PolicyID: "p1", TargetType: model.BACKUP_S3}
+	repo.runs["r1"] = mkRun("r1", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "ckA", "p1",
+		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
+	fs := &fakeStorage{}
+	s := NewService("self", repo, nil)
+	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
+		return []model.BackupRun{repo.runs["r1"]}, nil
+	}
+	s.getClusterByName = func(name string) (model.CKManClickHouseConfig, error) {
+		return model.CKManClickHouseConfig{Shards: []model.CkShard{
+			{Replicas: []model.CkReplica{{Ip: "h1"}, {Ip: "h2"}}},
+		}}, nil
+	}
+	s.storageFactory = func(policy model.BackupPolicy, cc model.CKManClickHouseConfig) BackupStorage { return fs }
+
+	res, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, true)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(res.Warnings) != 0 {
+		t.Fatalf("unexpected warnings: %v", res.Warnings)
+	}
+	want := map[string]bool{
+		"ckA/20260604/dba.t1/h1": true,
+		"ckA/20260604/dba.t1/h2": true,
+	}
+	if len(fs.cleaned) != 2 {
+		t.Fatalf("cleaned=%v", fs.cleaned)
+	}
+	for _, k := range fs.cleaned {
+		if !want[k] {
+			t.Fatalf("unexpected clean key %s", k)
+		}
+	}
+}
+
+// 清理失败只记 warning,记录照删(下次重备 Prepare 还会再清一遍,有兜底)。
+func TestDeletePartitionRecords_CleanFailureStillRemovesRecords(t *testing.T) {
+	repo := newMemRepo()
+	repo.policies["p1"] = model.BackupPolicy{PolicyID: "p1", TargetType: model.BACKUP_S3}
+	repo.runs["r1"] = mkRun("r1", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "", "p1",
+		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
+	fs := &fakeStorage{cleanErr: errors.New("s3 down")}
+	s := NewService("self", repo, nil)
+	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
+		return []model.BackupRun{repo.runs["r1"]}, nil
+	}
+	s.getClusterByName = func(name string) (model.CKManClickHouseConfig, error) {
+		return model.CKManClickHouseConfig{Shards: []model.CkShard{
+			{Replicas: []model.CkReplica{{Ip: "h1"}}},
+		}}, nil
+	}
+	s.storageFactory = func(policy model.BackupPolicy, cc model.CKManClickHouseConfig) BackupStorage { return fs }
+
+	res, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, true)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(res.Warnings) == 0 {
+		t.Fatal("expected clean warnings")
+	}
+	if _, ok := repo.runs["r1"]; ok {
+		t.Fatal("records should be removed despite clean failure")
+	}
+}
+
+// policy 不存在(migrated 老 run):记录照删,远端清理跳过并告警。
+func TestDeletePartitionRecords_PolicyMissingWarns(t *testing.T) {
+	repo := newMemRepo() // 不注册 p1
+	repo.runs["r1"] = mkRun("r1", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "", "p1",
+		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
+	s := NewService("self", repo, nil)
+	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
+		return []model.BackupRun{repo.runs["r1"]}, nil
+	}
+	s.getClusterByName = func(name string) (model.CKManClickHouseConfig, error) {
+		return model.CKManClickHouseConfig{Shards: []model.CkShard{
+			{Replicas: []model.CkReplica{{Ip: "h1"}}},
+		}}, nil
+	}
+
+	res, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, true)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	found := false
+	for _, w := range res.Warnings {
+		if strings.Contains(w, "policy") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected policy-missing warning, got %v", res.Warnings)
+	}
+	if _, ok := repo.runs["r1"]; ok {
+		t.Fatal("records should be removed despite missing policy")
+	}
+}
+
 type failingDeleteRepo struct {
 	*memRepo
 	failDelete bool
