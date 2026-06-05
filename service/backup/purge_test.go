@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -79,5 +80,57 @@ func TestDeletePartitionRecords_InvalidInput(t *testing.T) {
 	}
 	if _, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"2026'; DROP"}, false); err == nil {
 		t.Fatal("invalid identifier should be rejected")
+	}
+}
+
+// queued run 的 StartedAt 为零值,GetRunsByTable(按 started_at 过滤)看不见它;
+// 守卫必须额外走 InFlightRunsByCluster,否则 worker 领取后 UpdateRun 会写回已删条目。
+func TestDeletePartitionRecords_RejectsQueuedInvisibleToTableQuery(t *testing.T) {
+	repo := newMemRepo()
+	// queued run 只进 repo(可被 InFlightRunsByCluster 看到),不出现在 getRunsByTable 注入结果里
+	repo.runs["rq"] = mkRun("rq", model.BACKUP_STATUS_QUEUED, model.OP_BACKUP, "", "p1",
+		pt("20260604", model.BACKUP_PARTITION_STATUS_WAITING))
+	repo.runs["r1"] = mkRun("r1", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "", "p1",
+		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
+	s := NewService("self", repo, nil)
+	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
+		return []model.BackupRun{repo.runs["r1"]}, nil // 模拟 started_at 过滤:看不见 rq
+	}
+	_, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, false)
+	if err == nil || !strings.Contains(err.Error(), "in-flight") {
+		t.Fatalf("expected queued-run rejection, got %v", err)
+	}
+}
+
+type failingDeleteRepo struct {
+	*memRepo
+	failDelete bool
+}
+
+func (r *failingDeleteRepo) DeleteRun(id string) error {
+	if r.failDelete {
+		return errors.New("disk full")
+	}
+	return r.memRepo.DeleteRun(id)
+}
+
+// DeleteRun 失败时该 run 的条目并没有真正删除,RemovedRecords 不得虚报。
+func TestDeletePartitionRecords_DeleteFailureNotCounted(t *testing.T) {
+	repo := &failingDeleteRepo{memRepo: newMemRepo(), failDelete: true}
+	repo.runs["r1"] = mkRun("r1", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "", "p1",
+		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
+	s := NewService("self", repo, nil)
+	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
+		return []model.BackupRun{repo.runs["r1"]}, nil
+	}
+	res, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, false)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if res.RemovedRecords != 0 || res.DeletedRuns != 0 {
+		t.Fatalf("counts must reflect actual deletions: %+v", res)
+	}
+	if len(res.Warnings) == 0 {
+		t.Fatal("expected warning")
 	}
 }

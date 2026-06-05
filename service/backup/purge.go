@@ -57,10 +57,18 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 	if err != nil {
 		return result, fmt.Errorf("list runs: %w", err)
 	}
-	// 守卫:有未结束 run 时拒绝——Executor 持有 run 副本,并发 UpdateRun
-	// 会把删掉的条目原样写回(竞态)。
+	// 守卫(1):GetRunsByTable 返回的 run 中检查终态。
+	// Executor 持有 run 副本,并发 UpdateRun 会把删掉的条目原样写回(竞态)。
 	for _, r := range runs {
 		if !isTerminalRunStatus(r.Status) {
+			return result, fmt.Errorf("table %s.%s has in-flight run %s (status=%s), retry later",
+				database, table, r.RunID, r.Status)
+		}
+	}
+	// 守卫(2):queued run 的 StartedAt 为零值,被 GetRunsByTable 的 started_at
+	// 过滤排除,上面的扫描看不见它——用 in-flight 专用查询补一刀。
+	for _, r := range s.repo.InFlightRunsByCluster(cluster) {
+		if r.Database == database && r.Table == table {
 			return result, fmt.Errorf("table %s.%s has in-flight run %s (status=%s), retry later",
 				database, table, r.RunID, r.Status)
 		}
@@ -90,11 +98,11 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 		if removed == 0 {
 			continue
 		}
-		result.RemovedRecords += removed
 		if len(kept) == 0 {
 			if derr := s.repo.DeleteRun(r.RunID); derr != nil {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("delete empty run %s: %v", r.RunID, derr))
 			} else {
+				result.RemovedRecords += removed
 				result.DeletedRuns++
 			}
 			continue
@@ -102,6 +110,8 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 		r.Partitions = kept
 		if uerr := s.repo.UpdateRun(r); uerr != nil {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("update run %s: %v", r.RunID, uerr))
+		} else {
+			result.RemovedRecords += removed
 		}
 	}
 
