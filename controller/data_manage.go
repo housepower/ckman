@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/backup"
 )
@@ -293,11 +294,16 @@ func (c *DataManageController) DeletePartitionRecords(ctx *gin.Context) {
 	if svc == nil {
 		return
 	}
+	user := ctx.GetString("username")
+	log.Logger.Infof("[audit] DeletePartitionRecords: user=%s cluster=%s database=%s table=%s partitions=%v clean_remote=%v",
+		user, cluster, database, table, req.Partitions, req.CleanRemote)
 	result, err := svc.DeletePartitionRecords(cluster, database, table, req.Partitions, req.CleanRemote)
 	if err != nil {
 		c.wrapfunc(ctx, model.E_DATA_DELETE_FAILED, err)
 		return
 	}
+	log.Logger.Infof("[audit] DeletePartitionRecords done: user=%s cluster=%s database=%s table=%s removed=%d deleted_runs=%d warnings=%d",
+		user, cluster, database, table, result.RemovedRecords, result.DeletedRuns, len(result.Warnings))
 	c.wrapfunc(ctx, model.E_SUCCESS, result)
 }
 
