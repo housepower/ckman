@@ -8,7 +8,8 @@ func TestIsDailyCompatible(t *testing.T) {
 		want bool
 	}{
 		{"toYYYYMMDD(event_time)", true},
-		{"toDate(event_time)", true},
+		// toDate 分区值是 '2026-06-04'(带横线),与扫描 SQL 的 YYYYMMDD 字符串比较永不匹配
+		{"toDate(event_time)", false},
 		{"formatDateTime(event_time, '%Y%m%d')", true},
 		{"toYYYYMM(event_time)", false},
 		{"toStartOfHour(event_time)", false},
@@ -17,7 +18,7 @@ func TestIsDailyCompatible(t *testing.T) {
 		{"", false},
 		// 大小写不敏感
 		{"TOYYYYMMDD(event_time)", true},
-		{"todate(t)", true},
+		{"todate(t)", false},
 	}
 	for _, c := range cases {
 		got := IsDailyCompatible(c.key)
@@ -33,7 +34,7 @@ func TestPartitionFmt(t *testing.T) {
 		want string
 	}{
 		{"toYYYYMMDD(event_time)", "day"},
-		{"toDate(t)", "day"},
+		{"toDate(t)", "custom"},
 		{"toYYYYMM(t)", "month"},
 		{"toStartOfHour(t)", "hour"},
 		{"region", "custom"},
