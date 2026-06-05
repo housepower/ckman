@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/backup/bvalidate"
 	"github.com/robfig/cron/v3"
 )
@@ -72,7 +73,7 @@ func validateDailyRange(scheduleType, backupStyle, backupType, startDate, rangeS
 
 	hasFixedRange := rangeStartDate != "" || rangeEndDate != ""
 	if hasFixedRange {
-		if scheduleType == "scheduled" {
+		if scheduleType == model.BACKUP_SCHEDULED {
 			return errors.New("daily fixed range backup only supports immediate schedule_type")
 		}
 		if rangeStartDate == "" || rangeEndDate == "" {
@@ -102,7 +103,7 @@ func validateDailyRange(scheduleType, backupStyle, backupType, startDate, rangeS
 		}
 		// 立即备份:窗口 [start_date, 今天−days_before] 反转时本次必然空跑,直接拒绝。
 		// 定时备份不拦——「从未来某天开始备份」是合法语义,空窗期 run 会标 skipped。
-		if scheduleType != "scheduled" {
+		if scheduleType != model.BACKUP_SCHEDULED {
 			windowEnd := time.Now().AddDate(0, 0, -endDaysBefore).Format("20060102")
 			if start.Format("20060102") > windowEnd {
 				return fmt.Errorf("immediate daily backup window is empty: start_date %s is after today-%dd (%s)",

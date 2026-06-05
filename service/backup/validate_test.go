@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/housepower/ckman/model"
 )
 
 func TestValidateLocalPath(t *testing.T) {
@@ -85,19 +87,19 @@ func TestValidateDailyRange_ImmediateInvertedWindow(t *testing.T) {
 	yesterday := time.Now().AddDate(0, 0, -1).Format("20060102")
 
 	// 窗口 [今天, 昨天] 反转 → 拒绝
-	if err := validateDailyRange("immediate", "incremental", "daily", today, "", "", 1); err == nil {
+	if err := validateDailyRange(model.BACKUP_IMMEDIATE, "incremental", "daily", today, "", "", 1); err == nil {
 		t.Fatal("expected inverted window rejection for immediate")
 	}
 	// 窗口 [昨天, 昨天] 恰好一个分区 → 放行(回归:闭区间临界值)
-	if err := validateDailyRange("immediate", "incremental", "daily", yesterday, "", "", 1); err != nil {
+	if err := validateDailyRange(model.BACKUP_IMMEDIATE, "incremental", "daily", yesterday, "", "", 1); err != nil {
 		t.Fatalf("boundary date should pass: %v", err)
 	}
 	// 定时备份未来 start_date → 放行
-	if err := validateDailyRange("scheduled", "incremental", "daily", today, "", "", 1); err != nil {
+	if err := validateDailyRange(model.BACKUP_SCHEDULED, "incremental", "daily", today, "", "", 1); err != nil {
 		t.Fatalf("scheduled future start_date should pass: %v", err)
 	}
 	// start_date 为空 → 放行(回归)
-	if err := validateDailyRange("immediate", "incremental", "daily", "", "", "", 1); err != nil {
+	if err := validateDailyRange(model.BACKUP_IMMEDIATE, "incremental", "daily", "", "", "", 1); err != nil {
 		t.Fatalf("empty start_date should pass: %v", err)
 	}
 }
