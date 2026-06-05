@@ -19,6 +19,8 @@ func TestIsDailyCompatible(t *testing.T) {
 		// 大小写不敏感
 		{"TOYYYYMMDD(event_time)", true},
 		{"todate(t)", false},
+		// toDate32 与 toDate 同语义(分区值带横线),同样不兼容
+		{"toDate32(event_time)", false},
 	}
 	for _, c := range cases {
 		got := IsDailyCompatible(c.key)
@@ -35,6 +37,7 @@ func TestPartitionFmt(t *testing.T) {
 	}{
 		{"toYYYYMMDD(event_time)", "day"},
 		{"toDate(t)", "custom"},
+		{"toDate32(t)", "custom"},
 		{"toYYYYMM(t)", "month"},
 		{"toStartOfHour(t)", "hour"},
 		{"region", "custom"},
