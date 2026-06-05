@@ -89,7 +89,10 @@ func (e *Executor) Run(ctx context.Context, runID string) error {
 		return e.markFailed(runID, "init: "+err.Error())
 	}
 	defer e.closeConns()
-	r, _ := e.repo.GetRun(runID)
+	r, err := e.repo.GetRun(runID)
+	if err != nil {
+		return e.markFailed(runID, "post-init get run: "+err.Error())
+	}
 	// 空分区:窗口内无分区 / 全部已去重 → skipped(no_partitions),不进任何阶段,
 	// 避免产生「success + 0 分区」的误导记录(无法与真备份成功区分)。
 	if r.Operation == model.OP_BACKUP && len(r.Partitions) == 0 {
