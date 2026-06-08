@@ -262,3 +262,32 @@ func TestDeletePartitionRecords_DeleteFailureNotCounted(t *testing.T) {
 		t.Fatal("expected warning")
 	}
 }
+
+// restore run 记录的是恢复操作,不参与备份去重(successfulPartitionsFromRuns 跳过它),
+// 其分区条目是恢复台账;删除分区备份记录只针对 backup,不得抹掉 restore 历史。
+func TestDeletePartitionRecords_PreservesRestoreRuns(t *testing.T) {
+	repo := newMemRepo()
+	repo.runs["rb"] = mkRun("rb", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "", "p1",
+		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
+	repo.runs["rr"] = mkRun("rr", model.BACKUP_STATUS_SUCCESS, model.OP_RESTORE, "", "p1",
+		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
+	s := NewService("self", repo, nil)
+	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
+		return []model.BackupRun{repo.runs["rb"], repo.runs["rr"]}, nil
+	}
+	res, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, false)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	// 只删 backup 那 1 条;restore run 必须原样保留
+	if res.RemovedRecords != 1 {
+		t.Fatalf("expected 1 removed (backup only), got %d", res.RemovedRecords)
+	}
+	rr, ok := repo.runs["rr"]
+	if !ok || len(rr.Partitions) != 1 || rr.Partitions[0].Partition != "20260604" {
+		t.Fatalf("restore run must be preserved intact, got %+v", repo.runs["rr"])
+	}
+	if _, ok := repo.runs["rb"]; ok {
+		t.Fatal("backup run should be deleted (emptied)")
+	}
+}

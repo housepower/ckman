@@ -80,6 +80,11 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 	seenClean := map[string]bool{}
 
 	for _, r := range runs {
+		// restore run 记录的是恢复操作,不参与备份去重(successfulPartitionsFromRuns
+		// 跳过它),其分区条目是恢复台账;删除分区备份记录只针对 backup,不动 restore。
+		if r.Operation == model.OP_RESTORE {
+			continue
+		}
 		kept := make([]model.BackupRunPartition, 0, len(r.Partitions))
 		removed := 0
 		for _, p := range r.Partitions {
@@ -88,12 +93,10 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 				continue
 			}
 			removed++
-			if r.Operation != model.OP_RESTORE { // restore 记录没有对应的远端备份数据
-				k := r.PolicyID + "|" + r.StoragePrefix + "|" + p.Partition
-				if !seenClean[k] {
-					seenClean[k] = true
-					cleanItems = append(cleanItems, purgeCleanItem{r.PolicyID, r.StoragePrefix, p.Partition})
-				}
+			k := r.PolicyID + "|" + r.StoragePrefix + "|" + p.Partition
+			if !seenClean[k] {
+				seenClean[k] = true
+				cleanItems = append(cleanItems, purgeCleanItem{r.PolicyID, r.StoragePrefix, p.Partition})
 			}
 		}
 		if removed == 0 {
