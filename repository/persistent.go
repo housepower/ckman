@@ -94,6 +94,8 @@ type PersistentBackupRunService interface {
 	DeleteBackupRun(runID string) error
 	GetBackupRun(runID string) (model.BackupRun, error)
 	GetRunsByPolicy(policyID string, limit int, before time.Time) ([]model.BackupRun, error)
+	// GetRunsByTable returns runs for the given table filtered by sinceDays.
+	// sinceDays <= 0 means no time limit — returns the full history of runs for this table.
 	GetRunsByTable(cluster, database, table string, sinceDays int) ([]model.BackupRun, error)
 	GetRunsInFlightByPolicy(policyID string) ([]model.BackupRun, error)
 	GetRunsInFlightByInstance(instance string) ([]model.BackupRun, error)

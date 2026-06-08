@@ -740,3 +740,31 @@ func TestCreateAfterDeleteAllowsReuse(t *testing.T) {
 		t.Fatalf("expected enabled=false")
 	}
 }
+
+func TestSQLite_GetRunsByTable_UnlimitedWindow(t *testing.T) {
+	sp := newTestSP(t)
+	now := time.Now()
+	// 一条 30 天前、一条 400 天前(超出任何 365 窗口)
+	recent := model.BackupRun{RunID: "rr", PolicyID: "p1", ClusterName: "ck1",
+		Database: "db", Table: "t", Status: model.BACKUP_STATUS_SUCCESS, StartedAt: now.AddDate(0, 0, -30)}
+	old := model.BackupRun{RunID: "ro", PolicyID: "p1", ClusterName: "ck1",
+		Database: "db", Table: "t", Status: model.BACKUP_STATUS_SUCCESS, StartedAt: now.AddDate(0, 0, -400)}
+	if err := sp.CreateBackupRun(recent); err != nil {
+		t.Fatal(err)
+	}
+	if err := sp.CreateBackupRun(old); err != nil {
+		t.Fatal(err)
+	}
+	// 365 天窗口只看到近的
+	in365, _ := sp.GetRunsByTable("ck1", "db", "t", 365)
+	if len(in365) != 1 || in365[0].RunID != "rr" {
+		t.Fatalf("sinceDays=365 should return only recent, got %+v", in365)
+	}
+	// sinceDays<=0 看到全部(含 400 天前)
+	for _, d := range []int{0, -1} {
+		all, _ := sp.GetRunsByTable("ck1", "db", "t", d)
+		if len(all) != 2 {
+			t.Fatalf("sinceDays=%d should return all history, got %d", d, len(all))
+		}
+	}
+}

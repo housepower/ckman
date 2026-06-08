@@ -189,12 +189,14 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// GetLastRunPartitions 从持久层查 365 天内同表已成功备份的 partitions，
+// GetLastRunPartitions 从持久层查全部历史同表已成功备份的 partitions，
 // 调用方用它做增量去重。判定是分区级而非 run 级（见 successfulPartitionsFromRuns）；
 // 不能只取最近一次 run，否则当前 run 不再记录历史 success 后，下一轮会丢失
 // 更早的去重历史。
+// 若窗口有限（如原 365 天），备份记录滚出窗口后老分区会被定时备份周期性重复备份，
+// 故取全部历史（sinceDays=0）：删记录成为唯一让分区重新备份的开关。
 func (a *ClickHouseAdapter) GetLastRunPartitions(cluster, db, table string) ([]model.BackupRunPartition, error) {
-	runs, err := repository.Ps.GetRunsByTable(cluster, db, table, 365)
+	runs, err := repository.Ps.GetRunsByTable(cluster, db, table, 0)
 	if err != nil {
 		return nil, err
 	}

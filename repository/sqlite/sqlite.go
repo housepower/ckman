@@ -798,12 +798,12 @@ func (sp *SQLitePersistent) GetRunsByPolicy(policyID string, limit int, before t
 }
 
 func (sp *SQLitePersistent) GetRunsByTable(cluster, database, table string, sinceDays int) ([]model.BackupRun, error) {
-	cutoff := time.Now().AddDate(0, 0, -sinceDays)
+	q := sp.Client.Where("cluster_name = ? AND database_name = ? AND table_name = ?", cluster, database, table)
+	if sinceDays > 0 {
+		q = q.Where("started_at > ?", time.Now().AddDate(0, 0, -sinceDays))
+	}
 	var tbls []TblBackupRun
-	if err := sp.Client.Where(
-		"cluster_name = ? AND database_name = ? AND table_name = ? AND started_at > ?",
-		cluster, database, table, cutoff,
-	).Order("started_at DESC").Find(&tbls).Error; err != nil {
+	if err := q.Order("started_at DESC").Find(&tbls).Error; err != nil {
 		return nil, wrapError(err)
 	}
 	return decodeBackupRuns(tbls)

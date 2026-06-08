@@ -33,7 +33,7 @@ func isTerminalRunStatus(status string) bool {
 	return false
 }
 
-// DeletePartitionRecords 按分区名删除该表 365 天内所有终态 run 中的分区条目,
+// DeletePartitionRecords 按分区名删除该表全部历史所有终态 run 中的分区条目,
 // 让这些分区脱离增量去重、下次备份时重新备份。
 //
 //   - 必须全历史删除:同分区的 success 可能散落多条 run(含 migrated 老记录),
@@ -54,7 +54,7 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 		target[p] = true
 	}
 
-	runs, err := s.fetchRunsByTable(cluster, database, table, 365)
+	runs, err := s.fetchRunsByTable(cluster, database, table, 0)
 	if err != nil {
 		return result, fmt.Errorf("list runs: %w", err)
 	}
@@ -66,8 +66,8 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 				database, table, r.RunID, r.Status)
 		}
 	}
-	// 守卫(2):queued run 的 StartedAt 为零值,被 GetRunsByTable 的 started_at
-	// 过滤排除,上面的扫描看不见它——用 in-flight 专用查询补一刀。
+	// 守卫(2):queued run 的 StartedAt 为零值,GetRunsByTable 虽全历史查询
+	// 但零值时间戳往往仍会被 SQL 过滤排除,上面扫描不保证看见——用 in-flight 专用查询补一刀。
 	for _, r := range s.repo.InFlightRunsByCluster(cluster) {
 		if r.Database == database && r.Table == table {
 			return result, fmt.Errorf("table %s.%s has in-flight run %s (status=%s), retry later",

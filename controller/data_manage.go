@@ -266,7 +266,7 @@ func (c *DataManageController) ListRunsByPolicy(ctx *gin.Context) {
 }
 
 // DeletePartitionRecords POST /data_manage/backup/table/:cluster/:database/:table/partitions/delete
-// 按分区名删除该表 365 天内所有终态 run 中的分区记录(全历史,防老 success 复活),
+// 按分区名删除该表全部历史所有终态 run 中的分区记录(防老 success 复活),
 // 让这些分区脱离增量去重、下次备份重新备份;clean_remote 时顺带清理远端数据。
 // @Summary 删除分区备份记录
 // @Description 按分区名删除备份台账记录,可选清理远端备份数据
@@ -312,10 +312,8 @@ func (c *DataManageController) ListRunsByTable(ctx *gin.Context) {
 	cluster := ctx.Param(ClickHouseClusterPath)
 	database := ctx.Param("database")
 	table := ctx.Param("table")
-	days, _ := strconv.Atoi(ctx.DefaultQuery("days", "30"))
-	if days <= 0 {
-		days = 30
-	}
+	days, _ := strconv.Atoi(ctx.DefaultQuery("days", "0"))
+	// days <= 0 表示不限时间、返回全部历史(放开旧的 30/365 天窗口)
 	svc := c.svc(ctx)
 	if svc == nil {
 		return

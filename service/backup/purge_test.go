@@ -263,6 +263,24 @@ func TestDeletePartitionRecords_DeleteFailureNotCounted(t *testing.T) {
 	}
 }
 
+// 删除应回看全部历史(sinceDays<=0),否则滚出窗口的老 success 记录删不到、又会被重备。
+func TestDeletePartitionRecords_PassesUnlimitedWindow(t *testing.T) {
+	repo := newMemRepo()
+	gotDays := 999
+	s := NewService("self", repo, nil)
+	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
+		gotDays = days
+		return nil, nil
+	}
+	_, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, false)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if gotDays > 0 {
+		t.Fatalf("expected unlimited window (<=0), got days=%d", gotDays)
+	}
+}
+
 // 删除分区记录会一并删掉该分区的 restore 条目(让分区从列表彻底消失),
 // 但 restore 没有独立的远端备份数据,不触发远端清理。
 func TestDeletePartitionRecords_RemovesRestoreEntriesNoRemoteClean(t *testing.T) {

@@ -755,10 +755,11 @@ func (lp *LocalPersistent) GetRunsByPolicy(policyID string, limit int, before ti
 func (lp *LocalPersistent) GetRunsByTable(cluster, database, table string, sinceDays int) ([]model.BackupRun, error) {
 	lp.lock.RLock()
 	defer lp.lock.RUnlock()
+	unlimited := sinceDays <= 0
 	cutoff := time.Now().AddDate(0, 0, -sinceDays)
 	var out []model.BackupRun
 	for _, r := range lp.Data.BackupRun {
-		if r.ClusterName == cluster && r.Database == database && r.Table == table && r.StartedAt.After(cutoff) {
+		if r.ClusterName == cluster && r.Database == database && r.Table == table && (unlimited || r.StartedAt.After(cutoff)) {
 			out = append(out, r)
 		}
 	}

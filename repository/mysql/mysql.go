@@ -773,12 +773,12 @@ func (mp *MysqlPersistent) GetRunsByPolicy(policyID string, limit int, before ti
 }
 
 func (mp *MysqlPersistent) GetRunsByTable(cluster, database, table string, sinceDays int) ([]model.BackupRun, error) {
-	cutoff := time.Now().AddDate(0, 0, -sinceDays)
+	q := mp.Client.Where("cluster_name = ? AND database_name = ? AND table_name = ?", cluster, database, table)
+	if sinceDays > 0 {
+		q = q.Where("started_at > ?", time.Now().AddDate(0, 0, -sinceDays))
+	}
 	var tbls []TblBackupRun
-	tx := mp.Client.Where(
-		"cluster_name = ? AND database_name = ? AND table_name = ? AND started_at > ?",
-		cluster, database, table, cutoff,
-	).Order("started_at DESC").Find(&tbls)
+	tx := q.Order("started_at DESC").Find(&tbls)
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
 		return nil, errors.Wrap(tx.Error, "")
 	}
