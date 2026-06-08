@@ -3,10 +3,14 @@ package backup
 import "regexp"
 
 // 日级别（partition value 是 YYYYMMDD 格式）
-// 注意:toDate 不在内——PARTITION BY toDate(x) 的分区值是 '2026-06-04'(带横线),
-// 与 ListPartitions 的 YYYYMMDD 字符串比较永不匹配,误判会让 daily 备份永远扫不到分区。
+// 注意:
+//   - toDate/toDate32 不在内——分区值是 '2026-06-04'(带横线),与 YYYYMMDD 永不匹配。
+//   - toYYYYMMDD 必须紧跟左括号(\s*\()以排除 toYYYYMMDDhhmmss——后者分区值是
+//     14 位 YYYYMMDDhhmmss,与 8 位 YYYYMMDD 扫描同样不等价。
+//
+// 误判会让 daily 备份永远扫不到分区。
 var dailyCompatibleRe = regexp.MustCompile(
-	`(?i)\b(toYYYYMMDD|formatDateTime\s*\([^,]+,\s*'%Y%m%d')`,
+	`(?i)\b(toYYYYMMDD\s*\(|formatDateTime\s*\([^,]+,\s*'%Y%m%d')`,
 )
 
 var (

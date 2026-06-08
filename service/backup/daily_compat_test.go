@@ -21,6 +21,8 @@ func TestIsDailyCompatible(t *testing.T) {
 		{"todate(t)", false},
 		// toDate32 与 toDate 同语义(分区值带横线),同样不兼容
 		{"toDate32(event_time)", false},
+		// toYYYYMMDDhhmmss 分区值是 14 位 YYYYMMDDhhmmss,与 8 位 YYYYMMDD 扫描永不匹配
+		{"toYYYYMMDDhhmmss(event_time)", false},
 	}
 	for _, c := range cases {
 		got := IsDailyCompatible(c.key)
@@ -38,6 +40,7 @@ func TestPartitionFmt(t *testing.T) {
 		{"toYYYYMMDD(event_time)", "day"},
 		{"toDate(t)", "custom"},
 		{"toDate32(t)", "custom"},
+		{"toYYYYMMDDhhmmss(t)", "custom"},
 		{"toYYYYMM(t)", "month"},
 		{"toStartOfHour(t)", "hour"},
 		{"region", "custom"},
