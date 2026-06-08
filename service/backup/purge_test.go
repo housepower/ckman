@@ -83,18 +83,20 @@ func TestDeletePartitionRecords_InvalidInput(t *testing.T) {
 	}
 }
 
-// queued run 的 StartedAt 为零值,GetRunsByTable(按 started_at 过滤)看不见它;
-// 守卫必须额外走 InFlightRunsByCluster,否则 worker 领取后 UpdateRun 会写回已删条目。
+// 独立验证守卫(2)的兜底能力:即便 getRunsByTable 因任何原因(实现差异、未来回退等)
+// 未返回 queued run,InFlightRunsByCluster 仍能拦截。
+// 生产全历史查询(days=0)下守卫(1)其实已能看到零值 StartedAt 的 queued run;
+// 此测试通过让注入的 getRunsByTable 故意不返回 rq,单独验证守卫(2)的存在价值。
 func TestDeletePartitionRecords_RejectsQueuedInvisibleToTableQuery(t *testing.T) {
 	repo := newMemRepo()
-	// queued run 只进 repo(可被 InFlightRunsByCluster 看到),不出现在 getRunsByTable 注入结果里
+	// queued run 只进 repo(可被 InFlightRunsByCluster 看到),注入的 getRunsByTable 故意不返回它
 	repo.runs["rq"] = mkRun("rq", model.BACKUP_STATUS_QUEUED, model.OP_BACKUP, "", "p1",
 		pt("20260604", model.BACKUP_PARTITION_STATUS_WAITING))
 	repo.runs["r1"] = mkRun("r1", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "", "p1",
 		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
 	s := NewService("self", repo, nil)
 	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
-		return []model.BackupRun{repo.runs["r1"]}, nil // 模拟 started_at 过滤:看不见 rq
+		return []model.BackupRun{repo.runs["r1"]}, nil // 守卫(1)看不见 rq;守卫(2)兜底
 	}
 	_, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, false)
 	if err == nil || !strings.Contains(err.Error(), "in-flight") {

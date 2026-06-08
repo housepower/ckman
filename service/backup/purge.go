@@ -66,8 +66,10 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 				database, table, r.RunID, r.Status)
 		}
 	}
-	// 守卫(2):queued run 的 StartedAt 为零值,GetRunsByTable 虽全历史查询
-	// 但零值时间戳往往仍会被 SQL 过滤排除,上面扫描不保证看见——用 in-flight 专用查询补一刀。
+	// 守卫(2):冗余保险。GetRunsByTable(0) 全历史不过滤时间,理论上守卫(1)已能
+	// 看到零值 StartedAt 的 queued run 并拦截;此处再走 InFlightRunsByCluster
+	// (按 status 直接查 queued/running 的权威来源),防止 GetRunsByTable 实现差异
+	// 或未来回退重新引入时间过滤时遗漏 in-flight run。
 	for _, r := range s.repo.InFlightRunsByCluster(cluster) {
 		if r.Database == database && r.Table == table {
 			return result, fmt.Errorf("table %s.%s has in-flight run %s (status=%s), retry later",

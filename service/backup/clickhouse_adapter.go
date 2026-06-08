@@ -195,6 +195,11 @@ func shellQuote(s string) string {
 // 更早的去重历史。
 // 若窗口有限（如原 365 天），备份记录滚出窗口后老分区会被定时备份周期性重复备份，
 // 故取全部历史（sinceDays=0）：删记录成为唯一让分区重新备份的开关。
+//
+// 开销说明：全历史扫描会反序列化该表所有历史 run 的 Partitions 字段；
+// 对运行数年、每天备份的表，run 数量可达上千条，内存与 CPU 开销随历史深度线性增长。
+// 这是为消除"老分区记录滚出窗口被周期性重备"缺陷而做的有意取舍——
+// DeletePartitionRecords 是唯一让分区重新备份的手段。
 func (a *ClickHouseAdapter) GetLastRunPartitions(cluster, db, table string) ([]model.BackupRunPartition, error) {
 	runs, err := repository.Ps.GetRunsByTable(cluster, db, table, 0)
 	if err != nil {

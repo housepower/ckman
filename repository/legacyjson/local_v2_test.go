@@ -186,3 +186,50 @@ func TestLocal_GetAllBackupRuns(t *testing.T) {
 		t.Fatalf("expected 2 runs, got %d", len(all))
 	}
 }
+
+// TestLocal_GetRunsByTable_UnlimitedWindow 坐实 sinceDays<=0 时返回全部历史,
+// sinceDays>0 时只返回窗口内记录。
+// 与 TestSQLite_GetRunsByTable_UnlimitedWindow 结构对应,验证 legacyjson 实现一致。
+func TestLocal_GetRunsByTable_UnlimitedWindow(t *testing.T) {
+	lp := newTestLP(t)
+	now := time.Now()
+	// 一条 30 天前(在 365 天窗口内),一条 400 天前(超出 365 天窗口)
+	recent := model.BackupRun{
+		RunID: "rr", PolicyID: "p1", ClusterName: "ck1",
+		Database: "db", Table: "t",
+		Status:    model.BACKUP_STATUS_SUCCESS,
+		StartedAt: now.AddDate(0, 0, -30),
+	}
+	old := model.BackupRun{
+		RunID: "ro", PolicyID: "p1", ClusterName: "ck1",
+		Database: "db", Table: "t",
+		Status:    model.BACKUP_STATUS_SUCCESS,
+		StartedAt: now.AddDate(0, 0, -400),
+	}
+	if err := lp.CreateBackupRun(recent); err != nil {
+		t.Fatalf("create recent: %v", err)
+	}
+	if err := lp.CreateBackupRun(old); err != nil {
+		t.Fatalf("create old: %v", err)
+	}
+
+	// sinceDays=365 窗口只看到 30 天前那条
+	in365, err := lp.GetRunsByTable("ck1", "db", "t", 365)
+	if err != nil {
+		t.Fatalf("GetRunsByTable(365): %v", err)
+	}
+	if len(in365) != 1 || in365[0].RunID != "rr" {
+		t.Fatalf("sinceDays=365 should return only recent run, got %+v", in365)
+	}
+
+	// sinceDays<=0 看到全部历史(含 400 天前那条)
+	for _, d := range []int{0, -1} {
+		all, err := lp.GetRunsByTable("ck1", "db", "t", d)
+		if err != nil {
+			t.Fatalf("GetRunsByTable(%d): %v", d, err)
+		}
+		if len(all) != 2 {
+			t.Fatalf("sinceDays=%d should return all history (2 runs), got %d", d, len(all))
+		}
+	}
+}
