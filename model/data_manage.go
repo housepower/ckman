@@ -217,7 +217,7 @@ type BackupRunPartition struct {
 	PathInfo  map[string]PathInfo `json:"-"` // 仅 checksum=true 时填充，不入库
 }
 
-// DeletePartitionRecordsRequest 删除分区备份记录:按分区名作用于该表 365 天内全部终态 run。
+// DeletePartitionRecordsRequest 删除分区备份记录:按分区名作用于该表全部历史的所有终态 run。
 type DeletePartitionRecordsRequest struct {
 	Partitions  []string `json:"partitions"`   // 分区名列表,必填
 	CleanRemote bool     `json:"clean_remote"` // 是否同时清理远端备份数据(best-effort)
