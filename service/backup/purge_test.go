@@ -263,31 +263,43 @@ func TestDeletePartitionRecords_DeleteFailureNotCounted(t *testing.T) {
 	}
 }
 
-// restore run 记录的是恢复操作,不参与备份去重(successfulPartitionsFromRuns 跳过它),
-// 其分区条目是恢复台账;删除分区备份记录只针对 backup,不得抹掉 restore 历史。
-func TestDeletePartitionRecords_PreservesRestoreRuns(t *testing.T) {
+// 删除分区记录会一并删掉该分区的 restore 条目(让分区从列表彻底消失),
+// 但 restore 没有独立的远端备份数据,不触发远端清理。
+func TestDeletePartitionRecords_RemovesRestoreEntriesNoRemoteClean(t *testing.T) {
 	repo := newMemRepo()
-	repo.runs["rb"] = mkRun("rb", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "", "p1",
+	repo.policies["p1"] = model.BackupPolicy{PolicyID: "p1", TargetType: model.BACKUP_S3}
+	repo.runs["rb"] = mkRun("rb", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "ckA", "p1",
 		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
-	repo.runs["rr"] = mkRun("rr", model.BACKUP_STATUS_SUCCESS, model.OP_RESTORE, "", "p1",
+	repo.runs["rr"] = mkRun("rr", model.BACKUP_STATUS_SUCCESS, model.OP_RESTORE, "ckA", "p1",
 		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS))
+	fs := &fakeStorage{}
 	s := NewService("self", repo, nil)
 	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
 		return []model.BackupRun{repo.runs["rb"], repo.runs["rr"]}, nil
 	}
-	res, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, false)
+	s.getClusterByName = func(name string) (model.CKManClickHouseConfig, error) {
+		return model.CKManClickHouseConfig{Shards: []model.CkShard{
+			{Replicas: []model.CkReplica{{Ip: "h1"}}},
+		}}, nil
+	}
+	s.storageFactory = func(policy model.BackupPolicy, cc model.CKManClickHouseConfig) BackupStorage { return fs }
+
+	res, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, true)
 	if err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	// 只删 backup 那 1 条;restore run 必须原样保留
-	if res.RemovedRecords != 1 {
-		t.Fatalf("expected 1 removed (backup only), got %d", res.RemovedRecords)
-	}
-	rr, ok := repo.runs["rr"]
-	if !ok || len(rr.Partitions) != 1 || rr.Partitions[0].Partition != "20260604" {
-		t.Fatalf("restore run must be preserved intact, got %+v", repo.runs["rr"])
+	// backup + restore 两条都删,分区彻底消失
+	if res.RemovedRecords != 2 {
+		t.Fatalf("expected 2 removed (backup + restore), got %d", res.RemovedRecords)
 	}
 	if _, ok := repo.runs["rb"]; ok {
 		t.Fatal("backup run should be deleted (emptied)")
+	}
+	if _, ok := repo.runs["rr"]; ok {
+		t.Fatal("restore run should be deleted (emptied)")
+	}
+	// 远端只清 backup 对应的 1 个 key;restore 不进远端清理
+	if len(fs.cleaned) != 1 {
+		t.Fatalf("expected 1 remote clean (backup only), got %v", fs.cleaned)
 	}
 }
