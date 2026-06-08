@@ -41,6 +41,11 @@ func isTerminalRunStatus(status string) bool {
 //   - run 的分区被删光时连 run 一起删,避免留下 success+0 分区的尸体记录。
 //   - cleanRemote=true 时 best-effort 清理远端备份数据:失败仅记 warning,
 //     记录照删——下次重备时 Prepare 阶段会再清一遍目标端残留,有兜底。
+//     远端清理只针对台账确实删成功的分区(见循环内 ledgerOK),避免「记录还在但
+//     数据被删」的空洞。
+//   - 已知残窗(TOCTOU):in-flight 守卫到远端清理之间若有新 backup 被提交并重备
+//     同一分区(deterministic key),清理可能与新备份交错、误删新写入的数据。删除是
+//     管理操作,应避开该表正在备份的时段;新 run 的 Prepare 阶段也会重清兜底。
 func (s *Service) DeletePartitionRecords(cluster, database, table string, partitions []string, cleanRemote bool) (DeletePartitionRecordsResult, error) {
 	var result DeletePartitionRecordsResult
 	if len(partitions) == 0 {
@@ -84,6 +89,7 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 	for _, r := range runs {
 		kept := make([]model.BackupRunPartition, 0, len(r.Partitions))
 		removed := 0
+		var runClean []purgeCleanItem // 这条 run 贡献的远端清理项,仅台账删成功后才生效
 		for _, p := range r.Partitions {
 			if !target[p.Partition] {
 				kept = append(kept, p)
@@ -93,30 +99,40 @@ func (s *Service) DeletePartitionRecords(cluster, database, table string, partit
 			// restore 条目同样删除(让该分区从列表彻底消失),但恢复是读 backup 数据
 			// 写回集群、没有独立的远端备份数据,故不进远端清理列表。
 			if r.Operation != model.OP_RESTORE {
-				k := r.PolicyID + "|" + r.StoragePrefix + "|" + p.Partition
-				if !seenClean[k] {
-					seenClean[k] = true
-					cleanItems = append(cleanItems, purgeCleanItem{r.PolicyID, r.StoragePrefix, p.Partition})
-				}
+				runClean = append(runClean, purgeCleanItem{r.PolicyID, r.StoragePrefix, p.Partition})
 			}
 		}
 		if removed == 0 {
 			continue
 		}
+		ledgerOK := false
 		if len(kept) == 0 {
 			if derr := s.repo.DeleteRun(r.RunID); derr != nil {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("delete empty run %s: %v", r.RunID, derr))
 			} else {
 				result.RemovedRecords += removed
 				result.DeletedRuns++
+				ledgerOK = true
 			}
-			continue
-		}
-		r.Partitions = kept
-		if uerr := s.repo.UpdateRun(r); uerr != nil {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("update run %s: %v", r.RunID, uerr))
 		} else {
-			result.RemovedRecords += removed
+			r.Partitions = kept
+			if uerr := s.repo.UpdateRun(r); uerr != nil {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("update run %s: %v", r.RunID, uerr))
+			} else {
+				result.RemovedRecords += removed
+				ledgerOK = true
+			}
+		}
+		// 仅当台账确实移除了该 run 的条目,才清理它贡献的远端数据。否则 success
+		// 记录仍在、去重仍跳过,远端却被删 → 不可恢复的「记录指向空对象」。
+		if ledgerOK {
+			for _, c := range runClean {
+				k := c.policyID + "|" + c.storagePrefix + "|" + c.partition
+				if !seenClean[k] {
+					seenClean[k] = true
+					cleanItems = append(cleanItems, c)
+				}
+			}
 		}
 	}
 

@@ -323,3 +323,51 @@ func TestDeletePartitionRecords_RemovesRestoreEntriesNoRemoteClean(t *testing.T)
 		t.Fatalf("expected 1 remote clean (backup only), got %v", fs.cleaned)
 	}
 }
+
+type failingUpdateRepo struct {
+	*memRepo
+	failUpdate bool
+}
+
+func (r *failingUpdateRepo) UpdateRun(rn model.BackupRun) error {
+	if r.failUpdate {
+		return errors.New("disk full")
+	}
+	return r.memRepo.UpdateRun(rn)
+}
+
+// 台账 UpdateRun 失败时,该 run 的分区不得被清远端——否则 success 记录仍在、
+// 去重仍跳过,远端却被删,形成不可恢复的「记录指向空对象」。
+func TestDeletePartitionRecords_NoRemoteCleanWhenLedgerFails(t *testing.T) {
+	repo := &failingUpdateRepo{memRepo: newMemRepo(), failUpdate: true}
+	repo.policies["p1"] = model.BackupPolicy{PolicyID: "p1", TargetType: model.BACKUP_S3}
+	// kept 非空(20260605 不删)→ 走 UpdateRun 路径,且 UpdateRun 被注入失败
+	repo.runs["r1"] = mkRun("r1", model.BACKUP_STATUS_SUCCESS, model.OP_BACKUP, "ckA", "p1",
+		pt("20260604", model.BACKUP_PARTITION_STATUS_SUCCESS),
+		pt("20260605", model.BACKUP_PARTITION_STATUS_SUCCESS))
+	fs := &fakeStorage{}
+	s := NewService("self", repo, nil)
+	s.getRunsByTable = func(cluster, db, table string, days int) ([]model.BackupRun, error) {
+		return []model.BackupRun{repo.runs["r1"]}, nil
+	}
+	s.getClusterByName = func(name string) (model.CKManClickHouseConfig, error) {
+		return model.CKManClickHouseConfig{Shards: []model.CkShard{
+			{Replicas: []model.CkReplica{{Ip: "h1"}}},
+		}}, nil
+	}
+	s.storageFactory = func(policy model.BackupPolicy, cc model.CKManClickHouseConfig) BackupStorage { return fs }
+
+	res, err := s.DeletePartitionRecords("ckA", "dba", "t1", []string{"20260604"}, true)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if res.RemovedRecords != 0 {
+		t.Fatalf("ledger update failed, RemovedRecords must be 0, got %d", res.RemovedRecords)
+	}
+	if len(fs.cleaned) != 0 {
+		t.Fatalf("ledger failed → remote must NOT be cleaned, got %v", fs.cleaned)
+	}
+	if len(res.Warnings) == 0 {
+		t.Fatal("expected update-failure warning")
+	}
+}
