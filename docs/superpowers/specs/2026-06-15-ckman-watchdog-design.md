@@ -27,7 +27,7 @@
 - 启动：`<HDIR>/bin/start` 内部执行 `ckman -c=... -p=<HDIR>/run/ckman.pid -l=... -d`（`-d` 已内置）。
 - pidfile：由 go-daemon（`gopkg.in/sevlyar/go-daemon.v0`）写入。优雅退出（SIGTERM/SIGINT，即 `bin/stop` / `kill`）触发 `cntxt.Release()` → **删除 pidfile**；崩溃 / OOM / `kill -9` → pidfile **残留**。这是区分「主动停」与「崩溃」的判据。
 - HTTP 探活端点：`cfg.Server.MetricPath`（默认 `/metrics`，`cfg.Server.Metric` 默认 true）。该端点**不经过 JWT 中间件，无需鉴权** —— 探活天然绕过鉴权。`/metrics` 通即证明 HTTP server goroutine 存活（纯 prometheus handler，不碰 DB/Nacos）。
-- 配置读取：`config.ParseConfigFile(path, version)` + `common.Gsypt.Unmarshal(&config.GlobalConfig)`（解密 `ENC(...)`）。
+- 配置读取：`config.ParseConfigFile(path, version)` 即可。**不需要 `common.Gsypt.Unmarshal` 解密** —— watchdog 只用明文且稳定的字段（port/https/metric/metric_path/persistent_policy、网络库 host:port、nacos hosts:port），全程无鉴权，不读任何密码。少一个失败路径，也降低版本耦合。
 - 持久化健康：**不调用 `repository.InitPersistent()`**。原因：sqlite adapter 的 `Init()` 会 `AutoMigrate`（DDL 写）+ legacy 迁移（`repository/sqlite/sqlite.go:75`、`migrate.go`），watchdog 每分钟跑一次会对 ckman 正在持有的同一 sqlite 文件反复写迁移（即便 WAL 也会 `SQLITE_BUSY`/争 schema）。改为零副作用探测（见「依赖深探」）。
 - 日志：`github.com/housepower/ckman/log` 包，`log.InitLogger(path, &cfg.Log)` + 全局 `log.Logger`。
 - `cmd/` 目录已有 `cmd/ckmanctl`、`cmd/upgrade` 先例。
@@ -84,11 +84,11 @@ findCkmanPids
   - 若 `cfg.Server.Metric==false`（用户关闭 metrics），探活端点回退为 `/`（嵌入前端，无鉴权且始终 200）。
 - **依赖深探（仅自愈模式，仅告警）—— 全部零副作用，绝不 open/迁移 DB**：
   - DB，按 `cfg.Server.PersistentPolicy` 分支：
-    - `local`（sqlite）：**仅 `os.Stat` db 文件**（`<config_dir>/<config_file>.db`，缺省取 `cfg.PersistentConfig["local"]` 的 `config_dir`/`config_file`，再缺省 `<workdir>/conf/clusters.db`）。存在+可读即 OK。**绝不 `gorm.Open`/`AutoMigrate`**，避免与运行中的 ckman 争 sqlite 写锁。sqlite 是本地文件而非网络服务，真正损坏会表现为进程崩溃 / HTTP 5xx（已被 CRASH/APP 覆盖）。
+    - `local`（sqlite/旧版 json）：**完全跳过，不探**。理由：① 旧版本用 `clusters.json`、新版本用 `clusters.db`，stat 固定文件名会把 watchdog 与 ckman 版本绑死，跳过即解耦，watchdog 可作为独立文件跨版本分发；② sqlite/json 是本地文件而非网络服务，没有"远端可达性"可探，真正损坏会以进程崩溃 / HTTP 5xx 暴露（已被 CRASH/APP 覆盖）；③ 绝不 open，避免与运行中的 ckman 争 sqlite 写锁。
     - `mysql`/`postgres`/`dm8`：`net.DialTimeout("tcp", host:port, 3s)`，host/port 取自 `cfg.PersistentConfig[policy]`，端口缺省 3306/5432/5236。连通即 OK（连通性级别探测，零副作用、不鉴权、不迁移）。
   - Nacos：仅当 `cfg.Nacos.Enabled`。对 `cfg.Nacos.Hosts` 逐个 `net.DialTimeout("tcp", host:port, 3s)`，任一可达即视为可用（不启动 SDK，避免注册副作用）。
 
-  **已知局限**：网络库探测仅到连通性层面（端口通 ≠ 库内可用 / 鉴权正确）。因 DEP 只告警、不触发重启，此粒度足够；如需更深，后续可加「不经 `InitPersistent` 的原始只读 `sql.Open`+`Ping`」（sqlite 走 `?mode=ro&immutable=1` 只读 DSN）。
+  **已知局限**：网络库探测仅到连通性层面（端口通 ≠ 库内可用 / 鉴权正确）。因 DEP 只告警、不触发重启，此粒度足够；如需更深，后续可加「不经 `InitPersistent` 的原始只读 `sql.Open`+`Ping`」。
 
 ### 自愈动作
 
@@ -131,7 +131,7 @@ findCkmanPids
 | RestartWindow | 10min |
 | RestartMax | 3 |
 | StartupGrace | 60s |
-| CheckDB | true |
+| CheckDB | true（local 策略恒跳过，仅对 mysql/pg/dm8 生效） |
 | CheckNacos | true（且 `Nacos.Enabled` 时才真正探） |
 
 ## 构建与安装
@@ -144,6 +144,7 @@ findCkmanPids
 
 - **想真正停掉 ckman 且不被拉起**：必须用 `bin/stop`（发 SIGTERM，go-daemon 删 pidfile）。`kill -9` 会被当作崩溃而拉起。
 - OOM-kill 等同崩溃，会被拉起（符合预期）。
+- **版本无关 / 可独立分发**：watchdog 只依赖跨版本稳定的明文配置字段与 OS 级信号（procfs/信号/TCP/HTTP），不触碰 ckman 的 DB schema、不读密码、local 策略不探 DB。因此同一个 watchdog 二进制可投放到不同版本的 ckman tarball 而无需匹配版本。
 
 ## 测试策略
 
