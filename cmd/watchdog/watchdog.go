@@ -15,6 +15,7 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -195,6 +196,8 @@ func checkExitCode(res probeResult) (int, string) {
 			return 3, "AUTH"
 		}
 		return 12, "APP"
+	case vDep:
+		return 12, "DEP"
 	case vMulti:
 		return 12, "ABNORMAL"
 	}
@@ -636,14 +639,25 @@ func healRestart(p *paths, res probeResult, restarts []time.Time) {
 		return
 	}
 
-	// 夯死先 kill -9
+	// 夯死先 kill -9，并复核进程是否真的消失才允许拉起——否则双启。
+	// 两种杀不掉的情形:(1) 权限不足(EPERM 等);(2) 持续 D 态——SIGKILL 在进程
+	// 离开不可中断睡眠前无法递达,kill 返回成功但进程依旧。两者都不能拉起。
 	if res.v == vHung && res.pid > 0 {
-		if killErr := syscall.Kill(res.pid, syscall.SIGKILL); killErr != nil {
-			writeAlert("HEAL", fmt.Sprintf("kill -9 pid=%d 失败: %v (触发=%s)", res.pid, killErr, res.evidence))
-		} else {
-			writeAlert("HEAL", fmt.Sprintf("kill -9 pid=%d 成功 (触发=%s)", res.pid, res.evidence))
+		killErr := syscall.Kill(res.pid, syscall.SIGKILL)
+		if killErr != nil && !errors.Is(killErr, syscall.ESRCH) {
+			// ESRCH=进程已自行消亡(安全);其余错误说明没杀成
+			writeAlert("CRIT", fmt.Sprintf("kill -9 pid=%d 失败: %v，放弃本轮拉起以免双启 (触发=%s)",
+				res.pid, killErr, res.evidence))
+			return
 		}
 		waitGone(res.pid, 5*time.Second)
+		if syscall.Kill(res.pid, 0) == nil {
+			// 进程仍存活(典型:持续 D 态),拉起会造成双实例 → 放弃,等人工介入
+			writeAlert("CRIT", fmt.Sprintf("kill -9 后 pid=%d 仍存活(可能持续 D 态),放弃本轮拉起以免双启 (触发=%s)",
+				res.pid, res.evidence))
+			return
+		}
+		writeAlert("HEAL", fmt.Sprintf("kill -9 pid=%d 成功 (触发=%s)", res.pid, res.evidence))
 	}
 
 	// 拉起
