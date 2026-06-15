@@ -111,9 +111,6 @@ type paths struct {
 
 var alertWriter *lumberjack.Logger
 
-var _ = exec.Command      // 占位,Task 8 删
-var _ = syscall.Kill      // 占位,Task 8 删
-
 func main() {
 	flag.Parse()
 
@@ -172,7 +169,6 @@ func fileExists(path string) bool {
 }
 
 func runCheck(cfg *config.CKManConfig, p *paths) {}
-func runHeal(cfg *config.CKManConfig, p *paths) {}
 
 // ---------------- 状态文件(重启时间戳) ----------------
 
@@ -568,4 +564,122 @@ func writeAlert(level, msg string) {
 		line := fmt.Sprintf("%s [%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), level, msg)
 		_, _ = alertWriter.Write([]byte(line))
 	}
+}
+
+// ---------------- 自愈模式 ----------------
+
+func runHeal(cfg *config.CKManConfig, p *paths) {
+	// 单例锁：防 cron 叠跑
+	lock, ok := tryFlock(p.lockFile)
+	if !ok {
+		log.Logger.Infof("[watchdog] 另一实例持锁，本轮跳过")
+		return
+	}
+	defer releaseFlock(lock)
+
+	openAlertWriter(cfg, p)
+
+	restarts := readRestarts(p.restartsFile)
+
+	// 启动宽限：距上次拉起过近则跳过(避免刚起又判)
+	if last := latest(restarts); !last.IsZero() && time.Since(last) < startupGrace {
+		log.Logger.Infof("[watchdog] 启动宽限期内(距上次拉起 %.0fs < %.0fs)，本轮跳过",
+			time.Since(last).Seconds(), startupGrace.Seconds())
+		return
+	}
+
+	res := probe(cfg, p, true)
+	log.Logger.Infof("[watchdog] verdict=%s pid=%d %s", res.v, res.pid, res.evidence)
+
+	switch res.v {
+	case vHealthy:
+		writeAlert("OK", "ckman 健康: "+res.evidence)
+	case vStopped:
+		// 无动作(运维主动停)
+	case vMulti, vApp, vDep:
+		writeAlert("ALERT", fmt.Sprintf("%s: %s", res.v, res.evidence))
+	case vCrash, vHung:
+		healRestart(cfg, p, res, restarts)
+	}
+}
+
+func healRestart(cfg *config.CKManConfig, p *paths, res probeResult, restarts []time.Time) {
+	recent := countWithin(restarts, restartWindow)
+
+	// 重启风暴保护
+	if recent >= restartMax {
+		writeAlert("CRIT", fmt.Sprintf("放弃自动重启：窗口 %s 内已重启 %d 次(≥%d)，需人工介入。触发=%s(%s)",
+			restartWindow, recent, restartMax, res.v, res.evidence))
+		return
+	}
+
+	// 夯死先 kill -9
+	if res.v == vHung && res.pid > 0 {
+		if killErr := syscall.Kill(res.pid, syscall.SIGKILL); killErr != nil {
+			writeAlert("HEAL", fmt.Sprintf("kill -9 pid=%d 失败: %v (触发=%s)", res.pid, killErr, res.evidence))
+		} else {
+			writeAlert("HEAL", fmt.Sprintf("kill -9 pid=%d 成功 (触发=%s)", res.pid, res.evidence))
+		}
+		waitGone(res.pid, 5*time.Second)
+	}
+
+	// 拉起
+	out, startErr := runStart(p)
+
+	// 记录重启时间戳并按 max(window,grace) 裁剪
+	restarts = append(restarts, time.Now())
+	keep := restartWindow
+	if startupGrace > keep {
+		keep = startupGrace
+	}
+	writeRestarts(p.restartsFile, pruneWithin(restarts, keep))
+
+	if startErr != nil {
+		writeAlert("CRIT", fmt.Sprintf("拉起失败: %v | 触发=%s(%s) | start=%q | 输出=%s",
+			startErr, res.v, res.evidence, p.startCmd, strings.TrimSpace(out)))
+		return
+	}
+	writeAlert("HEAL", fmt.Sprintf("已拉起 ckman | 触发=%s(%s) | 窗口 %s 内第 %d/%d 次 | start=%q",
+		res.v, res.evidence, restartWindow, recent+1, restartMax, p.startCmd))
+}
+
+// runStart 执行拉起命令(默认 <HDIR>/bin/start，内部已带 -d 自守护)。
+func runStart(p *paths) (string, error) {
+	cmd := exec.Command(p.startCmd)
+	cmd.Dir = p.hdir
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+func waitGone(pid int, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if syscall.Kill(pid, 0) != nil { // 进程已不存在
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+// ---------------- flock ----------------
+
+func tryFlock(path string) (*os.File, bool) {
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return nil, false
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		_ = f.Close()
+		return nil, false
+	}
+	return f, true
+}
+
+func releaseFlock(f *os.File) {
+	if f == nil {
+		return
+	}
+	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	_ = f.Close()
 }
