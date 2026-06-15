@@ -116,7 +116,6 @@ var _ = net.Dial          // 占位,Task 5 删
 var _ = http.MethodGet    // 占位,Task 4 删
 var _ = exec.Command      // 占位,Task 8 删
 var _ = syscall.Kill      // 占位,Task 8 删
-var _ = procfs.AllProcs   // 占位,Task 3 删
 var _ = log.Logger        // 占位,Task 7 删
 
 func main() {
@@ -239,4 +238,92 @@ func latest(ts []time.Time) time.Time {
 		}
 	}
 	return newest
+}
+
+// ---------------- 进程身份扫描 ----------------
+
+// findCkmanPids 用 procfs 按身份扫描 ckman 进程(不读 pidfile 判存活)。
+//
+// 主匹配走 /proc/<pid>/exe 的内核规范路径(软链已消解)，跨软链/相对路径启动稳健，
+// 避免把存活进程误判为崩溃→反复拉起→重启风暴。
+func findCkmanPids(p paths) []int {
+	procs, err := procfs.AllProcs()
+	if err != nil {
+		return nil
+	}
+	self := os.Getpid()
+	base := filepath.Base(p.ckmanBin)
+	ckmanBin := filepath.Clean(p.ckmanBin)
+	realCkmanBin := ckmanBin
+	if r, err := filepath.EvalSymlinks(ckmanBin); err == nil {
+		realCkmanBin = r
+	}
+	realPidfile := p.pidfile
+	if p.pidfile != "" {
+		if r, err := filepath.EvalSymlinks(p.pidfile); err == nil {
+			realPidfile = r
+		}
+	}
+	var pids []int
+	for _, pr := range procs {
+		if pr.PID == self {
+			continue
+		}
+		// 主匹配：/proc/<pid>/exe 规范绝对路径(软链消解)；二进制被替换时内核标 " (deleted)"。
+		if exe, err := pr.Executable(); err == nil && exe != "" {
+			if filepath.Clean(strings.TrimSuffix(exe, " (deleted)")) == realCkmanBin {
+				pids = append(pids, pr.PID)
+				continue
+			}
+		}
+		cmd, err := pr.CmdLine()
+		if err != nil || len(cmd) == 0 {
+			continue // 僵尸进程 cmdline 为空，自然跳过
+		}
+		argv0 := filepath.Clean(cmd[0])
+		// 退化匹配 1：argv0 字面即规范二进制路径(exe 不可读时兜底)
+		match := argv0 == ckmanBin || argv0 == realCkmanBin
+		// 退化匹配 2：同名 且 cmdline 引用本实例 pidfile(绝不用 conf 子串，相对 conf 会误命中别的实例)
+		if !match && filepath.Base(argv0) == base {
+			joined := strings.Join(cmd, " ")
+			if (p.pidfile != "" && strings.Contains(joined, p.pidfile)) ||
+				(realPidfile != "" && strings.Contains(joined, realPidfile)) {
+				match = true
+			}
+		}
+		if match {
+			pids = append(pids, pr.PID)
+		}
+	}
+	return pids
+}
+
+// procState 取 /proc/<pid>/stat 的状态字符(R/S/D/Z/T...)。
+func procState(pid int) string {
+	pr, err := procfs.NewProc(pid)
+	if err != nil {
+		return ""
+	}
+	st, err := pr.Stat()
+	if err != nil {
+		return ""
+	}
+	return st.State
+}
+
+// persistentD 采样确认进程是否"持续 D"(全部采样均为 D 才算)。
+func persistentD(pid int) bool {
+	n := dStateSamples
+	if n < 1 {
+		n = 1
+	}
+	for i := 0; i < n; i++ {
+		if procState(pid) != "D" {
+			return false
+		}
+		if i < n-1 {
+			time.Sleep(dStateInterval)
+		}
+	}
+	return true
 }

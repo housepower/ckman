@@ -58,3 +58,21 @@ func TestLatest(t *testing.T) {
 
 // 确保 os 包在测试中被使用（避免后续编辑误删 import）
 var _ = os.Stat
+
+func TestFindCkmanPidsMatchesSelfBinary(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Skip("cannot resolve self exe")
+	}
+	p := paths{ckmanBin: exe}
+	pids := findCkmanPids(p)
+	// findCkmanPids 跳过自身 PID(os.Getpid)，故测试进程本身不会出现；
+	// 这里只验证不 panic 且返回切片(可能为空)。
+	_ = pids
+}
+
+func TestProcStateSelf(t *testing.T) {
+	if s := procState(os.Getpid()); s == "" {
+		t.Errorf("procState(self) returned empty")
+	}
+}
