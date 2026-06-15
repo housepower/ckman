@@ -192,7 +192,7 @@ func checkExitCode(res probeResult) (int, string) {
 		return 11, "HUNG"
 	case vApp:
 		if res.httpCode == 401 {
-			return 3, "Auth"
+			return 3, "AUTH"
 		}
 		return 12, "APP"
 	case vMulti:
@@ -398,14 +398,6 @@ func httpProbeOnce(cfg *config.CKManConfig) (int, bool) {
 	}
 	defer resp.Body.Close()
 	return resp.StatusCode, true
-}
-
-// portFromAddr 从 "host:port" 取端口字符串，取不到返回空。
-func portFromAddr(addr string) string {
-	if i := strings.LastIndex(addr, ":"); i >= 0 && i < len(addr)-1 {
-		return addr[i+1:]
-	}
-	return ""
 }
 
 // ---------------- 依赖探测(零副作用,仅告警) ----------------
@@ -630,11 +622,11 @@ func runHeal(cfg *config.CKManConfig, p *paths) {
 	case vMulti, vApp, vDep:
 		writeAlert("ALERT", fmt.Sprintf("%s: %s", res.v, res.evidence))
 	case vCrash, vHung:
-		healRestart(cfg, p, res, restarts)
+		healRestart(p, res, restarts)
 	}
 }
 
-func healRestart(cfg *config.CKManConfig, p *paths, res probeResult, restarts []time.Time) {
+func healRestart(p *paths, res probeResult, restarts []time.Time) {
 	recent := countWithin(restarts, restartWindow)
 
 	// 重启风暴保护

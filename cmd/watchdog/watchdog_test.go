@@ -149,7 +149,7 @@ func TestCheckExitCode(t *testing.T) {
 		{probeResult{v: vStopped}, 10, "DOWN"},
 		{probeResult{v: vHung}, 11, "HUNG"},
 		{probeResult{v: vApp, httpCode: 500}, 12, "APP"},
-		{probeResult{v: vApp, httpCode: 401}, 3, "Auth"},
+		{probeResult{v: vApp, httpCode: 401}, 3, "AUTH"},
 		{probeResult{v: vMulti}, 12, "ABNORMAL"},
 	}
 	for _, c := range cases {
