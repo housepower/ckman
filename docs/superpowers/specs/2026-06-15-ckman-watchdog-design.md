@@ -28,7 +28,7 @@
 - pidfile：由 go-daemon（`gopkg.in/sevlyar/go-daemon.v0`）写入。优雅退出（SIGTERM/SIGINT，即 `bin/stop` / `kill`）触发 `cntxt.Release()` → **删除 pidfile**；崩溃 / OOM / `kill -9` → pidfile **残留**。这是区分「主动停」与「崩溃」的判据。
 - HTTP 探活端点：`cfg.Server.MetricPath`（默认 `/metrics`，`cfg.Server.Metric` 默认 true）。该端点**不经过 JWT 中间件，无需鉴权** —— 探活天然绕过鉴权。`/metrics` 通即证明 HTTP server goroutine 存活（纯 prometheus handler，不碰 DB/Nacos）。
 - 配置读取：`config.ParseConfigFile(path, version)` + `common.Gsypt.Unmarshal(&config.GlobalConfig)`（解密 `ENC(...)`）。
-- 持久化健康：`PersistentMgr` 无 `CheckDB()`；改用 `repository.InitPersistent()` 建连 + 一次轻量只读 `repository.Ps.GetEffectiveTaskCount()`。需 blank-import `repository/{sqlite,mysql,postgres,dm8}`（照搬 `main.go:26-29`）。
+- 持久化健康：**不调用 `repository.InitPersistent()`**。原因：sqlite adapter 的 `Init()` 会 `AutoMigrate`（DDL 写）+ legacy 迁移（`repository/sqlite/sqlite.go:75`、`migrate.go`），watchdog 每分钟跑一次会对 ckman 正在持有的同一 sqlite 文件反复写迁移（即便 WAL 也会 `SQLITE_BUSY`/争 schema）。改为零副作用探测（见「依赖深探」）。
 - 日志：`github.com/housepower/ckman/log` 包，`log.InitLogger(path, &cfg.Log)` + 全局 `log.Logger`。
 - `cmd/` 目录已有 `cmd/ckmanctl`、`cmd/upgrade` 先例。
 
@@ -82,9 +82,13 @@ findCkmanPids
 - **procState**：读 `/proc/<pid>/stat` 的 State 字符。`D` 态需连续采样 `DStateSamples`（默认 3）次、间隔 `DStateInterval`（默认 1s）全为 D 才判 HUNG（D 态多为瞬时，避免误判）。
 - **HTTP 探活**：`GET <scheme>://127.0.0.1:<port><MetricPath>`，scheme 由 `cfg.Server.Https` 决定（https 时 `InsecureSkipVerify`）。超时 `HttpTimeout`（默认 5s）；无应答（超时/拒绝）局部重试 `HttpRetries`（默认 3）次、间隔 `HttpRetryInterval`（默认 3s）。返回 `(code, ok)`。
   - 若 `cfg.Server.Metric==false`（用户关闭 metrics），探活端点回退为 `/`（嵌入前端，无鉴权且始终 200）。
-- **依赖深探（仅自愈模式，仅告警）**：
-  - DB：`repository.InitPersistent()` + `repository.Ps.GetEffectiveTaskCount()`。对 mysql/pg/dm8 是真实连接+鉴权校验；对 local(SQLite) 校验文件可读。失败计入 DEP。
+- **依赖深探（仅自愈模式，仅告警）—— 全部零副作用，绝不 open/迁移 DB**：
+  - DB，按 `cfg.Server.PersistentPolicy` 分支：
+    - `local`（sqlite）：**仅 `os.Stat` db 文件**（`<config_dir>/<config_file>.db`，缺省取 `cfg.PersistentConfig["local"]` 的 `config_dir`/`config_file`，再缺省 `<workdir>/conf/clusters.db`）。存在+可读即 OK。**绝不 `gorm.Open`/`AutoMigrate`**，避免与运行中的 ckman 争 sqlite 写锁。sqlite 是本地文件而非网络服务，真正损坏会表现为进程崩溃 / HTTP 5xx（已被 CRASH/APP 覆盖）。
+    - `mysql`/`postgres`/`dm8`：`net.DialTimeout("tcp", host:port, 3s)`，host/port 取自 `cfg.PersistentConfig[policy]`，端口缺省 3306/5432/5236。连通即 OK（连通性级别探测，零副作用、不鉴权、不迁移）。
   - Nacos：仅当 `cfg.Nacos.Enabled`。对 `cfg.Nacos.Hosts` 逐个 `net.DialTimeout("tcp", host:port, 3s)`，任一可达即视为可用（不启动 SDK，避免注册副作用）。
+
+  **已知局限**：网络库探测仅到连通性层面（端口通 ≠ 库内可用 / 鉴权正确）。因 DEP 只告警、不触发重启，此粒度足够；如需更深，后续可加「不经 `InitPersistent` 的原始只读 `sql.Open`+`Ping`」（sqlite 走 `?mode=ro&immutable=1` 只读 DSN）。
 
 ### 自愈动作
 
