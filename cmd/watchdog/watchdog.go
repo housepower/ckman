@@ -113,7 +113,6 @@ var alertWriter *lumberjack.Logger
 
 var _ = exec.Command      // 占位,Task 8 删
 var _ = syscall.Kill      // 占位,Task 8 删
-var _ = log.Logger        // 占位,Task 7 删
 
 func main() {
 	flag.Parse()
@@ -173,7 +172,6 @@ func fileExists(path string) bool {
 }
 
 func runCheck(cfg *config.CKManConfig, p *paths) {}
-func initLogger(cfg *config.CKManConfig, p *paths) {}
 func runHeal(cfg *config.CKManConfig, p *paths) {}
 
 // ---------------- 状态文件(重启时间戳) ----------------
@@ -534,4 +532,40 @@ func probe(cfg *config.CKManConfig, p *paths, deep bool) probeResult {
 		suffix = " 且依赖正常"
 	}
 	return probeResult{v: vHealthy, pid: pid, httpCode: 200, evidence: "接口 200" + suffix}
+}
+
+// ---------------- 日志/告警 ----------------
+
+// initLogger 把 ckman 的全局 log.Logger 指向 watchdog.log(lumberjack 轮转,复用 cfg.Log)。
+func initLogger(cfg *config.CKManConfig, p *paths) {
+	_ = os.MkdirAll(filepath.Dir(p.watchdogLog), 0755)
+	log.InitLogger(p.watchdogLog, &cfg.Log)
+}
+
+func openAlertWriter(cfg *config.CKManConfig, p *paths) {
+	_ = os.MkdirAll(filepath.Dir(p.alertLog), 0755)
+	alertWriter = &lumberjack.Logger{
+		Filename:   p.alertLog,
+		MaxSize:    cfg.Log.MaxSize,
+		MaxBackups: cfg.Log.MaxCount,
+		MaxAge:     cfg.Log.MaxAge,
+		LocalTime:  true,
+	}
+}
+
+// writeAlert 写 [HEAL]/[ALERT]/[CRIT] 到 watchdog.log，并追加到 ckman-alert.log。
+// 特例 OK(健康心跳)：watchdog.log 已有 verdict 行，故只补 alert 文件，不重复刷。
+func writeAlert(level, msg string) {
+	switch level {
+	case "CRIT":
+		log.Logger.Errorf("[%s] %s", level, msg)
+	case "OK":
+		// 健康心跳:不重复打 watchdog.log，仅落 alert 文件
+	default:
+		log.Logger.Warnf("[%s] %s", level, msg)
+	}
+	if alertWriter != nil {
+		line := fmt.Sprintf("%s [%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), level, msg)
+		_, _ = alertWriter.Write([]byte(line))
+	}
 }
