@@ -115,8 +115,6 @@ var _ = tls.Config{}      // 占位,Task 4 删
 var _ = net.Dial          // 占位,Task 5 删
 var _ = http.MethodGet    // 占位,Task 4 删
 var _ = exec.Command      // 占位,Task 8 删
-var _ = strconv.Itoa      // 占位,Task 2 删
-var _ = strings.TrimSpace // 占位,Task 2 删
 var _ = syscall.Kill      // 占位,Task 8 删
 var _ = procfs.AllProcs   // 占位,Task 3 删
 var _ = log.Logger        // 占位,Task 7 删
@@ -181,3 +179,64 @@ func fileExists(path string) bool {
 func runCheck(cfg *config.CKManConfig, p *paths) {}
 func initLogger(cfg *config.CKManConfig, p *paths) {}
 func runHeal(cfg *config.CKManConfig, p *paths) {}
+
+// ---------------- 状态文件(重启时间戳) ----------------
+
+func readRestarts(path string) []time.Time {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var ts []time.Time
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if sec, err := strconv.ParseInt(line, 10, 64); err == nil {
+			ts = append(ts, time.Unix(sec, 0))
+		}
+	}
+	return ts
+}
+
+func writeRestarts(path string, ts []time.Time) {
+	var b strings.Builder
+	for _, t := range ts {
+		b.WriteString(strconv.FormatInt(t.Unix(), 10))
+		b.WriteByte('\n')
+	}
+	_ = os.WriteFile(path, []byte(b.String()), 0644)
+}
+
+func countWithin(ts []time.Time, window time.Duration) int {
+	cut := time.Now().Add(-window)
+	n := 0
+	for _, t := range ts {
+		if t.After(cut) {
+			n++
+		}
+	}
+	return n
+}
+
+func pruneWithin(ts []time.Time, window time.Duration) []time.Time {
+	cut := time.Now().Add(-window)
+	out := make([]time.Time, 0, len(ts))
+	for _, t := range ts {
+		if t.After(cut) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func latest(ts []time.Time) time.Time {
+	var newest time.Time
+	for _, t := range ts {
+		if t.After(newest) {
+			newest = t
+		}
+	}
+	return newest
+}
