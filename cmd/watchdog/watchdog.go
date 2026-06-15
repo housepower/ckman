@@ -111,7 +111,6 @@ type paths struct {
 
 var alertWriter *lumberjack.Logger
 
-var _ = net.Dial          // 占位,Task 5 删
 var _ = exec.Command      // 占位,Task 8 删
 var _ = syscall.Kill      // 占位,Task 8 删
 var _ = log.Logger        // 占位,Task 7 删
@@ -382,4 +381,107 @@ func portFromAddr(addr string) string {
 		return addr[i+1:]
 	}
 	return ""
+}
+
+// ---------------- 依赖探测(零副作用,仅告警) ----------------
+
+// 网络库默认端口。local 不在此表 → 不探。
+var dbDefaultPort = map[string]int{
+	"mysql":    3306,
+	"postgres": 5432,
+	"dm8":      5236,
+}
+
+// pcInt 从 PersistentConfig 子 map 取整型(兼容 hjson 的 float64/int/string)。
+func pcInt(m map[string]interface{}, key string) (int, bool) {
+	v, ok := m[key]
+	if !ok {
+		return 0, false
+	}
+	switch n := v.(type) {
+	case float64:
+		return int(n), true
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case string:
+		if i, err := strconv.Atoi(strings.TrimSpace(n)); err == nil {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func pcString(m map[string]interface{}, key string) string {
+	if v, ok := m[key]; ok {
+		if s, ok := v.(string); ok {
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
+}
+
+// dbAddr 返回网络库的 host:port。local(或未知/缺 host)返回 ok=false 表示"不探"。
+func dbAddr(cfg *config.CKManConfig) (string, bool) {
+	policy := strings.ToLower(strings.TrimSpace(cfg.Server.PersistentPolicy))
+	defPort, networked := dbDefaultPort[policy]
+	if !networked {
+		return "", false // local / 空 / 未知 → 跳过
+	}
+	m := cfg.PersistentConfig[policy]
+	host := pcString(m, "host")
+	if host == "" {
+		return "", false
+	}
+	port := defPort
+	if pp, ok := pcInt(m, "port"); ok && pp > 0 {
+		port = pp
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port)), true
+}
+
+// depCheck 探 DB / Nacos(仅告警)。返回失败描述，空串表示都正常(或都跳过)。
+func depCheck(cfg *config.CKManConfig) string {
+	var msgs []string
+	if checkDB {
+		if addr, ok := dbAddr(cfg); ok {
+			if err := dialTCP(addr); err != nil {
+				msgs = append(msgs, fmt.Sprintf("DB(%s) 探测失败: %v", addr, err))
+			}
+		}
+	}
+	if checkNacos && cfg.Nacos.Enabled {
+		if err := checkNacosDep(cfg); err != nil {
+			msgs = append(msgs, "Nacos 探测失败: "+err.Error())
+		}
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// checkNacosDep TCP 拨号每个 nacos host:port，任一可达即视为可用(不启动 SDK,避免注册副作用)。
+func checkNacosDep(cfg *config.CKManConfig) error {
+	if len(cfg.Nacos.Hosts) == 0 {
+		return nil
+	}
+	port := strconv.FormatUint(cfg.Nacos.Port, 10)
+	var lastErr error
+	for _, host := range cfg.Nacos.Hosts {
+		addr := net.JoinHostPort(strings.TrimSpace(host), port)
+		if err := dialTCP(addr); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
+	}
+	return lastErr
+}
+
+func dialTCP(addr string) error {
+	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	if err != nil {
+		return err
+	}
+	_ = conn.Close()
+	return nil
 }

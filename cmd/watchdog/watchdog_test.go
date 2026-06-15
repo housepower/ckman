@@ -96,3 +96,44 @@ func TestProbePath(t *testing.T) {
 		t.Errorf("empty metric_path: want /metrics fallback, got %s", got)
 	}
 }
+
+func TestDBAddrLocalSkipped(t *testing.T) {
+	cfg := &config.CKManConfig{}
+	cfg.Server.PersistentPolicy = "local"
+	if _, ok := dbAddr(cfg); ok {
+		t.Errorf("local policy must be skipped (ok=false)")
+	}
+}
+
+func TestDBAddrMysqlDefaults(t *testing.T) {
+	cfg := &config.CKManConfig{}
+	cfg.Server.PersistentPolicy = "mysql"
+	cfg.PersistentConfig = map[string]map[string]interface{}{
+		"mysql": {"host": "10.0.0.5"}, // 缺 port → 取默认 3306
+	}
+	addr, ok := dbAddr(cfg)
+	if !ok || addr != "10.0.0.5:3306" {
+		t.Errorf("want 10.0.0.5:3306 ok=true, got %q ok=%v", addr, ok)
+	}
+}
+
+func TestDBAddrPostgresExplicitPort(t *testing.T) {
+	cfg := &config.CKManConfig{}
+	cfg.Server.PersistentPolicy = "postgres"
+	cfg.PersistentConfig = map[string]map[string]interface{}{
+		"postgres": {"host": "db1", "port": float64(6543)}, // hjson 数字常解析为 float64
+	}
+	addr, ok := dbAddr(cfg)
+	if !ok || addr != "db1:6543" {
+		t.Errorf("want db1:6543, got %q ok=%v", addr, ok)
+	}
+}
+
+func TestDBAddrMissingHost(t *testing.T) {
+	cfg := &config.CKManConfig{}
+	cfg.Server.PersistentPolicy = "dm8"
+	cfg.PersistentConfig = map[string]map[string]interface{}{"dm8": {}}
+	if _, ok := dbAddr(cfg); ok {
+		t.Errorf("missing host must yield ok=false")
+	}
+}
