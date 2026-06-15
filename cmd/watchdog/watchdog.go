@@ -111,9 +111,7 @@ type paths struct {
 
 var alertWriter *lumberjack.Logger
 
-var _ = tls.Config{}      // 占位,Task 4 删
 var _ = net.Dial          // 占位,Task 5 删
-var _ = http.MethodGet    // 占位,Task 4 删
 var _ = exec.Command      // 占位,Task 8 删
 var _ = syscall.Kill      // 占位,Task 8 删
 var _ = log.Logger        // 占位,Task 7 删
@@ -326,4 +324,62 @@ func persistentD(pid int) bool {
 		}
 	}
 	return true
+}
+
+// ---------------- HTTP 探活 ----------------
+
+// probePath 选探活端点：默认 /metrics(无鉴权、默认开启)；关了 metric 则回退 / (嵌入前端，始终 200)。
+func probePath(cfg *config.CKManConfig) string {
+	if !cfg.Server.Metric {
+		return "/"
+	}
+	if mp := strings.TrimSpace(cfg.Server.MetricPath); mp != "" {
+		return mp
+	}
+	return "/metrics"
+}
+
+// httpProbeWithRetry 探接口；无应答(超时/拒绝)时局部重试 httpRetries 次。
+// 返回 (HTTP 状态码, 是否拿到应答)。
+func httpProbeWithRetry(cfg *config.CKManConfig) (int, bool) {
+	if code, ok := httpProbeOnce(cfg); ok {
+		return code, true
+	}
+	for i := 0; i < httpRetries; i++ {
+		time.Sleep(httpRetryInterval)
+		if code, ok := httpProbeOnce(cfg); ok {
+			return code, true
+		}
+	}
+	return 0, false
+}
+
+func httpProbeOnce(cfg *config.CKManConfig) (int, bool) {
+	scheme := "http"
+	if cfg.Server.Https {
+		scheme = "https"
+	}
+	url := fmt.Sprintf("%s://127.0.0.1:%d%s", scheme, cfg.Server.Port, probePath(cfg))
+	client := &http.Client{
+		Timeout:   httpTimeout,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+	}
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return 0, false
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, false // 超时或拒绝，统一视为"无应答"
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode, true
+}
+
+// portFromAddr 从 "host:port" 取端口字符串，取不到返回空。
+func portFromAddr(addr string) string {
+	if i := strings.LastIndex(addr, ":"); i >= 0 && i < len(addr)-1 {
+		return addr[i+1:]
+	}
+	return ""
 }

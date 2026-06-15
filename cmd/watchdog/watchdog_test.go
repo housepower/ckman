@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/housepower/ckman/config"
 )
 
 func TestRestartsRoundTrip(t *testing.T) {
@@ -74,5 +76,23 @@ func TestFindCkmanPidsMatchesSelfBinary(t *testing.T) {
 func TestProcStateSelf(t *testing.T) {
 	if s := procState(os.Getpid()); s == "" {
 		t.Errorf("procState(self) returned empty")
+	}
+}
+
+func TestProbePath(t *testing.T) {
+	cfg := &config.CKManConfig{}
+	cfg.Server.Metric = true
+	cfg.Server.MetricPath = "/metrics"
+	if got := probePath(cfg); got != "/metrics" {
+		t.Errorf("metric on: want /metrics, got %s", got)
+	}
+	cfg.Server.Metric = false
+	if got := probePath(cfg); got != "/" {
+		t.Errorf("metric off: want /, got %s", got)
+	}
+	cfg.Server.Metric = true
+	cfg.Server.MetricPath = ""
+	if got := probePath(cfg); got != "/metrics" {
+		t.Errorf("empty metric_path: want /metrics fallback, got %s", got)
 	}
 }
