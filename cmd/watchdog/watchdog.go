@@ -485,3 +485,53 @@ func dialTCP(addr string) error {
 	_ = conn.Close()
 	return nil
 }
+
+// ---------------- 探测主流程 ----------------
+
+// probe 执行一轮探测。deep=true 时附加 DB/Nacos 依赖探测(仅自愈模式用)。
+func probe(cfg *config.CKManConfig, p *paths, deep bool) probeResult {
+	pids := findCkmanPids(*p)
+
+	if len(pids) == 0 {
+		// 真相源：进程不存在 → 查 pidfile 解释原因
+		if fileExists(p.pidfile) {
+			return probeResult{v: vCrash, evidence: "进程不存在 + pidfile 残留(" + p.pidfile + ")"}
+		}
+		return probeResult{v: vStopped, evidence: "进程不存在 + 无 pidfile(运维主动停/优雅退出)"}
+	}
+	if len(pids) > 1 {
+		return probeResult{v: vMulti, pid: pids[0], evidence: fmt.Sprintf("扫描到多个 ckman 进程: %v", pids)}
+	}
+	pid := pids[0]
+
+	// 进程状态层
+	switch procState(pid) {
+	case "T":
+		return probeResult{v: vHung, pid: pid, evidence: "进程状态 T(已停止)"}
+	case "D":
+		if persistentD(pid) {
+			return probeResult{v: vHung, pid: pid, evidence: fmt.Sprintf("进程持续 D 态(采样 %d 次)", dStateSamples)}
+		}
+	}
+
+	// 接口层：HTTP 超时/拒绝 → 局部重试 → 仍无应答判夯死
+	code, ok := httpProbeWithRetry(cfg)
+	if !ok {
+		return probeResult{v: vHung, pid: pid, evidence: "进程存活但接口无应答(超时/拒绝，已重试)"}
+	}
+	if code != 200 {
+		return probeResult{v: vApp, pid: pid, httpCode: code, evidence: fmt.Sprintf("接口返回 HTTP %d", code)}
+	}
+
+	// 依赖层(仅自愈模式做，仅告警)
+	if deep {
+		if msg := depCheck(cfg); msg != "" {
+			return probeResult{v: vDep, pid: pid, httpCode: 200, evidence: msg}
+		}
+	}
+	suffix := ""
+	if deep {
+		suffix = " 且依赖正常"
+	}
+	return probeResult{v: vHealthy, pid: pid, httpCode: 200, evidence: "接口 200" + suffix}
+}
