@@ -137,3 +137,26 @@ func TestDBAddrMissingHost(t *testing.T) {
 		t.Errorf("missing host must yield ok=false")
 	}
 }
+
+func TestCheckExitCode(t *testing.T) {
+	cases := []struct {
+		res  probeResult
+		code int
+		lbl  string
+	}{
+		{probeResult{v: vHealthy}, 0, "OK"},
+		{probeResult{v: vCrash}, 10, "DOWN"},
+		{probeResult{v: vStopped}, 10, "DOWN"},
+		{probeResult{v: vHung}, 11, "HUNG"},
+		{probeResult{v: vApp, httpCode: 500}, 12, "APP"},
+		{probeResult{v: vApp, httpCode: 401}, 3, "Auth"},
+		{probeResult{v: vMulti}, 12, "ABNORMAL"},
+	}
+	for _, c := range cases {
+		code, lbl := checkExitCode(c.res)
+		if code != c.code || lbl != c.lbl {
+			t.Errorf("verdict=%s code=%d: want (%d,%s) got (%d,%s)",
+				c.res.v, c.res.httpCode, c.code, c.lbl, code, lbl)
+		}
+	}
+}

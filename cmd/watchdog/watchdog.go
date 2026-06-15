@@ -168,7 +168,38 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func runCheck(cfg *config.CKManConfig, p *paths) {}
+// ---------------- -check 模式 ----------------
+
+func runCheck(cfg *config.CKManConfig, p *paths) {
+	// 即便健康也留痕:仅打 stdout 时健康=无输出,无法区分"未执行"与"静默成功"。
+	initLogger(cfg, p)
+	res := probe(cfg, p, false) // 不做依赖深探，轻量
+	code, label := checkExitCode(res)
+	line := fmt.Sprintf("%s pid=%d %s", label, res.pid, res.evidence)
+	fmt.Println(line)
+	log.Logger.Infof("[watchdog] -check %s", line)
+	os.Exit(code)
+}
+
+// checkExitCode 把 verdict 映射为退出码：0 健康 · 10 DOWN · 11 HUNG · 12 APP/异常 · 3 鉴权。
+func checkExitCode(res probeResult) (int, string) {
+	switch res.v {
+	case vHealthy:
+		return 0, "OK"
+	case vCrash, vStopped:
+		return 10, "DOWN"
+	case vHung:
+		return 11, "HUNG"
+	case vApp:
+		if res.httpCode == 401 {
+			return 3, "Auth"
+		}
+		return 12, "APP"
+	case vMulti:
+		return 12, "ABNORMAL"
+	}
+	return 1, "UNKNOWN"
+}
 
 // ---------------- 状态文件(重启时间戳) ----------------
 
