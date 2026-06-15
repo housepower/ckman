@@ -70,12 +70,14 @@ backend:
 	@rm -rf ${PKGFULLDIR}
 	CGO_ENABLED=0 go build ${LDFLAGS}
 	CGO_ENABLED=0 go build ${LDFLAGS} -o cmd/ckmanctl/ckmanctl cmd/ckmanctl/ckmanctl.go
+	CGO_ENABLED=0 go build ${LDFLAGS} -o cmd/watchdog/watchdog cmd/watchdog/watchdog.go
 
 .PHONY: debug
 debug:
 	@rm -rf ${PKGFULLDIR}
 	CGO_ENABLED=0 go build ${GCFLAGS} ${LDFLAGS}
 	CGO_ENABLED=0 go build ${LDFLAGS} -o cmd/ckmanctl/ckmanctl cmd/ckmanctl/ckmanctl.go
+	CGO_ENABLED=0 go build ${LDFLAGS} -o cmd/watchdog/watchdog cmd/watchdog/watchdog.go
 
 .PHONY: pre
 pre:
@@ -111,6 +113,7 @@ package:build
 	@mkdir -p ${PKGFULLDIR_TMP}/bin ${PKGFULLDIR_TMP}/conf ${PKGFULLDIR_TMP}/run ${PKGFULLDIR_TMP}/logs ${PKGFULLDIR_TMP}/package ${PKGFULLDIR_TMP}/dbscript
 	@mv ${SHDIR}/ckman ${PKGFULLDIR_TMP}/bin
 	@mv ${SHDIR}/cmd/ckmanctl/ckmanctl ${PKGFULLDIR_TMP}/bin
+	@mv ${SHDIR}/cmd/watchdog/watchdog ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/start ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/stop ${PKGFULLDIR_TMP}/bin
 	@cp ${SHDIR}/resources/yaml2json.${GOARCH} ${PKGFULLDIR_TMP}/bin/yaml2json
