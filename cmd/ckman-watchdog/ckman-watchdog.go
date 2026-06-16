@@ -1,4 +1,4 @@
-// watchdog 是 ckman 的自愈守护程序：一次性运行，由 crontab 每分钟调起。
+// ckman-watchdog 是 ckman 的自愈守护程序：一次性运行，由 crontab 每分钟调起。
 //
 // 真相源是"ckman 进程是否存在"（procfs 按二进制身份扫描），pidfile 仅在
 // 进程不存在时用来区分"崩溃"(残留) 与"运维主动停"(go-daemon 优雅退出已删)。
@@ -36,12 +36,12 @@ import (
 )
 
 // Version 由 ldflags 注入（与 ckman 主程序同款），传给 ParseConfigFile。
-var Version = "watchdog"
+var Version = "ckman-watchdog"
 
 var (
 	confFlag  = flag.String("c", "", "配置文件路径(默认 <HDIR>/conf/ckman.hjson)")
 	pidFlag   = flag.String("pid", "", "覆盖 pidfile 路径(默认 <HDIR>/run/ckman.pid)")
-	checkFlag = flag.Bool("check", false, "仅探测：打印状态并按退出码返回，不自愈、不告警(会往 watchdog.log 留一行痕迹)")
+	checkFlag = flag.Bool("check", false, "仅探测：打印状态并按退出码返回，不自愈、不告警(会往 ckman-ckman-watchdog.log 留一行痕迹)")
 )
 
 // 调参默认值（包级 var 便于测试覆盖；零配置，无 flag）。
@@ -118,7 +118,7 @@ func main() {
 	p := derivePaths()
 
 	if err := config.ParseConfigFile(p.conf, Version); err != nil {
-		fmt.Fprintf(os.Stderr, "watchdog: 解析配置失败 %s: %v\n", p.conf, err)
+		fmt.Fprintf(os.Stderr, "ckman-watchdog: 解析配置失败 %s: %v\n", p.conf, err)
 		os.Exit(3)
 	}
 	cfg := &config.GlobalConfig
@@ -157,10 +157,10 @@ func derivePaths() paths {
 		}
 	}
 	p.startCmd = filepath.Join(hdir, "bin", "start")
-	p.watchdogLog = filepath.Join(hdir, "logs", "watchdog.log")
+	p.watchdogLog = filepath.Join(hdir, "logs", "ckman-watchdog.log")
 	p.alertLog = filepath.Join(hdir, "logs", "ckman-alert.log")
-	p.restartsFile = filepath.Join(p.runDir, "watchdog.restarts")
-	p.lockFile = filepath.Join(p.runDir, "watchdog.lock")
+	p.restartsFile = filepath.Join(p.runDir, "ckman-watchdog.restarts")
+	p.lockFile = filepath.Join(p.runDir, "ckman-watchdog.lock")
 	return p
 }
 
@@ -178,7 +178,7 @@ func runCheck(cfg *config.CKManConfig, p *paths) {
 	code, label := checkExitCode(res)
 	line := fmt.Sprintf("%s pid=%d %s", label, res.pid, res.evidence)
 	fmt.Println(line)
-	log.Logger.Infof("[watchdog] -check %s", line)
+	log.Logger.Infof("[ckman-watchdog] -check %s", line)
 	os.Exit(code)
 }
 
@@ -558,7 +558,7 @@ func probe(cfg *config.CKManConfig, p *paths, deep bool) probeResult {
 
 // ---------------- 日志/告警 ----------------
 
-// initLogger 把 ckman 的全局 log.Logger 指向 watchdog.log(lumberjack 轮转,复用 cfg.Log)。
+// initLogger 把 ckman 的全局 log.Logger 指向 ckman-watchdog.log(lumberjack 轮转,复用 cfg.Log)。
 func initLogger(cfg *config.CKManConfig, p *paths) {
 	_ = os.MkdirAll(filepath.Dir(p.watchdogLog), 0755)
 	log.InitLogger(p.watchdogLog, &cfg.Log)
@@ -575,14 +575,14 @@ func openAlertWriter(cfg *config.CKManConfig, p *paths) {
 	}
 }
 
-// writeAlert 写 [HEAL]/[ALERT]/[CRIT] 到 watchdog.log，并追加到 ckman-alert.log。
-// 特例 OK(健康心跳)：watchdog.log 已有 verdict 行，故只补 alert 文件，不重复刷。
+// writeAlert 写 [HEAL]/[ALERT]/[CRIT] 到 ckman-watchdog.log，并追加到 ckman-alert.log。
+// 特例 OK(健康心跳)：ckman-watchdog.log 已有 verdict 行，故只补 alert 文件，不重复刷。
 func writeAlert(level, msg string) {
 	switch level {
 	case "CRIT":
 		log.Logger.Errorf("[%s] %s", level, msg)
 	case "OK":
-		// 健康心跳:不重复打 watchdog.log，仅落 alert 文件
+		// 健康心跳:不重复打 ckman-watchdog.log，仅落 alert 文件
 	default:
 		log.Logger.Warnf("[%s] %s", level, msg)
 	}
@@ -598,7 +598,7 @@ func runHeal(cfg *config.CKManConfig, p *paths) {
 	// 单例锁：防 cron 叠跑
 	lock, ok := tryFlock(p.lockFile)
 	if !ok {
-		log.Logger.Infof("[watchdog] 另一实例持锁，本轮跳过")
+		log.Logger.Infof("[ckman-watchdog] 另一实例持锁，本轮跳过")
 		return
 	}
 	defer releaseFlock(lock)
@@ -609,13 +609,13 @@ func runHeal(cfg *config.CKManConfig, p *paths) {
 
 	// 启动宽限：距上次拉起过近则跳过(避免刚起又判)
 	if last := latest(restarts); !last.IsZero() && time.Since(last) < startupGrace {
-		log.Logger.Infof("[watchdog] 启动宽限期内(距上次拉起 %.0fs < %.0fs)，本轮跳过",
+		log.Logger.Infof("[ckman-watchdog] 启动宽限期内(距上次拉起 %.0fs < %.0fs)，本轮跳过",
 			time.Since(last).Seconds(), startupGrace.Seconds())
 		return
 	}
 
 	res := probe(cfg, p, true)
-	log.Logger.Infof("[watchdog] verdict=%s pid=%d %s", res.v, res.pid, res.evidence)
+	log.Logger.Infof("[ckman-watchdog] verdict=%s pid=%d %s", res.v, res.pid, res.evidence)
 
 	switch res.v {
 	case vHealthy:

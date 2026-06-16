@@ -11,7 +11,7 @@ import (
 
 func TestRestartsRoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "watchdog.restarts")
+	f := filepath.Join(dir, "ckman-watchdog.restarts")
 	now := time.Now()
 	in := []time.Time{now.Add(-2 * time.Hour), now.Add(-30 * time.Minute), now}
 	writeRestarts(f, in)
