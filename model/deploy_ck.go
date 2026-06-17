@@ -75,8 +75,6 @@ type CkImportConfig struct {
 	LogicCluster string   `json:"logic_cluster" example:"logic_test"`
 	ZkNodes      []string `json:"zkNodes" example:"192.168.101.102,192.168.101.105,192.168.101.107"`
 	ZkPort       int      `json:"zkPort" example:"2181"`
-	PromHost     string   `json:"prom_host" example:"127.0.01"`
-	PromPort     int      `json:"prom_port" example:"9090"`
 }
 
 type PromMetricPort struct {

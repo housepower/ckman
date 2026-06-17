@@ -292,12 +292,6 @@ definitions:
       port:
         example: 9000
         type: integer
-      prom_host:
-        example: 127.0.01
-        type: string
-      prom_port:
-        example: 9090
-        type: integer
       protocol:
         example: native
         type: string

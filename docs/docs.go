@@ -3819,14 +3819,6 @@ var doc = `{
                     "type": "integer",
                     "example": 9000
                 },
-                "prom_host": {
-                    "type": "string",
-                    "example": "127.0.01"
-                },
-                "prom_port": {
-                    "type": "integer",
-                    "example": 9090
-                },
                 "protocol": {
                     "type": "string",
                     "example": "native"
