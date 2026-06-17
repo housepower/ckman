@@ -197,6 +197,13 @@ func (sp *SQLitePersistent) CreateCluster(conf model.CKManClickHouseConfig) erro
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
+	// gorm.Model 软删除 + cluster_name 唯一索引：删除集群仅置 deleted_at，
+	// 残留的墓碑行仍占用唯一索引，重建同名集群会撞 UNIQUE 约束。插入前永久清除墓碑。
+	if err := sp.Client.Unscoped().
+		Where("cluster_name = ? AND deleted_at IS NOT NULL", conf.Cluster).
+		Delete(&TblCluster{}).Error; err != nil {
+		return wrapError(err)
+	}
 	tbl := TblCluster{ClusterName: conf.Cluster, Config: string(raw)}
 	return wrapError(sp.Client.Create(&tbl).Error)
 }
@@ -220,7 +227,8 @@ func (sp *SQLitePersistent) UpdateCluster(conf model.CKManClickHouseConfig) erro
 }
 
 func (sp *SQLitePersistent) DeleteCluster(clusterName string) error {
-	return wrapError(sp.Client.Where("cluster_name = ?", clusterName).Delete(&TblCluster{}).Error)
+	// 硬删除：避免 gorm.Model 软删除留下墓碑行，与 cluster_name 唯一索引冲突。
+	return wrapError(sp.Client.Unscoped().Where("cluster_name = ?", clusterName).Delete(&TblCluster{}).Error)
 }
 
 // ─── Logic Cluster ────────────────────────────────────────────────────────────
@@ -258,6 +266,12 @@ func (sp *SQLitePersistent) CreateLogicCluster(logic string, physics []string) e
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
+	// 同 CreateCluster：清除 logic_name 唯一索引上的软删除墓碑，避免重建撞 UNIQUE 约束。
+	if err := sp.Client.Unscoped().
+		Where("logic_name = ? AND deleted_at IS NOT NULL", logic).
+		Delete(&TblLogic{}).Error; err != nil {
+		return wrapError(err)
+	}
 	tbl := TblLogic{LogicCluster: logic, PhysicClusters: string(raw)}
 	return wrapError(sp.Client.Create(&tbl).Error)
 }
@@ -280,7 +294,8 @@ func (sp *SQLitePersistent) UpdateLogicCluster(logic string, physics []string) e
 }
 
 func (sp *SQLitePersistent) DeleteLogicCluster(clusterName string) error {
-	return wrapError(sp.Client.Where("logic_name = ?", clusterName).Delete(&TblLogic{}).Error)
+	// 硬删除：避免软删除墓碑与 logic_name 唯一索引冲突。
+	return wrapError(sp.Client.Unscoped().Where("logic_name = ?", clusterName).Delete(&TblLogic{}).Error)
 }
 
 // ─── QueryHistory ─────────────────────────────────────────────────────────────

@@ -81,6 +81,19 @@ func TestSQLite_ClusterCRUD(t *testing.T) {
 	if sp.ClusterExists("ck1") {
 		t.Fatalf("ClusterExists should return false after delete")
 	}
+
+	// 删除后重建同名集群：gorm.Model 软删除会留下 deleted_at 非空的墓碑记录，
+	// 而 cluster_name 唯一索引不含 deleted_at，重建必须不被墓碑阻塞。
+	if err := sp.CreateCluster(model.CKManClickHouseConfig{Cluster: "ck1", Comment: "recreated"}); err != nil {
+		t.Fatalf("recreate after delete: %v", err)
+	}
+	got3, err := sp.GetClusterbyName("ck1")
+	if err != nil {
+		t.Fatalf("get after recreate: %v", err)
+	}
+	if got3.Comment != "recreated" {
+		t.Fatalf("recreate lost: %+v", got3)
+	}
 }
 
 func TestSQLite_LogicCRUD(t *testing.T) {
