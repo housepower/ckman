@@ -1405,6 +1405,11 @@ func (controller *ClickHouseController) StartCluster(c *gin.Context) {
 		return
 	}
 
+	if conf.Mode == model.CkClusterImport {
+		controller.wrapfunc(c, model.E_INVALID_VARIABLE, fmt.Sprintf("cluster %s is imported, start/stop/destroy is not supported", clusterName))
+		return
+	}
+
 	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
 		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, err)
 		return
@@ -1449,6 +1454,11 @@ func (controller *ClickHouseController) StopCluster(c *gin.Context) {
 		return
 	}
 
+	if conf.Mode == model.CkClusterImport {
+		controller.wrapfunc(c, model.E_INVALID_VARIABLE, fmt.Sprintf("cluster %s is imported, start/stop/destroy is not supported", clusterName))
+		return
+	}
+
 	if err := verifySshPassword(c, &conf, conf.SshUser, conf.SshPassword); err != nil {
 		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, err)
 		return
@@ -1488,6 +1498,11 @@ func (controller *ClickHouseController) DestroyCluster(c *gin.Context) {
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err != nil {
 		controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, fmt.Sprintf("cluster %s does not exist", clusterName))
+		return
+	}
+
+	if conf.Mode == model.CkClusterImport {
+		controller.wrapfunc(c, model.E_INVALID_VARIABLE, fmt.Sprintf("cluster %s is imported, start/stop/destroy is not supported", clusterName))
 		return
 	}
 
