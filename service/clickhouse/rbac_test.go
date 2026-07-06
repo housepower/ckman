@@ -111,3 +111,15 @@ func TestIsReservedRbacUser(t *testing.T) {
 	assert.True(t, IsReservedRbacUser("DEFAULT"))
 	assert.False(t, IsReservedRbacUser("alice"))
 }
+
+func TestParseNameColumn(t *testing.T) {
+	// QueryInfo 返回:data[0] 是列名行,data[1:] 是数据
+	data := [][]interface{}{
+		{"name"},
+		{"alice"},
+		{"bob"},
+	}
+	assert.Equal(t, []string{"alice", "bob"}, parseNameColumn(data))
+	assert.Empty(t, parseNameColumn([][]interface{}{{"name"}}))
+	assert.Empty(t, parseNameColumn(nil))
+}

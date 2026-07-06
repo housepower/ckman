@@ -213,3 +213,211 @@ func BuildListProfilesSQL(nameFilter string) (string, error) {
 	sql += " ORDER BY name"
 	return sql, nil
 }
+
+// parseNameColumn 从 QueryInfo 结果(data[0] 为列名行)提取第 0 列的字符串值
+func parseNameColumn(data [][]interface{}) []string {
+	if len(data) <= 1 {
+		return nil
+	}
+	out := make([]string, 0, len(data)-1)
+	for _, row := range data[1:] {
+		if len(row) > 0 {
+			out = append(out, fmt.Sprintf("%v", row[0]))
+		}
+	}
+	return out
+}
+
+func rbacExec(clusterName string, stmts []string) error {
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return err
+	}
+	for _, s := range stmts {
+		if err := ck.Conn.Exec(s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func RbacCreateUser(clusterName string, req model.RbacUserCreateReq) error {
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return err
+	}
+	stmts, err := BuildCreateUserSQL(ck.Config.Cluster, req)
+	if err != nil {
+		return err
+	}
+	for _, s := range stmts {
+		if err := ck.Conn.Exec(s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func RbacAlterUser(clusterName, name string, req model.RbacUserAlterReq) error {
+	if IsReservedRbacUser(name) {
+		return fmt.Errorf("user %s is reserved and cannot be altered", name)
+	}
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return err
+	}
+	stmts, err := BuildAlterUserSQL(ck.Config.Cluster, name, req)
+	if err != nil {
+		return err
+	}
+	for _, s := range stmts {
+		if err := ck.Conn.Exec(s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func RbacDropUser(clusterName, name string) error {
+	if IsReservedRbacUser(name) {
+		return fmt.Errorf("user %s is reserved and cannot be dropped", name)
+	}
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return err
+	}
+	sql, err := BuildDropUserSQL(ck.Config.Cluster, name)
+	if err != nil {
+		return err
+	}
+	return ck.Conn.Exec(sql)
+}
+
+// userAccessAndProfile 查单个用户的 access 与绑定 profile
+func userAccessAndProfile(ck *CkService, name string) (string, string) {
+	access := model.RbacAccessReadOnly
+	grantsSQL := fmt.Sprintf("SELECT access_type FROM system.grants WHERE user_name = '%s'", escapeSQLString(name))
+	if data, err := ck.QueryInfo(grantsSQL); err == nil {
+		access = DeriveAccess(parseNameColumn(data))
+	}
+	profile := ""
+	profSQL := fmt.Sprintf("SELECT arrayStringConcat(settings_profiles, ',') FROM system.users WHERE name = '%s'", escapeSQLString(name))
+	if data, err := ck.QueryInfo(profSQL); err == nil {
+		if names := parseNameColumn(data); len(names) > 0 {
+			profile = names[0]
+		}
+	}
+	return access, profile
+}
+
+func RbacListUsers(clusterName, nameFilter string) ([]model.RbacUserInfo, error) {
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return nil, err
+	}
+	sql, err := BuildListUsersSQL(nameFilter)
+	if err != nil {
+		return nil, err
+	}
+	data, err := ck.QueryInfo(sql)
+	if err != nil {
+		return nil, err
+	}
+	names := parseNameColumn(data)
+	out := make([]model.RbacUserInfo, 0, len(names))
+	for _, n := range names {
+		access, profile := userAccessAndProfile(ck, n)
+		out = append(out, model.RbacUserInfo{Name: n, Access: access, Profile: profile})
+	}
+	return out, nil
+}
+
+func RbacGetUser(clusterName, name string) (model.RbacUserInfo, error) {
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return model.RbacUserInfo{}, err
+	}
+	access, profile := userAccessAndProfile(ck, name)
+	return model.RbacUserInfo{Name: name, Access: access, Profile: profile}, nil
+}
+
+func RbacCreateProfile(clusterName string, req model.RbacProfileCreateReq) error {
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return err
+	}
+	sql, err := BuildCreateProfileSQL(ck.Config.Cluster, req)
+	if err != nil {
+		return err
+	}
+	return ck.Conn.Exec(sql)
+}
+
+func RbacAlterProfile(clusterName string, req model.RbacProfileCreateReq) error {
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return err
+	}
+	sql, err := BuildAlterProfileSQL(ck.Config.Cluster, req)
+	if err != nil {
+		return err
+	}
+	return ck.Conn.Exec(sql)
+}
+
+func RbacDropProfile(clusterName, name string) error {
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return err
+	}
+	sql, err := BuildDropProfileSQL(ck.Config.Cluster, name)
+	if err != nil {
+		return err
+	}
+	return ck.Conn.Exec(sql)
+}
+
+func RbacListProfiles(clusterName, nameFilter string) ([]model.RbacProfileInfo, error) {
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return nil, err
+	}
+	sql, err := BuildListProfilesSQL(nameFilter)
+	if err != nil {
+		return nil, err
+	}
+	data, err := ck.QueryInfo(sql)
+	if err != nil {
+		return nil, err
+	}
+	names := parseNameColumn(data)
+	out := make([]model.RbacProfileInfo, 0, len(names))
+	for _, n := range names {
+		out = append(out, model.RbacProfileInfo{Name: n, Settings: profileSettings(ck, n)})
+	}
+	return out, nil
+}
+
+func RbacGetProfile(clusterName, name string) (model.RbacProfileInfo, error) {
+	ck, err := GetCkService(clusterName)
+	if err != nil {
+		return model.RbacProfileInfo{}, err
+	}
+	return model.RbacProfileInfo{Name: name, Settings: profileSettings(ck, name)}, nil
+}
+
+// profileSettings 查 profile 的 setting 键值
+func profileSettings(ck *CkService, name string) map[string]interface{} {
+	out := map[string]interface{}{}
+	sql := fmt.Sprintf("SELECT setting_name, value FROM system.settings_profile_elements WHERE profile_name = '%s' AND setting_name != ''", escapeSQLString(name))
+	data, err := ck.QueryInfo(sql)
+	if err != nil || len(data) <= 1 {
+		return out
+	}
+	for _, row := range data[1:] {
+		if len(row) >= 2 {
+			out[fmt.Sprintf("%v", row[0])] = fmt.Sprintf("%v", row[1])
+		}
+	}
+	return out
+}
