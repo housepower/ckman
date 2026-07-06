@@ -228,19 +228,6 @@ func parseNameColumn(data [][]interface{}) []string {
 	return out
 }
 
-func rbacExec(clusterName string, stmts []string) error {
-	ck, err := GetCkService(clusterName)
-	if err != nil {
-		return err
-	}
-	for _, s := range stmts {
-		if err := ck.Conn.Exec(s); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func RbacCreateUser(clusterName string, req model.RbacUserCreateReq) error {
 	ck, err := GetCkService(clusterName)
 	if err != nil {
