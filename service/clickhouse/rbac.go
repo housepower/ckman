@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 )
 
@@ -28,7 +29,7 @@ func IsReservedRbacUser(name string) bool {
 }
 
 // rbacWritePrivileges 出现任一即判定为 readwrite
-var rbacWritePrivileges = []string{"INSERT", "ALTER", "CREATE", "DROP", "TRUNCATE", "OPTIMIZE", "DELETE", "UPDATE"}
+var rbacWritePrivileges = []string{"ALL", "INSERT", "ALTER", "CREATE", "DROP", "TRUNCATE", "OPTIMIZE", "DELETE", "UPDATE"}
 
 // DeriveAccess 依据 grants 权限列表反推 readonly/readwrite
 func DeriveAccess(grants []string) string {
@@ -49,7 +50,7 @@ func buildGrantSQL(cluster, name, access string) []string {
 		return []string{fmt.Sprintf("GRANT ON CLUSTER `%s` SELECT ON *.* TO `%s`", cluster, name)}
 	case model.RbacAccessReadWrite:
 		return []string{
-			fmt.Sprintf("GRANT ON CLUSTER `%s` ALL ON *.* TO `%s`", cluster, name),
+			fmt.Sprintf("GRANT ON CLUSTER `%s` CURRENT GRANTS ON *.* TO `%s`", cluster, name),
 			fmt.Sprintf("REVOKE ON CLUSTER `%s` ACCESS MANAGEMENT ON *.* FROM `%s`", cluster, name),
 		}
 	}
@@ -283,16 +284,20 @@ func RbacDropUser(clusterName, name string) error {
 // userAccessAndProfile 查单个用户的 access 与绑定 profile
 func userAccessAndProfile(ck *CkService, name string) (string, string) {
 	access := model.RbacAccessReadOnly
-	grantsSQL := fmt.Sprintf("SELECT access_type FROM system.grants WHERE user_name = '%s'", escapeSQLString(name))
+	grantsSQL := fmt.Sprintf("SELECT access_type FROM system.grants WHERE user_name = '%s' AND is_partial_revoke = 0", escapeSQLString(name))
 	if data, err := ck.QueryInfo(grantsSQL); err == nil {
 		access = DeriveAccess(parseNameColumn(data))
+	} else {
+		log.Logger.Warnf("rbac: query grants for %s failed: %v", name, err)
 	}
 	profile := ""
-	profSQL := fmt.Sprintf("SELECT arrayStringConcat(settings_profiles, ',') FROM system.users WHERE name = '%s'", escapeSQLString(name))
+	profSQL := fmt.Sprintf("SELECT inherit_profile FROM system.settings_profile_elements WHERE user_name = '%s' AND inherit_profile != ''", escapeSQLString(name))
 	if data, err := ck.QueryInfo(profSQL); err == nil {
 		if names := parseNameColumn(data); len(names) > 0 {
 			profile = names[0]
 		}
+	} else {
+		log.Logger.Warnf("rbac: query profile for %s failed: %v", name, err)
 	}
 	return access, profile
 }
@@ -398,7 +403,11 @@ func profileSettings(ck *CkService, name string) map[string]interface{} {
 	out := map[string]interface{}{}
 	sql := fmt.Sprintf("SELECT setting_name, value FROM system.settings_profile_elements WHERE profile_name = '%s' AND setting_name != ''", escapeSQLString(name))
 	data, err := ck.QueryInfo(sql)
-	if err != nil || len(data) <= 1 {
+	if err != nil {
+		log.Logger.Warnf("rbac: query settings for profile %s failed: %v", name, err)
+		return out
+	}
+	if len(data) <= 1 {
 		return out
 	}
 	for _, row := range data[1:] {

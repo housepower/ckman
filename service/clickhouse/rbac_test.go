@@ -25,7 +25,7 @@ func TestBuildCreateUserSQL_ReadWrite(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []string{
 		"CREATE USER `bob` ON CLUSTER `test` IDENTIFIED BY 'x' HOST IP '::/0'",
-		"GRANT ON CLUSTER `test` ALL ON *.* TO `bob`",
+		"GRANT ON CLUSTER `test` CURRENT GRANTS ON *.* TO `bob`",
 		"REVOKE ON CLUSTER `test` ACCESS MANAGEMENT ON *.* FROM `bob`",
 	}, stmts)
 }
@@ -53,7 +53,7 @@ func TestBuildAlterUserSQL(t *testing.T) {
 		"ALTER USER `alice` ON CLUSTER `test` IDENTIFIED BY 'np'",
 		"ALTER USER `alice` ON CLUSTER `test` SETTINGS PROFILE `p2`",
 		"REVOKE ON CLUSTER `test` ALL ON *.* FROM `alice`",
-		"GRANT ON CLUSTER `test` ALL ON *.* TO `alice`",
+		"GRANT ON CLUSTER `test` CURRENT GRANTS ON *.* TO `alice`",
 		"REVOKE ON CLUSTER `test` ACCESS MANAGEMENT ON *.* FROM `alice`",
 	}, stmts)
 }
@@ -104,6 +104,12 @@ func TestDeriveAccess(t *testing.T) {
 	assert.Equal(t, model.RbacAccessReadOnly, DeriveAccess([]string{"SELECT"}))
 	assert.Equal(t, model.RbacAccessReadWrite, DeriveAccess([]string{"SELECT", "INSERT"}))
 	assert.Equal(t, model.RbacAccessReadWrite, DeriveAccess([]string{"ALTER DELETE"}))
+}
+
+func TestDeriveAccess_RealisticInputs(t *testing.T) {
+	assert.Equal(t, model.RbacAccessReadWrite, DeriveAccess([]string{"ALL"}))
+	assert.Equal(t, model.RbacAccessReadWrite, DeriveAccess([]string{"SELECT", "INSERT", "ALTER", "CREATE", "DROP"}))
+	assert.Equal(t, model.RbacAccessReadOnly, DeriveAccess([]string{"SELECT"}))
 }
 
 func TestIsReservedRbacUser(t *testing.T) {

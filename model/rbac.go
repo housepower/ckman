@@ -29,18 +29,10 @@ type RbacUserInfo struct {
 	Networks []string `json:"networks"`
 }
 
-// RbacProfileConstraint profile 约束
-type RbacProfileConstraint struct {
-	Readonly bool        `json:"readonly"`
-	Min      interface{} `json:"min"`
-	Max      interface{} `json:"max"`
-}
-
 // RbacProfileCreateReq 创建/修改 profile 请求
 type RbacProfileCreateReq struct {
-	Name        string                           `json:"name" example:"readonly_p"`
-	Settings    map[string]interface{}           `json:"settings"`
-	Constraints map[string]RbacProfileConstraint `json:"constraints"`
+	Name     string                 `json:"name" example:"readonly_p"`
+	Settings map[string]interface{} `json:"settings"`
 }
 
 // RbacProfileInfo profile 信息(List/Get 返回)
