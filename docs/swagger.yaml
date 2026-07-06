@@ -769,6 +769,26 @@ definitions:
           type: string
         type: array
     type: object
+  model.RbacUserCreateReq:
+    properties:
+      access:
+        description: readonly | readwrite
+        example: readonly
+        type: string
+      name:
+        example: alice
+        type: string
+      networks:
+        items:
+          type: string
+        type: array
+      password:
+        example: "123456"
+        type: string
+      profile:
+        example: readonly_p
+        type: string
+    type: object
   model.RebalanceTableReq:
     properties:
       except_max_shard:
@@ -1765,6 +1785,79 @@ paths:
       summary: SQL查询历史
       tags:
       - clickhouse
+  /api/v1/ck/rbac/profile/{clusterName}:
+    get:
+      parameters:
+      - description: name filter
+        in: query
+        name: name
+        type: string
+      summary: 列出settings profile
+      tags:
+      - rbac
+    post:
+      summary: 创建settings profile
+      tags:
+      - rbac
+  /api/v1/ck/rbac/profile/{clusterName}/{name}:
+    delete:
+      summary: 删除profile
+      tags:
+      - rbac
+    get:
+      summary: 查询单个profile
+      tags:
+      - rbac
+    put:
+      summary: 修改profile
+      tags:
+      - rbac
+  /api/v1/ck/rbac/user/{clusterName}:
+    get:
+      parameters:
+      - description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: name filter
+        in: query
+        name: name
+        type: string
+      summary: 列出CH用户
+      tags:
+      - rbac
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: user
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.RbacUserCreateReq'
+      summary: 创建CH用户
+      tags:
+      - rbac
+  /api/v1/ck/rbac/user/{clusterName}/{name}:
+    delete:
+      summary: 删除CH用户
+      tags:
+      - rbac
+    get:
+      summary: 查询单个CH用户
+      tags:
+      - rbac
+    put:
+      summary: 修改CH用户
+      tags:
+      - rbac
   /api/v1/ck/rebalance/{clusterName}:
     put:
       consumes:

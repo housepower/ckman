@@ -1423,6 +1423,118 @@
                 }
             }
         },
+        "/api/v1/ck/rbac/profile/{clusterName}": {
+            "get": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "列出settings profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "name filter",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "创建settings profile"
+            }
+        },
+        "/api/v1/ck/rbac/profile/{clusterName}/{name}": {
+            "get": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "查询单个profile"
+            },
+            "put": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "修改profile"
+            },
+            "delete": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "删除profile"
+            }
+        },
+        "/api/v1/ck/rbac/user/{clusterName}": {
+            "get": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "列出CH用户",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "name filter",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ]
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "创建CH用户",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "user",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.RbacUserCreateReq"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/ck/rbac/user/{clusterName}/{name}": {
+            "get": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "查询单个CH用户"
+            },
+            "put": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "修改CH用户"
+            },
+            "delete": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "删除CH用户"
+            }
+        },
         "/api/v1/ck/rebalance/{clusterName}": {
             "put": {
                 "security": [
@@ -4487,6 +4599,34 @@
                         "t2",
                         "t3"
                     ]
+                }
+            }
+        },
+        "model.RbacUserCreateReq": {
+            "type": "object",
+            "properties": {
+                "access": {
+                    "description": "readonly | readwrite",
+                    "type": "string",
+                    "example": "readonly"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "alice"
+                },
+                "networks": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "password": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "profile": {
+                    "type": "string",
+                    "example": "readonly_p"
                 }
             }
         },

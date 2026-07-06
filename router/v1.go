@@ -78,6 +78,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	dataManageController := controller.NewDataManageController(config, WrapMsg)
 	userController := controller.NewUserController(config, WrapMsg)
 	overrideController := controller.NewNodeOverrideController(WrapMsg)
+	rbacController := controller.NewRBACController(WrapMsg)
 
 	groupV1.POST("/ck/cluster", ckController.ImportCluster)
 	groupV1.GET("/ck/cluster", ckController.GetClusters)
@@ -182,4 +183,15 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.PUT(fmt.Sprintf("/users/:%s", controller.UsernamePath), userController.Update)
 	groupV1.DELETE(fmt.Sprintf("/users/:%s", controller.UsernamePath), userController.Delete)
 	groupV1.PUT(fmt.Sprintf("/users/:%s/password", controller.UsernamePath), userController.ResetPassword)
+
+	groupV1.POST(fmt.Sprintf("/ck/rbac/user/:%s", controller.ClickHouseClusterPath), rbacController.CreateUser)
+	groupV1.GET(fmt.Sprintf("/ck/rbac/user/:%s", controller.ClickHouseClusterPath), rbacController.ListUsers)
+	groupV1.GET(fmt.Sprintf("/ck/rbac/user/:%s/:name", controller.ClickHouseClusterPath), rbacController.GetUser)
+	groupV1.PUT(fmt.Sprintf("/ck/rbac/user/:%s/:name", controller.ClickHouseClusterPath), rbacController.AlterUser)
+	groupV1.DELETE(fmt.Sprintf("/ck/rbac/user/:%s/:name", controller.ClickHouseClusterPath), rbacController.DropUser)
+	groupV1.POST(fmt.Sprintf("/ck/rbac/profile/:%s", controller.ClickHouseClusterPath), rbacController.CreateProfile)
+	groupV1.GET(fmt.Sprintf("/ck/rbac/profile/:%s", controller.ClickHouseClusterPath), rbacController.ListProfiles)
+	groupV1.GET(fmt.Sprintf("/ck/rbac/profile/:%s/:name", controller.ClickHouseClusterPath), rbacController.GetProfile)
+	groupV1.PUT(fmt.Sprintf("/ck/rbac/profile/:%s/:name", controller.ClickHouseClusterPath), rbacController.AlterProfile)
+	groupV1.DELETE(fmt.Sprintf("/ck/rbac/profile/:%s/:name", controller.ClickHouseClusterPath), rbacController.DropProfile)
 }
