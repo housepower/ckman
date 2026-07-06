@@ -136,22 +136,22 @@ func BuildListUsersSQL(nameFilter string) (string, error) {
 	return sql, nil
 }
 
-func formatSettingValue(v interface{}) string {
+func formatSettingValue(v interface{}) (string, error) {
 	switch val := v.(type) {
 	case string:
-		return fmt.Sprintf("'%s'", escapeSQLString(val))
+		return fmt.Sprintf("'%s'", escapeSQLString(val)), nil
 	case bool:
 		if val {
-			return "1"
+			return "1", nil
 		}
-		return "0"
+		return "0", nil
 	case float64:
 		if val == float64(int64(val)) {
-			return strconv.FormatInt(int64(val), 10)
+			return strconv.FormatInt(int64(val), 10), nil
 		}
-		return strconv.FormatFloat(val, 'f', -1, 64)
+		return strconv.FormatFloat(val, 'f', -1, 64), nil
 	default:
-		return fmt.Sprintf("%v", val)
+		return "", fmt.Errorf("unsupported setting value type %T", v)
 	}
 }
 
@@ -169,7 +169,11 @@ func buildProfileSettingsClause(settings map[string]interface{}) (string, error)
 		if !validRbacIdent(k) {
 			return "", fmt.Errorf("invalid setting key: %s", k)
 		}
-		parts = append(parts, fmt.Sprintf("%s = %s", k, formatSettingValue(settings[k])))
+		valStr, err := formatSettingValue(settings[k])
+		if err != nil {
+			return "", fmt.Errorf("setting %s: %w", k, err)
+		}
+		parts = append(parts, fmt.Sprintf("%s = %s", k, valStr))
 	}
 	return " SETTINGS " + strings.Join(parts, ", "), nil
 }
@@ -188,6 +192,9 @@ func BuildCreateProfileSQL(cluster string, req model.RbacProfileCreateReq) (stri
 func BuildAlterProfileSQL(cluster string, req model.RbacProfileCreateReq) (string, error) {
 	if !validRbacIdent(req.Name) {
 		return "", fmt.Errorf("invalid profile name: %s", req.Name)
+	}
+	if len(req.Settings) == 0 {
+		return "", fmt.Errorf("nothing to alter: settings is empty")
 	}
 	clause, err := buildProfileSettingsClause(req.Settings)
 	if err != nil {
@@ -329,8 +336,33 @@ func RbacGetUser(clusterName, name string) (model.RbacUserInfo, error) {
 	if err != nil {
 		return model.RbacUserInfo{}, err
 	}
+	exist, err := rbacUserExists(ck, name)
+	if err != nil {
+		return model.RbacUserInfo{}, err
+	}
+	if !exist {
+		return model.RbacUserInfo{}, fmt.Errorf("user %s not found", name)
+	}
 	access, profile := userAccessAndProfile(ck, name)
 	return model.RbacUserInfo{Name: name, Access: access, Profile: profile}, nil
+}
+
+// rbacUserExists 检查用户是否存在
+func rbacUserExists(ck *CkService, name string) (bool, error) {
+	data, err := ck.QueryInfo(fmt.Sprintf("SELECT name FROM system.users WHERE name = '%s'", escapeSQLString(name)))
+	if err != nil {
+		return false, err
+	}
+	return len(parseNameColumn(data)) > 0, nil
+}
+
+// rbacProfileExists 检查 profile 是否存在
+func rbacProfileExists(ck *CkService, name string) (bool, error) {
+	data, err := ck.QueryInfo(fmt.Sprintf("SELECT name FROM system.settings_profiles WHERE name = '%s'", escapeSQLString(name)))
+	if err != nil {
+		return false, err
+	}
+	return len(parseNameColumn(data)) > 0, nil
 }
 
 func RbacCreateProfile(clusterName string, req model.RbacProfileCreateReq) error {
@@ -394,6 +426,13 @@ func RbacGetProfile(clusterName, name string) (model.RbacProfileInfo, error) {
 	ck, err := GetCkService(clusterName)
 	if err != nil {
 		return model.RbacProfileInfo{}, err
+	}
+	exist, err := rbacProfileExists(ck, name)
+	if err != nil {
+		return model.RbacProfileInfo{}, err
+	}
+	if !exist {
+		return model.RbacProfileInfo{}, fmt.Errorf("profile %s not found", name)
 	}
 	return model.RbacProfileInfo{Name: name, Settings: profileSettings(ck, name)}, nil
 }

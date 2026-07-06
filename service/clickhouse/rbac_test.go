@@ -94,6 +94,24 @@ func TestBuildCreateProfileSQL_InvalidSettingKey(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestBuildCreateProfileSQL_UnsupportedValueType(t *testing.T) {
+	req := model.RbacProfileCreateReq{Name: "p", Settings: map[string]interface{}{"k": []interface{}{"a", "b"}}}
+	_, err := BuildCreateProfileSQL("test", req)
+	assert.Error(t, err)
+}
+
+func TestBuildAlterProfileSQL_Valid(t *testing.T) {
+	req := model.RbacProfileCreateReq{Name: "p", Settings: map[string]interface{}{"max_threads": float64(4)}}
+	sql, err := BuildAlterProfileSQL("test", req)
+	assert.NoError(t, err)
+	assert.Equal(t, "ALTER SETTINGS PROFILE `p` ON CLUSTER `test` SETTINGS max_threads = 4", sql)
+}
+
+func TestBuildAlterProfileSQL_EmptySettings(t *testing.T) {
+	_, err := BuildAlterProfileSQL("test", model.RbacProfileCreateReq{Name: "p"})
+	assert.Error(t, err)
+}
+
 func TestBuildDropProfileSQL(t *testing.T) {
 	sql, err := BuildDropProfileSQL("test", "ro")
 	assert.NoError(t, err)
