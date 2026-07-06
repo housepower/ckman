@@ -1,0 +1,113 @@
+package clickhouse
+
+import (
+	"testing"
+
+	"github.com/housepower/ckman/model"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestBuildCreateUserSQL_ReadOnly(t *testing.T) {
+	req := model.RbacUserCreateReq{
+		Name: "alice", Password: "p@ss", Access: model.RbacAccessReadOnly, Profile: "ro",
+	}
+	stmts, err := BuildCreateUserSQL("test", req)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{
+		"CREATE USER `alice` ON CLUSTER `test` IDENTIFIED BY 'p@ss' HOST IP '::/0' SETTINGS PROFILE `ro`",
+		"GRANT ON CLUSTER `test` SELECT ON *.* TO `alice`",
+	}, stmts)
+}
+
+func TestBuildCreateUserSQL_ReadWrite(t *testing.T) {
+	req := model.RbacUserCreateReq{Name: "bob", Password: "x", Access: model.RbacAccessReadWrite}
+	stmts, err := BuildCreateUserSQL("test", req)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{
+		"CREATE USER `bob` ON CLUSTER `test` IDENTIFIED BY 'x' HOST IP '::/0'",
+		"GRANT ON CLUSTER `test` ALL ON *.* TO `bob`",
+		"REVOKE ON CLUSTER `test` ACCESS MANAGEMENT ON *.* FROM `bob`",
+	}, stmts)
+}
+
+func TestBuildCreateUserSQL_InvalidName(t *testing.T) {
+	_, err := BuildCreateUserSQL("test", model.RbacUserCreateReq{Name: "a; DROP", Password: "x", Access: "readonly"})
+	assert.Error(t, err)
+}
+
+func TestBuildCreateUserSQL_EmptyPassword(t *testing.T) {
+	_, err := BuildCreateUserSQL("test", model.RbacUserCreateReq{Name: "a", Access: "readonly"})
+	assert.Error(t, err)
+}
+
+func TestBuildCreateUserSQL_EscapesPassword(t *testing.T) {
+	stmts, err := BuildCreateUserSQL("test", model.RbacUserCreateReq{Name: "a", Password: "a'b", Access: "readonly"})
+	assert.NoError(t, err)
+	assert.Contains(t, stmts[0], `IDENTIFIED BY 'a\'b'`)
+}
+
+func TestBuildAlterUserSQL(t *testing.T) {
+	stmts, err := BuildAlterUserSQL("test", "alice", model.RbacUserAlterReq{Password: "np", Profile: "p2", Access: "readwrite"})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{
+		"ALTER USER `alice` ON CLUSTER `test` IDENTIFIED BY 'np'",
+		"ALTER USER `alice` ON CLUSTER `test` SETTINGS PROFILE `p2`",
+		"REVOKE ON CLUSTER `test` ALL ON *.* FROM `alice`",
+		"GRANT ON CLUSTER `test` ALL ON *.* TO `alice`",
+		"REVOKE ON CLUSTER `test` ACCESS MANAGEMENT ON *.* FROM `alice`",
+	}, stmts)
+}
+
+func TestBuildDropUserSQL(t *testing.T) {
+	sql, err := BuildDropUserSQL("test", "alice")
+	assert.NoError(t, err)
+	assert.Equal(t, "DROP USER IF EXISTS `alice` ON CLUSTER `test`", sql)
+}
+
+func TestBuildListUsersSQL(t *testing.T) {
+	sql, err := BuildListUsersSQL("")
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT name FROM system.users ORDER BY name", sql)
+
+	sql, err = BuildListUsersSQL("ali")
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT name FROM system.users WHERE name LIKE '%ali%' ORDER BY name", sql)
+
+	_, err = BuildListUsersSQL("a;b")
+	assert.Error(t, err)
+}
+
+func TestBuildCreateProfileSQL(t *testing.T) {
+	req := model.RbacProfileCreateReq{
+		Name:     "ro",
+		Settings: map[string]interface{}{"max_threads": float64(8), "readonly": float64(1)},
+	}
+	sql, err := BuildCreateProfileSQL("test", req)
+	assert.NoError(t, err)
+	// keys 排序保证确定性:max_threads 在 readonly 前
+	assert.Equal(t, "CREATE SETTINGS PROFILE `ro` ON CLUSTER `test` SETTINGS max_threads = 8, readonly = 1", sql)
+}
+
+func TestBuildCreateProfileSQL_InvalidSettingKey(t *testing.T) {
+	req := model.RbacProfileCreateReq{Name: "ro", Settings: map[string]interface{}{"bad key": float64(1)}}
+	_, err := BuildCreateProfileSQL("test", req)
+	assert.Error(t, err)
+}
+
+func TestBuildDropProfileSQL(t *testing.T) {
+	sql, err := BuildDropProfileSQL("test", "ro")
+	assert.NoError(t, err)
+	assert.Equal(t, "DROP SETTINGS PROFILE IF EXISTS `ro` ON CLUSTER `test`", sql)
+}
+
+func TestDeriveAccess(t *testing.T) {
+	assert.Equal(t, model.RbacAccessReadOnly, DeriveAccess([]string{"SELECT"}))
+	assert.Equal(t, model.RbacAccessReadWrite, DeriveAccess([]string{"SELECT", "INSERT"}))
+	assert.Equal(t, model.RbacAccessReadWrite, DeriveAccess([]string{"ALTER DELETE"}))
+}
+
+func TestIsReservedRbacUser(t *testing.T) {
+	assert.True(t, IsReservedRbacUser("default"))
+	assert.True(t, IsReservedRbacUser("DEFAULT"))
+	assert.False(t, IsReservedRbacUser("alice"))
+}
