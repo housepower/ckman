@@ -7,9 +7,25 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 )
+
+// rbacReadWriteMinVersion readwrite 用户依赖 GRANT ... CURRENT GRANTS 语法,该语法自 ClickHouse 23.5 起支持
+const rbacReadWriteMinVersion = "23.5.x"
+
+// RequireRbacReadWriteVersion 校验集群版本是否满足 readwrite 用户所需的 CURRENT GRANTS 语法(>= 23.5)。
+// 仅 access=readwrite 时校验;readonly 与 profile 操作在低版本(20.4+)可用,不受此限制。
+func RequireRbacReadWriteVersion(version, access string) error {
+	if access != model.RbacAccessReadWrite {
+		return nil
+	}
+	if common.CompareClickHouseVersion(version, rbacReadWriteMinVersion) < 0 {
+		return fmt.Errorf("access 'readwrite' requires ClickHouse >= 23.5 (uses GRANT CURRENT GRANTS), but cluster version is %s", version)
+	}
+	return nil
+}
 
 var rbacIdentRe = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
@@ -241,6 +257,9 @@ func RbacCreateUser(clusterName string, req model.RbacUserCreateReq) error {
 	if err != nil {
 		return err
 	}
+	if err := RequireRbacReadWriteVersion(ck.Config.Version, req.Access); err != nil {
+		return err
+	}
 	stmts, err := BuildCreateUserSQL(ck.Config.Cluster, req)
 	if err != nil {
 		return err
@@ -259,6 +278,9 @@ func RbacAlterUser(clusterName, name string, req model.RbacUserAlterReq) error {
 	}
 	ck, err := GetCkService(clusterName)
 	if err != nil {
+		return err
+	}
+	if err := RequireRbacReadWriteVersion(ck.Config.Version, req.Access); err != nil {
 		return err
 	}
 	stmts, err := BuildAlterUserSQL(ck.Config.Cluster, name, req)

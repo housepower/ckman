@@ -130,6 +130,20 @@ func TestDeriveAccess_RealisticInputs(t *testing.T) {
 	assert.Equal(t, model.RbacAccessReadOnly, DeriveAccess([]string{"SELECT"}))
 }
 
+func TestRequireRbacReadWriteVersion(t *testing.T) {
+	// readwrite + 低于 23.5 → 报错
+	assert.Error(t, RequireRbacReadWriteVersion("22.8.1.2", model.RbacAccessReadWrite))
+	assert.Error(t, RequireRbacReadWriteVersion("23.4.9", model.RbacAccessReadWrite))
+	// readwrite + 达标版本 → 放行(23.5.x 及以上)
+	assert.NoError(t, RequireRbacReadWriteVersion("23.5.1", model.RbacAccessReadWrite))
+	assert.NoError(t, RequireRbacReadWriteVersion("24.3.2.1", model.RbacAccessReadWrite))
+	// readonly → 任何版本放行
+	assert.NoError(t, RequireRbacReadWriteVersion("20.4.0", model.RbacAccessReadOnly))
+	assert.NoError(t, RequireRbacReadWriteVersion("22.8.1", model.RbacAccessReadOnly))
+	// 空 access(alter 不改权限)→ 放行
+	assert.NoError(t, RequireRbacReadWriteVersion("22.8.1", ""))
+}
+
 func TestIsReservedRbacUser(t *testing.T) {
 	assert.True(t, IsReservedRbacUser("default"))
 	assert.True(t, IsReservedRbacUser("DEFAULT"))
