@@ -147,6 +147,8 @@ POST /api/v1/ck/rbac/user/{clusterName}
 - `readonly` → `GRANT SELECT ON *.*`
 - `readwrite` → `GRANT CURRENT GRANTS ON *.*` 后 `REVOKE ACCESS MANAGEMENT`（授予读写但剥离账号管理权限）
 
+> ⚠️ **版本要求**：`readwrite` 依赖 `GRANT CURRENT GRANTS` 语法，要求 ClickHouse **≥ 23.5**。低于该版本创建 readwrite 用户（或 3.4 中把用户改为 readwrite）会被 ckman 直接拒绝，返回 `access 'readwrite' requires ClickHouse >= 23.5 ...`。`readonly` 建用户与 profile 操作不受此限制（20.4+ 即可）。
+
 响应：`entity` 为 `null`。
 
 ```bash
@@ -208,6 +210,45 @@ DELETE /api/v1/ck/rbac/user/{clusterName}/{name}
 ---
 
 ## 4. Settings Profile 管理接口
+
+### 4.0 关于 settings 配置项（透传）
+
+`settings` 是**透传**字段：ckman **不维护白名单**，仅做两层校验——
+
+1. key 必须匹配 `^[a-zA-Z0-9_]+$`（防注入）；
+2. value 类型限 string / bool / number（bool 自动转 `1/0`）。
+
+其余合法性由 ClickHouse 在执行 `CREATE/ALTER SETTINGS PROFILE` 时校验：传入不存在的项会返回 `UNKNOWN_SETTING`（错误信息会拼进 `retMsg`）。
+
+**完整可用项**以目标集群的 `system.settings` 表为准，可直接查询获取名称、当前值、类型与说明：
+
+```sql
+SELECT name, value, type, description FROM system.settings ORDER BY name
+```
+
+**常用配置项参考**——以下为 ckman 部署/管理集群时 profile 表单暴露的项（`ckconfig/users.go` + `model.Profile`），可作为最常用的推荐集（取值范围以 CH 版本为准）：
+
+| setting | 类型 | 说明 |
+|---------|------|------|
+| `readonly` | number | 只读级别：`0` 读写 / `1` 只读 / `2` 只读但允许改 settings |
+| `allow_ddl` | number | 是否允许 DDL：`0` 禁止 / `1` 允许 |
+| `max_threads` | number | 单查询最大线程数 |
+| `max_memory_usage` | number | 单查询最大内存（字节） |
+| `max_memory_usage_for_all_queries` | number | 该用户所有查询的总内存上限（字节） |
+| `max_execution_time` | number | 单查询最大执行时间（秒） |
+| `max_bytes_to_read` | number | 单查询从表可读的最大未压缩字节数，`0` 不限 |
+| `max_rows_to_read` | number | 单查询从表可读的最大行数，`0` 不限 |
+| `max_partitions_to_read` | number | 单查询可访问的最大分区数，`-1` 不限 |
+| `max_concurrent_queries_for_user` | number | 该用户最大并发查询数，`0` 不限 |
+| `max_result_rows` | number | 返回结果最大行数，`0` 不限 |
+| `max_result_bytes` | number | 返回结果最大字节数（未压缩） |
+| `max_bytes_before_external_group_by` | number | GROUP BY spill 到磁盘的阈值（字节），`0` 禁用外部聚合 |
+| `max_bytes_before_external_sort` | number | ORDER BY spill 到磁盘的阈值（字节），`0` 禁用外部排序 |
+| `force_index_by_date` | number | 强制查询使用日期索引，未命中拒绝执行：`0`/`1` |
+| `force_primary_key` | number | 强制查询使用主键，未命中拒绝执行：`0`/`1` |
+| `s3_max_get_rps` | number | S3 GET 单查询限速（每秒请求数），`0` 不限 |
+
+> 以上即 ckman 前端 profile 表单可调的字段；其余 CH 支持的 setting 仍可透传，完整列表以集群 `system.settings` 为准。
 
 ### 4.1 创建 profile
 
