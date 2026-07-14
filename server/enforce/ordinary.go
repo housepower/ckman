@@ -27,6 +27,14 @@ func OrdinaryPolicies() []Policy {
 		{"/ck/table/migrate/*", POST},
 		{"/ck/partition/*", PUT},
 		{"/data_manage/backup/*", PUT},
+		{"/ck/rbac/user/*", POST},
+		{"/ck/rbac/user/*", GET},
+		{"/ck/rbac/user/*", PUT},
+		{"/ck/rbac/user/*", DELETE},
+		{"/ck/rbac/profile/*", POST},
+		{"/ck/rbac/profile/*", GET},
+		{"/ck/rbac/profile/*", PUT},
+		{"/ck/rbac/profile/*", DELETE},
 	}
 	return append(OrdinaryPolicies, GuestPolicies()...)
 }
