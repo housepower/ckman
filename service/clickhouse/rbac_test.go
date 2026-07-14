@@ -85,7 +85,7 @@ func TestBuildCreateProfileSQL(t *testing.T) {
 	sql, err := BuildCreateProfileSQL("test", req)
 	assert.NoError(t, err)
 	// keys 排序保证确定性:max_threads 在 readonly 前
-	assert.Equal(t, "CREATE SETTINGS PROFILE `ro` ON CLUSTER `test` SETTINGS max_threads = 8, readonly = 1", sql)
+	assert.Equal(t, "CREATE SETTINGS PROFILE OR REPLACE `ro` ON CLUSTER `test` SETTINGS max_threads = 8, readonly = 1", sql)
 }
 
 func TestBuildCreateProfileSQL_InvalidSettingKey(t *testing.T) {

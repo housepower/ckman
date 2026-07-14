@@ -204,7 +204,8 @@ func BuildCreateProfileSQL(cluster string, req model.RbacProfileCreateReq) (stri
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("CREATE SETTINGS PROFILE `%s` ON CLUSTER `%s`%s", req.Name, cluster, clause), nil
+	// OR REPLACE: 同 CreateUser,避免个别节点残留同名 profile 导致 ON CLUSTER 报 493、集群不一致。
+	return fmt.Sprintf("CREATE SETTINGS PROFILE OR REPLACE `%s` ON CLUSTER `%s`%s", req.Name, cluster, clause), nil
 }
 
 func BuildAlterProfileSQL(cluster string, req model.RbacProfileCreateReq) (string, error) {
