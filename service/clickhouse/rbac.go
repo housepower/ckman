@@ -91,7 +91,9 @@ func BuildCreateUserSQL(cluster string, req model.RbacUserCreateReq) ([]string, 
 	for _, n := range nets {
 		hostParts = append(hostParts, fmt.Sprintf("IP '%s'", escapeSQLString(n)))
 	}
-	createSQL := fmt.Sprintf("CREATE USER `%s` ON CLUSTER `%s` IDENTIFIED BY '%s' HOST %s",
+	// OR REPLACE: ON CLUSTER 下若个别节点残留同名用户(local_directory),普通 CREATE 会在该节点
+	// 报 ACCESS_ENTITY_ALREADY_EXISTS(493) 导致集群状态不一致;OR REPLACE 强制各节点重建,保证一致。
+	createSQL := fmt.Sprintf("CREATE USER OR REPLACE `%s` ON CLUSTER `%s` IDENTIFIED BY '%s' HOST %s",
 		req.Name, cluster, escapeSQLString(req.Password), strings.Join(hostParts, ", "))
 	if req.Profile != "" {
 		if !validRbacIdent(req.Profile) {

@@ -14,7 +14,7 @@ func TestBuildCreateUserSQL_ReadOnly(t *testing.T) {
 	stmts, err := BuildCreateUserSQL("test", req)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{
-		"CREATE USER `alice` ON CLUSTER `test` IDENTIFIED BY 'p@ss' HOST IP '::/0' SETTINGS PROFILE `ro`",
+		"CREATE USER OR REPLACE `alice` ON CLUSTER `test` IDENTIFIED BY 'p@ss' HOST IP '::/0' SETTINGS PROFILE `ro`",
 		"GRANT ON CLUSTER `test` SELECT ON *.* TO `alice`",
 	}, stmts)
 }
@@ -24,7 +24,7 @@ func TestBuildCreateUserSQL_ReadWrite(t *testing.T) {
 	stmts, err := BuildCreateUserSQL("test", req)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{
-		"CREATE USER `bob` ON CLUSTER `test` IDENTIFIED BY 'x' HOST IP '::/0'",
+		"CREATE USER OR REPLACE `bob` ON CLUSTER `test` IDENTIFIED BY 'x' HOST IP '::/0'",
 		"GRANT ON CLUSTER `test` CURRENT GRANTS ON *.* TO `bob`",
 		"REVOKE ON CLUSTER `test` ACCESS MANAGEMENT ON *.* FROM `bob`",
 	}, stmts)
