@@ -322,40 +322,20 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 	}
 
 	// get bytes, parts, rows
-	found := false
-	if common.ArraySearch("partitions", cols) || common.ArraySearch("parts", cols) ||
-		common.ArraySearch("compressed", cols) || common.ArraySearch("uncompressed", cols) ||
-		common.ArraySearch("rows", cols) || len(cols) == 0 {
-		found = true
+	found := len(cols) == 0
+	for _, f := range tableMetricsPartsFields {
+		if common.ArraySearch(f.col, cols) {
+			found = true
+			break
+		}
 	}
 	if found {
-		query = fmt.Sprintf("SELECT table, uniqExact(partition) AS partitions, count(*) AS parts, sum(data_compressed_bytes) AS compressed, sum(data_uncompressed_bytes) AS uncompressed, sum(rows) AS rows, database FROM cluster('%s', system.parts) WHERE (database in ('%s')) AND (active = '1') GROUP BY table, database;", conf.Cluster, dbs)
+		query = buildTableMetricsPartsQuery(conf.Cluster, dbs, conf.Version)
 		value, err = service.QueryInfo(query)
 		if err != nil {
 			return nil, err
 		}
-		for i := 1; i < len(value); i++ {
-			table := value[i][0].(string)
-			database := value[i][6].(string)
-			tableName := fmt.Sprintf("%s.%s", database, table)
-			if metric, ok := metrics[tableName]; ok {
-				if common.ArraySearch("partitions", cols) || len(cols) == 0 {
-					metric.Partitions = value[i][1].(uint64)
-				}
-				if common.ArraySearch("parts", cols) || len(cols) == 0 {
-					metric.Parts = value[i][2].(uint64)
-				}
-				if common.ArraySearch("compressed", cols) || len(cols) == 0 {
-					metric.Compressed = value[i][3].(uint64)
-				}
-				if common.ArraySearch("uncompressed", cols) || len(cols) == 0 {
-					metric.UnCompressed = value[i][4].(uint64)
-				}
-				if common.ArraySearch("rows", cols) || len(cols) == 0 {
-					metric.Rows = value[i][5].(uint64)
-				}
-			}
-		}
+		mergeCkTableMetricParts(metrics, value, cols)
 	}
 
 	// get readwrite_status
@@ -435,6 +415,64 @@ func mergeCkTableMetricColumns(metrics map[string]*model.CkTableMetrics, value [
 		tableName := fmt.Sprintf("%s.%s", database, table)
 		if metric, ok := metrics[tableName]; ok && columns > metric.Columns {
 			metric.Columns = columns
+		}
+	}
+}
+
+// tableMetricsPartsFields 描述 buildTableMetricsPartsQuery 结果里每个可选字段的
+// cols 过滤名、列下标与写回位置。这里同时是 GetCkTableMetrics 判断"是否需要跑这条
+// 查询"的依据,两处共用一张表,避免字段列表日后走样。
+//
+// index_* 两项下标 >= 7,只有 CH >= 20.4 的结果行才有,mergeCkTableMetricParts
+// 按行长度跳过。
+var tableMetricsPartsFields = []struct {
+	col string
+	idx int
+	set func(*model.CkTableMetrics, uint64)
+}{
+	{"partitions", 1, func(m *model.CkTableMetrics, v uint64) { m.Partitions = v }},
+	{"parts", 2, func(m *model.CkTableMetrics, v uint64) { m.Parts = v }},
+	{"compressed", 3, func(m *model.CkTableMetrics, v uint64) { m.Compressed = v }},
+	{"uncompressed", 4, func(m *model.CkTableMetrics, v uint64) { m.UnCompressed = v }},
+	{"rows", 5, func(m *model.CkTableMetrics, v uint64) { m.Rows = v }},
+	{"index_uncompressed", 7, func(m *model.CkTableMetrics, v uint64) { m.IndexUnCompressed = v }},
+	{"index_compressed", 8, func(m *model.CkTableMetrics, v uint64) { m.IndexCompressed = v }},
+}
+
+// mergeCkTableMetricParts 把 buildTableMetricsPartsQuery 的结果写回 metrics。
+//
+// value[0] 是列名行,从 1 开始才是数据。列下标见 buildTableMetricsPartsQuery 的注释;
+// CH < 20.4 时每行只有 7 列(无索引列),故按 len(row) 容错而非假定长度。
+// cols 为空表示全取;否则只写 cols 里点名的字段。
+func mergeCkTableMetricParts(metrics map[string]*model.CkTableMetrics, value [][]interface{}, cols []string) {
+	all := len(cols) == 0
+	for i := 1; i < len(value); i++ {
+		row := value[i]
+		if len(row) < 7 {
+			continue
+		}
+		table, ok := row[0].(string)
+		if !ok {
+			continue
+		}
+		database, ok := row[6].(string)
+		if !ok {
+			continue
+		}
+		metric, ok := metrics[fmt.Sprintf("%s.%s", database, table)]
+		if !ok {
+			continue
+		}
+		for _, f := range tableMetricsPartsFields {
+			if f.idx >= len(row) {
+				continue // CH < 20.4:结果行没有索引列
+			}
+			if !all && !common.ArraySearch(f.col, cols) {
+				continue
+			}
+			if v, ok := ckMetricUint64(row[f.idx]); ok {
+				f.set(metric, v)
+			}
 		}
 	}
 }

@@ -76,3 +76,79 @@ func TestBuildTableMetricsPartsQueryOmitsIndexColumnsOnOldVersion(t *testing.T) 
 		t.Fatalf("query lost base columns: %s", query)
 	}
 }
+
+func TestMergeCkTableMetricPartsFillsIndexSizes(t *testing.T) {
+	metrics := map[string]*model.CkTableMetrics{
+		"default.events": {},
+	}
+
+	mergeCkTableMetricParts(metrics, [][]interface{}{
+		{"table", "partitions", "parts", "compressed", "uncompressed", "rows", "database", "index_uncompressed", "index_compressed"},
+		{"events", uint64(3), uint64(12), uint64(1000), uint64(4000), uint64(500), "default", uint64(1200), uint64(340)},
+	}, nil)
+
+	m := metrics["default.events"]
+	if m.Partitions != 3 || m.Parts != 12 || m.Compressed != 1000 || m.UnCompressed != 4000 || m.Rows != 500 {
+		t.Fatalf("base metrics wrong: %+v", m)
+	}
+	if m.IndexUnCompressed != 1200 {
+		t.Fatalf("IndexUnCompressed = %d, want 1200", m.IndexUnCompressed)
+	}
+	if m.IndexCompressed != 340 {
+		t.Fatalf("IndexCompressed = %d, want 340", m.IndexCompressed)
+	}
+}
+
+// CH < 20.4 时 buildTableMetricsPartsQuery 只返回 7 列,合并不能 panic,索引字段保持 0。
+func TestMergeCkTableMetricPartsToleratesRowsWithoutIndexColumns(t *testing.T) {
+	metrics := map[string]*model.CkTableMetrics{
+		"default.events": {},
+	}
+
+	mergeCkTableMetricParts(metrics, [][]interface{}{
+		{"table", "partitions", "parts", "compressed", "uncompressed", "rows", "database"},
+		{"events", uint64(3), uint64(12), uint64(1000), uint64(4000), uint64(500), "default"},
+	}, nil)
+
+	m := metrics["default.events"]
+	if m.Compressed != 1000 {
+		t.Fatalf("Compressed = %d, want 1000", m.Compressed)
+	}
+	if m.IndexUnCompressed != 0 || m.IndexCompressed != 0 {
+		t.Fatalf("index sizes must stay 0 on old CH, got %d/%d", m.IndexUnCompressed, m.IndexCompressed)
+	}
+}
+
+// cols 显式指定时,只写请求的字段。
+func TestMergeCkTableMetricPartsRespectsColsFilter(t *testing.T) {
+	metrics := map[string]*model.CkTableMetrics{
+		"default.events": {},
+	}
+
+	mergeCkTableMetricParts(metrics, [][]interface{}{
+		{"table", "partitions", "parts", "compressed", "uncompressed", "rows", "database", "index_uncompressed", "index_compressed"},
+		{"events", uint64(3), uint64(12), uint64(1000), uint64(4000), uint64(500), "default", uint64(1200), uint64(340)},
+	}, []string{"index_compressed"})
+
+	m := metrics["default.events"]
+	if m.IndexCompressed != 340 {
+		t.Fatalf("IndexCompressed = %d, want 340", m.IndexCompressed)
+	}
+	if m.Compressed != 0 || m.Rows != 0 || m.IndexUnCompressed != 0 {
+		t.Fatalf("unrequested fields must stay 0: %+v", m)
+	}
+}
+
+// metrics 里没有的表(非 MergeTree)直接跳过,不新建条目。
+func TestMergeCkTableMetricPartsSkipsUnknownTable(t *testing.T) {
+	metrics := map[string]*model.CkTableMetrics{}
+
+	mergeCkTableMetricParts(metrics, [][]interface{}{
+		{"table", "partitions", "parts", "compressed", "uncompressed", "rows", "database", "index_uncompressed", "index_compressed"},
+		{"events", uint64(3), uint64(12), uint64(1000), uint64(4000), uint64(500), "default", uint64(1200), uint64(340)},
+	}, nil)
+
+	if len(metrics) != 0 {
+		t.Fatalf("must not create entries for unknown tables, got %+v", metrics)
+	}
+}
