@@ -265,6 +265,28 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 	}
 	return statusList
 }
+
+// tableMetricsIndexMinVersion system.parts 的 secondary_indices_* 系列字段自 CH 20.4 起提供。
+// 表指标整页共用下面这一条 SQL,低版本集群若拼进这两列,失败的是整个查询(整页报错),
+// 而不是两列为空,故做版本门控。
+const tableMetricsIndexMinVersion = "20.4"
+
+// buildTableMetricsPartsQuery 构造表指标的 system.parts 查询。
+//
+// 列下标是稳定契约,mergeCkTableMetricParts 依赖它:
+//
+//	0=table 1=partitions 2=parts 3=compressed 4=uncompressed 5=rows 6=database
+//	7=index_uncompressed 8=index_compressed  (仅 CH >= 20.4)
+//
+// 索引列一律追加在 SELECT 末尾,database 保持在下标 6 不动。
+func buildTableMetricsPartsQuery(cluster, dbs, version string) string {
+	selects := "table, uniqExact(partition) AS partitions, count(*) AS parts, sum(data_compressed_bytes) AS compressed, sum(data_uncompressed_bytes) AS uncompressed, sum(rows) AS rows, database"
+	if common.CompareClickHouseVersion(version, tableMetricsIndexMinVersion) >= 0 {
+		selects += ", sum(secondary_indices_uncompressed_bytes) AS index_uncompressed, sum(secondary_indices_compressed_bytes) AS index_compressed"
+	}
+	return fmt.Sprintf("SELECT %s FROM cluster('%s', system.parts) WHERE (database in ('%s')) AND (active = '1') GROUP BY table, database;", selects, cluster, dbs)
+}
+
 func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols []string) (map[string]*model.CkTableMetrics, error) {
 	metrics := make(map[string]*model.CkTableMetrics)
 
