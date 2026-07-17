@@ -137,7 +137,11 @@ func DeleteCkClusterNode(ctx context.Context, task *model.Task, conf *model.CKMa
 		ckService := clickhouse.NewCkService(conf)
 		err = ckService.InitCkService()
 		if err == nil {
-			data, err := ckService.QueryInfo(query)
+			// QueryInfoAll:行数 = 该节点上的复制表数。这里的结果直接决定下面
+			// service.DeleteAll(zoopath) 实际删哪些路径 —— 走 QueryInfo 被静默截断在
+			// 1 万行的话不是"显示不全",而是**真的漏删**:表数超万时,第 10000 张之后
+			// 的表在 ZK 里留下僵尸路径,影响后续重建/扩容。
+			data, err := ckService.QueryInfoAll(query)
 			if err == nil {
 				for i := 1; i < len(data); i++ {
 					if ifDeleteShard {

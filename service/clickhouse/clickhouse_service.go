@@ -661,7 +661,9 @@ ORDER BY
     database`
 
 	tblLists := make(map[string]map[string][]string)
-	value, err := ck.QueryInfo(query)
+	// QueryInfoAll:按 (database, table) 分组,行数 = 分布式表总数。
+	// 走 QueryInfo 会静默截断在 1 万行,分布式表超万时靠后的表直接从返回结果里消失。
+	value, err := ck.QueryInfoAll(query)
 	if err != nil {
 		return nil, err
 	}
@@ -679,7 +681,9 @@ ORDER BY
 	}
 
 	query = `SELECT name FROM system.databases WHERE name NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')`
-	value, err = ck.QueryInfo(query)
+	// QueryInfoAll:行数 = 库数。与上面那条同属"分布式表清单"的完整性诉求,
+	// 这条负责把没有分布式表的空库也补进结果,截断会让靠后的空库整个消失。
+	value, err = ck.QueryInfoAll(query)
 	for i := 1; i < len(value); i++ {
 		database := value[i][0].(string)
 		if _, ok := tblLists[database]; !ok {

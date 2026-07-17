@@ -35,7 +35,10 @@ func GetCkClusterConfig(conf *model.CKManClickHouseConfig) (string, error) {
 	conf.Hosts = make([]string, 0)
 	conf.Shards = make([]model.CkShard, 0)
 
-	value, err := service.QueryInfo(fmt.Sprintf("SELECT cluster, shard_num, replica_num, host_name, host_address FROM system.clusters WHERE cluster='%s' ORDER BY cluster, shard_num, replica_num", conf.Cluster))
+	// QueryInfoAll:行数 = 集群节点数。这是集群拓扑(conf.Hosts/conf.Shards)的权威来源,
+	// 结果必须完整 —— 截断意味着拓扑丢失,比指标缺失更基础。现实中节点数很难到 1 万,
+	// 但拓扑不该依赖"量级够小"这种巧合。
+	value, err := service.QueryInfoAll(fmt.Sprintf("SELECT cluster, shard_num, replica_num, host_name, host_address FROM system.clusters WHERE cluster='%s' ORDER BY cluster, shard_num, replica_num", conf.Cluster))
 	if err != nil {
 		return model.E_DATA_SELECT_FAILED, err
 	}
@@ -996,7 +999,8 @@ GROUP BY
     source_table,
     as_select`, uncompressed, conf.Cluster)
 
-	data, err := service.QueryInfo(query)
+	// QueryInfoAll:行数 = 集群内物化视图总数。走 QueryInfo 会静默截断在 1 万行。
+	data, err := service.QueryInfoAll(query)
 	if err != nil {
 		return nil, err
 	}
@@ -1130,7 +1134,11 @@ GROUP BY
 	partition_id
 ORDER BY partition DESC %s`, conf.Cluster, database, tableName, limitN)
 	log.Logger.Infof("query: %s", query)
-	value, err := service.QueryInfo(query)
+	// QueryInfoAll:行数 = 该表的分区数,由上面的 limitN 说了算 —— limit<=0 时调用方
+	// 就是要全部(SQL 不拼 LIMIT),limit>0 时 SQL 自己的 LIMIT 就是边界。
+	// 走 QueryInfo 的话它那条隐藏的 1 万行上限会盖过调用方的意图:高基数分区键的表
+	// (按天分区多年)拿不全,且 limit>10000 时用户明确要的行数也会被悄悄砍到 1 万。
+	value, err := service.QueryInfoAll(query)
 	if err != nil {
 		return nil, err
 	}
@@ -1155,7 +1163,10 @@ ORDER BY partition DESC %s`, conf.Cluster, database, tableName, limitN)
 	query = fmt.Sprintf("SELECT distinct partition_id, disk from cluster('%s', system.detached_parts) where database = '%s' and table = '%s'",
 		conf.Cluster, database, tableName)
 	log.Logger.Infof("query: %s", query)
-	value, err = service.QueryInfo(query)
+	// QueryInfoAll:与上面的 active 分区查询同理,行数 = 该表的 detached 分区数,
+	// 结果并入同一个 partInfo。上半段不截断、这半段截断的话,同一张表的 detached
+	// 分区照样会从第 10000 个之后开始丢。
+	value, err = service.QueryInfoAll(query)
 	if err != nil {
 		return nil, err
 	}
@@ -1932,7 +1943,9 @@ func GetReplicatedTableStatus(conf *model.CKManClickHouseConfig) ([]model.Replic
 FROM clusterAllReplicas('%s', system.replicas)
 ORDER BY
     queue_size DESC`, conf.Cluster)
-	data, err := service.QueryInfo(query)
+	// QueryInfoAll:行数 = 复制表数 × 节点数,是本文件里规模最大的一条。
+	// 走 QueryInfo 会静默截断在 1 万行,大集群上这个状态页永远看不全。
+	data, err := service.QueryInfoAll(query)
 	if err != nil {
 		return nil, err
 	}
