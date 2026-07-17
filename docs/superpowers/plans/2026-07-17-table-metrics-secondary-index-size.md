@@ -472,7 +472,8 @@ EOF
 - Modify: `/data/root/go/src/github.com/housepower/ckman-fe/src/views/tables/components/tableMetrics.vue`(`columns` 计算属性的 table 分支、`fetchData` 的 table 映射)
 
 **Interfaces:**
-- Consumes(Task 1/2 产出):接口 `GET /api/v2/ck/table_metric/{cluster}` 响应中每张表的 `index_uncompressed` / `index_compressed`(number)
+- Consumes(Task 1/2 产出):接口 `GET /api/v1/ck/table_metric/{cluster}` 响应中每张表的 `index_uncompressed` / `index_compressed`(number)
+  (该接口只注册在 v1,见 `router/v1.go:121`;前端 `src/apis/tables.ts` 的 `url` 常量就是 `/api/v1`。本任务不改接口路径。)
 - Produces:无(终端消费方)
 
 - [ ] **Step 1: 确认 ckman-fe 工作区干净、在 main 分支**
