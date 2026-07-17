@@ -29,7 +29,7 @@
 | 文件 | 动作 | 职责 |
 |---|---|---|
 | `model/ck_table.go` | 修改 | `CkTableMetrics` 增加 `IndexUnCompressed` / `IndexCompressed` 两个字段 |
-| `service/clickhouse/clickhouse.go` | 修改 | 新增纯函数 `buildTableMetricsPartsQuery`(SQL 构造 + 版本门控)与 `mergeCkTableMetricParts`(结果合并);`GetCkTableMetrics` 改为调用两者 |
+| `service/clickhouse/clickhouse.go` | 修改 | 新增纯函数 `buildTableMetricsPartsQuery`(SQL 构造 + 版本门控)与 `mergeCkTableMetricParts`(表驱动的结果合并);`GetCkTableMetrics` 改为调用两者 |
 | `service/clickhouse/clickhouse_test.go` | 修改 | 两个纯函数的单测 |
 | `controller/clickhouse.go` | 修改 | `GetTableMetric` 的 swagger 注释补新列名 |
 | `docs/`(swagger 产物) | 重新生成 | `swag init` |
@@ -198,6 +198,7 @@ EOF
   - `service.QueryInfo(query) ([][]interface{}, error)`(结果第 0 行是列名行)
   - `conf.Version string`(`model/deploy_ck.go:91`)
 - Produces:
+  - `var tableMetricsPartsFields []struct{ col string; idx int; set func(*model.CkTableMetrics, uint64) }`(字段名/下标/写回位置的单一事实源,合并与 `found` 判断共用)
   - `func mergeCkTableMetricParts(metrics map[string]*model.CkTableMetrics, value [][]interface{}, cols []string)`
 
 - [ ] **Step 1: 写失败的测试**
@@ -292,22 +293,43 @@ Expected: 编译失败,`undefined: mergeCkTableMetricParts`
 在 `service/clickhouse/clickhouse.go` 里 `mergeCkTableMetricColumns` 函数之后插入:
 
 ```go
+// tableMetricsPartsFields 描述 buildTableMetricsPartsQuery 结果里每个可选字段的
+// cols 过滤名、列下标与写回位置。这里同时是 GetCkTableMetrics 判断"是否需要跑这条
+// 查询"的依据,两处共用一张表,避免字段列表日后走样。
+//
+// index_* 两项下标 >= 7,只有 CH >= 20.4 的结果行才有,mergeCkTableMetricParts
+// 按行长度跳过。
+var tableMetricsPartsFields = []struct {
+	col string
+	idx int
+	set func(*model.CkTableMetrics, uint64)
+}{
+	{"partitions", 1, func(m *model.CkTableMetrics, v uint64) { m.Partitions = v }},
+	{"parts", 2, func(m *model.CkTableMetrics, v uint64) { m.Parts = v }},
+	{"compressed", 3, func(m *model.CkTableMetrics, v uint64) { m.Compressed = v }},
+	{"uncompressed", 4, func(m *model.CkTableMetrics, v uint64) { m.UnCompressed = v }},
+	{"rows", 5, func(m *model.CkTableMetrics, v uint64) { m.Rows = v }},
+	{"index_uncompressed", 7, func(m *model.CkTableMetrics, v uint64) { m.IndexUnCompressed = v }},
+	{"index_compressed", 8, func(m *model.CkTableMetrics, v uint64) { m.IndexCompressed = v }},
+}
+
 // mergeCkTableMetricParts 把 buildTableMetricsPartsQuery 的结果写回 metrics。
 //
 // value[0] 是列名行,从 1 开始才是数据。列下标见 buildTableMetricsPartsQuery 的注释;
-// CH < 20.4 时每行只有 7 列(无索引列),此处按 len 容错而非假定长度。
+// CH < 20.4 时每行只有 7 列(无索引列),故按 len(row) 容错而非假定长度。
 // cols 为空表示全取;否则只写 cols 里点名的字段。
 func mergeCkTableMetricParts(metrics map[string]*model.CkTableMetrics, value [][]interface{}, cols []string) {
 	all := len(cols) == 0
 	for i := 1; i < len(value); i++ {
-		if len(value[i]) < 7 {
+		row := value[i]
+		if len(row) < 7 {
 			continue
 		}
-		table, ok := value[i][0].(string)
+		table, ok := row[0].(string)
 		if !ok {
 			continue
 		}
-		database, ok := value[i][6].(string)
+		database, ok := row[6].(string)
 		if !ok {
 			continue
 		}
@@ -315,44 +337,15 @@ func mergeCkTableMetricParts(metrics map[string]*model.CkTableMetrics, value [][
 		if !ok {
 			continue
 		}
-
-		if all || common.ArraySearch("partitions", cols) {
-			if v, ok := ckMetricUint64(value[i][1]); ok {
-				metric.Partitions = v
+		for _, f := range tableMetricsPartsFields {
+			if f.idx >= len(row) {
+				continue // CH < 20.4:结果行没有索引列
 			}
-		}
-		if all || common.ArraySearch("parts", cols) {
-			if v, ok := ckMetricUint64(value[i][2]); ok {
-				metric.Parts = v
+			if !all && !common.ArraySearch(f.col, cols) {
+				continue
 			}
-		}
-		if all || common.ArraySearch("compressed", cols) {
-			if v, ok := ckMetricUint64(value[i][3]); ok {
-				metric.Compressed = v
-			}
-		}
-		if all || common.ArraySearch("uncompressed", cols) {
-			if v, ok := ckMetricUint64(value[i][4]); ok {
-				metric.UnCompressed = v
-			}
-		}
-		if all || common.ArraySearch("rows", cols) {
-			if v, ok := ckMetricUint64(value[i][5]); ok {
-				metric.Rows = v
-			}
-		}
-
-		if len(value[i]) < 9 {
-			continue
-		}
-		if all || common.ArraySearch("index_uncompressed", cols) {
-			if v, ok := ckMetricUint64(value[i][7]); ok {
-				metric.IndexUnCompressed = v
-			}
-		}
-		if all || common.ArraySearch("index_compressed", cols) {
-			if v, ok := ckMetricUint64(value[i][8]); ok {
-				metric.IndexCompressed = v
+			if v, ok := ckMetricUint64(row[f.idx]); ok {
+				f.set(metric, v)
 			}
 		}
 	}
@@ -370,12 +363,12 @@ Expected: 四个测试全部 PASS
 
 ```go
 	// get bytes, parts, rows
-	found := false
-	if common.ArraySearch("partitions", cols) || common.ArraySearch("parts", cols) ||
-		common.ArraySearch("compressed", cols) || common.ArraySearch("uncompressed", cols) ||
-		common.ArraySearch("index_compressed", cols) || common.ArraySearch("index_uncompressed", cols) ||
-		common.ArraySearch("rows", cols) || len(cols) == 0 {
-		found = true
+	found := len(cols) == 0
+	for _, f := range tableMetricsPartsFields {
+		if common.ArraySearch(f.col, cols) {
+			found = true
+			break
+		}
 	}
 	if found {
 		query = buildTableMetricsPartsQuery(conf.Cluster, dbs, conf.Version)
@@ -386,6 +379,8 @@ Expected: 四个测试全部 PASS
 		mergeCkTableMetricParts(metrics, value, cols)
 	}
 ```
+
+`found` 复用 `tableMetricsPartsFields`,不再手抄一遍字段名——原来那串 `||` 就是漏加新字段的经典入口。
 
 注意:`query` 和 `value` 两个变量在上方(292-293 行)已声明,下面的 is_readonly 块还要用,**不要**改成 `:=`。
 
@@ -406,9 +401,10 @@ git commit -F - <<'EOF'
 feat(metrics): 表指标返回二级索引压缩前/后大小
 
 抽出 mergeCkTableMetricParts 承接 system.parts 结果合并,按行长度容错
-(CH < 20.4 只有 7 列),并接受 cols 过滤。取值改用既有的 ckMetricUint64,
-顺带去掉原来 value[i][N].(uint64) 在类型意外时会 panic 的隐患。
-index_compressed / index_uncompressed 一并加入 cols 的 found 判断。
+(CH < 20.4 只有 7 列),并接受 cols 过滤。字段名/下标/写回位置收进
+tableMetricsPartsFields 一张表,合并与 found 判断共用,免得再漏加字段。
+取值改用既有的 ckMetricUint64,顺带去掉原来 value[i][N].(uint64)
+在类型意外时会 panic 的隐患。
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
