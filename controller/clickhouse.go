@@ -2169,7 +2169,7 @@ func (controller *ClickHouseController) GetLog(c *gin.Context) {
 // @Accept  json
 // @Param clusterName path string true "cluster name" default(test)
 // @Param database query string false "filtered by database, if database is empty, select all databases" default(default)
-// @Param columns query string false "return columns, if columns is empty, return all columns" default(columns,partitions,parts,compressed,uncompressed,is_readonly,queries,cost)
+// @Param columns query string false "return columns, if columns is empty, return all columns" default(columns,partitions,parts,compressed,uncompressed,index_compressed,index_uncompressed,is_readonly,queries,cost)
 // @Failure 200 {string} json "{"code":"5800","msg":"集群不存在","data":""}"
 // @Failure 200 {string} json "{"code":"5804","msg":"数据查询失败","data":""}"
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":{"sensor_dt_result_online":{"columns":22,"rows":1381742496,"parts":192,"space":54967700946,"completedQueries":5,"failedQueries":0,"queryCost":{"middle":130,"secondaryMax":160.76,"max":162}}}}"

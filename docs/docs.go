@@ -2536,7 +2536,7 @@ var doc = `{
                     },
                     {
                         "type": "string",
-                        "default": "columns,partitions,parts,compressed,uncompressed,is_readonly,queries,cost",
+                        "default": "columns,partitions,parts,compressed,uncompressed,index_compressed,index_uncompressed,is_readonly,queries,cost",
                         "description": "return columns, if columns is empty, return all columns",
                         "name": "columns",
                         "in": "query"
