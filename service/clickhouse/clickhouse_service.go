@@ -489,7 +489,32 @@ func (ck *CkService) DescTable(params *model.DescCkTableParams) ([]model.CkColum
 	return attrs, nil
 }
 
+// queryInfoMaxRows 是 QueryInfo 给 ad-hoc 查询兜的 OOM 保护:最多取这么多行数据。
+// 注意这是**静默**截断(无 error、无日志),所以只适用于"多了也没意义"的探索型查询。
+// 行数随集群规模增长、且结果必须完整的查询,请改用 QueryInfoAll。
+const queryInfoMaxRows = 10000
+
+// QueryInfo 执行查询并返回结果,第 0 行是列名行。
+//
+// 结果被静默截断在 queryInfoMaxRows 行数据 —— 这是给 ad-hoc / 探索型查询兜的 OOM 保护。
+// 如果你的查询行数随表数、分区数之类的集群规模增长,而调用方又要求结果完整,
+// 用 QueryInfoAll,别用这个:超出部分会被无声丢弃,表现为"靠后的数据恒为零值"。
 func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
+	return ck.queryInfo(query, queryInfoMaxRows)
+}
+
+// QueryInfoAll 与 QueryInfo 相同,但不截断,返回全部结果行。
+//
+// 用于结果必须完整的查询(如 GetCkTableMetrics 里按 (table, database) 分组的
+// system.parts / system.replicas 查询 —— 行数 = 表数,表数超万时 QueryInfo 会把
+// 靠后的表悄悄丢掉,指标恒为 0)。调用方需自行确保行数在可接受范围内。
+func (ck *CkService) QueryInfoAll(query string) ([][]interface{}, error) {
+	return ck.queryInfo(query, 0)
+}
+
+// queryInfo 执行查询并把结果读成 [][]interface{},第 0 行是列名行。
+// limit > 0 时最多读 limit 行数据后停止;limit <= 0 表示不限量。
+func (ck *CkService) queryInfo(query string, limit int) ([][]interface{}, error) {
 	if ck.Conn == nil {
 		return nil, errors.Errorf("clickhouse service unavailable")
 	}
@@ -569,7 +594,8 @@ func (ck *CkService) QueryInfo(query string) ([][]interface{}, error) {
 		}
 
 		colData = append(colData, m)
-		if len(colData) >= 10001 {
+		// colData 含列名行,故数据行数 = len(colData)-1。
+		if limit > 0 && len(colData)-1 >= limit {
 			break
 		}
 	}

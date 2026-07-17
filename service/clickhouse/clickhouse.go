@@ -331,7 +331,9 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 	}
 	if found {
 		query = buildTableMetricsPartsQuery(conf.Cluster, dbs, conf.Version)
-		value, err = service.QueryInfo(query)
+		// QueryInfoAll:本查询按 (table, database) 分组,行数 = 表数。
+		// QueryInfo 会静默截断在 1 万行,表数超万时靠后的表指标全部恒为 0。
+		value, err = service.QueryInfoAll(query)
 		if err != nil {
 			return nil, err
 		}
@@ -341,7 +343,9 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 	// get readwrite_status
 	if common.ArraySearch("is_readonly", cols) || len(cols) == 0 {
 		query = fmt.Sprintf("select table, is_readonly, database from cluster('%s', system.replicas) where database in ('%s')", conf.Cluster, dbs)
-		value, err = service.QueryInfo(query)
+		// QueryInfoAll:本查询每张副本表(每个节点)一行,行数随表数增长。
+		// QueryInfo 会静默截断在 1 万行,靠后的表读写状态恒为"正常",真 readonly 也看不出来。
+		value, err = service.QueryInfoAll(query)
 		if err != nil {
 			return nil, err
 		}
@@ -365,12 +369,13 @@ func GetCkTableMetrics(conf *model.CKManClickHouseConfig, database string, cols 
 //
 // 关键点有二:
 //
-//  1. 不走 service.QueryInfo:QueryInfo 为防止 ad-hoc 查询 OOM,把结果硬截断在 1 万行
-//     (见 clickhouse_service.go 的 `len(colData) >= 10001` break)。而本查询是按
-//     (table, database) 分组统计 system.columns,行数 = 全库全表数,实测可达上万行,
-//     超出部分会被直接丢弃,落在 1 万行之后的表列数停在初始值 0——这正是历史上反复修
-//     不好的「部分表列数为 0、刷新多次仍为 0」的真正根因。这里改为直接 Query + 全量
-//     Scan,不设上限。
+//  1. 不走 service.QueryInfo:QueryInfo 为防止 ad-hoc 查询 OOM,把结果静默截断在
+//     queryInfoMaxRows(1 万)行。而本查询是按 (table, database) 分组统计 system.columns,
+//     行数 = 全库全表数,实测可达上万行,超出部分会被直接丢弃,落在 1 万行之后的表列数
+//     停在初始值 0——这正是历史上反复修不好的「部分表列数为 0、刷新多次仍为 0」的真正
+//     根因。这里改为直接 Query + 全量 Scan,不设上限。
+//     (同源的 system.parts / system.replicas 查询后来改用了 QueryInfoAll;本函数因为
+//     只取 3 个固定列、直接 Scan 进类型化变量更简单,保持现状。)
 //  2. 用 uniqExact(name) 而非 count():system.columns 里同一张表在每个 shard/副本各有
 //     一份相同列定义,cluster() 会把它们全部 union 进来,count() 会累加导致多 shard
 //     列数翻倍;uniqExact(name) 取 distinct 列名个数,无论几个节点都等于真实列数。
