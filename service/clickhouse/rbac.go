@@ -60,28 +60,49 @@ func DeriveAccess(grants []string) string {
 	return model.RbacAccessReadOnly
 }
 
-func buildGrantSQL(cluster, name, access string) []string {
-	switch access {
-	case model.RbacAccessReadOnly:
-		return []string{fmt.Sprintf("GRANT ON CLUSTER `%s` SELECT ON *.* TO `%s`", cluster, name)}
-	case model.RbacAccessReadWrite:
-		return []string{
-			fmt.Sprintf("GRANT ON CLUSTER `%s` CURRENT GRANTS ON *.* TO `%s`", cluster, name),
-			fmt.Sprintf("REVOKE ON CLUSTER `%s` ACCESS MANAGEMENT ON *.* FROM `%s`", cluster, name),
-		}
-	}
-	return nil
+// RbacStmts 把 RBAC 语句按执行方式分成两组。
+//
+// Cluster 带 ON CLUSTER, 在任一节点执行一次即广播全集群。
+// PerNode 不能带 ON CLUSTER, 必须在每个节点各执行一次 —— 目前只有 readwrite 的
+// GRANT CURRENT GRANTS 属于此类, ClickHouse 明确拒绝
+// "GRANT CURRENT GRANTS can't be executed on cluster"。
+//
+// 执行顺序固定为先 Cluster 后 PerNode, ALTER 流程依赖这一点:
+// REVOKE ALL(集群级)必须早于重新 GRANT(节点级)。
+type RbacStmts struct {
+	Cluster []string
+	PerNode []string
 }
 
-func BuildCreateUserSQL(cluster string, req model.RbacUserCreateReq) ([]string, error) {
+func buildGrantSQL(cluster, name, access string) RbacStmts {
+	switch access {
+	case model.RbacAccessReadOnly:
+		return RbacStmts{Cluster: []string{
+			fmt.Sprintf("GRANT ON CLUSTER `%s` SELECT ON *.* TO `%s`", cluster, name),
+		}}
+	case model.RbacAccessReadWrite:
+		// 用 CURRENT GRANTS 而非 ALL: 授出的是引导账户(default)自己持有的权限。
+		// 若写 GRANT ALL, 只要 default 缺其中任一项(典型如 NAMED_COLLECTION_ADMIN,
+		// users.xml 未开 named_collection_control 时会被 CH revoke 掉), 整条 GRANT 就会
+		// 报 "necessary to have the grant ALL ON *.* WITH GRANT OPTION" 而失败。
+		// 代价是 CURRENT GRANTS 不能与 ON CLUSTER 共存, 只能逐节点执行。
+		return RbacStmts{PerNode: []string{
+			fmt.Sprintf("GRANT CURRENT GRANTS ON *.* TO `%s`", name),
+			fmt.Sprintf("REVOKE ACCESS MANAGEMENT ON *.* FROM `%s`", name),
+		}}
+	}
+	return RbacStmts{}
+}
+
+func BuildCreateUserSQL(cluster string, req model.RbacUserCreateReq) (RbacStmts, error) {
 	if !validRbacIdent(req.Name) {
-		return nil, fmt.Errorf("invalid user name: %s", req.Name)
+		return RbacStmts{}, fmt.Errorf("invalid user name: %s", req.Name)
 	}
 	if req.Password == "" {
-		return nil, fmt.Errorf("password is required")
+		return RbacStmts{}, fmt.Errorf("password is required")
 	}
 	if req.Access != model.RbacAccessReadOnly && req.Access != model.RbacAccessReadWrite {
-		return nil, fmt.Errorf("invalid access: %s", req.Access)
+		return RbacStmts{}, fmt.Errorf("invalid access: %s", req.Access)
 	}
 	nets := req.Networks
 	if len(nets) == 0 {
@@ -97,42 +118,47 @@ func BuildCreateUserSQL(cluster string, req model.RbacUserCreateReq) ([]string, 
 		req.Name, cluster, escapeSQLString(req.Password), strings.Join(hostParts, ", "))
 	if req.Profile != "" {
 		if !validRbacIdent(req.Profile) {
-			return nil, fmt.Errorf("invalid profile name: %s", req.Profile)
+			return RbacStmts{}, fmt.Errorf("invalid profile name: %s", req.Profile)
 		}
 		createSQL += fmt.Sprintf(" SETTINGS PROFILE `%s`", req.Profile)
 	}
-	stmts := []string{createSQL}
-	stmts = append(stmts, buildGrantSQL(cluster, req.Name, req.Access)...)
-	return stmts, nil
+	grants := buildGrantSQL(cluster, req.Name, req.Access)
+	return RbacStmts{
+		Cluster: append([]string{createSQL}, grants.Cluster...),
+		PerNode: grants.PerNode,
+	}, nil
 }
 
-func BuildAlterUserSQL(cluster, name string, req model.RbacUserAlterReq) ([]string, error) {
+func BuildAlterUserSQL(cluster, name string, req model.RbacUserAlterReq) (RbacStmts, error) {
 	if !validRbacIdent(name) {
-		return nil, fmt.Errorf("invalid user name: %s", name)
+		return RbacStmts{}, fmt.Errorf("invalid user name: %s", name)
 	}
-	var stmts []string
+	var out RbacStmts
 	if req.Password != "" {
-		stmts = append(stmts, fmt.Sprintf("ALTER USER `%s` ON CLUSTER `%s` IDENTIFIED BY '%s'",
+		out.Cluster = append(out.Cluster, fmt.Sprintf("ALTER USER `%s` ON CLUSTER `%s` IDENTIFIED BY '%s'",
 			name, cluster, escapeSQLString(req.Password)))
 	}
 	if req.Profile != "" {
 		if !validRbacIdent(req.Profile) {
-			return nil, fmt.Errorf("invalid profile name: %s", req.Profile)
+			return RbacStmts{}, fmt.Errorf("invalid profile name: %s", req.Profile)
 		}
-		stmts = append(stmts, fmt.Sprintf("ALTER USER `%s` ON CLUSTER `%s` SETTINGS PROFILE `%s`",
+		out.Cluster = append(out.Cluster, fmt.Sprintf("ALTER USER `%s` ON CLUSTER `%s` SETTINGS PROFILE `%s`",
 			name, cluster, req.Profile))
 	}
 	if req.Access != "" {
 		if req.Access != model.RbacAccessReadOnly && req.Access != model.RbacAccessReadWrite {
-			return nil, fmt.Errorf("invalid access: %s", req.Access)
+			return RbacStmts{}, fmt.Errorf("invalid access: %s", req.Access)
 		}
-		stmts = append(stmts, fmt.Sprintf("REVOKE ON CLUSTER `%s` ALL ON *.* FROM `%s`", cluster, name))
-		stmts = append(stmts, buildGrantSQL(cluster, name, req.Access)...)
+		// REVOKE ALL 走集群级, 先于节点级 GRANT 执行(见 RbacStmts 注释)
+		out.Cluster = append(out.Cluster, fmt.Sprintf("REVOKE ON CLUSTER `%s` ALL ON *.* FROM `%s`", cluster, name))
+		grants := buildGrantSQL(cluster, name, req.Access)
+		out.Cluster = append(out.Cluster, grants.Cluster...)
+		out.PerNode = append(out.PerNode, grants.PerNode...)
 	}
-	if len(stmts) == 0 {
-		return nil, fmt.Errorf("nothing to alter")
+	if len(out.Cluster) == 0 && len(out.PerNode) == 0 {
+		return RbacStmts{}, fmt.Errorf("nothing to alter")
 	}
-	return stmts, nil
+	return out, nil
 }
 
 func BuildDropUserSQL(cluster, name string) (string, error) {
@@ -255,6 +281,51 @@ func parseNameColumn(data [][]interface{}) []string {
 	return out
 }
 
+// execRbacStmts 先执行集群级语句(任一节点即广播), 再把节点级语句在每个节点各跑一遍。
+//
+// 顺序不可颠倒: ALTER 流程里 REVOKE ALL 是集群级、重新 GRANT 是节点级。
+//
+// 节点级失败不提前返回, 而是跑完所有节点再汇总 —— 半数节点授权成功、半数失败时,
+// 报错要能指出到底哪些节点没成。这些语句都是幂等的(CREATE USER OR REPLACE / GRANT),
+// 修好问题节点后原样重试即可。
+func execRbacStmts(clusterName string, ck *CkService, stmts RbacStmts) error {
+	for _, s := range stmts.Cluster {
+		if err := ck.Conn.Exec(s); err != nil {
+			return err
+		}
+	}
+	if len(stmts.PerNode) == 0 {
+		return nil
+	}
+	var failed []string
+	for _, host := range ck.Config.Hosts {
+		if err := execOnNode(clusterName, host, stmts.PerNode); err != nil {
+			log.Logger.Errorf("rbac: node %s failed: %v", host, err)
+			failed = append(failed, fmt.Sprintf("%s(%v)", host, err))
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("grant succeeded on %d/%d nodes, failed: %s; fix and retry (statements are idempotent)",
+			len(ck.Config.Hosts)-len(failed), len(ck.Config.Hosts), strings.Join(failed, ", "))
+	}
+	return nil
+}
+
+// execOnNode 在指定节点上顺序执行语句。GRANT CURRENT GRANTS 不能带 ON CLUSTER,
+// 只能这样逐节点下发。
+func execOnNode(clusterName, host string, stmts []string) error {
+	svc, err := GetCkNodeService(clusterName, host)
+	if err != nil {
+		return err
+	}
+	for _, s := range stmts {
+		if err := svc.Conn.Exec(s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func RbacCreateUser(clusterName string, req model.RbacUserCreateReq) error {
 	ck, err := GetCkService(clusterName)
 	if err != nil {
@@ -267,12 +338,7 @@ func RbacCreateUser(clusterName string, req model.RbacUserCreateReq) error {
 	if err != nil {
 		return err
 	}
-	for _, s := range stmts {
-		if err := ck.Conn.Exec(s); err != nil {
-			return err
-		}
-	}
-	return nil
+	return execRbacStmts(clusterName, ck, stmts)
 }
 
 func RbacAlterUser(clusterName, name string, req model.RbacUserAlterReq) error {
@@ -290,12 +356,7 @@ func RbacAlterUser(clusterName, name string, req model.RbacUserAlterReq) error {
 	if err != nil {
 		return err
 	}
-	for _, s := range stmts {
-		if err := ck.Conn.Exec(s); err != nil {
-			return err
-		}
-	}
-	return nil
+	return execRbacStmts(clusterName, ck, stmts)
 }
 
 func RbacDropUser(clusterName, name string) error {

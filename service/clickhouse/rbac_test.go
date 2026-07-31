@@ -16,7 +16,8 @@ func TestBuildCreateUserSQL_ReadOnly(t *testing.T) {
 	assert.Equal(t, []string{
 		"CREATE USER OR REPLACE `alice` ON CLUSTER `test` IDENTIFIED BY 'p@ss' HOST IP '::/0' SETTINGS PROFILE `ro`",
 		"GRANT ON CLUSTER `test` SELECT ON *.* TO `alice`",
-	}, stmts)
+	}, stmts.Cluster)
+	assert.Empty(t, stmts.PerNode, "readonly 不用 CURRENT GRANTS, 无需逐节点执行")
 }
 
 func TestBuildCreateUserSQL_ReadWrite(t *testing.T) {
@@ -25,9 +26,15 @@ func TestBuildCreateUserSQL_ReadWrite(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []string{
 		"CREATE USER OR REPLACE `bob` ON CLUSTER `test` IDENTIFIED BY 'x' HOST IP '::/0'",
-		"GRANT ON CLUSTER `test` CURRENT GRANTS ON *.* TO `bob`",
-		"REVOKE ON CLUSTER `test` ACCESS MANAGEMENT ON *.* FROM `bob`",
-	}, stmts)
+	}, stmts.Cluster)
+	// CURRENT GRANTS 不能与 ON CLUSTER 共存(CH 报 "GRANT CURRENT GRANTS can't be
+	// executed on cluster"), 故不带 ON CLUSTER、由调用方逐节点执行。
+	// 用 CURRENT GRANTS 而非 ALL: 授出的是引导账户自己持有的权限,
+	// 不会因 default 缺 NAMED_COLLECTION_ADMIN 之类而整条失败。
+	assert.Equal(t, []string{
+		"GRANT CURRENT GRANTS ON *.* TO `bob`",
+		"REVOKE ACCESS MANAGEMENT ON *.* FROM `bob`",
+	}, stmts.PerNode)
 }
 
 func TestBuildCreateUserSQL_InvalidName(t *testing.T) {
@@ -43,7 +50,7 @@ func TestBuildCreateUserSQL_EmptyPassword(t *testing.T) {
 func TestBuildCreateUserSQL_EscapesPassword(t *testing.T) {
 	stmts, err := BuildCreateUserSQL("test", model.RbacUserCreateReq{Name: "a", Password: "a'b", Access: "readonly"})
 	assert.NoError(t, err)
-	assert.Contains(t, stmts[0], `IDENTIFIED BY 'a\'b'`)
+	assert.Contains(t, stmts.Cluster[0], `IDENTIFIED BY 'a\'b'`)
 }
 
 func TestBuildAlterUserSQL(t *testing.T) {
@@ -53,9 +60,12 @@ func TestBuildAlterUserSQL(t *testing.T) {
 		"ALTER USER `alice` ON CLUSTER `test` IDENTIFIED BY 'np'",
 		"ALTER USER `alice` ON CLUSTER `test` SETTINGS PROFILE `p2`",
 		"REVOKE ON CLUSTER `test` ALL ON *.* FROM `alice`",
-		"GRANT ON CLUSTER `test` CURRENT GRANTS ON *.* TO `alice`",
-		"REVOKE ON CLUSTER `test` ACCESS MANAGEMENT ON *.* FROM `alice`",
-	}, stmts)
+	}, stmts.Cluster)
+	// 集群级语句先执行完再执行节点级, 故 REVOKE ALL 一定早于 GRANT
+	assert.Equal(t, []string{
+		"GRANT CURRENT GRANTS ON *.* TO `alice`",
+		"REVOKE ACCESS MANAGEMENT ON *.* FROM `alice`",
+	}, stmts.PerNode)
 }
 
 func TestBuildDropUserSQL(t *testing.T) {
@@ -130,20 +140,6 @@ func TestDeriveAccess_RealisticInputs(t *testing.T) {
 	assert.Equal(t, model.RbacAccessReadOnly, DeriveAccess([]string{"SELECT"}))
 }
 
-func TestRequireRbacReadWriteVersion(t *testing.T) {
-	// readwrite + 低于 23.5 → 报错
-	assert.Error(t, RequireRbacReadWriteVersion("22.8.1.2", model.RbacAccessReadWrite))
-	assert.Error(t, RequireRbacReadWriteVersion("23.4.9", model.RbacAccessReadWrite))
-	// readwrite + 达标版本 → 放行(23.5.x 及以上)
-	assert.NoError(t, RequireRbacReadWriteVersion("23.5.1", model.RbacAccessReadWrite))
-	assert.NoError(t, RequireRbacReadWriteVersion("24.3.2.1", model.RbacAccessReadWrite))
-	// readonly → 任何版本放行
-	assert.NoError(t, RequireRbacReadWriteVersion("20.4.0", model.RbacAccessReadOnly))
-	assert.NoError(t, RequireRbacReadWriteVersion("22.8.1", model.RbacAccessReadOnly))
-	// 空 access(alter 不改权限)→ 放行
-	assert.NoError(t, RequireRbacReadWriteVersion("22.8.1", ""))
-}
-
 func TestIsReservedRbacUser(t *testing.T) {
 	assert.True(t, IsReservedRbacUser("default"))
 	assert.True(t, IsReservedRbacUser("DEFAULT"))
@@ -160,4 +156,16 @@ func TestParseNameColumn(t *testing.T) {
 	assert.Equal(t, []string{"alice", "bob"}, parseNameColumn(data))
 	assert.Empty(t, parseNameColumn([][]interface{}{{"name"}}))
 	assert.Empty(t, parseNameColumn(nil))
+}
+
+func TestRequireRbacReadWriteVersion(t *testing.T) {
+	// readwrite 依赖 GRANT CURRENT GRANTS(23.5+)，低版本要拦住
+	assert.Error(t, RequireRbacReadWriteVersion("22.8.1.2", model.RbacAccessReadWrite))
+	assert.Error(t, RequireRbacReadWriteVersion("23.4.9", model.RbacAccessReadWrite))
+	assert.NoError(t, RequireRbacReadWriteVersion("23.5.1", model.RbacAccessReadWrite))
+	assert.NoError(t, RequireRbacReadWriteVersion("24.3.2.1", model.RbacAccessReadWrite))
+	// readonly 走 GRANT SELECT，任何版本放行
+	assert.NoError(t, RequireRbacReadWriteVersion("20.4.0", model.RbacAccessReadOnly))
+	// 空 access(alter 不改权限)放行
+	assert.NoError(t, RequireRbacReadWriteVersion("22.8.1", ""))
 }
