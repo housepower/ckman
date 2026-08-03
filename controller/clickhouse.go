@@ -2903,6 +2903,11 @@ func (controller *ClickHouseController) GetConfig(c *gin.Context) {
 	}
 	cluster.Normalize()
 	cluster.Pack()
+	if cluster.TlsConf != nil {
+		// Pack 已把 TlsConf 换成新对象，这里改的是副本，不会污染库中数据。
+		// 到期时间每次现场解析，不落库，避免换证书后与实际值不一致。
+		cluster.TlsConf.NotAfter, _ = common.CertNotAfter(cluster.TlsConf.Cert)
+	}
 	data, err := params.MarshalConfig(cluster)
 	if err != nil {
 		controller.wrapfunc(c, model.E_MARSHAL_FAILED, nil)
@@ -3054,6 +3059,15 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 		return errors.Errorf("ssh user must not be empty")
 	}
 
+	if conf.Secure {
+		if conf.TlsConf == nil || conf.TlsConf.Cert == "" || conf.TlsConf.Key == "" {
+			return errors.Errorf("tls certificate and private key are required when secure is enabled")
+		}
+		if err := common.ValidateCertKeyPair(conf.TlsConf.Cert, conf.TlsConf.Key); err != nil {
+			return errors.Wrap(err, "invalid tls certificate")
+		}
+	}
+
 	if conf.LogicCluster != nil {
 		if con.LogicCluster != nil {
 			if *conf.LogicCluster != *con.LogicCluster {
@@ -3178,6 +3192,21 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 	return nil
 }
 
+// tlsConfEqual compares only the fields that meaningfully describe the TLS
+// certificate configuration (Cert, Key, SelfSigned). It deliberately ignores
+// NotAfter: that field is filled in on read (GetConfig) and echoed back by the
+// frontend on save, while the copy freshly loaded from the repository never
+// carries it (EncodePasswd/DecodePasswd always rebuild TlsConf without it).
+// Using reflect.DeepEqual here would make the two sides differ on NotAfter
+// alone, forcing every unrelated save to look like a certificate change and
+// triggering a needless cluster restart.
+func tlsConfEqual(a, b *model.TlsConf) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Cert == b.Cert && a.Key == b.Key && a.SelfSigned == b.SelfSigned
+}
+
 func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (restart bool, cc bool, kc bool, lerr error) {
 	cluster, err := repository.Ps.GetClusterbyName(conf.Cluster)
 	if err != nil {
@@ -3191,6 +3220,30 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (resta
 	logicChaned := !reflect.DeepEqual(cluster.LogicCluster, conf.LogicCluster)
 	zkChanged := !reflect.DeepEqual(cluster.ZkNodes, conf.ZkNodes)
 	keeperChanged := !reflect.DeepEqual(cluster.KeeperConf, conf.KeeperConf)
+	// NotAfter is populated on read (GetConfig) and echoed back verbatim by the
+	// frontend, but the copy loaded from the repository never carries it (see
+	// EncodePasswd/DecodePasswd in repository/helper.go, which always build a
+	// fresh TlsConf without NotAfter). Comparing with reflect.DeepEqual would
+	// therefore make secureChanged true on every save regardless of whether the
+	// certificate actually changed, forcing an unwanted cluster restart. Compare
+	// only the fields that are actually meaningful instead.
+	secureChanged := cluster.Secure != conf.Secure || !tlsConfEqual(cluster.TlsConf, conf.TlsConf)
+	if secureChanged && cluster.LogicCluster != nil {
+		// 同一逻辑集群内应当要么全加密要么全不加密。切换过程中必然出现
+		// 短暂的不一致（跨集群查询不通），这是设计上接受的中间态，
+		// 只告警不阻断，避免把用户卡死在半程。
+		if logics, e := repository.Ps.GetLogicClusterbyName(*cluster.LogicCluster); e == nil {
+			for _, logic := range logics {
+				if logic == cluster.Cluster {
+					continue
+				}
+				if peer, e1 := repository.Ps.GetClusterbyName(logic); e1 == nil && peer.Secure != conf.Secure {
+					log.Logger.Warnf("cluster %s secure=%v differs from logic peer %s secure=%v, cross-cluster query will be unavailable until all members are aligned",
+						cluster.Cluster, conf.Secure, logic, peer.Secure)
+				}
+			}
+		}
+	}
 
 	noChangedFn := func() bool {
 		return cluster.Port == conf.Port &&
@@ -3202,7 +3255,7 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (resta
 			cluster.Password == conf.Password && !storageChanged && !expertChanged &&
 			cluster.PromHost == conf.PromHost && cluster.PromPort == conf.PromPort &&
 			cluster.ZkPort == conf.ZkPort &&
-			!userconfChanged && !logicChaned && !zkChanged && !keeperChanged
+			!userconfChanged && !logicChaned && !zkChanged && !keeperChanged && !secureChanged
 	}
 
 	kc = keeperChanged
@@ -3325,12 +3378,12 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (resta
 	if force || cluster.Port != conf.Port ||
 		cluster.Password != conf.Password || storageChanged || expertChanged ||
 		cluster.ZkPort != conf.ZkPort ||
-		userconfChanged || logicChaned || zkChanged || keeperChanged {
+		userconfChanged || logicChaned || zkChanged || keeperChanged || secureChanged {
 		cc = true
 	}
 
 	// need restart
-	if force || cluster.Port != conf.Port || storageChanged || expertChanged || keeperChanged {
+	if force || cluster.Port != conf.Port || storageChanged || expertChanged || keeperChanged || secureChanged {
 		restart = true
 	}
 
@@ -3351,6 +3404,8 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (resta
 	cluster.ZkPort = conf.ZkPort
 	cluster.ZkNodes = conf.ZkNodes
 	cluster.KeeperConf = conf.KeeperConf
+	cluster.Secure = conf.Secure
+	cluster.TlsConf = conf.TlsConf
 	if err = common.DeepCopyByGob(conf, cluster); err != nil {
 		lerr = err
 		return
