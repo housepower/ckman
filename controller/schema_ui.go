@@ -179,9 +179,46 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		Default: "8123",
 	})
 	params.MustRegister(conf, "Secure", &common.Parameter{
-		LabelZH:  "TLS安全认证",
-		LabelEN:  "TLS Secure",
+		LabelZH:       "TLS安全认证",
+		LabelEN:       "TLS Secure",
+		DescriptionZH: "开启后集群仅监听密文端口(默认9440/8443)，明文端口将被关闭",
+		DescriptionEN: "Once enabled, only secure ports (9440/8443 by default) are exposed; plaintext ports are removed.",
+		Default:       "false",
+		Required:      "false",
+		Editable:      "false",
+	})
+
+	params.MustRegister(conf, "TlsConf", &common.Parameter{
+		LabelZH:       "TLS证书",
+		LabelEN:       "TlsConf",
+		DescriptionZH: "集群共用一套证书，需覆盖全部节点",
+		Visiable:      "Secure == true",
+		Required:      "false",
+	})
+
+	var tlsConf model.TlsConf
+	params.MustRegister(tlsConf, "Cert", &common.Parameter{
+		LabelZH:       "证书(PEM)",
+		LabelEN:       "Certificate (PEM)",
+		DescriptionZH: "PEM 格式的服务端证书内容",
+		InputType:     common.InputTextArea,
+	})
+	params.MustRegister(tlsConf, "Key", &common.Parameter{
+		LabelZH:       "私钥(PEM)",
+		LabelEN:       "Private Key (PEM)",
+		DescriptionZH: "PEM 格式的私钥内容，保存后不再回显明文",
+		InputType:     common.InputTextArea,
+	})
+	params.MustRegister(tlsConf, "SelfSigned", &common.Parameter{
+		LabelZH:  "自签名证书",
+		LabelEN:  "Self Signed",
 		Default:  "false",
+		Required: "false",
+		Editable: "false",
+	})
+	params.MustRegister(tlsConf, "NotAfter", &common.Parameter{
+		LabelZH:  "证书有效期至",
+		LabelEN:  "Valid Until",
 		Required: "false",
 		Editable: "false",
 	})
@@ -1248,10 +1285,50 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 		Editable: "false",
 	})
 	params.MustRegister(conf, "Secure", &common.Parameter{
-		LabelZH:  "TLS安全认证",
-		LabelEN:  "TLS Secure",
+		LabelZH:       "TLS安全认证",
+		LabelEN:       "TLS Secure",
+		DescriptionZH: "开启后集群仅监听密文端口(默认9440/8443)，明文端口将被关闭。变更该项需要重启集群",
+		DescriptionEN: "Once enabled, only secure ports (9440/8443 by default) are exposed; plaintext ports are removed. Changing this requires a cluster restart.",
+		Default:       "false",
+		Required:      "false",
+		Editable:      "true",
+	})
+
+	params.MustRegister(conf, "TlsConf", &common.Parameter{
+		LabelZH:       "TLS证书",
+		LabelEN:       "TlsConf",
+		DescriptionZH: "集群共用一套证书，需覆盖全部节点",
+		Visiable:      "Secure == true",
+		Required:      "false",
+	})
+
+	var tlsConf model.TlsConf
+	params.MustRegister(tlsConf, "Cert", &common.Parameter{
+		LabelZH:       "证书(PEM)",
+		LabelEN:       "Certificate (PEM)",
+		DescriptionZH: "PEM 格式的服务端证书内容",
+		InputType:     common.InputTextArea,
+	})
+	params.MustRegister(tlsConf, "Key", &common.Parameter{
+		LabelZH:       "私钥(PEM)",
+		LabelEN:       "Private Key (PEM)",
+		DescriptionZH: "PEM 格式的私钥内容，保存后不再回显明文",
+		InputType:     common.InputTextArea,
+	})
+	params.MustRegister(tlsConf, "SelfSigned", &common.Parameter{
+		LabelZH:  "自签名证书",
+		LabelEN:  "Self Signed",
+		Default:  "false",
+		Required: "false",
 		Editable: "false",
 	})
+	params.MustRegister(tlsConf, "NotAfter", &common.Parameter{
+		LabelZH:  "证书有效期至",
+		LabelEN:  "Valid Until",
+		Required: "false",
+		Editable: "false",
+	})
+
 	params.MustRegister(conf, "Storage", &common.Parameter{
 		LabelZH:       "集群存储配置",
 		LabelEN:       "Storage Policy",
