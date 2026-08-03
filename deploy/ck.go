@@ -377,8 +377,11 @@ func (d *CKDeploy) Config() error {
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
 			// 部分 ARM 安装包未创建 config.d / users.d 目录，先确保存在，避免后续 SCP/find 失败
+			certsDir := path.Join(remotePath, "certs")
 			prepareCmds := []string{
 				fmt.Sprintf("mkdir -p %s %s", path.Join(remotePath, "config.d"), path.Join(remotePath, "users.d")),
+				// 无论开关如何都先清掉旧证书，保证回退明文时目录干净
+				fmt.Sprintf("rm -rf %s", certsDir),
 			}
 			if d.Conf.NeedSudo {
 				//clear config first
@@ -386,6 +389,9 @@ func (d *CKDeploy) Config() error {
 					fmt.Sprintf("find %s -maxdepth 1 -name '*.xml' ! -name 'node_override.xml' -delete", path.Join(remotePath, "config.d")),
 					fmt.Sprintf("rm -rf %s/*.xml", path.Join(remotePath, "users.d")),
 				)
+			}
+			if d.Conf.Secure && d.Conf.TlsConf != nil {
+				prepareCmds = append(prepareCmds, fmt.Sprintf("mkdir -p %s", certsDir))
 			}
 			if _, err = common.RemoteExecute(sshOpts, strings.Join(prepareCmds, ";")); err != nil {
 				lastError = err
@@ -450,6 +456,39 @@ func (d *CKDeploy) Config() error {
 				return
 			}
 
+			if d.Conf.Secure && d.Conf.TlsConf != nil {
+				certFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "server_crt")
+				if err != nil {
+					lastError = err
+					return
+				}
+				defer os.Remove(certFile.FullName)
+				if err := os.WriteFile(certFile.FullName, []byte(d.Conf.TlsConf.Cert), 0644); err != nil {
+					lastError = err
+					return
+				}
+
+				keyFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "server_key")
+				if err != nil {
+					lastError = err
+					return
+				}
+				defer os.Remove(keyFile.FullName)
+				if err := os.WriteFile(keyFile.FullName, []byte(d.Conf.TlsConf.Key), 0600); err != nil {
+					lastError = err
+					return
+				}
+
+				if err := common.ScpUploadFile(certFile.FullName, path.Join(certsDir, "server.crt"), sshOpts); err != nil {
+					lastError = err
+					return
+				}
+				if err := common.ScpUploadFile(keyFile.FullName, path.Join(certsDir, "server.key"), sshOpts); err != nil {
+					lastError = err
+					return
+				}
+			}
+
 			cmds := make([]string, 0)
 			cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "config.d", hostFile.BaseName), path.Join(remotePath, "config.d", "host.xml")))
 			cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "users.d", usersFile.BaseName), path.Join(remotePath, "users.d", "users.xml")))
@@ -460,6 +499,14 @@ func (d *CKDeploy) Config() error {
 			if d.Conf.NeedSudo {
 				cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
 			}
+			if d.Conf.Secure && d.Conf.TlsConf != nil {
+				// chown -R 不改 mode，私钥必须单独收紧到 600
+				cmds = append(cmds,
+					fmt.Sprintf("chmod 644 %s", path.Join(certsDir, "server.crt")),
+					fmt.Sprintf("chmod 600 %s", path.Join(certsDir, "server.key")),
+				)
+			}
+			cmds = append(cmds, "rm -rf /tmp/server_crt* /tmp/server_key*")
 			cmd := strings.Join(cmds, ";")
 			if _, err = common.RemoteExecute(sshOpts, cmd); err != nil {
 				lastError = err
