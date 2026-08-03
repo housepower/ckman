@@ -96,6 +96,7 @@ type CKManClickHouseConfig struct {
 	Port             int       `json:"port" example:"9000"`
 	HttpPort         int       `json:"httpPort" example:"8123"`
 	Secure           bool      `json:"secure"`
+	TlsConf          *TlsConf  `json:"tlsConf,omitempty"`
 	IsReplica        bool      `json:"isReplica" example:"true"`
 	Hosts            []string  `json:"hosts" example:"192.168.0.1,192.168.0.2,192.168.0.3,192.168.0.4"`
 	Keeper           string    `json:"keeper" example:"zookeeper"`
@@ -124,6 +125,16 @@ type CKManClickHouseConfig struct {
 	// don't need to regist to schema
 	Mode     string `json:"mode" swaggerignore:"true"`
 	NeedSudo bool   `json:"needSudo" swaggerignore:"true"`
+}
+
+// TlsConf 保存集群的服务端 TLS 证书。全集群共用一套，随集群配置一起落库。
+// Key 在 repository.EncodePasswd 里做 AES 加密；NotAfter 只出不入——
+// 由 GetConfig 从 Cert 现场解析填充，不落库，避免换证书后与实际值不一致。
+type TlsConf struct {
+	Cert       string `json:"cert"`
+	Key        string `json:"key"`
+	SelfSigned bool   `json:"selfSigned"`
+	NotAfter   string `json:"notAfter" swaggerignore:"true"`
 }
 
 type Coordination struct {
@@ -392,6 +403,15 @@ func (config *CKManClickHouseConfig) Pack() {
 			config.UsersConf.Users[idx].Password = strings.Repeat("*", len(user.Password))
 		}
 	}
+	if config.TlsConf != nil {
+		// 必须新建对象而非原地改：local repository 下 TlsConf 指针与内存中的
+		// 集群配置共享，原地改会把真实私钥抹成星号
+		config.TlsConf = &TlsConf{
+			Cert:       config.TlsConf.Cert,
+			Key:        strings.Repeat("*", len(config.TlsConf.Key)),
+			SelfSigned: config.TlsConf.SelfSigned,
+		}
+	}
 }
 
 func (config *CKManClickHouseConfig) UnPack(conf CKManClickHouseConfig) {
@@ -410,6 +430,9 @@ func (config *CKManClickHouseConfig) UnPack(conf CKManClickHouseConfig) {
 				}
 			}
 		}
+	}
+	if config.TlsConf != nil && conf.TlsConf != nil && reg.MatchString(config.TlsConf.Key) {
+		config.TlsConf.Key = conf.TlsConf.Key
 	}
 }
 
