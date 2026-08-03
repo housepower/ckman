@@ -45,11 +45,24 @@ func TestGenSelfSignedCert(t *testing.T) {
 }
 
 func TestGenSelfSignedCertNotMutateInput(t *testing.T) {
-	hosts := []string{"192.168.0.1"}
+	// backing 长度 3、hosts 只取前 1 个元素，但底层数组容量足够容纳
+	// 内部要追加的 "localhost"、"127.0.0.1" 两个元素（cap(hosts) == 3）。
+	// 若实现用 append(hosts, "localhost", "127.0.0.1")，Go 会原地复用
+	// 这段底层数组而不重新分配，从而静默覆盖 backing[1]/backing[2]
+	// 处的哨兵值 —— 这正是调用方传入「有富余容量的切片」（例如
+	// allNodes[:n]）时会被写穿的真实场景。
+	backing := []string{"192.168.0.1", "SENTINEL-1", "SENTINEL-2"}
+	hosts := backing[:1]
+	assert.Equal(t, 3, cap(hosts))
+
 	_, _, err := GenSelfSignedCert(hosts)
 	assert.Nil(t, err)
-	// 内部追加 localhost/127.0.0.1 不得污染调用方切片
+
+	// hosts 变量本身（长度 1 的视图）内容不变
 	assert.Equal(t, []string{"192.168.0.1"}, hosts)
+	// 容量范围内、长度之外的哨兵值不得被覆盖
+	assert.Equal(t, "SENTINEL-1", backing[1])
+	assert.Equal(t, "SENTINEL-2", backing[2])
 }
 
 func TestValidateCertKeyPair(t *testing.T) {
