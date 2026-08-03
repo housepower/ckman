@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/housepower/ckman/common"
@@ -26,6 +27,19 @@ func EncodePasswd(conf *model.CKManClickHouseConfig) {
 				conf.Storage.Disks[idx].DiskS3.AccessKeyID = common.AesEncryptECB(disk.DiskS3.AccessKeyID)
 				conf.Storage.Disks[idx].DiskS3.SecretAccessKey = common.AesEncryptECB(disk.DiskS3.SecretAccessKey)
 			}
+		}
+	}
+	if conf.TlsConf != nil {
+		// 新建对象：入参可能与内存中的集群配置共享同一 TlsConf 指针
+		//
+		// 私钥先做 base64 再送入 AesEncryptECB：common.AesDecryptECB 用「首个小于
+		// 0x20 的字节」当作 PKCS 填充的起点来做截断（见 common/aes.go），PEM 私钥
+		// 里的换行符（0x0A）会被当成填充误截断，导致解密后的私钥不完整。
+		// base64 之后的字符集不含任何小于 0x20 的字节，可以安全地绕开这个截断逻辑。
+		conf.TlsConf = &model.TlsConf{
+			Cert:       conf.TlsConf.Cert,
+			Key:        common.AesEncryptECB(base64.StdEncoding.EncodeToString([]byte(conf.TlsConf.Key))),
+			SelfSigned: conf.TlsConf.SelfSigned,
 		}
 	}
 }
@@ -56,5 +70,17 @@ func DecodePasswd(conf *model.CKManClickHouseConfig) {
 			disks = append(disks, disk)
 		}
 		conf.Storage.Disks = disks
+	}
+
+	if conf.TlsConf != nil {
+		key := common.AesDecryptECB(conf.TlsConf.Key)
+		if raw, err := base64.StdEncoding.DecodeString(key); err == nil {
+			key = string(raw)
+		}
+		conf.TlsConf = &model.TlsConf{
+			Cert:       conf.TlsConf.Cert,
+			Key:        key,
+			SelfSigned: conf.TlsConf.SelfSigned,
+		}
 	}
 }
