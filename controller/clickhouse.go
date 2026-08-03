@@ -2918,6 +2918,34 @@ func (controller *ClickHouseController) GetConfig(c *gin.Context) {
 	controller.wrapfunc(c, model.E_SUCCESS, resp)
 }
 
+// @Summary  生成自签名证书
+// @Description 为指定节点列表生成一张自签名 TLS 证书，仅返回内容不落库
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param req body model.SelfSignedCertReq true "request body"
+// @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":{"cert":"","key":""}}"
+// @Router /api/v1/ck/cert/selfsigned [post]
+func (controller *ClickHouseController) GenSelfSignedCert(c *gin.Context) {
+	var req model.SelfSignedCertReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+		return
+	}
+	if len(req.Hosts) == 0 {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, errors.Errorf("hosts must not be empty"))
+		return
+	}
+	cert, key, err := common.GenSelfSignedCert(req.Hosts)
+	if err != nil {
+		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, err)
+		return
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, model.SelfSignedCertRsp{Cert: cert, Key: key})
+}
+
 // @Summary  获取分布式表List
 // @Description 获取所有的分布式表和逻辑表
 // @version 1.0

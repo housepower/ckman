@@ -1,8 +1,12 @@
 package controller
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -215,4 +219,66 @@ func TestCheckConfigParams_SecureRequiresValidCert(t *testing.T) {
 			t.Errorf("expected no error for a valid cert/key pair, got: %v", err)
 		}
 	})
+}
+
+// newGenSelfSignedCertContext builds a gin.Context wired to a JSON POST body,
+// mirroring what the real router hands GenSelfSignedCert. The recorder is
+// unused by the handler itself (results are captured via a fake wrapfunc
+// below) but gin.CreateTestContext requires one.
+func newGenSelfSignedCertContext(t *testing.T, body string) *gin.Context {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/ck/cert/selfsigned", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	return c
+}
+
+// TestGenSelfSignedCert_EmptyHosts_ReturnsInvalidParams covers the Task 8
+// guard clause: an empty hosts list must be rejected before ever calling
+// common.GenSelfSignedCert.
+func TestGenSelfSignedCert_EmptyHosts_ReturnsInvalidParams(t *testing.T) {
+	var gotCode string
+	var gotEntity interface{}
+	controller := &ClickHouseController{Controller: Controller{wrapfunc: func(_ *gin.Context, retCode string, entity interface{}) {
+		gotCode = retCode
+		gotEntity = entity
+	}}}
+
+	controller.GenSelfSignedCert(newGenSelfSignedCertContext(t, `{"hosts":[]}`))
+
+	if gotCode != model.E_INVALID_PARAMS {
+		t.Errorf("expected E_INVALID_PARAMS for empty hosts, got %q", gotCode)
+	}
+	if gotEntity == nil {
+		t.Errorf("expected a non-nil error entity for empty hosts")
+	}
+}
+
+// TestGenSelfSignedCert_ValidHosts_ReturnsPEM is the happy path: the handler
+// only generates and returns cert/key PEM data, it must not touch the
+// repository or persist anything (see task-8-brief.md design intent).
+func TestGenSelfSignedCert_ValidHosts_ReturnsPEM(t *testing.T) {
+	var gotCode string
+	var gotEntity interface{}
+	controller := &ClickHouseController{Controller: Controller{wrapfunc: func(_ *gin.Context, retCode string, entity interface{}) {
+		gotCode = retCode
+		gotEntity = entity
+	}}}
+
+	controller.GenSelfSignedCert(newGenSelfSignedCertContext(t, `{"hosts":["192.168.0.1","192.168.0.2"]}`))
+
+	if gotCode != model.E_SUCCESS {
+		t.Fatalf("expected E_SUCCESS, got %q (entity: %v)", gotCode, gotEntity)
+	}
+	rsp, ok := gotEntity.(model.SelfSignedCertRsp)
+	if !ok {
+		t.Fatalf("expected entity of type model.SelfSignedCertRsp, got %T", gotEntity)
+	}
+	if !strings.HasPrefix(rsp.Cert, "-----BEGIN CERTIFICATE-----") {
+		t.Errorf("cert does not look like a PEM certificate: %q", rsp.Cert)
+	}
+	if !strings.Contains(rsp.Key, "PRIVATE KEY-----") {
+		t.Errorf("key does not look like a PEM private key: %q", rsp.Key)
+	}
 }

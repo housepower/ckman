@@ -508,3 +508,12 @@ func (config *CKManClickHouseConfig) KeeperWithStanalone() bool {
 	}
 	return false
 }
+
+type SelfSignedCertReq struct {
+	Hosts []string `json:"hosts" example:"192.168.0.1,192.168.0.2"`
+}
+
+type SelfSignedCertRsp struct {
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
+}
