@@ -74,6 +74,9 @@ func GenLocalMetrika(indent int, conf *model.CKManClickHouseConfig) string {
 			xml.Begin("replica")
 			xml.Write("host", replica.Ip)
 			xml.Write("port", conf.Port)
+			if conf.Secure {
+				xml.Write("secure", 1)
+			}
 			if !secret {
 				xml.Write("user", conf.User)
 				xml.Write("password", conf.Password)
@@ -101,6 +104,9 @@ func GenLogicMetrika(logicName string, clusters []model.CKManClickHouseConfig, s
 				xml.Begin("replica")
 				xml.Write("host", replica.Ip)
 				xml.Write("port", conf.Port)
+				if conf.Secure {
+					xml.Write("secure", 1)
+				}
 				if !secret {
 					xml.Write("user", conf.User)
 					xml.Write("password", conf.Password)
