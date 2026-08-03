@@ -3,8 +3,10 @@ package repository
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/housepower/ckman/common"
+	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 )
 
@@ -73,9 +75,19 @@ func DecodePasswd(conf *model.CKManClickHouseConfig) {
 	}
 
 	if conf.TlsConf != nil {
+		// key 先保留 AesDecryptECB 的直接输出：AesDecryptECB 解密失败时会通过
+		// defer/recover 把原始密文（大写 hex 字符串）原样吐回来，这本身就是一个
+		// 有辨识度的信号（人眼能看出"这是没解开的密文"）。只有确认 base64 还原出的
+		// 内容像一份 PEM 私钥（包含 "PRIVATE KEY"）时才用它替换 key；否则保留这个
+		// 未经 base64 还原的值,不要用 base64.DecodeString 的"垃圾成功"结果覆盖掉它 ——
+		// 那样反而会把一个有辨识度的信号变成一堆无意义乱码,销毁排障线索。
 		key := common.AesDecryptECB(conf.TlsConf.Key)
-		if raw, err := base64.StdEncoding.DecodeString(key); err == nil {
-			key = string(raw)
+		if key != "" {
+			if raw, err := base64.StdEncoding.DecodeString(key); err == nil && strings.Contains(string(raw), "PRIVATE KEY") {
+				key = string(raw)
+			} else {
+				log.Logger.Warnf("cluster[%s] TLS private key decrypt sanity check failed (decrypted/base64-decoded content does not look like a PEM private key); ciphertext may be corrupted or was not produced by EncodePasswd, keeping raw decrypted value for troubleshooting", conf.Cluster)
+			}
 		}
 		conf.TlsConf = &model.TlsConf{
 			Cert:       conf.TlsConf.Cert,
