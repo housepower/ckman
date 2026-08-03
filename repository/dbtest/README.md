@@ -2,7 +2,8 @@
 
 这套测试(build tag `dbintegration`,平时不参与构建)对 `mysql` / `dm8` / `postgres`
 三个后端**连真库**跑一遍:连启 3 次(抓 AutoMigrate 非幂等 / 达梦大小写重启崩)、
-零值时间 backup_run(抓达梦 -6118 / MySQL DATETIME 越界)、以及各实体 CRUD 往返。
+零值时间 backup_run(抓达梦 -6118 / MySQL DATETIME 越界)、`TlsConf` 私钥加解密往返
+(抓 PEM 换行符被 AES 去填充逻辑截断)、以及各实体 CRUD 往返。
 
 它调用的是 `repository.Ps` 的真方法(和 ckman 生产同一路径),**不是裸写 SQL**——
 这些 bug 恰恰藏在方法内部(哨兵时间包装、`ensureSchema`、JSON blob 等),mock 单测
