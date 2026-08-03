@@ -68,8 +68,18 @@ type TlsConf struct {
 - `NotAfter` **不落库**，`GetConfig` 返回前从 `Cert` 现场解析填充，避免换证书后与实际值不一致。
 - `Secure=false` 时 `TlsConf` 置 nil。
 
-`cluster` 表是单列 JSON blob（`repository/mysql/model.go:13` 的 `Config string`），
-新增字段**不需要 DB schema 迁移**。
+### 存储容量
+
+`cluster` 表是单列 JSON blob，新增字段**不需要 DB schema 迁移**，且容量绰绰有余：
+
+| 后端 | 列定义 | 容量 |
+| --- | --- | --- |
+| MySQL | `Config string`（无 size tag） | `longtext` |
+| Postgres | `Config string` | `text` |
+| DM8 | `Configuration dmSchema.Clob` + `size:1024000` | 1 MB CLOB |
+
+实测证书体积（SAN 含 10 个节点 IP）：RSA 2048 证书 1245 B + 私钥 1704 B = 2.9 KB；
+私钥经 AES + base64 后膨胀约 1.37 倍，实际入库约 **3.5 KB**。相对 1 MB 下限无压力。
 
 ## 证书生命周期
 
@@ -82,6 +92,9 @@ func ValidateCertKeyPair(cert, key string) error
 
 **`GenSelfSignedCert`**：Go `crypto/x509` 生成单张自签证书。
 
+- **RSA 2048**。ECDSA P-256 体积小三倍（0.9 KB vs 2.9 KB）也更快，
+  但存储完全不是瓶颈（见下），故选兼容面最广的 RSA —— 老版本 clickhouse-client、
+  JDBC driver、Poco SSL 对 RSA 支持最稳
 - `IsCA = true`，`KeyUsage = CertSign | DigitalSignature | KeyEncipherment`
 - `ExtKeyUsage = ServerAuth | ClientAuth` —— ClientAuth 必须有，分布式查询时本节点也作为客户端
 - SAN = 全部节点 IP + hostname + `localhost` + `127.0.0.1`
@@ -228,5 +241,5 @@ resp: { "cert": "-----BEGIN CERTIFICATE-----...", "key": "-----BEGIN PRIVATE KEY
 - `ckconfig/metrika_test.go` + fixture：验证 `<secure>1</secure>`，
   以及逻辑集群下「一成员加密、一成员不加密」的混合场景能正确生成
 - `repository/dbtest` 三后端回归（`go test -tags dbintegration ./repository/dbtest/`）：
-  重点验证 **DM8 的 `config` 列能装下含 PEM 的 JSON**（PEM 约 3–4KB；
-  MySQL longtext、Postgres text 无问题，DM8 列类型需实测）
+  模型变更必跑。列容量已确认足够（见「存储容量」），此处验的是
+  带 `TlsConf` 的集群配置在三个后端上的写入/读回/加解密往返一致
