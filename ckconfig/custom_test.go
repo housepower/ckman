@@ -1,6 +1,7 @@
 package ckconfig
 
 import (
+	"os"
 	"testing"
 
 	"github.com/housepower/ckman/model"
@@ -118,4 +119,94 @@ func TestGenerateCustomXML(t *testing.T) {
 		Ipv6Enable: true,
 	})
 	assert.Nil(t, err)
+}
+
+func TestGenerateCustomXMLSecure(t *testing.T) {
+	conf := &model.CKManClickHouseConfig{
+		Cluster: "abc",
+		Shards: []model.CkShard{
+			{[]model.CkReplica{
+				{Ip: "192.168.101.40", HostName: "vm10140"},
+			}},
+		},
+		ZkNodes:   []string{"192.168.101.40"},
+		ZkPort:    2181,
+		Port:      9440,
+		HttpPort:  8443,
+		Secure:    true,
+		IsReplica: true,
+		Cwd:       "/home/eoi/clickhouse",
+		NeedSudo:  false,
+		Path:      "/data01/",
+		Version:   "25.3.1.2703",
+	}
+	_, err := GenerateCustomXML("custom_secure_fake.xml", conf, model.CkDeployExt{
+		NumCPU:     48,
+		Ipv6Enable: false,
+	})
+	assert.Nil(t, err)
+
+	data, err := os.ReadFile("custom_secure_fake.xml")
+	assert.Nil(t, err)
+	content := string(data)
+
+	// 密文端口开启
+	assert.Contains(t, content, "<tcp_port_secure>9440</tcp_port_secure>")
+	assert.Contains(t, content, "<https_port>8443</https_port>")
+	// 明文端口关闭
+	assert.Contains(t, content, `<tcp_port remove="remove">`)
+	assert.Contains(t, content, `<http_port remove="remove">`)
+	// 不能再出现明文端口的实际值
+	assert.NotContains(t, content, "<tcp_port>9440</tcp_port>")
+	assert.NotContains(t, content, "<http_port>8443</http_port>")
+
+	// 服务端证书
+	assert.Contains(t, content, "<certificateFile>/home/eoi/clickhouse/etc/clickhouse-server/certs/server.crt</certificateFile>")
+	assert.Contains(t, content, "<privateKeyFile>/home/eoi/clickhouse/etc/clickhouse-server/certs/server.key</privateKeyFile>")
+	assert.Contains(t, content, "<verificationMode>none</verificationMode>")
+	// client 段必须存在：分布式查询时本节点作为客户端连兄弟节点，
+	// 自签证书下缺 AcceptCertificateHandler 会直接握手失败
+	assert.Contains(t, content, "<name>AcceptCertificateHandler</name>")
+}
+
+func TestGenerateCustomXMLSecureNeedSudo(t *testing.T) {
+	conf := &model.CKManClickHouseConfig{
+		Cluster:  "abc",
+		Shards:   []model.CkShard{{[]model.CkReplica{{Ip: "192.168.101.40"}}}},
+		Port:     9440,
+		HttpPort: 8443,
+		Secure:   true,
+		NeedSudo: true,
+		Path:     "/data01/",
+		Version:  "25.3.1.2703",
+	}
+	_, err := GenerateCustomXML("custom_secure_sudo_fake.xml", conf, model.CkDeployExt{NumCPU: 48})
+	assert.Nil(t, err)
+
+	data, err := os.ReadFile("custom_secure_sudo_fake.xml")
+	assert.Nil(t, err)
+	assert.Contains(t, string(data), "<certificateFile>/etc/clickhouse-server/certs/server.crt</certificateFile>")
+}
+
+func TestGenerateCustomXMLPlaintextUnchanged(t *testing.T) {
+	conf := &model.CKManClickHouseConfig{
+		Cluster:  "abc",
+		Shards:   []model.CkShard{{[]model.CkReplica{{Ip: "192.168.101.40"}}}},
+		Port:     9000,
+		HttpPort: 8123,
+		Secure:   false,
+		NeedSudo: true,
+		Path:     "/data01/",
+		Version:  "25.3.1.2703",
+	}
+	_, err := GenerateCustomXML("custom_plain_fake.xml", conf, model.CkDeployExt{NumCPU: 48})
+	assert.Nil(t, err)
+
+	data, err := os.ReadFile("custom_plain_fake.xml")
+	assert.Nil(t, err)
+	content := string(data)
+	assert.Contains(t, content, "<tcp_port>9000</tcp_port>")
+	assert.Contains(t, content, "<http_port>8123</http_port>")
+	assert.NotContains(t, content, "openSSL")
+	assert.NotContains(t, content, "remove")
 }

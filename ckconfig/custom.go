@@ -18,8 +18,16 @@ func root(conf *model.CKManClickHouseConfig, ext model.CkDeployExt) map[string]i
 	output["max_partition_size_to_drop"] = 0
 	output["default_replica_path"] = "/clickhouse/tables/{cluster}/{database}/{table}/{shard}"
 	output["default_replica_name"] = "{replica}"
-	output["tcp_port"] = conf.Port
-	output["http_port"] = conf.HttpPort
+	if conf.Secure {
+		output["tcp_port_secure"] = conf.Port
+		output["https_port"] = conf.HttpPort
+		// 关闭明文端口，避免与密文端口并存造成误用
+		output["tcp_port[@remove=\"remove\"]"] = ""
+		output["http_port[@remove=\"remove\"]"] = ""
+	} else {
+		output["tcp_port"] = conf.Port
+		output["http_port"] = conf.HttpPort
+	}
 	if ext.Ipv6Enable {
 		output["listen_host"] = "::"
 	} else {
@@ -256,6 +264,43 @@ func merge_tree(conf *model.CKManClickHouseConfig) map[string]interface{} {
 	return output
 }
 
+// CertsDir 返回节点上存放 TLS 证书的目录。
+// 与 deploy 阶段的下发路径必须一致。
+func CertsDir(conf *model.CKManClickHouseConfig) string {
+	if conf.NeedSudo {
+		return "/etc/clickhouse-server/certs"
+	}
+	return path.Join(conf.Cwd, "etc", "clickhouse-server", "certs")
+}
+
+func openssl(conf *model.CKManClickHouseConfig) map[string]interface{} {
+	certsDir := CertsDir(conf)
+	output := make(map[string]interface{})
+	output["openSSL"] = map[string]interface{}{
+		"server": map[string]interface{}{
+			"certificateFile": path.Join(certsDir, "server.crt"),
+			"privateKeyFile":  path.Join(certsDir, "server.key"),
+			// 不做双向认证，不要求客户端证书
+			"verificationMode":    "none",
+			"cacheSessions":       true,
+			"disableProtocols":    "sslv2,sslv3",
+			"preferServerCiphers": true,
+		},
+		// client 段不可省略：分布式查询时本节点要作为客户端连兄弟节点，
+		// 自签证书下缺少 AcceptCertificateHandler 会直接握手失败
+		"client": map[string]interface{}{
+			"loadDefaultCAFile":   true,
+			"cacheSessions":       true,
+			"disableProtocols":    "sslv2,sslv3",
+			"preferServerCiphers": true,
+			"invalidCertificateHandler": map[string]interface{}{
+				"name": "AcceptCertificateHandler",
+			},
+		},
+	}
+	return output
+}
+
 func GetRootTag(version string) string {
 	if common.CompareClickHouseVersion(version, "22.x") >= 0 {
 		return "clickhouse"
@@ -272,6 +317,9 @@ func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ext m
 	mergo.Merge(&custom, system_log())
 	mergo.Merge(&custom, distributed_ddl(conf.Cluster))
 	mergo.Merge(&custom, prometheus())
+	if conf.Secure {
+		mergo.Merge(&custom, openssl(conf))
+	}
 	if common.CompareClickHouseVersion(conf.Version, "22.4.x") >= 0 {
 		mergo.Merge(&custom, merge_tree_metadata_cache())
 	}
