@@ -179,9 +179,11 @@ if conf.Secure {
 
 `deploy/ck.go` 的 `Config()` 阶段：
 
-- 落盘目录 `path.Join(remotePath, "..", "certs")`
-  —— rpm/deb 下为 `/etc/clickhouse-server/certs/`，tgz 下为 `<cwd>/etc/clickhouse-server/certs/`
-- `server.crt` 权限 644，`server.key` 权限 **600**；`NeedSudo` 时 `chown clickhouse:clickhouse`
+- 落盘目录 `path.Join(remotePath, "certs")`。`remotePath` 在 `Config()` 里已是
+  `/etc/clickhouse-server`（NeedSudo）或 `<cwd>/etc/clickhouse-server`（tgz）
+- `server.crt` 权限 644，`server.key` 权限 **600**。
+  owner 无需额外处理 —— `Config()` 结尾在 NeedSudo 分支已有
+  `chown -R clickhouse:clickhouse /etc/clickhouse-server`，递归覆盖 certs
 - 现有清理命令 `find config.d -maxdepth 1 -name '*.xml' -delete` 不波及 certs 目录
 - `Secure=false` 时下发前 `rm -rf certs`，保证回退干净
 
@@ -193,10 +195,12 @@ if conf.Secure {
 ### 新增
 
 ```
-POST /api/v2/ck/cert/selfsigned
+POST /api/v1/ck/cert/selfsigned
 body: { "hosts": ["192.168.0.1", ...] }
 resp: { "cert": "-----BEGIN CERTIFICATE-----...", "key": "-----BEGIN PRIVATE KEY-----..." }
 ```
+
+注意：`router/` 目录下**只有 `v1.go`**，不存在 v2 路由文件，接口一律注册到 `groupV1`。
 
 只生成不落库。前端拿到后填回表单，随集群配置一起提交，
 使「生成自签名」与「上传」在后端走同一条入库与校验路径。
