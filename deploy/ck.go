@@ -495,7 +495,15 @@ func (d *CKDeploy) Config() error {
 			if d.Conf.Keeper == model.ClickhouseKeeper && !d.Conf.KeeperWithStanalone() {
 				cmds = append(cmds, fmt.Sprintf("mv %s %s", path.Join(remotePath, "config.d", keeperFile.BaseName), path.Join(remotePath, "config.d", "keeper_config.xml")))
 			}
-			cmds = append(cmds, "rm -rf /tmp/host* /tmp/users*")
+			// 无条件清理：host*/users* 每次部署都会产生；server.crt*/server.key* 只有
+			// Secure 开启时才会新上传，但即便本次是从 TLS 回退到明文（Secure=false），
+			// 上一次部署残留在 /tmp 下的私钥中转文件也必须清掉，因此不能放进
+			// `if d.Conf.Secure && d.Conf.TlsConf != nil` 分支里，否则回退场景下
+			// 明文私钥会永久残留在 /tmp。
+			// 注意：ScpUploadFile 内部用 path.Base(remoteFile) 作为 /tmp 中转文件名，
+			// remoteFile 是 certsDir/server.crt、certsDir/server.key，所以中转文件名
+			// 是 server.crt*/server.key*（点号），不是 server_crt*/server_key*（下划线）。
+			cmds = append(cmds, "rm -rf /tmp/host* /tmp/users* /tmp/server.crt* /tmp/server.key*")
 			if d.Conf.NeedSudo {
 				cmds = append(cmds, "chown -R clickhouse:clickhouse /etc/clickhouse-server")
 			}
@@ -506,7 +514,6 @@ func (d *CKDeploy) Config() error {
 					fmt.Sprintf("chmod 600 %s", path.Join(certsDir, "server.key")),
 				)
 			}
-			cmds = append(cmds, "rm -rf /tmp/server_crt* /tmp/server_key*")
 			cmd := strings.Join(cmds, ";")
 			if _, err = common.RemoteExecute(sshOpts, cmd); err != nil {
 				lastError = err
