@@ -243,6 +243,8 @@ definitions:
         type: string
       storage:
         $ref: '#/definitions/model.Storage'
+      tlsConf:
+        $ref: '#/definitions/model.TlsConf'
       user:
         example: ck
         type: string
@@ -825,6 +827,16 @@ definitions:
       new_password:
         type: string
     type: object
+  model.SelfSignedCertReq:
+    properties:
+      hosts:
+        example:
+        - 192.168.0.1
+        - 192.168.0.2
+        items:
+          type: string
+        type: array
+    type: object
   model.Storage:
     properties:
       disks:
@@ -835,6 +847,15 @@ definitions:
         items:
           $ref: '#/definitions/model.Policy'
         type: array
+    type: object
+  model.TlsConf:
+    properties:
+      cert:
+        type: string
+      key:
+        type: string
+      selfSigned:
+        type: boolean
     type: object
   model.UpdateUserReq:
     properties:
@@ -967,6 +988,28 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 获取后台线程池状态
+      tags:
+      - clickhouse
+  /api/v1/ck/cert/selfsigned:
+    post:
+      consumes:
+      - application/json
+      description: 为指定节点列表生成一张自签名 TLS 证书，仅返回内容不落库
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.SelfSignedCertReq'
+      responses:
+        "200":
+          description: '{"code":"0000","msg":"ok","data":{"cert":"","key":""}}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 生成自签名证书
       tags:
       - clickhouse
   /api/v1/ck/cluster:

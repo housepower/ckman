@@ -163,6 +163,42 @@ var doc = `{
                 }
             }
         },
+        "/api/v1/ck/cert/selfsigned": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "为指定节点列表生成一张自签名 TLS 证书，仅返回内容不落库",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "生成自签名证书",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.SelfSignedCertReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":{\"cert\":\"\",\"key\":\"\"}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/cluster": {
             "get": {
                 "security": [
@@ -3862,6 +3898,9 @@ var doc = `{
                 "storage": {
                     "$ref": "#/definitions/model.Storage"
                 },
+                "tlsConf": {
+                    "$ref": "#/definitions/model.TlsConf"
+                },
                 "user": {
                     "type": "string",
                     "example": "ck"
@@ -4698,6 +4737,21 @@ var doc = `{
                 }
             }
         },
+        "model.SelfSignedCertReq": {
+            "type": "object",
+            "properties": {
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.0.1",
+                        "192.168.0.2"
+                    ]
+                }
+            }
+        },
         "model.Storage": {
             "type": "object",
             "properties": {
@@ -4712,6 +4766,20 @@ var doc = `{
                     "items": {
                         "$ref": "#/definitions/model.Policy"
                     }
+                }
+            }
+        },
+        "model.TlsConf": {
+            "type": "object",
+            "properties": {
+                "cert": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "selfSigned": {
+                    "type": "boolean"
                 }
             }
         },
