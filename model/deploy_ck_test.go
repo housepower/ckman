@@ -66,3 +66,57 @@ func TestUnPackTlsConfFromNil(t *testing.T) {
 	incoming.UnPack(stored)
 	assert.Equal(t, "NEW-KEY", incoming.TlsConf.Key)
 }
+
+// TestNormalizeSecurePorts_SecureEnabled_SwitchesDefaultPorts is the
+// regression test for the port/protocol confusion bug: a real cluster was
+// switched Secure=false -> true while HttpPort stayed pinned at the
+// plaintext default 8123 (because the config page locked the field), so
+// custom.xml ended up serving HTTPS on the port everyone assumes is
+// plaintext. NormalizeSecurePorts is the backend-side safety net for this -
+// it must fire regardless of whether the frontend's Secure-linked port
+// switcher ran at all (direct API calls, scripted deploys, ...).
+func TestNormalizeSecurePorts_SecureEnabled_SwitchesDefaultPorts(t *testing.T) {
+	conf := CKManClickHouseConfig{
+		Secure:   true,
+		Port:     ClickHouseDefaultPort,
+		HttpPort: ClickHouseDefaultHttpPort,
+	}
+	conf.NormalizeSecurePorts()
+	assert.Equal(t, ClickHouseDefaultSecurePort, conf.Port)
+	assert.Equal(t, ClickHouseDefaultSecureHttpPort, conf.HttpPort)
+}
+
+// TestNormalizeSecurePorts_SecureDisabled_SwitchesBackToPlaintextPorts is the
+// mirror case: turning Secure off while the ports are still sitting at the
+// TLS defaults must switch them back, so a plaintext cluster doesn't end up
+// trying to speak plaintext on 9440/8443.
+func TestNormalizeSecurePorts_SecureDisabled_SwitchesBackToPlaintextPorts(t *testing.T) {
+	conf := CKManClickHouseConfig{
+		Secure:   false,
+		Port:     ClickHouseDefaultSecurePort,
+		HttpPort: ClickHouseDefaultSecureHttpPort,
+	}
+	conf.NormalizeSecurePorts()
+	assert.Equal(t, ClickHouseDefaultPort, conf.Port)
+	assert.Equal(t, ClickHouseDefaultHttpPort, conf.HttpPort)
+}
+
+// TestNormalizeSecurePorts_CustomPorts_AreNeverOverwritten guards the "don't
+// clobber a deliberate customization" half of the contract: a port that
+// isn't sitting at either mode's well-known default (e.g. a user who put
+// ClickHouse behind 9001) must survive the Secure flip untouched, in either
+// direction.
+func TestNormalizeSecurePorts_CustomPorts_AreNeverOverwritten(t *testing.T) {
+	t.Run("secure enabled", func(t *testing.T) {
+		conf := CKManClickHouseConfig{Secure: true, Port: 9001, HttpPort: 8001}
+		conf.NormalizeSecurePorts()
+		assert.Equal(t, 9001, conf.Port)
+		assert.Equal(t, 8001, conf.HttpPort)
+	})
+	t.Run("secure disabled", func(t *testing.T) {
+		conf := CKManClickHouseConfig{Secure: false, Port: 9001, HttpPort: 8001}
+		conf.NormalizeSecurePorts()
+		assert.Equal(t, 9001, conf.Port)
+		assert.Equal(t, 8001, conf.HttpPort)
+	})
+}

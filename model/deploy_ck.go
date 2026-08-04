@@ -11,22 +11,24 @@ const (
 	CkClusterImport string = "import"
 	CkClusterDeploy string = "deploy"
 
-	ClickHouseDefaultDB          string = "default"
-	ClickHouseDefaultUser        string = "default"
-	ClickHouseDefaultPort        int    = 9000
-	ClickHouseDefaultHttpPort    int    = 8123
-	ClickHouseDefaultZkPort      int    = 2181
-	ZkStatusDefaultPort          int    = 8080
-	ClickHouseMericPort          int    = 9363
-	ZookeeperMetricPort          int    = 7000
-	NodeExporterPort             int    = 9100
-	SshDefaultPort               int    = 22
-	PromHostDefault              string = "127.0.0.1"
-	PromPortDefault              int    = 9090
-	PkgTypeDefault               string = "x86_64.rpm"
-	ClickHouseUserProfileDefault string = "default"
-	ClickHouseUserQuotaDefault   string = "default"
-	ClickHouseUserNetIpDefault   string = "::/0"
+	ClickHouseDefaultDB             string = "default"
+	ClickHouseDefaultUser           string = "default"
+	ClickHouseDefaultPort           int    = 9000
+	ClickHouseDefaultHttpPort       int    = 8123
+	ClickHouseDefaultSecurePort     int    = 9440
+	ClickHouseDefaultSecureHttpPort int    = 8443
+	ClickHouseDefaultZkPort         int    = 2181
+	ZkStatusDefaultPort             int    = 8080
+	ClickHouseMericPort             int    = 9363
+	ZookeeperMetricPort             int    = 7000
+	NodeExporterPort                int    = 9100
+	SshDefaultPort                  int    = 22
+	PromHostDefault                 string = "127.0.0.1"
+	PromPortDefault                 int    = 9090
+	PkgTypeDefault                  string = "x86_64.rpm"
+	ClickHouseUserProfileDefault    string = "default"
+	ClickHouseUserQuotaDefault      string = "default"
+	ClickHouseUserNetIpDefault      string = "::/0"
 
 	SshPasswordSave      int = 0
 	SshPasswordNotSave   int = 1
@@ -116,7 +118,7 @@ type CKManClickHouseConfig struct {
 	SshPort          int    `json:"sshPort" example:"22"`
 	Storage          *Storage
 	UsersConf        UsersConf `swaggerignore:"true"`
-	Expert        map[string]string
+	Expert           map[string]string
 	// NodeOverrides maps host IP to a complete XML fragment written to
 	// config.d/node_override.xml on that node (hot-reloaded via SYSTEM RELOAD CONFIG).
 	// Managed exclusively through the /api/v1/ck/node/override endpoints.
@@ -278,7 +280,7 @@ type Profile struct {
 	// 强制查询使用主键，未命中时拒绝执行。0/1。
 	ForcePrimaryKey int
 	// S3 GET 单查询限速：每秒请求数。0 表示不限制。
-	S3MaxGetRPS int64
+	S3MaxGetRPS      int64
 	MaxExecutionTime int64
 	// 在执行查询时，从表中可读取的未压缩数据的最大字节数。 该限制会在每个处理的数据块上进行检查，仅适用于最深层的表表达式；
 	// 在从远程服务器读取时，该限制仅在远程服务器上进行检查。
@@ -364,6 +366,34 @@ func (config *CKManClickHouseConfig) Normalize() {
 
 	if config.Protocol != clickhouse.HTTP.String() {
 		config.Protocol = clickhouse.Native.String()
+	}
+}
+
+// NormalizeSecurePorts flips Port/HttpPort between the plaintext and TLS
+// default pairs (9000/8123 <-> 9440/8443) to follow the Secure switch,
+// so that flipping Secure without also editing the ports (e.g. calling
+// the API directly, scripted deploys, or a frontend that didn't wire up
+// the linkage) still lands on a consistent, working port pair.
+//
+// It only ever touches a port that still equals the default for the
+// *other* mode - a value the user deliberately customized (e.g. 9001)
+// is left untouched. Must run before any change-detection/diffing so
+// callers observe the final, normalized values.
+func (config *CKManClickHouseConfig) NormalizeSecurePorts() {
+	if config.Secure {
+		if config.Port == ClickHouseDefaultPort {
+			config.Port = ClickHouseDefaultSecurePort
+		}
+		if config.HttpPort == ClickHouseDefaultHttpPort {
+			config.HttpPort = ClickHouseDefaultSecureHttpPort
+		}
+	} else {
+		if config.Port == ClickHouseDefaultSecurePort {
+			config.Port = ClickHouseDefaultPort
+		}
+		if config.HttpPort == ClickHouseDefaultSecureHttpPort {
+			config.HttpPort = ClickHouseDefaultHttpPort
+		}
 	}
 }
 
