@@ -282,3 +282,185 @@ func TestGenSelfSignedCert_ValidHosts_ReturnsPEM(t *testing.T) {
 		t.Errorf("key does not look like a PEM private key: %q", rsp.Key)
 	}
 }
+
+// TestGenSelfSignedCert_MarksSkipResponseLog is the regression test for the
+// final-review finding that GenSelfSignedCert's response - an unredacted
+// plaintext private key - was landing verbatim in the Debug log via
+// router.WrapMsg's unconditional log.Logger.Debugf. The handler now flags
+// its gin.Context with "skip_response_log" so WrapMsg can omit the body;
+// this test only verifies the flag is set (the WrapMsg-side branch that
+// consumes it lives in package router and is covered by code walkthrough,
+// see the final fix report).
+func TestGenSelfSignedCert_MarksSkipResponseLog(t *testing.T) {
+	var gotCode string
+	controller := &ClickHouseController{Controller: Controller{wrapfunc: func(_ *gin.Context, retCode string, _ interface{}) {
+		gotCode = retCode
+	}}}
+
+	c := newGenSelfSignedCertContext(t, `{"hosts":["192.168.0.1"]}`)
+	controller.GenSelfSignedCert(c)
+
+	if gotCode != model.E_SUCCESS {
+		t.Fatalf("expected E_SUCCESS, got %q", gotCode)
+	}
+	if !c.GetBool("skip_response_log") {
+		t.Errorf("expected GenSelfSignedCert to set skip_response_log=true on the context so the plaintext private key never reaches the Debug log")
+	}
+}
+
+// TestCheckDeployParams_SecureRequiresValidCert is the regression test for
+// Critical 1: checkDeployParams (the sole validator behind POST
+// /api/v1/deploy/ck) used to contain zero references to Secure/TlsConf, so a
+// brand-new cluster with Secure=true and no certificate sailed through
+// validation and only failed once the full SSH deployment had already run
+// and ClickHouse crashed on startup. The check must fire before any of the
+// later package-registry/SSH-dependent validation, so both assertions below
+// key off the specific tls error message rather than a bare err != nil -
+// otherwise reverting the fix would still produce a (different, pkgtype-related)
+// error and the test would pass for the wrong reason.
+func TestCheckDeployParams_SecureRequiresValidCert(t *testing.T) {
+	sp := newTestPersistent(t)
+	repository.Ps = sp
+
+	_, keyPEM, err := common.GenSelfSignedCert(nil)
+	if err != nil {
+		t.Fatalf("generate self-signed cert: %v", err)
+	}
+
+	t.Run("missing TlsConf", func(t *testing.T) {
+		conf := &model.CKManClickHouseConfig{Cluster: "deploytls-missing", Secure: true}
+		err := checkDeployParams(conf, false)
+		if err == nil {
+			t.Fatalf("expected error when Secure=true and TlsConf is nil")
+		}
+		if !strings.Contains(err.Error(), "tls") {
+			t.Errorf("expected a tls-specific validation error, got: %v", err)
+		}
+	})
+
+	t.Run("mismatched cert/key", func(t *testing.T) {
+		otherCertPEM, _, err := common.GenSelfSignedCert(nil)
+		if err != nil {
+			t.Fatalf("generate mismatched cert: %v", err)
+		}
+		conf := &model.CKManClickHouseConfig{
+			Cluster: "deploytls-mismatch",
+			Secure:  true,
+			TlsConf: &model.TlsConf{Cert: otherCertPEM, Key: keyPEM},
+		}
+		err = checkDeployParams(conf, false)
+		if err == nil {
+			t.Fatalf("expected error when cert and key don't match")
+		}
+		if !strings.Contains(err.Error(), "tls certificate") {
+			t.Errorf("expected an invalid-tls-certificate error, got: %v", err)
+		}
+	})
+}
+
+// TestCheckConfigParams_ImportModeSkipsTlsCheck and
+// TestCheckConfigParams_DeployModeStillRequiresTls are the regression pair for
+// Critical 2: imported clusters (Mode == model.CkClusterImport) are connect-only
+// - ckman never holds their certificates - so Secure=true with TlsConf==nil is
+// a legitimate permanent state that must not block every future config save.
+// Non-import clusters must still be checked; splitting this into two tests
+// guards against a fix that "solves" the bug by deleting the whole check
+// (which would make DeployModeStillRequiresTls fail).
+func TestCheckConfigParams_ImportModeSkipsTlsCheck(t *testing.T) {
+	sp := newTestPersistent(t)
+	repository.Ps = sp
+
+	imported := model.CKManClickHouseConfig{
+		Cluster: "tls-import-cluster",
+		Mode:    model.CkClusterImport,
+		Secure:  true,
+		SshUser: "root",
+		Port:    9000,
+		// TlsConf intentionally nil: ckman doesn't manage certs for imported clusters.
+	}
+	if err := sp.CreateCluster(imported); err != nil {
+		t.Fatalf("create cluster: %v", err)
+	}
+
+	conf := model.CKManClickHouseConfig{Cluster: "tls-import-cluster", Secure: true, SshUser: "root"}
+	if err := checkConfigParams(&conf); err != nil {
+		t.Errorf("expected an imported cluster with Secure=true and no TlsConf to pass checkConfigParams, got: %v", err)
+	}
+}
+
+func TestCheckConfigParams_DeployModeStillRequiresTls(t *testing.T) {
+	sp := newTestPersistent(t)
+	repository.Ps = sp
+
+	certPEM, keyPEM, err := common.GenSelfSignedCert(nil)
+	if err != nil {
+		t.Fatalf("generate self-signed cert: %v", err)
+	}
+
+	deployed := baseTlsCluster(t, "tls-deploy-cluster", certPEM, keyPEM)
+	deployed.Mode = model.CkClusterDeploy
+	if err := sp.CreateCluster(deployed); err != nil {
+		t.Fatalf("create cluster: %v", err)
+	}
+
+	// Submitted request omits TlsConf, same as the import-mode test above -
+	// the only difference is Mode, which must make this one fail.
+	conf := model.CKManClickHouseConfig{Cluster: "tls-deploy-cluster", Secure: true, SshUser: "root"}
+	if err := checkConfigParams(&conf); err == nil {
+		t.Errorf("expected a non-import cluster with Secure=true and no submitted TlsConf to fail checkConfigParams")
+	}
+}
+
+// TestMergeClickhouseConfig_SecureDisabled_ClearsTlsConf is the regression
+// test for Important 4: the design invariant "Secure=false must clear
+// TlsConf" was never enforced server-side, relying entirely on the frontend
+// not sending tlsConf back. This simulates a client that (whether by bug or
+// by a stale cached form) still echoes the old certificate/key even though
+// it flipped Secure off, and confirms both the in-memory merged config and
+// the value actually written to the repository end up with TlsConf == nil.
+func TestMergeClickhouseConfig_SecureDisabled_ClearsTlsConf(t *testing.T) {
+	sp := newTestPersistent(t)
+	repository.Ps = sp
+
+	certPEM, keyPEM, err := common.GenSelfSignedCert(nil)
+	if err != nil {
+		t.Fatalf("generate self-signed cert: %v", err)
+	}
+
+	initial := baseTlsCluster(t, "tls-disable-test", certPEM, keyPEM)
+	if err := sp.CreateCluster(initial); err != nil {
+		t.Fatalf("create cluster: %v", err)
+	}
+
+	stored, err := sp.GetClusterbyName("tls-disable-test")
+	if err != nil {
+		t.Fatalf("get cluster: %v", err)
+	}
+	submitted := stored
+	submitted.Secure = false
+	// Client still echoes the old cert/key even though Secure is being
+	// turned off - the server must not trust this and must clear it anyway.
+	submitted.TlsConf = &model.TlsConf{Cert: certPEM, Key: keyPEM, SelfSigned: true}
+
+	_, _, _, lerr := mergeClickhouseConfig(&submitted, false)
+	if lerr != nil {
+		t.Fatalf("mergeClickhouseConfig returned error: %v", lerr)
+	}
+	if submitted.TlsConf != nil {
+		t.Fatalf("expected TlsConf to be cleared in the merged config when Secure=false, got: %+v", submitted.TlsConf)
+	}
+
+	if err := sp.UpdateCluster(submitted); err != nil {
+		t.Fatalf("update cluster: %v", err)
+	}
+	persisted, err := sp.GetClusterbyName("tls-disable-test")
+	if err != nil {
+		t.Fatalf("get cluster after update: %v", err)
+	}
+	if persisted.Secure {
+		t.Errorf("expected persisted Secure=false")
+	}
+	if persisted.TlsConf != nil {
+		t.Errorf("expected persisted TlsConf to be nil after disabling secure, got: %+v", persisted.TlsConf)
+	}
+}

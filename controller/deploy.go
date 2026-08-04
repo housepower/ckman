@@ -94,6 +94,20 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 		return errors.Errorf("cluster %s is exist", conf.Cluster)
 	}
 
+	// Validate TLS params up front, before any SSH/package-registry work below:
+	// a new cluster is never an import (that's a separate flow, ImportCluster),
+	// so this check is unconditional - Secure=true always requires a usable
+	// cert/key pair or the deployed nodes will crash on startup with an
+	// unwritten certificate reference (see ckconfig/custom.go root()).
+	if conf.Secure {
+		if conf.TlsConf == nil || conf.TlsConf.Cert == "" || conf.TlsConf.Key == "" {
+			return errors.Errorf("tls certificate and private key are required when secure is enabled")
+		}
+		if err := common.ValidateCertKeyPair(conf.TlsConf.Cert, conf.TlsConf.Key); err != nil {
+			return errors.Wrap(err, "invalid tls certificate")
+		}
+	}
+
 	pkgs, ok := common.CkPackages.Load(conf.PkgType)
 	if !ok {
 		return errors.Errorf("pkgtype %s have no packages on  server", conf.PkgType)

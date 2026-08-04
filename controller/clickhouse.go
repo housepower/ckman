@@ -2929,6 +2929,10 @@ func (controller *ClickHouseController) GetConfig(c *gin.Context) {
 // @Success 200 {string} json "{"code":"0000","msg":"ok","data":{"cert":"","key":""}}"
 // @Router /api/v1/ck/cert/selfsigned [post]
 func (controller *ClickHouseController) GenSelfSignedCert(c *gin.Context) {
+	// This handler returns an unredacted plaintext private key in the response body.
+	// Tell WrapMsg to skip logging the body at Debug level so the key never lands in
+	// the log file (which is typically far more widely readable than the DB).
+	c.Set("skip_response_log", true)
 	var req model.SelfSignedCertReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
@@ -3087,7 +3091,13 @@ func checkConfigParams(conf *model.CKManClickHouseConfig) error {
 		return errors.Errorf("ssh user must not be empty")
 	}
 
-	if conf.Secure {
+	// Imported clusters (con.Mode == model.CkClusterImport) are connect-only: ckman
+	// never manages their config files or holds their certificates, so Secure=true
+	// with TlsConf==nil is a legitimate, permanent state for them. Skip the check
+	// using con.Mode (the persisted record) rather than conf.Mode - conf is the
+	// request body and Mode is never registered in schema_ui.go, so DecodeRequestBody
+	// never populates conf.Mode and it is always the zero value.
+	if conf.Secure && con.Mode != model.CkClusterImport {
 		if conf.TlsConf == nil || conf.TlsConf.Cert == "" || conf.TlsConf.Key == "" {
 			return errors.Errorf("tls certificate and private key are required when secure is enabled")
 		}
@@ -3432,6 +3442,13 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (resta
 	cluster.ZkPort = conf.ZkPort
 	cluster.ZkNodes = conf.ZkNodes
 	cluster.KeeperConf = conf.KeeperConf
+	// Server-side invariant: Secure=false must never leave a stale TlsConf (with its
+	// decrypted private key) sitting in the persisted record. secureChanged above was
+	// already computed from the pre-nil conf.TlsConf, so clearing it here does not
+	// perturb change detection or the restart/cc decisions.
+	if !conf.Secure {
+		conf.TlsConf = nil
+	}
 	cluster.Secure = conf.Secure
 	cluster.TlsConf = conf.TlsConf
 	if err = common.DeepCopyByGob(conf, cluster); err != nil {

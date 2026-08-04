@@ -56,7 +56,13 @@ func WrapMsg(c *gin.Context, retCode string, entity interface{}) {
 		return
 	}
 
-	log.Logger.Debugf("[response] | %s | %s | %s \n%v", c.Request.Host, c.Request.Method, c.Request.URL, string(jsonBytes))
+	if skip, _ := c.Get("skip_response_log"); skip == true {
+		// Response body deliberately omitted: this handler returns unredacted secret
+		// material (see GenSelfSignedCert) that must never land in the debug log.
+		log.Logger.Debugf("[response] | %s | %s | %s | (body omitted: contains secret material)", c.Request.Host, c.Request.Method, c.Request.URL)
+	} else {
+		log.Logger.Debugf("[response] | %s | %s | %s \n%v", c.Request.Host, c.Request.Method, c.Request.URL, string(jsonBytes))
+	}
 
 	_, err = c.Writer.Write(jsonBytes)
 	if err != nil {
