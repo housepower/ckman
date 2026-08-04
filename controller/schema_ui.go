@@ -185,7 +185,7 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		DescriptionEN: "Once enabled, only secure ports (9440/8443 by default) are exposed; plaintext ports are removed.",
 		Default:       "false",
 		Required:      "false",
-		Editable:      "false",
+		Editable:      "true",
 	})
 
 	params.MustRegister(conf, "TlsConf", &common.Parameter{
