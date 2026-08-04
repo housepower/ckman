@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -701,5 +702,223 @@ func TestGenSelfSignedCert_ReturnsNotAfter(t *testing.T) {
 	}
 	if _, err := time.Parse("2006-01-02 15:04:05", rsp.NotAfter); err != nil {
 		t.Errorf("NotAfter %q is not in the expected layout: %v", rsp.NotAfter, err)
+	}
+}
+
+// ---------------------------------------------------------------------
+// Protocol/HttpPort port-protocol-confusion regression suite.
+//
+// Root cause: a real cluster was switched Secure=false -> true (Port
+// 9000 -> 9440) while HttpPort stayed pinned at 8123, because both
+// HttpPort and Protocol were Editable:"false" on the config-update
+// schema and mergeClickhouseConfig never compared HttpPort/Protocol at
+// all - so even a request that did carry a new HttpPort silently lost
+// it (overwritten by the untouched cluster.HttpPort at the end of the
+// merge). ClickHouse ended up serving HTTPS on the port everyone
+// assumes is plaintext.
+// ---------------------------------------------------------------------
+
+// schemaFieldKey mirrors the "<pkgpath>.<TypeName>.<Field>" key format
+// ConfigParams.MustRegister uses internally (see common/config.go).
+func schemaFieldKey(v interface{}, field string) string {
+	rt := reflect.TypeOf(v)
+	for rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+	}
+	return rt.PkgPath() + "." + rt.Name() + "." + field
+}
+
+// TestRegistUpdateConfigSchema_ProtocolAndHttpPortEditable is the regression
+// test for the config page half of the bug: Protocol and HttpPort were both
+// locked (Editable:"false"), so a cluster stuck with the wrong HttpPort after
+// a Secure flip could never be corrected from the config page - the only
+// path that changed Port (native) worked, HttpPort did not. Protocol in
+// particular carries zero deployment risk: it only selects which
+// protocol/port ckman itself dials the cluster with.
+func TestRegistUpdateConfigSchema_ProtocolAndHttpPortEditable(t *testing.T) {
+	params := RegistUpdateConfigSchema()
+	var conf model.CKManClickHouseConfig
+
+	protocolParam, ok := params[schemaFieldKey(conf, "Protocol")]
+	if !ok {
+		t.Fatalf("Protocol is not registered in the update-config schema")
+	}
+	if protocolParam.Editable == "false" {
+		t.Errorf("Protocol must be editable on the config-update page: changing it never touches the ClickHouse server side")
+	}
+
+	httpPortParam, ok := params[schemaFieldKey(conf, "HttpPort")]
+	if !ok {
+		t.Fatalf("HttpPort is not registered in the update-config schema")
+	}
+	if httpPortParam.Editable == "false" {
+		t.Errorf("HttpPort must be editable on the config-update page, otherwise a cluster that switches Secure on can never move its HTTP port off the plaintext default")
+	}
+}
+
+// baseNonTlsCluster returns a minimal plaintext CKManClickHouseConfig for the
+// merge-change-detection tests below, where TLS itself is not what's under
+// test.
+func baseNonTlsCluster(name string) model.CKManClickHouseConfig {
+	return model.CKManClickHouseConfig{
+		Cluster:  name,
+		Comment:  "original comment",
+		Port:     model.ClickHouseDefaultPort,
+		HttpPort: model.ClickHouseDefaultHttpPort,
+		Protocol: "native",
+		Secure:   false,
+		SshUser:  "root",
+	}
+}
+
+// TestMergeClickhouseConfig_HttpPortChange_TriggersConfigPushAndRestart is
+// the regression test for Fix 2: mergeClickhouseConfig used to compare Port
+// but never HttpPort, so a request that changed only HttpPort both (a) never
+// triggered cc/restart and (b) had its new value silently discarded - the
+// final `common.DeepCopyByGob(conf, cluster)` copies the *unmerged* cluster
+// state back over conf, and cluster.HttpPort was never reassigned from
+// conf.HttpPort. The custom port used here (18123) deliberately avoids both
+// the 8123/8443 plaintext/secure defaults so it isn't touched by
+// NormalizeSecurePorts, keeping this test focused on HttpPort-diff detection
+// alone.
+func TestMergeClickhouseConfig_HttpPortChange_TriggersConfigPushAndRestart(t *testing.T) {
+	sp := newTestPersistent(t)
+	repository.Ps = sp
+
+	initial := baseNonTlsCluster("httpporttest")
+	if err := sp.CreateCluster(initial); err != nil {
+		t.Fatalf("create cluster: %v", err)
+	}
+
+	stored, err := sp.GetClusterbyName("httpporttest")
+	if err != nil {
+		t.Fatalf("get cluster: %v", err)
+	}
+	submitted := stored
+	submitted.HttpPort = 18123
+
+	restart, cc, _, lerr := mergeClickhouseConfig(&submitted, false)
+	if lerr != nil {
+		t.Fatalf("mergeClickhouseConfig returned error: %v", lerr)
+	}
+	if !cc {
+		t.Errorf("cc=false: changing HttpPort alone must trigger a config re-push, it feeds custom.xml's http_port/https_port directly")
+	}
+	if !restart {
+		t.Errorf("restart=false: changing HttpPort alone must trigger a cluster restart")
+	}
+	if submitted.HttpPort != 18123 {
+		t.Errorf("expected the merged config to keep the new HttpPort 18123, got %d (it must not be silently discarded)", submitted.HttpPort)
+	}
+}
+
+// TestMergeClickhouseConfig_ProtocolOnlyChange_PersistsWithoutRestartOrConfigPush
+// is the regression test for the other half of Fix 2: Protocol was entirely
+// absent from noChangedFn, so a request that changed nothing but Protocol
+// was rejected outright with "all config are the same, it's no need to
+// update" - the save could never go through. Once accepted, Protocol must
+// not force a config re-push or restart: it never affects anything written
+// to a ClickHouse node.
+func TestMergeClickhouseConfig_ProtocolOnlyChange_PersistsWithoutRestartOrConfigPush(t *testing.T) {
+	sp := newTestPersistent(t)
+	repository.Ps = sp
+
+	initial := baseNonTlsCluster("protocolonlytest")
+	if err := sp.CreateCluster(initial); err != nil {
+		t.Fatalf("create cluster: %v", err)
+	}
+
+	stored, err := sp.GetClusterbyName("protocolonlytest")
+	if err != nil {
+		t.Fatalf("get cluster: %v", err)
+	}
+	submitted := stored
+	submitted.Protocol = "http"
+
+	restart, cc, _, lerr := mergeClickhouseConfig(&submitted, false)
+	if lerr != nil {
+		t.Fatalf(`mergeClickhouseConfig returned an error for a Protocol-only change (must not be treated as "nothing changed"): %v`, lerr)
+	}
+	if restart {
+		t.Errorf("restart=true: Protocol only changes which protocol ckman itself dials with, it must never trigger a cluster restart")
+	}
+	if cc {
+		t.Errorf("cc=true: a Protocol-only change must not trigger a config re-push, nothing on the ClickHouse server side depends on it")
+	}
+	if submitted.Protocol != "http" {
+		t.Errorf("expected the merged config to keep the new Protocol %q, got %q", "http", submitted.Protocol)
+	}
+}
+
+// TestMergeClickhouseConfig_SecureEnabled_AutoSwitchesDefaultPorts is the
+// regression test for Fix 3 on the ClusterSetting save path: this is exactly
+// the field incident - a request flips Secure on but the frontend (or a
+// direct API caller, or a scripted deploy) left Port/HttpPort sitting at
+// the plaintext defaults. The backend must not trust that and must switch
+// them to the TLS defaults itself.
+func TestMergeClickhouseConfig_SecureEnabled_AutoSwitchesDefaultPorts(t *testing.T) {
+	sp := newTestPersistent(t)
+	repository.Ps = sp
+
+	initial := baseNonTlsCluster("secureautoswitch")
+	if err := sp.CreateCluster(initial); err != nil {
+		t.Fatalf("create cluster: %v", err)
+	}
+
+	stored, err := sp.GetClusterbyName("secureautoswitch")
+	if err != nil {
+		t.Fatalf("get cluster: %v", err)
+	}
+	submitted := stored
+	submitted.Secure = true
+	// Port/HttpPort deliberately left untouched at the plaintext defaults,
+	// simulating the frontend's Secure-linked port switcher not having run.
+
+	restart, cc, _, lerr := mergeClickhouseConfig(&submitted, false)
+	if lerr != nil {
+		t.Fatalf("mergeClickhouseConfig returned error: %v", lerr)
+	}
+	if submitted.Port != model.ClickHouseDefaultSecurePort {
+		t.Errorf("expected Port to be auto-switched to %d when Secure is enabled with the port still at its plaintext default, got %d", model.ClickHouseDefaultSecurePort, submitted.Port)
+	}
+	if submitted.HttpPort != model.ClickHouseDefaultSecureHttpPort {
+		t.Errorf("expected HttpPort to be auto-switched to %d when Secure is enabled with the port still at its plaintext default, got %d", model.ClickHouseDefaultSecureHttpPort, submitted.HttpPort)
+	}
+	if !cc || !restart {
+		t.Errorf("expected cc=true and restart=true when Secure changes, got cc=%v restart=%v", cc, restart)
+	}
+}
+
+// TestMergeClickhouseConfig_SecureEnabled_PreservesCustomPorts is the
+// counterpart negative test: a user who deliberately runs ClickHouse behind
+// a non-default port (e.g. 9001) must not have that choice silently
+// overridden just because they also flipped Secure on.
+func TestMergeClickhouseConfig_SecureEnabled_PreservesCustomPorts(t *testing.T) {
+	sp := newTestPersistent(t)
+	repository.Ps = sp
+
+	initial := baseNonTlsCluster("securecustomports")
+	initial.Port = 9001 // deliberate, non-default
+	if err := sp.CreateCluster(initial); err != nil {
+		t.Fatalf("create cluster: %v", err)
+	}
+
+	stored, err := sp.GetClusterbyName("securecustomports")
+	if err != nil {
+		t.Fatalf("get cluster: %v", err)
+	}
+	submitted := stored
+	submitted.Secure = true
+
+	_, _, _, lerr := mergeClickhouseConfig(&submitted, false)
+	if lerr != nil {
+		t.Fatalf("mergeClickhouseConfig returned error: %v", lerr)
+	}
+	if submitted.Port != 9001 {
+		t.Errorf("expected the user's custom Port 9001 to survive the Secure flip untouched, got %d", submitted.Port)
+	}
+	// HttpPort was left at its plaintext default (8123) and must still switch.
+	if submitted.HttpPort != model.ClickHouseDefaultSecureHttpPort {
+		t.Errorf("expected HttpPort still at its default to switch to %d, got %d", model.ClickHouseDefaultSecureHttpPort, submitted.HttpPort)
 	}
 }

@@ -1273,16 +1273,18 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 			{Value: "native", LabelEN: "native", LabelZH: "native"},
 			{Value: "http", LabelEN: "http", LabelZH: "http"},
 		},
-		Editable: "false",
+		// Only selects which protocol/port ckman itself dials the cluster with;
+		// it never touches anything written to a ClickHouse node, so unlike Port/
+		// HttpPort it's safe to edit without any deploy/restart implication.
+		Editable: "true",
 	})
 	params.MustRegister(conf, "Port", &common.Parameter{
 		LabelZH: "TCP端口",
 		LabelEN: "TCPPort",
 	})
 	params.MustRegister(conf, "HttpPort", &common.Parameter{
-		LabelZH:  "HTTP端口",
-		LabelEN:  "HTTP Port",
-		Editable: "false",
+		LabelZH: "HTTP端口",
+		LabelEN: "HTTP Port",
 	})
 	params.MustRegister(conf, "Secure", &common.Parameter{
 		LabelZH:       "TLS安全认证",

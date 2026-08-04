@@ -3297,6 +3297,21 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (resta
 		return
 	}
 	conf.UnPack(cluster)
+	// Only normalize when Secure is actually being toggled by this request -
+	// gating on cluster.Secure != conf.Secure (the persisted value vs. the
+	// submitted one) rather than running unconditionally. A cluster that was
+	// already sitting at Secure=true with Port==9000 before this call (an
+	// existing, possibly deliberate state) must not have that port silently
+	// rewritten just because some unrelated field (e.g. Comment) changed in
+	// the same request. Must run before any of the change-detection below:
+	// it can rewrite conf.Port/HttpPort in place when they still hold the
+	// default for the mode being left, so every comparison that follows sees
+	// the final, intended values rather than a stale default that would
+	// otherwise slip past the diff and never get persisted or trigger a
+	// restart.
+	if cluster.Secure != conf.Secure {
+		conf.NormalizeSecurePorts()
+	}
 	storageChanged := !reflect.DeepEqual(cluster.Storage, conf.Storage)
 	expertChanged := !reflect.DeepEqual(cluster.Expert, conf.Expert)
 	userconfChanged := !reflect.DeepEqual(cluster.UsersConf, conf.UsersConf)
@@ -3330,6 +3345,8 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (resta
 
 	noChangedFn := func() bool {
 		return cluster.Port == conf.Port &&
+			cluster.HttpPort == conf.HttpPort &&
+			cluster.Protocol == conf.Protocol &&
 			cluster.Comment == conf.Comment &&
 			cluster.AuthenticateType == conf.AuthenticateType &&
 			cluster.SshUser == conf.SshUser &&
@@ -3458,7 +3475,12 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (resta
 		}
 	}
 
-	if force || cluster.Port != conf.Port ||
+	// HttpPort directly feeds custom.xml's http_port/https_port, exactly like Port
+	// does for the native protocol - a change there needs the same treatment: redeploy
+	// config and restart. Protocol is deliberately excluded from both: it only selects
+	// which port/protocol ckman itself dials the cluster with and never touches anything
+	// written to a ClickHouse node, so there is nothing to redeploy and nothing to restart.
+	if force || cluster.Port != conf.Port || cluster.HttpPort != conf.HttpPort ||
 		cluster.Password != conf.Password || storageChanged || expertChanged ||
 		cluster.ZkPort != conf.ZkPort ||
 		userconfChanged || logicChaned || zkChanged || keeperChanged || secureChanged {
@@ -3466,13 +3488,16 @@ func mergeClickhouseConfig(conf *model.CKManClickHouseConfig, force bool) (resta
 	}
 
 	// need restart
-	if force || cluster.Port != conf.Port || storageChanged || expertChanged || keeperChanged || secureChanged {
+	if force || cluster.Port != conf.Port || cluster.HttpPort != conf.HttpPort ||
+		storageChanged || expertChanged || keeperChanged || secureChanged {
 		restart = true
 	}
 
 	// merge conf
 	cluster.Comment = conf.Comment
 	cluster.Port = conf.Port
+	cluster.HttpPort = conf.HttpPort
+	cluster.Protocol = conf.Protocol
 	cluster.AuthenticateType = conf.AuthenticateType
 	cluster.SshUser = conf.SshUser
 	cluster.SshPassword = conf.SshPassword

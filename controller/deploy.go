@@ -348,6 +348,7 @@ func checkDeployParams(conf *model.CKManClickHouseConfig, force bool) error {
 	conf.Mode = model.CkClusterDeploy
 	conf.User = model.ClickHouseDefaultUser
 	conf.Normalize()
+	conf.NormalizeSecurePorts()
 	return nil
 }
 
