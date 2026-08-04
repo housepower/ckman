@@ -46,6 +46,29 @@ type Connection struct {
 type ConnBase struct {
 	Addr []string
 	Auth clickhouse.Auth
+	// Protocol and TLS must be part of the pool key: Addr/Auth alone don't
+	// change when a cluster flips Protocol=http from plaintext to TLS (same
+	// host:HttpPort, same credentials), so without them a lookup would hit
+	// the pre-switch connection whose connector has no TLS config at all.
+	// TLS is deliberately a bool, not the *tls.Config itself - tls.Config
+	// carries function fields (VerifyPeerCertificate, GetCertificate, ...)
+	// that json.Marshal either errors on or serializes unstably, which would
+	// make the hash non-deterministic across otherwise-identical calls.
+	Protocol clickhouse.Protocol
+	TLS      bool
+}
+
+// connOrderId derives the connection-pool cache key from a ConnBase. Pulled
+// out of ConnectClickHouse as its own function so the hash inputs (in
+// particular: does it actually vary with Protocol/TLS?) can be verified in a
+// unit test without dialing a real ClickHouse server.
+func connOrderId(base ConnBase) (string, error) {
+	raw, err := json.Marshal(base)
+	if err != nil {
+		return "", err
+	}
+	hashInBytes := sha256.Sum256(raw)
+	return hex.EncodeToString(hashInBytes[:]), nil
 }
 
 func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*Conn, error) {
@@ -74,15 +97,15 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 		opts.MaxIdleConns = config.GlobalConfig.ClickHouse.MaxIdleConns
 		opts.ConnMaxLifetime = time.Duration(config.GlobalConfig.ClickHouse.ConnMaxIdleTime) * time.Minute
 	}
-	raw, err := json.Marshal(ConnBase{
-		Addr: opts.Addr,
-		Auth: opts.Auth,
+	orderId, err := connOrderId(ConnBase{
+		Addr:     opts.Addr,
+		Auth:     opts.Auth,
+		Protocol: opt.Protocol,
+		TLS:      opts.TLS != nil,
 	})
 	if err != nil {
 		return nil, err
 	}
-	hashInBytes := sha256.Sum256(raw)
-	orderId := hex.EncodeToString(hashInBytes[:])
 	if !opt.BypassPool {
 		if v, ok := ConnectPool.Load(host); ok {
 			c := v.(Connection)
@@ -90,9 +113,16 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 				err := c.conn.Ping()
 				if err == nil {
 					return c.conn, nil
-					// } else {
-					//_ = c.conn.Close()
+				} else {
+					_ = c.conn.Close()
 				}
+			} else {
+				// Stale entry for this host (orderId no longer matches, e.g. the
+				// cluster's Protocol/Secure/Auth changed): it's about to be
+				// replaced by the Store below, so close it now or its underlying
+				// socket/goroutines leak - nothing else holds a reference to it
+				// once overwritten.
+				_ = c.conn.Close()
 			}
 		}
 	}
