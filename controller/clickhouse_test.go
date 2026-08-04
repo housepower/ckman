@@ -1,10 +1,17 @@
 package controller
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
@@ -462,5 +469,237 @@ func TestMergeClickhouseConfig_SecureDisabled_ClearsTlsConf(t *testing.T) {
 	}
 	if persisted.TlsConf != nil {
 		t.Errorf("expected persisted TlsConf to be nil after disabling secure, got: %+v", persisted.TlsConf)
+	}
+}
+
+// ---------------------------------------------------------------------
+// InspectCert / GenSelfSignedCert.NotAfter
+//
+// Root cause being fixed here: NotAfter is only ever populated by GetConfig
+// (a read of an already-saved cluster, see the call to common.CertNotAfter
+// a few lines into GetConfig above). Neither "import a certificate" nor
+// "generate a self-signed certificate" on the frontend ever produced a
+// NotAfter, so the expiry date silently failed to render right after
+// import/generate - only reappearing once the user saved and reloaded.
+// InspectCert closes the import-a-certificate gap; GenSelfSignedCert.NotAfter
+// closes the generate-self-signed gap without an extra round trip.
+// ---------------------------------------------------------------------
+
+// genTestCertPEM builds a minimal self-signed certificate PEM with an
+// arbitrary NotBefore/NotAfter window. It intentionally does not reuse
+// common's unexported genSelfSignedCert helper (that lives in package
+// common, this test lives in package controller) - InspectCert only ever
+// looks at the certificate, never a private key, so a bare x509 cert is
+// enough here.
+func genTestCertPEM(t *testing.T, notBefore, notAfter time.Time) string {
+	t.Helper()
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate rsa key: %v", err)
+	}
+	tmpl := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "inspect-cert-test"},
+		NotBefore:    notBefore,
+		NotAfter:     notAfter,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatalf("create certificate: %v", err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}
+
+// newInspectCertContext mirrors newGenSelfSignedCertContext above, but for
+// the /api/v1/ck/cert/inspect route.
+func newInspectCertContext(t *testing.T, body string) *gin.Context {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/ck/cert/inspect", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	return c
+}
+
+// TestInspectCert_ValidCert_ReturnsValidTrue is the happy path a "just
+// imported a good certificate" click hits: Valid must be true and NotAfter
+// must match a fresh CertNotAfter parse of the same cert.
+func TestInspectCert_ValidCert_ReturnsValidTrue(t *testing.T) {
+	certPEM, _, err := common.GenSelfSignedCert([]string{"192.168.0.1"})
+	if err != nil {
+		t.Fatalf("generate self-signed cert: %v", err)
+	}
+	wantNotAfter, err := common.CertNotAfter(certPEM)
+	if err != nil {
+		t.Fatalf("CertNotAfter: %v", err)
+	}
+
+	var gotCode string
+	var gotEntity interface{}
+	controller := &ClickHouseController{Controller: Controller{wrapfunc: func(_ *gin.Context, retCode string, entity interface{}) {
+		gotCode = retCode
+		gotEntity = entity
+	}}}
+
+	body, err := json.Marshal(model.CertInspectReq{Cert: certPEM})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	controller.InspectCert(newInspectCertContext(t, string(body)))
+
+	if gotCode != model.E_SUCCESS {
+		t.Fatalf("expected E_SUCCESS, got %q (entity: %v)", gotCode, gotEntity)
+	}
+	rsp, ok := gotEntity.(model.CertInspectRsp)
+	if !ok {
+		t.Fatalf("expected entity of type model.CertInspectRsp, got %T", gotEntity)
+	}
+	if !rsp.Valid {
+		t.Errorf("expected Valid=true for a freshly generated, currently valid cert, got Valid=false (message: %q)", rsp.Message)
+	}
+	if rsp.NotAfter != wantNotAfter {
+		t.Errorf("expected NotAfter=%q, got %q", wantNotAfter, rsp.NotAfter)
+	}
+	if rsp.Message != "" {
+		t.Errorf("expected empty Message when Valid=true, got %q", rsp.Message)
+	}
+}
+
+// TestInspectCert_ExpiredCert_ReturnsValidFalse covers "user imported a
+// certificate that already expired": the endpoint must report Valid=false
+// with a message that explains why, at import time rather than only once
+// the user tries to save (see checkConfigParams/ValidateCertKeyPair).
+func TestInspectCert_ExpiredCert_ReturnsValidFalse(t *testing.T) {
+	now := time.Now()
+	certPEM := genTestCertPEM(t, now.AddDate(-2, 0, 0), now.AddDate(-1, 0, 0))
+
+	var gotCode string
+	var gotEntity interface{}
+	controller := &ClickHouseController{Controller: Controller{wrapfunc: func(_ *gin.Context, retCode string, entity interface{}) {
+		gotCode = retCode
+		gotEntity = entity
+	}}}
+
+	body, err := json.Marshal(model.CertInspectReq{Cert: certPEM})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	controller.InspectCert(newInspectCertContext(t, string(body)))
+
+	if gotCode != model.E_SUCCESS {
+		t.Fatalf("expected E_SUCCESS (a parseable-but-expired cert is a business result, not a request error), got %q", gotCode)
+	}
+	rsp, ok := gotEntity.(model.CertInspectRsp)
+	if !ok {
+		t.Fatalf("expected entity of type model.CertInspectRsp, got %T", gotEntity)
+	}
+	if rsp.Valid {
+		t.Errorf("expected Valid=false for an expired certificate")
+	}
+	if !strings.Contains(rsp.Message, "expired") {
+		t.Errorf("expected Message to explain the certificate expired, got %q", rsp.Message)
+	}
+	if rsp.NotAfter == "" {
+		t.Errorf("expected NotAfter to still be populated for an expired-but-parseable cert")
+	}
+}
+
+// TestInspectCert_GarbageInput_ReturnsValidFalseNoPanic covers pasting
+// something that isn't a PEM certificate at all: must not panic, and must
+// be reported as a business-level Valid=false rather than a request error,
+// since from the frontend's perspective this is just "not a valid cert yet".
+func TestInspectCert_GarbageInput_ReturnsValidFalseNoPanic(t *testing.T) {
+	var gotCode string
+	var gotEntity interface{}
+	controller := &ClickHouseController{Controller: Controller{wrapfunc: func(_ *gin.Context, retCode string, entity interface{}) {
+		gotCode = retCode
+		gotEntity = entity
+	}}}
+
+	body, err := json.Marshal(model.CertInspectReq{Cert: "not a pem certificate at all"})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("InspectCert panicked on garbage input: %v", r)
+		}
+	}()
+	controller.InspectCert(newInspectCertContext(t, string(body)))
+
+	if gotCode != model.E_SUCCESS {
+		t.Fatalf("expected E_SUCCESS, got %q", gotCode)
+	}
+	rsp, ok := gotEntity.(model.CertInspectRsp)
+	if !ok {
+		t.Fatalf("expected entity of type model.CertInspectRsp, got %T", gotEntity)
+	}
+	if rsp.Valid {
+		t.Errorf("expected Valid=false for unparseable input")
+	}
+	if rsp.Message == "" {
+		t.Errorf("expected a non-empty Message explaining the parse failure")
+	}
+	if rsp.NotAfter != "" {
+		t.Errorf("expected NotAfter to stay empty when the certificate could not be parsed, got %q", rsp.NotAfter)
+	}
+}
+
+// TestInspectCert_EmptyCert_ReturnsInvalidParams: an empty cert field is a
+// malformed request, not a "certificate that failed validation" - it must
+// be rejected before any parsing is attempted.
+func TestInspectCert_EmptyCert_ReturnsInvalidParams(t *testing.T) {
+	var gotCode string
+	var gotEntity interface{}
+	controller := &ClickHouseController{Controller: Controller{wrapfunc: func(_ *gin.Context, retCode string, entity interface{}) {
+		gotCode = retCode
+		gotEntity = entity
+	}}}
+
+	controller.InspectCert(newInspectCertContext(t, `{"cert":""}`))
+
+	if gotCode != model.E_INVALID_PARAMS {
+		t.Errorf("expected E_INVALID_PARAMS for empty cert, got %q", gotCode)
+	}
+	if gotEntity == nil {
+		t.Errorf("expected a non-nil error entity for empty cert")
+	}
+}
+
+// TestGenSelfSignedCert_ReturnsNotAfter is the regression test for the
+// generate-self-signed half of the reported bug: right after generating a
+// certificate, the frontend has nowhere else to get an expiry date from
+// (GetConfig only fires on an already-saved cluster), so the response
+// itself must carry a correctly formatted NotAfter.
+func TestGenSelfSignedCert_ReturnsNotAfter(t *testing.T) {
+	var gotCode string
+	var gotEntity interface{}
+	controller := &ClickHouseController{Controller: Controller{wrapfunc: func(_ *gin.Context, retCode string, entity interface{}) {
+		gotCode = retCode
+		gotEntity = entity
+	}}}
+
+	controller.GenSelfSignedCert(newGenSelfSignedCertContext(t, `{"hosts":["192.168.0.1"]}`))
+
+	if gotCode != model.E_SUCCESS {
+		t.Fatalf("expected E_SUCCESS, got %q (entity: %v)", gotCode, gotEntity)
+	}
+	rsp, ok := gotEntity.(model.SelfSignedCertRsp)
+	if !ok {
+		t.Fatalf("expected entity of type model.SelfSignedCertRsp, got %T", gotEntity)
+	}
+	if rsp.NotAfter == "" {
+		t.Fatalf("expected NotAfter to be populated so the frontend doesn't need a second inspect call")
+	}
+	wantNotAfter, err := common.CertNotAfter(rsp.Cert)
+	if err != nil {
+		t.Fatalf("CertNotAfter on returned cert: %v", err)
+	}
+	if rsp.NotAfter != wantNotAfter {
+		t.Errorf("NotAfter=%q does not match a fresh parse of the returned cert (%q)", rsp.NotAfter, wantNotAfter)
+	}
+	if _, err := time.Parse("2006-01-02 15:04:05", rsp.NotAfter); err != nil {
+		t.Errorf("NotAfter %q is not in the expected layout: %v", rsp.NotAfter, err)
 	}
 }

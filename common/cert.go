@@ -95,18 +95,28 @@ func ValidateCertKeyPair(certPEM, keyPEM string) error {
 	if _, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM)); err != nil {
 		return errors.Wrap(err, "certificate and private key do not match")
 	}
+	_, err := ValidateCertValidity(certPEM)
+	return err
+}
+
+// ValidateCertValidity 只校验证书本身：能否解析、当前时间是否落在
+// NotBefore..NotAfter 有效期内。不涉及私钥，供「先导入证书、后导入私钥」
+// 这种分步场景（例如证书检视接口）复用；私钥匹配仍只在 ValidateCertKeyPair
+// 里做。返回的 *x509.Certificate 在解析失败时为 nil，解析成功但过期/未生效
+// 时非 nil（调用方可能仍想拿 NotAfter 之类字段用于展示）。
+func ValidateCertValidity(certPEM string) (*x509.Certificate, error) {
 	cert, err := parseCert(certPEM)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	now := time.Now()
 	if now.Before(cert.NotBefore) {
-		return errors.Errorf("certificate is not valid until %s", cert.NotBefore.Local().Format(certTimeLayout))
+		return cert, errors.Errorf("certificate is not valid until %s", cert.NotBefore.Local().Format(certTimeLayout))
 	}
 	if now.After(cert.NotAfter) {
-		return errors.Errorf("certificate expired at %s", cert.NotAfter.Local().Format(certTimeLayout))
+		return cert, errors.Errorf("certificate expired at %s", cert.NotAfter.Local().Format(certTimeLayout))
 	}
-	return nil
+	return cert, nil
 }
 
 // CertNotAfter 解析证书到期时间，用于页面只读回显。不落库，每次现场解析。

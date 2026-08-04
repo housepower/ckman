@@ -2947,7 +2947,52 @@ func (controller *ClickHouseController) GenSelfSignedCert(c *gin.Context) {
 		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, err)
 		return
 	}
-	controller.wrapfunc(c, model.E_SUCCESS, model.SelfSignedCertRsp{Cert: cert, Key: key})
+	// 刚生成的证书理论上必定可解析；万一失败也只是让 NotAfter 留空，不影响
+	// cert/key 本身的返回，所以这里不当作接口失败处理，只记日志。
+	notAfter, parseErr := common.CertNotAfter(cert)
+	if parseErr != nil {
+		log.Logger.Errorf("parse NotAfter of just-generated self-signed cert: %v", parseErr)
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, model.SelfSignedCertRsp{Cert: cert, Key: key, NotAfter: notAfter})
+}
+
+// @Summary  检视证书
+// @Description 解析证书内容，返回到期时间与当前是否处于有效期内；只解析证书，不校验证书与私钥是否匹配（那个由保存配置时的校验负责）
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param req body model.CertInspectReq true "request body"
+// @Failure 200 {string} json "{"code":"5000","msg":"invalid params","data":""}"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":{"notAfter":"2036-08-04 10:42:26","valid":true,"message":""}}"
+// @Router /api/v1/ck/cert/inspect [post]
+func (controller *ClickHouseController) InspectCert(c *gin.Context) {
+	var req model.CertInspectReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, err)
+		return
+	}
+	if req.Cert == "" {
+		controller.wrapfunc(c, model.E_INVALID_PARAMS, errors.Errorf("cert must not be empty"))
+		return
+	}
+
+	var rsp model.CertInspectRsp
+	notAfter, err := common.CertNotAfter(req.Cert)
+	if err != nil {
+		// 不回显证书原文：解析失败的输入可能是用户粘错的任意内容，日志/响应
+		// 里塞几 KB 无意义数据没有诊断价值。
+		rsp.Message = "failed to parse certificate"
+		controller.wrapfunc(c, model.E_SUCCESS, rsp)
+		return
+	}
+	rsp.NotAfter = notAfter
+	if _, verr := common.ValidateCertValidity(req.Cert); verr != nil {
+		rsp.Message = verr.Error()
+	} else {
+		rsp.Valid = true
+	}
+	controller.wrapfunc(c, model.E_SUCCESS, rsp)
 }
 
 // @Summary  获取分布式表List

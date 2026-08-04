@@ -263,6 +263,15 @@ definitions:
         example: 2181
         type: integer
     type: object
+  model.CertInspectReq:
+    properties:
+      cert:
+        example: |-
+          -----BEGIN CERTIFICATE-----
+          ...
+          -----END CERTIFICATE-----
+        type: string
+    type: object
   model.ChangeMyPasswordReq:
     properties:
       new_password:
@@ -988,6 +997,28 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 获取后台线程池状态
+      tags:
+      - clickhouse
+  /api/v1/ck/cert/inspect:
+    post:
+      consumes:
+      - application/json
+      description: 解析证书内容，返回到期时间与当前是否处于有效期内；只解析证书，不校验证书与私钥是否匹配（那个由保存配置时的校验负责）
+      parameters:
+      - description: request body
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/model.CertInspectReq'
+      responses:
+        "200":
+          description: '{"code":"0000","msg":"ok","data":{"notAfter":"2036-08-04 10:42:26","valid":true,"message":""}}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 检视证书
       tags:
       - clickhouse
   /api/v1/ck/cert/selfsigned:

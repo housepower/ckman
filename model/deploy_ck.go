@@ -516,4 +516,21 @@ type SelfSignedCertReq struct {
 type SelfSignedCertRsp struct {
 	Cert string `json:"cert"`
 	Key  string `json:"key"`
+	// NotAfter 证书到期时间，生成时现场解析一次，省得前端再调一次 inspect。
+	NotAfter string `json:"notAfter" example:"2036-08-04 10:42:26"`
+}
+
+// CertInspectReq 证书检视请求：只传证书，不传私钥。前端导入证书/私钥是两个
+// 分开的文件选择控件，证书可能先于私钥导入，所以这个接口不校验证书与私钥
+// 是否匹配（那个仍由保存时的 checkConfigParams -> ValidateCertKeyPair 负责）。
+type CertInspectReq struct {
+	Cert string `json:"cert" example:"-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"`
+}
+
+// CertInspectRsp 证书检视响应。Valid=false 时 Message 说明原因（解析失败/
+// 未生效/已过期），Valid=true 时 Message 为空。
+type CertInspectRsp struct {
+	NotAfter string `json:"notAfter" example:"2036-08-04 10:42:26"`
+	Valid    bool   `json:"valid"`
+	Message  string `json:"message"`
 }

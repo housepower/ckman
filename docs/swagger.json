@@ -147,6 +147,42 @@
                 }
             }
         },
+        "/api/v1/ck/cert/inspect": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "解析证书内容，返回到期时间与当前是否处于有效期内；只解析证书，不校验证书与私钥是否匹配（那个由保存配置时的校验负责）",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "检视证书",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CertInspectReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":{\"notAfter\":\"2036-08-04 10:42:26\",\"valid\":true,\"message\":\"\"}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/cert/selfsigned": {
             "post": {
                 "security": [
@@ -3907,6 +3943,15 @@
                 "zkPort": {
                     "type": "integer",
                     "example": 2181
+                }
+            }
+        },
+        "model.CertInspectReq": {
+            "type": "object",
+            "properties": {
+                "cert": {
+                    "type": "string",
+                    "example": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
                 }
             }
         },
