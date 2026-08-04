@@ -79,13 +79,7 @@ func GetCkService(clusterName string) (*CkService, error) {
 func GetCkNodeService(clusterName string, node string) (*CkService, error) {
 	conf, err := repository.Ps.GetClusterbyName(clusterName)
 	if err == nil {
-		tmp := &model.CKManClickHouseConfig{
-			Hosts:    []string{node},
-			Port:     conf.Port,
-			Cluster:  conf.Cluster,
-			User:     conf.User,
-			Password: conf.Password,
-		}
+		tmp := conf.SingleNodeConfig(node)
 		service := NewCkService(tmp)
 		if err := service.InitCkService(); err != nil {
 			return nil, err

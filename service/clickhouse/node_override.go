@@ -84,16 +84,7 @@ func RemoveNodeOverride(conf *model.CKManClickHouseConfig, host string) (bool, s
 }
 
 func reloadConfigOnHost(conf *model.CKManClickHouseConfig, host string) error {
-	tmp := &model.CKManClickHouseConfig{
-		Hosts:    []string{host},
-		Port:     conf.Port,
-		HttpPort: conf.HttpPort,
-		Protocol: conf.Protocol,
-		Secure:   conf.Secure,
-		Cluster:  conf.Cluster,
-		User:     conf.User,
-		Password: conf.Password,
-	}
+	tmp := conf.SingleNodeConfig(host)
 	svc := NewCkService(tmp)
 	if err := svc.InitCkService(); err != nil {
 		return err

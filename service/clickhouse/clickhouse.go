@@ -224,14 +224,7 @@ func GetCkClusterStatus(conf *model.CKManClickHouseConfig) []model.CkClusterNode
 		wg.Add(1)
 		_ = common.Pool.Submit(func() {
 			defer wg.Done()
-			tmp := &model.CKManClickHouseConfig{
-				Hosts:    []string{innerHost},
-				Port:     conf.Port,
-				HttpPort: conf.HttpPort,
-				Cluster:  conf.Cluster,
-				User:     conf.User,
-				Password: conf.Password,
-			}
+			tmp := conf.SingleNodeConfig(innerHost)
 			service := NewCkService(tmp)
 			if err := service.InitCkService(); err != nil {
 				lock.Lock()

@@ -512,6 +512,60 @@ func WithBypassPool(bypass bool) CkOption {
 	}
 }
 
+// SingleNodeConfig derives a config that points at exactly one node (host)
+// while keeping every field GetConnOption() reads intact, plus the bit of
+// context (Cluster) most callers need afterwards.
+//
+// Why this must be the only way to build a single-node config: this exact
+// shortcut - "&CKManClickHouseConfig{Hosts: []string{host}, Port: conf.Port,
+// User: conf.User, Password: conf.Password, ...}" written by hand at each
+// call site - caused a real production incident. After a cluster was
+// switched from plaintext to TLS, the cluster-status page kept showing every
+// node as offline even though queries against the same cluster worked fine.
+// The hand-rolled literals in GetCkClusterStatus/GetCkNodeService/the
+// add-node schema sync path copied Port/User/Password but not Protocol and
+// Secure (and in one place not HttpPort either). The derived config's Secure
+// silently defaulted to false and Protocol to "", so GetConnOption() dialed
+// the TLS port (9440) using the plaintext Native protocol and the connection
+// always failed -> node marked CkStatusRed. The real query path used the
+// full cluster config (which did carry Secure/Protocol), so only the status
+// probe broke - a confusing, hard-to-spot split. Three independent call
+// sites had the same bug because there was no single place that owned "what
+// does a single-node config need to carry": each author only copied the
+// fields they personally needed and had no reason to think about TLS.
+//
+// Fields carried and why:
+//   - Port, HttpPort, Protocol, Secure: read directly by GetConnOption() to
+//     pick the port and whether to dial with TLS. Missing any one of these
+//     reproduces the incident above.
+//   - User, Password: read directly by GetConnOption() for auth.
+//   - Cluster: doesn't affect the connection itself, but essentially every
+//     caller needs it right after (logging, zk cleanup, DDL context), so it
+//     rides along here instead of every call site re-threading it.
+//
+// Deliberately NOT carried: TlsConf. common.ConnectClickHouse() hard-codes
+// InsecureSkipVerify: true, so the client never validates the server
+// certificate and doesn't need the cert/key to connect. If that hard-code
+// ever becomes configurable, TlsConf must be added here too - and
+// TestSingleNodeConfig_CarriesAllConnOptionFields (deploy_ck_test.go) is
+// designed to fail the moment GetConnOption starts depending on a field this
+// method doesn't copy, which would catch that omission.
+//
+// Any new "single node, but need to connect" call site MUST call this
+// method instead of writing a &CKManClickHouseConfig{...} literal by hand.
+func (config *CKManClickHouseConfig) SingleNodeConfig(host string) *CKManClickHouseConfig {
+	return &CKManClickHouseConfig{
+		Hosts:    []string{host},
+		Cluster:  config.Cluster,
+		Port:     config.Port,
+		HttpPort: config.HttpPort,
+		Protocol: config.Protocol,
+		Secure:   config.Secure,
+		User:     config.User,
+		Password: config.Password,
+	}
+}
+
 func (config *CKManClickHouseConfig) GetConnOption(opts ...CkOption) ConnetOption {
 	var opt ConnetOption
 	if config.Protocol == clickhouse.HTTP.String() {

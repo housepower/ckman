@@ -258,13 +258,7 @@ func CKAddNodeHandle(ctx context.Context, task *model.Task) error {
 		if err := checkCancel(ctx); err != nil {
 			return err
 		}
-		tmp := &model.CKManClickHouseConfig{
-			Hosts:    []string{host},
-			Port:     conf.Port,
-			Cluster:  conf.Cluster,
-			User:     conf.User,
-			Password: conf.Password,
-		}
+		tmp := conf.SingleNodeConfig(host)
 
 		service := clickhouse.NewCkService(tmp)
 		if err := service.InitCkService(); err != nil {
