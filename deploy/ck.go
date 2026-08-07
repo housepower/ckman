@@ -227,6 +227,10 @@ func (d *CKDeploy) Install() error {
 				lastError = err
 				return
 			}
+			if err = d.reconcileSystemdCapabilities(sshOpts); err != nil {
+				lastError = err
+				return
+			}
 			if !d.Conf.NeedSudo {
 				//tgz deployment, try to add auto start
 				extractDir := ""
@@ -321,6 +325,10 @@ func (d *CKDeploy) Upgrade() error {
 			}
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
+				lastError = err
+				return
+			}
+			if err = d.reconcileSystemdCapabilities(sshOpts); err != nil {
 				lastError = err
 				return
 			}
@@ -613,6 +621,11 @@ func (d *CKDeploy) Start() error {
 				sshOpts.NeedSudo = d.Conf.NeedSudo
 			}
 
+			if err := d.reconcileSystemdCapabilities(sshOpts); err != nil {
+				lastError = err
+				return
+			}
+
 			cmd := cmdIns.StartCmd(CkSvrName, d.Conf.Cwd, path.Join(d.Conf.Path, "clickhouse"))
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
@@ -683,6 +696,11 @@ func (d *CKDeploy) Restart() error {
 				NeedSudo:         d.Conf.NeedSudo,
 				AuthenticateType: d.Conf.AuthenticateType,
 			}
+			if err := d.reconcileSystemdCapabilities(sshOpts); err != nil {
+				lastError = err
+				return
+			}
+
 			cmd := cmdIns.RestartCmd(CkSvrName, d.Conf.Cwd, path.Join(d.Conf.Path, "clickhouse"))
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
