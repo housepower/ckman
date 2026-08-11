@@ -9,12 +9,26 @@
 这些 bug 恰恰藏在方法内部(哨兵时间包装、`ensureSchema`、JSON blob 等),mock 单测
 一律抓不到。给哪个库的环境变量就测哪个,没给的自动 Skip。
 
-## 一条命令:本地真 PostgreSQL 回归
+## 一条命令:本地真库回归
 
-不需要预备任何库,脚本自动拉起 `postgres:16` 容器、跑测试、跑完删容器:
+不需要预备任何库,自动拉容器、跑测试、跑完删容器:
 
 ```bash
-./repository/dbtest/pg-local-test.sh
+make dbtest          # mysql + postgres
+make dbtest-mysql    # 只跑 mysql
+make dbtest-pg       # 只跑 postgres
+```
+
+`make help` 能列出全部目标。背后是 `./repository/dbtest/local-test.sh [mysql|postgres]`,
+直接调也行(`pg-local-test.sh` 保留为兼容入口,转发到 `local-test.sh postgres`)。
+
+镜像可换:`DBTEST_MYSQL_IMAGE=... DBTEST_PG_IMAGE=... make dbtest`
+
+达梦没有公开镜像,起不了容器,得自己指一台实例:
+
+```bash
+export DBTEST_DM_HOST=... DBTEST_DM_USER=SYSDBA DBTEST_DM_PASS=...
+make dbtest-dm
 ```
 
 ## 手动指定各后端
@@ -31,7 +45,7 @@ export DBTEST_DM_HOST=... DBTEST_DM_PORT=5236 DBTEST_DM_USER=sysdba DBTEST_DM_PA
 export DBTEST_PG_HOST=... DBTEST_PG_PORT=5432 \
        DBTEST_PG_USER=postgres DBTEST_PG_PASS=... DBTEST_PG_DB=ckman_db
 
-go test -tags dbintegration -v ./repository/dbtest/ -run TestBackends
+make dbtest-env   # 等价于 go test -tags dbintegration -v ./repository/dbtest/ -run TestBackends
 ```
 
 - 指向**空的测试库**,勿指生产:测试建表 + 写 `dbtest_` 前缀数据并自动清理,但连启会重跑迁移。
