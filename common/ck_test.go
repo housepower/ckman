@@ -1,8 +1,10 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/housepower/ckman/model"
@@ -149,5 +151,87 @@ func TestConnOrderId_IdenticalInputs_SameOrderId(t *testing.T) {
 	}
 	if id1 != id2 {
 		t.Errorf("expected identical orderId for identical inputs, got %q vs %q", id1, id2)
+	}
+}
+
+// unreachableConn opens a native connection pointed at a port nothing listens
+// on. clickhouse.Open only validates options - it does not dial - so this
+// needs no ClickHouse server, while any Ping() on the result is guaranteed to
+// fail, which is exactly the state a cluster that went offline leaves behind.
+func unreachableConn(t *testing.T) *Conn {
+	t.Helper()
+	c, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:1"},
+		Auth: clickhouse.Auth{Database: "default", Username: "default"},
+	})
+	if err != nil {
+		t.Fatalf("clickhouse.Open: %v", err)
+	}
+	return &Conn{h: "127.0.0.1", addr: "127.0.0.1:1", protocol: clickhouse.Native, c: c, ctx: context.Background()}
+}
+
+// Closing the same Conn twice must not hang. clickhouse-go's Close() sends on
+// an unbuffered `exit` channel whose only receiver returns after the first
+// receive, so a second Close() blocks forever - taking the calling HTTP
+// handler or cron job with it. Nothing stops a stale pool entry from being
+// closed twice, so Close itself has to be idempotent.
+func TestConnClose_CalledTwice_DoesNotBlock(t *testing.T) {
+	conn := unreachableConn(t)
+	if err := conn.Close(); err != nil {
+		t.Fatalf("first Close: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = conn.Close()
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		// Deliberately not waiting for the goroutine: it is blocked forever
+		// and only the test binary exiting will reclaim it.
+		t.Fatal("second Close() blocked forever (clickhouse-go sends on a closed-down exit channel)")
+	}
+}
+
+// A pool entry whose Ping() fails gets closed, but reconnecting to a cluster
+// that is still down fails before the ConnectPool.Store further down, so the
+// entry would otherwise survive - now pointing at a connection that has
+// already been closed. The next request loads that same connection and closes
+// it a second time. Closing it means it must leave the pool in the same step.
+func TestConnectClickHouse_PingFailed_DropsStalePoolEntry(t *testing.T) {
+	const host = "127.0.0.1"
+	opt := model.ConnetOption{Protocol: clickhouse.Native, Port: 1, User: "default"}
+
+	orderId, err := connOrderId(ConnBase{
+		Addr:     []string{"127.0.0.1:1"},
+		Auth:     clickhouse.Auth{Database: "default", Username: "default"},
+		Protocol: clickhouse.Native,
+	})
+	if err != nil {
+		t.Fatalf("connOrderId: %v", err)
+	}
+	ConnectPool.Store(host, Connection{orderId: orderId, conn: unreachableConn(t)})
+	defer ConnectPool.Delete(host)
+
+	done := make(chan error, 1)
+	go func() {
+		_, cerr := ConnectClickHouse(host, "default", opt)
+		done <- cerr
+	}()
+
+	select {
+	case cerr := <-done:
+		if cerr == nil {
+			t.Fatal("expected ConnectClickHouse to fail against a port nothing listens on")
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("ConnectClickHouse blocked")
+	}
+
+	if _, ok := ConnectPool.Load(host); ok {
+		t.Error("a pool entry that was closed after a failed Ping must not stay in the pool")
 	}
 }

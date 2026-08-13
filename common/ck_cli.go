@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	"sync"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -107,6 +108,15 @@ type Conn struct {
 	c        driver.Conn
 	db       *sql.DB
 	ctx      context.Context
+	// closeOnce guards against closing the underlying driver twice.
+	// clickhouse-go's Close() ends with `ch.exit <- struct{}{}` on an
+	// unbuffered channel whose sole receiver returns after the first receive,
+	// so a second Close() blocks forever and strands whichever HTTP handler or
+	// cron job called it. Callers can legitimately reach the same Conn twice
+	// (e.g. a stale connection-pool entry), so idempotency belongs here rather
+	// than at every call site.
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func (c *Conn) Host() string {
@@ -221,9 +231,12 @@ func (c *Conn) AsyncInsert(query string, wait bool) error {
 }
 
 func (c *Conn) Close() error {
-	if c.protocol == clickhouse.HTTP {
-		return c.db.Close()
-	} else {
-		return c.c.Close()
-	}
+	c.closeOnce.Do(func() {
+		if c.protocol == clickhouse.HTTP {
+			c.closeErr = c.db.Close()
+		} else {
+			c.closeErr = c.c.Close()
+		}
+	})
+	return c.closeErr
 }

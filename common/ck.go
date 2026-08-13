@@ -110,20 +110,23 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 		if v, ok := ConnectPool.Load(host); ok {
 			c := v.(Connection)
 			if c.orderId == orderId {
-				err := c.conn.Ping()
-				if err == nil {
+				if err := c.conn.Ping(); err == nil {
 					return c.conn, nil
-				} else {
-					_ = c.conn.Close()
 				}
-			} else {
-				// Stale entry for this host (orderId no longer matches, e.g. the
-				// cluster's Protocol/Secure/Auth changed): it's about to be
-				// replaced by the Store below, so close it now or its underlying
-				// socket/goroutines leak - nothing else holds a reference to it
-				// once overwritten.
-				_ = c.conn.Close()
 			}
+			// Reached here either because Ping() failed (the cluster went
+			// offline) or because the orderId no longer matches (the cluster's
+			// Protocol/Secure/Auth changed). Both cases discard this connection,
+			// so it must be closed or its socket and goroutines leak - nothing
+			// else holds a reference to it once it leaves the pool.
+			//
+			// Deleting is not optional and must happen here, not by relying on
+			// the ConnectPool.Store further down: reconnecting to a cluster that
+			// is still offline returns early, so the entry would survive while
+			// pointing at an already-closed connection. The next call would then
+			// load it and close it a second time.
+			ConnectPool.Delete(host)
+			_ = c.conn.Close()
 		}
 	}
 	conn := Conn{
