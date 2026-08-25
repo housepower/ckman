@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -226,11 +227,10 @@ func (controller *PackageController) Delete(c *gin.Context) {
 	packageVersion := c.Query("packageVersion")
 	packageType := c.Query("pkgType")
 	packages := deploy.BuildPackages(packageVersion, packageType, "")
-	for _, packageName := range packages.PkgLists {
-		if err := os.Remove(path.Join(common.GetPkgPath(), common.DefaultPackageDirectory, packageName)); err != nil {
-			controller.wrapfunc(c, model.E_FILE_NOT_EXIST, err)
-			return
-		}
+	pkgDir := path.Join(common.GetPkgPath(), common.DefaultPackageDirectory)
+	if err := removePackageFiles(pkgDir, packages); err != nil {
+		controller.wrapfunc(c, model.E_FILE_NOT_EXIST, err)
+		return
 	}
 
 	reqFromPeer := false
@@ -266,6 +266,32 @@ func (controller *PackageController) Delete(c *gin.Context) {
 		return
 	}
 	controller.wrapfunc(c, model.E_SUCCESS, nil)
+}
+
+// removePackageFiles 删除一个版本对应的全部安装包文件。
+//
+// BuildPackages 把 keeper 单独放在 Packages.Keeper 里（部署时它是可选的），删除
+// 时必须一并处理，否则会留下装不了完整集群的孤儿 keeper 包。
+//
+// PkgLists 是 make([]string, 3) 预分配的，某个 module 缺失时槽位为空字符串，而
+// path.Join(dir, "") == dir —— 空槽位必须跳过，否则会 os.Remove 到包目录本身。
+//
+// 单个文件失败不中断整批，避免删了一半留下残缺版本；已经不在磁盘上的文件不算失败。
+func removePackageFiles(dir string, pkgs deploy.Packages) error {
+	names := make([]string, 0, len(pkgs.PkgLists)+1)
+	names = append(names, pkgs.PkgLists...)
+	names = append(names, pkgs.Keeper)
+
+	var errs []error
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		if err := os.Remove(path.Join(dir, name)); err != nil && !os.IsNotExist(err) {
+			errs = append(errs, err)
+		}
+	}
+	return stderrors.Join(errs...)
 }
 
 func DeleteFileByURL(url string) error {
