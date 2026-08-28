@@ -49,7 +49,10 @@ func (v TblTask) TableName() string {
 }
 
 type TblBackup struct {
-	BackupId    string `gorm:"column:backup_id"`
+	// backup_id 是这张表的主键。漏标 primaryKey 时原生 MySQL 仍能建表,但 TDSQL 等
+	// 要求每表必须有主键的分支会拒绝;size 与 postgres 的 varchar(382) 对齐,避免
+	// gorm 默认 191 截断 cluster+db+table 拼出的长 id。
+	BackupId    string `gorm:"primaryKey;column:backup_id;size:382"`
 	ClusterName string `gorm:"column:cluster_name"`
 	UpdateTime  string `gorm:"column:update_time"`
 	Backup      string `gorm:"column:backup"`
