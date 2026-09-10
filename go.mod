@@ -40,6 +40,7 @@ require (
 	github.com/bramvdbogaerde/go-scp v1.2.0
 	github.com/glebarez/sqlite v1.4.6
 	github.com/go-basic/uuid v1.0.0
+	github.com/go-sql-driver/mysql v1.7.1
 	github.com/hjson/hjson-go/v4 v4.2.0
 	github.com/imdario/mergo v0.3.12
 	github.com/prometheus/procfs v0.7.3
@@ -83,7 +84,6 @@ require (
 	github.com/go-playground/locales v0.13.0 // indirect
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
-	github.com/go-sql-driver/mysql v1.7.1 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect

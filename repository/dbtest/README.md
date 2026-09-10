@@ -51,6 +51,16 @@ make dbtest-env   # 等价于 go test -tags dbintegration -v ./repository/dbtest
 - 指向**空的测试库**,勿指生产:测试建表 + 写 `dbtest_` 前缀数据并自动清理,但连启会重跑迁移。
 - 单跑某个后端:`-run TestBackends/mysql`(或 `/dm8` `/postgres`)。
 
+除 `TestBackends` 外,MySQL 另有两条迁移专项(同样用 `DBTEST_MYSQL_*`,`-run TestMysqlMigrate`):
+
+- `TestMysqlMigrateIsIdempotent` —— 表就绪后再连启必须**零 DDL**。用 `SHOW GLOBAL STATUS` 的
+  `Com_alter_table` / `Com_create_table` / `Com_create_index` 计数器判定。
+  gorm 的 AutoMigrate 曾在这里每次重启重发 6 条 `ALTER TABLE ... MODIFY COLUMN`,
+  MySQL 5.7 磁盘一满就 `Error 1005 (errno: 28)`、Init 直接 FATAL(首次建库能过、重启必崩)。
+- `TestMysqlMigrateUpgradesOldSchema` —— 老库缺列/缺表时该补的还得补,防止「为了幂等而什么都不做」。
+
+  注意这条会 `DROP TABLE tbl_cluster / tbl_user` 重造老结构,更加不能指向生产库。
+
 ## 快速起各类库(参考)
 
 ```bash

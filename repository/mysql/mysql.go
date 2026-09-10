@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
@@ -61,8 +62,18 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 	mp.Client = db
 	mp.ParentDB = mp.Client
 
-	//auto create table
-	err = mp.Client.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4").AutoMigrate(
+	// 建表/迁移:不用 gorm 的 AutoMigrate。它的 smart migrate 逐列比对时对本项目的
+	// model 有两个稳定误判,导致首次建库之后每次启动都无条件重发 6 条
+	// ALTER TABLE ... MODIFY COLUMN:
+	//   - `index:xx,unique` 只设置索引唯一性、不设置 field.Unique,而 mysql driver 从
+	//     information_schema 读到 column_key='UNI' 判为列 unique → 二者永远不等;
+	//   - bool 字段生成的类型是 "boolean",MySQL 实际存 tinyint(1),
+	//     DatabaseTypeName 返回 "tinyint" → 前缀比对永远不等。
+	// MySQL 5.7 上这类 MODIFY COLUMN 多走 copy 算法,要在 datadir 建 #sql-xxx 临时表。
+	// 现场因此在磁盘满时报 Error 1005 (errno: 28 = ENOSPC),Init 返回错误、main 直接
+	// FATAL —— 首次建库能过、重启必崩。改用 ensureSchema:只补确实缺失的表/列/索引,
+	// 结构就绪后重启零 DDL。dm8/postgres 早已各自绕开 AutoMigrate,这里对齐。
+	if err = mp.ensureSchema([]interface{}{
 		&TblCluster{},
 		&TblLogic{},
 		&TblQueryHistory{},
@@ -71,11 +82,72 @@ func (mp *MysqlPersistent) Init(config interface{}) error {
 		&TblBackupPolicy{}, // 新增
 		&TblBackupRun{},    // 新增
 		&TblUser{},         // Phase 1 用户管理
-	)
-	if err != nil {
+	}); err != nil {
 		return errors.Wrap(err, "")
 	}
 	return nil
+}
+
+// ensureSchema 是 AutoMigrate 的替身(见 Init 里的说明)。只做加法,不改已存在的列:
+//   - 表不存在   → CreateTable(连带建列与索引)
+//   - 表在、列缺 → AddColumn
+//   - 表在、索引缺 → CreateIndex
+//
+// 有意不去 MODIFY 已存在的列:一是 gorm 的判定不可靠(会把本来一致的列判成要改),二是
+// 重启阶段对生产表做 copy 式 DDL 风险太高。列类型真需要变更时应走显式的版本化迁移。
+//
+// 另做幂等兜底:DDL 若报「已存在」(1050/1060/1061,并发实例同时启动时会撞上),不当
+// 致命错误 —— 结构已经在了就放过。
+func (mp *MysqlPersistent) ensureSchema(models []interface{}) error {
+	migrator := mp.Client.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4").Migrator()
+	for _, m := range models {
+		stmt := &gorm.Statement{DB: mp.Client}
+		if err := stmt.Parse(m); err != nil {
+			return errors.Wrap(err, "parse model")
+		}
+		table := stmt.Table
+
+		if !migrator.HasTable(m) {
+			if err := migrator.CreateTable(m); err != nil && !isDuplicateObjectErr(err) {
+				return errors.Wrapf(err, "create table %s", table)
+			}
+			continue
+		}
+
+		// 表已存在:补缺失的列
+		for _, dbname := range stmt.Schema.DBNames {
+			if migrator.HasColumn(m, dbname) {
+				continue
+			}
+			if err := migrator.AddColumn(m, dbname); err != nil && !isDuplicateObjectErr(err) {
+				return errors.Wrapf(err, "add column %s.%s", table, dbname)
+			}
+		}
+
+		// 表已存在:补缺失的索引(仅 tag 显式定义的;主键等隐式索引不管)
+		for _, idx := range stmt.Schema.ParseIndexes() {
+			if migrator.HasIndex(m, idx.Name) {
+				continue
+			}
+			if err := migrator.CreateIndex(m, idx.Name); err != nil && !isDuplicateObjectErr(err) {
+				return errors.Wrapf(err, "create index %s on %s", idx.Name, table)
+			}
+		}
+	}
+	return nil
+}
+
+// isDuplicateObjectErr 判断是否 MySQL 的「表/列/索引已存在」类错误:
+// 1050 Table already exists、1060 Duplicate column name、1061 Duplicate key name。
+func isDuplicateObjectErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	var me *mysqldriver.MySQLError
+	if errors.As(err, &me) {
+		return me.Number == 1050 || me.Number == 1060 || me.Number == 1061
+	}
+	return false
 }
 
 func (mp *MysqlPersistent) Begin() error {
