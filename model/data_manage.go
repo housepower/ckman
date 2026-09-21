@@ -117,6 +117,7 @@ type BackupRequest struct {
 	Compression    string      `json:"Compression" example:"gzip"` //压缩类型： 不压缩，gzip/gz, brotli/br, xz/LZMA, zstd/zst
 	Clean          bool        `json:"clean"`                      //是否清理本地数据
 	Checksum       bool        `json:"checksum"`                   //是否进行md5校验
+	MaxBandwidthMB int         `json:"max_bandwidth_mb"`           //S3上传限速(MB/s)，单个任务的集群总量，按shard数均分；0不限
 }
 
 type RestoreRequest struct {
@@ -179,6 +180,7 @@ type BackupPolicy struct {
 	Local          TargetLocal `json:"local"`
 	Compression    string      `json:"compression"`
 	Checksum       bool        `json:"checksum"`
+	MaxBandwidthMB int         `json:"max_bandwidth_mb"` // S3 上传限速(MB/s)，集群总量；0 不限。仅 backup + S3 生效
 	Clean          bool        `json:"clean"`
 	Enabled        bool        `json:"enabled"`
 	Deleted        bool        `json:"deleted"`

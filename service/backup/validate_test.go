@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -101,5 +102,43 @@ func TestValidateDailyRange_ImmediateInvertedWindow(t *testing.T) {
 	// start_date 为空 → 放行(回归)
 	if err := validateDailyRange(model.BACKUP_IMMEDIATE, "incremental", "daily", "", "", "", 1); err != nil {
 		t.Fatalf("empty start_date should pass: %v", err)
+	}
+}
+
+func TestValidateBandwidth(t *testing.T) {
+	clusterWith := func(version string) func() (model.CKManClickHouseConfig, error) {
+		return func() (model.CKManClickHouseConfig, error) {
+			return model.CKManClickHouseConfig{Version: version}, nil
+		}
+	}
+	mustNotLookup := func() (model.CKManClickHouseConfig, error) {
+		t.Fatal("cluster lookup should be skipped")
+		return model.CKManClickHouseConfig{}, nil
+	}
+	lookupErr := func() (model.CKManClickHouseConfig, error) {
+		return model.CKManClickHouseConfig{}, errors.New("not found")
+	}
+
+	cases := []struct {
+		name    string
+		target  string
+		mb      int
+		lookup  func() (model.CKManClickHouseConfig, error)
+		wantErr bool
+	}{
+		{"zero skips lookup", model.BACKUP_S3, 0, mustNotLookup, false},
+		{"local target skips lookup", model.BACKUP_LOCAL, 100, mustNotLookup, false},
+		{"negative rejected", model.BACKUP_S3, -1, mustNotLookup, true},
+		{"23.3 rejected", model.BACKUP_S3, 100, clusterWith("23.3.22.3"), true},
+		{"23.4 accepted", model.BACKUP_S3, 100, clusterWith("23.4.1.1943"), false},
+		{"24.8 accepted", model.BACKUP_S3, 100, clusterWith("24.8.14.39"), false},
+		{"unknown version rejected", model.BACKUP_S3, 100, clusterWith(""), true},
+		{"lookup error bubbles", model.BACKUP_S3, 100, lookupErr, true},
+	}
+	for _, c := range cases {
+		err := validateBandwidth(c.target, c.mb, c.lookup)
+		if (err != nil) != c.wantErr {
+			t.Errorf("%s: err = %v, wantErr %v", c.name, err, c.wantErr)
+		}
 	}
 }

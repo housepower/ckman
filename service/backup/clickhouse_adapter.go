@@ -18,14 +18,33 @@ import (
 //     statements don't accept inline SETTINGS so this is the only way to disable it.
 //   - BypassPool: backup 用完即关，不让此连接进 common.ConnectPool 被普通业务复用
 //     （其 ReadTimeout 与 Settings 与普通用法不兼容）。
-func backupConnOpts(cc model.CKManClickHouseConfig) model.ConnetOption {
+//   - max_backup_bandwidth：S3 上传限速（字节/秒），0 时不设置。
+//     BACKUP 上传数据文件走 copyDataToS3File，不经过 WriteBufferFromS3，
+//     max_remote_write_network_bandwidth 对它无效；max_backup_bandwidth 限的是读源数据，
+//     上传随之被压住。同样因为 25.1 之前 BACKUP 不接受 inline SETTINGS，只能放在连接级；
+//     该设置按查询建 throttler，即每条 BACKUP 各自受限。
+func backupConnOpts(cc model.CKManClickHouseConfig, bandwidth uint64) model.ConnetOption {
+	settings := clickhouse.Settings{
+		"max_execution_time": uint64(0),
+	}
+	if bandwidth > 0 {
+		settings["max_backup_bandwidth"] = bandwidth
+	}
 	return cc.GetConnOption(
 		model.WithMaxRead(21600),
-		model.WithSettings(clickhouse.Settings{
-			"max_execution_time": uint64(0),
-		}),
+		model.WithSettings(settings),
 		model.WithBypassPool(true),
 	)
+}
+
+// perShardBandwidth 把集群总限速（MB/s）按 shard 数均分为每条 BACKUP 的字节/秒。
+// 每个 shard 同时各跑一条 BACKUP，均分后集群合计不超过总量；不考虑多任务并发。
+// 均分结果至少为 1，避免落到 0 变成「不限」。
+func perShardBandwidth(totalMB, shards int) uint64 {
+	if totalMB <= 0 || shards <= 0 {
+		return 0
+	}
+	return max(uint64(totalMB)*1024*1024/uint64(shards), 1)
 }
 
 // ClickHouseAdapter 提供 Executor 所需的真实实现 hook。
@@ -52,12 +71,13 @@ func NewClickHouseAdapter() *ClickHouseAdapter {
 }
 
 // ConnFactory 给 Executor.connFactory 用：每 shard 拿第一个可达 replica，缓存 *common.Conn 到 shardConn。
-func (a *ClickHouseAdapter) ConnFactory(cluster string) ([]*shardConn, error) {
+// maxBandwidthMB 为集群总上传限速（MB/s），0 不限。
+func (a *ClickHouseAdapter) ConnFactory(cluster string, maxBandwidthMB int) ([]*shardConn, error) {
 	cc, err := a.getCluster(cluster)
 	if err != nil {
 		return nil, err
 	}
-	opt := backupConnOpts(cc)
+	opt := backupConnOpts(cc, perShardBandwidth(maxBandwidthMB, len(cc.Shards)))
 	var conns []*shardConn
 	for idx, shard := range cc.Shards {
 		var got *shardConn

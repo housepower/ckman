@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/service/backup/bvalidate"
 	"github.com/robfig/cron/v3"
@@ -120,4 +121,30 @@ func parseYYYYMMDD(name, value string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("daily backup %s must be YYYYMMDD: %w", name, err)
 	}
 	return t, nil
+}
+
+// minBandwidthVersion 是 max_backup_bandwidth 引入的版本。
+// 更老的集群带上它会报 Unknown setting，整个 BACKUP 失败，所以提交时就拦下。
+const minBandwidthVersion = "23.4"
+
+// validateBandwidth 校验 S3 上传限速：不允许负数；非 0 且目标为 S3 时要求集群版本 >= 23.4。
+// 0 或非 S3 目标不查集群，老集群和本地备份不受影响。
+func validateBandwidth(target string, mb int, lookupCluster func() (model.CKManClickHouseConfig, error)) error {
+	if mb < 0 {
+		return fmt.Errorf("max_bandwidth_mb must be >= 0, got %d", mb)
+	}
+	if mb == 0 || target != model.BACKUP_S3 {
+		return nil
+	}
+	cc, err := lookupCluster()
+	if err != nil {
+		return fmt.Errorf("get cluster for bandwidth check: %w", err)
+	}
+	if cc.Version == "" {
+		return errors.New("上传限速需要集群版本 >= 23.4，但无法获取集群版本")
+	}
+	if common.CompareClickHouseVersion(cc.Version, minBandwidthVersion) < 0 {
+		return fmt.Errorf("上传限速需要集群版本 >= %s，当前集群版本 %s", minBandwidthVersion, cc.Version)
+	}
+	return nil
 }

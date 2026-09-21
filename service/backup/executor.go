@@ -53,7 +53,7 @@ func (stagesStub) Close(context.Context, *Executor, string) error   { return nil
 // Executor 状态机：init → prepare → backup/restore → check → close
 type Executor struct {
 	repo                 ExecRepo
-	connFactory          func(cluster string) ([]*shardConn, error)
+	connFactory          func(cluster string, maxBandwidthMB int) ([]*shardConn, error)
 	listPartitions       func(c *shardConn, db, table, fromYYYYMMDD, toYYYYMMDD string) ([]string, error)
 	listAllPartitions    func(c *shardConn, db, table string) ([]string, error)
 	getLastRunPartitions func(cluster, db, table string) ([]model.BackupRunPartition, error)
@@ -161,7 +161,7 @@ func (e *Executor) Init(ctx context.Context, runID string) error {
 	if err != nil {
 		return err
 	}
-	conns, err := e.connFactory(policy.ClusterName)
+	conns, err := e.connFactory(policy.ClusterName, runBandwidthMB(r, policy))
 	if err != nil {
 		return fmt.Errorf("connect cluster %s: %w", policy.ClusterName, err)
 	}
@@ -194,6 +194,15 @@ func (e *Executor) Init(ctx context.Context, runID string) error {
 		return err
 	}
 	return nil
+}
+
+// runBandwidthMB 返回本次 run 的 S3 上传限速（MB/s，集群总量）。
+// 只有 backup 写 S3 才限；restore 和本地备份返回 0。
+func runBandwidthMB(r model.BackupRun, policy model.BackupPolicy) int {
+	if r.Operation != model.OP_BACKUP || policy.TargetType != model.BACKUP_S3 || policy.MaxBandwidthMB <= 0 {
+		return 0
+	}
+	return policy.MaxBandwidthMB
 }
 
 // resolveRunPartitions 根据 policy 的 backup_style / backup_type 决定 run.Partitions 来源。

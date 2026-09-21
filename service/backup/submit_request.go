@@ -23,6 +23,11 @@ func (s *Service) SubmitBackupRequest(cluster string, req model.BackupRequest) (
 	if err := validateDailyRange(req.ScheduleType, req.BackupStyle, req.BackupType, req.StartDate, req.RangeStartDate, req.RangeEndDate, req.DaysBefore); err != nil {
 		return nil, err
 	}
+	if err := validateBandwidth(req.Target, req.MaxBandwidthMB, func() (model.CKManClickHouseConfig, error) {
+		return s.lookupCluster(cluster)
+	}); err != nil {
+		return nil, err
+	}
 	if req.ScheduleType == model.BACKUP_SCHEDULED {
 		if err := ValidateCrontabMinInterval(req.Crontab); err != nil {
 			return nil, fmt.Errorf("invalid crontab: %w", err)
@@ -93,6 +98,7 @@ func (s *Service) SubmitBackupRequest(cluster string, req model.BackupRequest) (
 			Local:          req.Local,
 			Compression:    req.Compression,
 			Checksum:       req.Checksum,
+			MaxBandwidthMB: req.MaxBandwidthMB,
 			Clean:          req.Clean,
 			Enabled:        req.ScheduleType == model.BACKUP_SCHEDULED,
 		}

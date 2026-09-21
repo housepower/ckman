@@ -27,7 +27,7 @@ func TestClickHouseAdapter_ConnFactory_SkipsUnreachableReplica(t *testing.T) {
 		getCluster: func(string) (model.CKManClickHouseConfig, error) { return cluster, nil },
 		dial:       dial,
 	}
-	conns, err := a.ConnFactory("ckA")
+	conns, err := a.ConnFactory("ckA", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestClickHouseAdapter_ConnFactory_FailsWhenAllReplicasDown(t *testing.T) {
 		getCluster: func(string) (model.CKManClickHouseConfig, error) { return cluster, nil },
 		dial:       dial,
 	}
-	if _, err := a.ConnFactory("ckA"); err == nil {
+	if _, err := a.ConnFactory("ckA", 0); err == nil {
 		t.Fatal("expected error when all replicas down")
 	}
 }
@@ -69,7 +69,7 @@ func TestClickHouseAdapter_ConnFactory_BubbleUpClusterError(t *testing.T) {
 			return model.CKManClickHouseConfig{}, errors.New("not found")
 		},
 	}
-	if _, err := a.ConnFactory("ckA"); err == nil {
+	if _, err := a.ConnFactory("ckA", 0); err == nil {
 		t.Fatal("expected cluster error to bubble up")
 	}
 }
@@ -243,7 +243,7 @@ func TestClickHouseAdapter_ConnFactory_SetsClusterName(t *testing.T) {
 		getCluster: func(string) (model.CKManClickHouseConfig, error) { return cluster, nil },
 		dial:       func(string, model.ConnetOption) (*common.Conn, error) { return nil, nil },
 	}
-	conns, err := a.ConnFactory("ckA")
+	conns, err := a.ConnFactory("ckA", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,5 +252,64 @@ func TestClickHouseAdapter_ConnFactory_SetsClusterName(t *testing.T) {
 		if c.cluster != "ch_macro_name" {
 			t.Fatalf("conns[%d].cluster = %q, want ch_macro_name", i, c.cluster)
 		}
+	}
+}
+
+func TestPerShardBandwidth(t *testing.T) {
+	cases := []struct {
+		totalMB, shards int
+		want            uint64
+	}{
+		{0, 3, 0},
+		{-1, 3, 0},
+		{100, 0, 0},
+		{100, 1, 100 * 1024 * 1024},
+		{100, 4, 25 * 1024 * 1024},
+		{1, 3, 1024 * 1024 / 3},
+	}
+	for _, c := range cases {
+		if got := perShardBandwidth(c.totalMB, c.shards); got != c.want {
+			t.Errorf("perShardBandwidth(%d, %d) = %d, want %d", c.totalMB, c.shards, got, c.want)
+		}
+	}
+}
+
+func TestBackupConnOpts_Bandwidth(t *testing.T) {
+	cc := model.CKManClickHouseConfig{}
+	opt := backupConnOpts(cc, 0)
+	if _, ok := opt.Settings["max_backup_bandwidth"]; ok {
+		t.Fatal("bandwidth 0 must not set max_backup_bandwidth")
+	}
+	if opt.Settings["max_execution_time"] != uint64(0) || !opt.BypassPool {
+		t.Fatalf("base backup options lost: %+v", opt)
+	}
+	opt = backupConnOpts(cc, 1234)
+	if opt.Settings["max_backup_bandwidth"] != uint64(1234) {
+		t.Fatalf("settings = %+v", opt.Settings)
+	}
+}
+
+func TestClickHouseAdapter_ConnFactory_SplitsBandwidthByShard(t *testing.T) {
+	cluster := model.CKManClickHouseConfig{
+		Shards: []model.CkShard{
+			{Replicas: []model.CkReplica{{Ip: "h1"}, {Ip: "h1b"}}},
+			{Replicas: []model.CkReplica{{Ip: "h2"}}},
+		},
+	}
+	var got []any
+	a := &ClickHouseAdapter{
+		getCluster: func(string) (model.CKManClickHouseConfig, error) { return cluster, nil },
+		dial: func(_ string, opt model.ConnetOption) (*common.Conn, error) {
+			got = append(got, opt.Settings["max_backup_bandwidth"])
+			return nil, nil
+		},
+	}
+	if _, err := a.ConnFactory("ckA", 100); err != nil {
+		t.Fatal(err)
+	}
+	// 2 个 shard（副本数不影响），每条 BACKUP 50MiB/s
+	want := uint64(50 * 1024 * 1024)
+	if len(got) != 2 || got[0] != want || got[1] != want {
+		t.Fatalf("per-dial bandwidth = %v, want 2x %d", got, want)
 	}
 }

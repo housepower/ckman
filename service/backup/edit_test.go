@@ -219,3 +219,24 @@ func TestTriggerPolicy_CreatesRun(t *testing.T) {
 		t.Fatalf("trigger should enqueue: runID=%s pool=%v", runID, pool.in)
 	}
 }
+
+func TestUpdatePolicy_ValidatesBandwidth(t *testing.T) {
+	repo := newMemRepo()
+	repo.policies["p1"] = model.BackupPolicy{
+		PolicyID: "p1", ClusterName: "ckA", Database: "dba", Table: "t1",
+		ScheduleType: model.BACKUP_IMMEDIATE, TargetType: model.BACKUP_S3,
+	}
+	svc := newServiceForTest("ckman-01", repo, &fakePool{})
+	svc.getClusterByName = func(string) (model.CKManClickHouseConfig, error) {
+		return model.CKManClickHouseConfig{Version: "22.8.5.29"}, nil
+	}
+	p := repo.policies["p1"]
+	p.MaxBandwidthMB = 10
+	if err := svc.UpdatePolicy(p); err == nil {
+		t.Fatal("expected old cluster to be rejected")
+	}
+	p.MaxBandwidthMB = 0
+	if err := svc.UpdatePolicy(p); err != nil {
+		t.Fatalf("unlimited should be allowed on old cluster: %v", err)
+	}
+}

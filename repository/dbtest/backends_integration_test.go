@@ -315,17 +315,26 @@ func testPolicyCRUD(t *testing.T, mgr repository.PersistentMgr) {
 		PolicyID: id, ClusterName: tagPrefix + "cluster", Database: "db", Table: "t",
 		ScheduleType: "scheduled", Instance: "10.0.0.1:8808", BackupType: "daily",
 		Enabled: true, CreateTime: time.Now(), UpdateTime: time.Now(),
+		TargetType: "s3", MaxBandwidthMB: 64,
 	}
 	if err := mgr.CreateBackupPolicy(p); err != nil {
 		t.Fatalf("CreateBackupPolicy: %v", err)
 	}
 	defer mgr.HardDeleteBackupPolicy(id)
-	if _, err := mgr.GetBackupPolicy(id); err != nil {
+	got, err := mgr.GetBackupPolicy(id)
+	if err != nil {
 		t.Fatalf("GetBackupPolicy: %v", err)
 	}
+	if got.MaxBandwidthMB != 64 {
+		t.Fatalf("MaxBandwidthMB round-trip = %d, want 64", got.MaxBandwidthMB)
+	}
 	p.Enabled = false
+	p.MaxBandwidthMB = 0
 	if err := mgr.UpdateBackupPolicy(p); err != nil {
 		t.Fatalf("UpdateBackupPolicy: %v", err)
+	}
+	if got, err = mgr.GetBackupPolicy(id); err != nil || got.MaxBandwidthMB != 0 {
+		t.Fatalf("after update MaxBandwidthMB = %d (err %v), want 0", got.MaxBandwidthMB, err)
 	}
 	if _, err := mgr.GetBackupPoliciesByCluster(p.ClusterName); err != nil {
 		t.Fatalf("GetBackupPoliciesByCluster: %v", err)

@@ -366,3 +366,40 @@ func TestSubmitBackupRequest_ScheduledReturnsNoRunIDs(t *testing.T) {
 		t.Fatalf("expected 1 shared TaskID, got %d", len(taskIDs))
 	}
 }
+
+func TestSubmitBackupRequest_Bandwidth(t *testing.T) {
+	newSvc := func(version string) (*Service, *memRepo) {
+		repo := newMemRepo()
+		svc := newServiceForTest("ckman-01", repo, &fakePool{})
+		svc.getClusterByName = func(string) (model.CKManClickHouseConfig, error) {
+			return model.CKManClickHouseConfig{Version: version}, nil
+		}
+		return svc, repo
+	}
+	req := model.BackupRequest{
+		ScheduleType:   model.BACKUP_IMMEDIATE,
+		Database:       "dba",
+		Tables:         []string{"t1"},
+		Target:         model.BACKUP_S3,
+		Instance:       "ckman-01",
+		MaxBandwidthMB: 64,
+	}
+
+	svc, repo := newSvc("23.3.1.1")
+	if _, err := svc.SubmitBackupRequest("ckA", req); err == nil {
+		t.Fatal("expected old cluster to be rejected")
+	}
+	if len(repo.policies) != 0 {
+		t.Fatalf("rejected request must not create policies, got %d", len(repo.policies))
+	}
+
+	svc, repo = newSvc("24.8.14.39")
+	if _, err := svc.SubmitBackupRequest("ckA", req); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	for _, p := range repo.policies {
+		if p.MaxBandwidthMB != 64 {
+			t.Fatalf("policy MaxBandwidthMB = %d, want 64", p.MaxBandwidthMB)
+		}
+	}
+}

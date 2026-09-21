@@ -32,6 +32,11 @@ func (s *Service) UpdatePolicy(p model.BackupPolicy) error {
 	if err := validateDailyRange(p.ScheduleType, p.BackupStyle, p.BackupType, p.StartDate, p.RangeStartDate, p.RangeEndDate, p.DaysBefore); err != nil {
 		return err
 	}
+	if err := validateBandwidth(p.TargetType, p.MaxBandwidthMB, func() (model.CKManClickHouseConfig, error) {
+		return s.lookupCluster(p.ClusterName)
+	}); err != nil {
+		return err
+	}
 	// Sensitive 字段保留：前端编辑时通常不重传 secret，空值应解释为「不变」而非清空。
 	if p.S3.SecretAccessKey == "" {
 		p.S3.SecretAccessKey = old.S3.SecretAccessKey
