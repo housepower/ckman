@@ -2076,7 +2076,6 @@ func fixBrokenParts(conf *model.CKManClickHouseConfig, database, table, partitio
 
 	query := fmt.Sprintf("SELECT data_paths FROM system.tables WHERE database = '%s' AND name = '%s'", database, table)
 	for host, parts := range detachedParts {
-		var cmds []string
 		var dataPaths []string
 		conn := common.GetConnection(host)
 		if conn == nil {
@@ -2088,49 +2087,54 @@ func fixBrokenParts(conf *model.CKManClickHouseConfig, database, table, partitio
 			log.Logger.Errorf("query failed: %s", err)
 			continue
 		}
-		type pathInfo struct {
-			srcPaths []string
-			dstPaths []string
-		}
-		var pi pathInfo
-		for _, part := range parts {
-			for _, dp := range dataPaths {
-				if part.Reason != "" {
-					dstName := strings.TrimPrefix(part.Name, part.Reason+"_")
-					if part.Disk == "default" {
-						if !strings.Contains(dp, "/disks/") {
-							pi.srcPaths = append(pi.srcPaths, path.Join(dp, "detached", part.Name))
-							pi.dstPaths = append(pi.dstPaths, path.Join(dp, "detached", dstName))
-							break
-						}
-					} else {
-						if strings.Contains(dp, fmt.Sprintf("/disks/%s/", part.Disk)) {
-							pi.srcPaths = append(pi.srcPaths, path.Join(dp, "detached", part.Name))
-							pi.dstPaths = append(pi.dstPaths, path.Join(dp, "detached", dstName))
-							break
-						}
-					}
-				}
-			}
-		}
-		for i := 0; i < len(pi.srcPaths); i++ {
-			cmd := fmt.Sprintf("mv %s %s; chown -R clickhouse:clickhouse %s", pi.srcPaths[i], pi.dstPaths[i], pi.dstPaths[i])
-			cmds = append(cmds, cmd)
-		}
-		if len(cmds) == 0 {
-			_, err = common.RemoteExecute(common.SshOptions{
-				Host:             host,
-				User:             conf.SshUser,
-				Port:             conf.SshPort,
-				Password:         conf.SshPassword,
-				NeedSudo:         conf.NeedSudo,
-				AuthenticateType: conf.AuthenticateType,
-			}, strings.Join(cmds, ";"))
-			if err != nil {
-				log.Logger.Errorf("execute failed: %s", err)
-				return err
-			}
+		if err := execFixCmds(conf, host, buildFixPartCmds(parts, dataPaths)); err != nil {
+			log.Logger.Errorf("execute failed: %s", err)
+			return err
 		}
 	}
 	return nil
+}
+
+// buildFixPartCmds 为带 reason 前缀(broken_/ignored_/...)的 detached part 生成改名命令,
+// 使其重新变成 ATTACH 认得出的目录名。正常 detach 出来的 part(reason 为空)不需要处理,
+// 此时返回空切片。
+func buildFixPartCmds(parts []DetachedInfo, dataPaths []string) []string {
+	var cmds []string
+	for _, part := range parts {
+		if part.Reason == "" {
+			continue
+		}
+		dstName := strings.TrimPrefix(part.Name, part.Reason+"_")
+		for _, dp := range dataPaths {
+			if part.Disk == "default" {
+				if strings.Contains(dp, "/disks/") {
+					continue
+				}
+			} else if !strings.Contains(dp, fmt.Sprintf("/disks/%s/", part.Disk)) {
+				continue
+			}
+			srcPath := path.Join(dp, "detached", part.Name)
+			dstPath := path.Join(dp, "detached", dstName)
+			cmds = append(cmds, fmt.Sprintf("mv %s %s; chown -R clickhouse:clickhouse %s", srcPath, dstPath, dstPath))
+			break
+		}
+	}
+	return cmds
+}
+
+// execFixCmds 把改名命令下发到目标主机。cmds 为空时必须直接返回:
+// 空命令经 genFinalScript 会被拼成 "sudo ",sudo 不带参数只会打印 usage 并以 1 退出。
+func execFixCmds(conf *model.CKManClickHouseConfig, host string, cmds []string) error {
+	if len(cmds) == 0 {
+		return nil
+	}
+	_, err := common.RemoteExecute(common.SshOptions{
+		Host:             host,
+		User:             conf.SshUser,
+		Port:             conf.SshPort,
+		Password:         conf.SshPassword,
+		NeedSudo:         conf.NeedSudo,
+		AuthenticateType: conf.AuthenticateType,
+	}, strings.Join(cmds, ";"))
+	return err
 }

@@ -55,3 +55,22 @@ func TestSftp(t *testing.T) {
 	_, err = RemoteExecute(sshOpts, "rm -rf ~/ssh.go")
 	assert.Nil(t, err)
 }
+
+func TestGenFinalScriptSkipsEmptySegments(t *testing.T) {
+	// 空片段不能拼成 "sudo "：sudo 不带参数只会打印 usage 并以 1 退出
+	shell := genFinalScript("ckman", "ls;;mv a b;", true)
+	assert.Equal(t, "echo 'i love china'; export LANG=en_US.UTF-8; sudo ls;sudo mv a b", shell)
+}
+
+func TestRemoteExecuteEmptyCmdIsNoop(t *testing.T) {
+	// host 不可达，一旦真发起 SSH 就会返回错误
+	out, err := RemoteExecute(SshOptions{
+		User:             "ckman",
+		Port:             22,
+		Host:             "192.0.2.1",
+		NeedSudo:         true,
+		AuthenticateType: model.SshPasswordSave,
+	}, "   ")
+	assert.Nil(t, err)
+	assert.Equal(t, "", out)
+}

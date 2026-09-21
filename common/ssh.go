@@ -314,6 +314,11 @@ func ScpUploadFile(localFile, remoteFile string, opts SshOptions) error {
 // }
 
 func RemoteExecute(opts SshOptions, cmd string) (string, error) {
+	// 没有实际命令就不必连了。空命令在 needsudo 下会被拼成 "sudo "，
+	// sudo 不带参数只打印 usage 并以 1 退出，调用方看到的是一条难以理解的报错。
+	if strings.TrimSpace(cmd) == "" {
+		return "", nil
+	}
 	client, err := SSHConnect(opts)
 	if err != nil {
 		return "", errors.Wrap(err, fmt.Sprintf("host: %s, cmd: %s", opts.Host, cmd))
@@ -331,9 +336,13 @@ func RemoteExecute(opts SshOptions, cmd string) (string, error) {
 func genFinalScript(user, cmd string, needsudo bool) string {
 	var shell string
 	if user != "root" && needsudo {
-		cmds := strings.Split(cmd, ";")
-		for index, command := range cmds {
-			cmds[index] = fmt.Sprintf("sudo %s", command)
+		var cmds []string
+		for _, command := range strings.Split(cmd, ";") {
+			// 跳过空片段（连续分号、结尾分号），否则会拼出无参数的 "sudo "
+			if strings.TrimSpace(command) == "" {
+				continue
+			}
+			cmds = append(cmds, fmt.Sprintf("sudo %s", strings.TrimSpace(command)))
 		}
 		cmd = strings.Join(cmds, ";")
 
