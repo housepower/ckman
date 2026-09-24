@@ -63,7 +63,7 @@ See [Architecture overview](https://housepower.github.io/ckman/docs/guide/archit
 
 ## Contributing
 
-Issues and pull requests are welcome. Please describe your motivation and impact in the PR body. Maintainer: **YenchangChan** (WeChat: `yudinghou`).
+Issues and pull requests are welcome. Please describe your motivation and impact in the PR body. Maintainer: **[YenchangChan](https://yenchangchan.github.io/)** (WeChat: `yudinghou`).
 
 ## About Us
 

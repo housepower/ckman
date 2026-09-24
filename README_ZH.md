@@ -63,7 +63,7 @@ make deb VERSION=x.x.x          # 打 deb
 
 ## 贡献
 
-欢迎提 Issue 与 Pull Request，请在 PR 描述中说明动机与影响范围。维护者：**陈衍长**（微信：`yudinghou`）。
+欢迎提 Issue 与 Pull Request，请在 PR 描述中说明动机与影响范围。维护者：**[陈衍长](https://yenchangchan.github.io/)**（微信：`yudinghou`）。
 
 ## 关于我们
 
