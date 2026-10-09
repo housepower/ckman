@@ -5,9 +5,9 @@ CKMAN 支持多实例部署，避免单点故障。
 ## 架构
 
 ```
-                ┌─────────┐
-                │  Nacos  │
-                └────┬────┘
+           ┌───────────────┐
+           │ Nacos/Consul  │
+           └───────┬───────┘
        注册 / 选主   │   服务发现
          ┌──────────┼──────────┐
          ↓          ↓          ↓
@@ -23,7 +23,7 @@ CKMAN 支持多实例部署，避免单点故障。
 
 每个 CKMAN 实例：
 
-- 向 Nacos 注册并发送心跳
+- 向注册中心（Nacos 或 Consul，见 [registry / config_center](/config/discovery)）注册并发送心跳
 - 共用同一个持久层（mysql / postgres / dm8）
 - 只有 **master 实例**执行定时任务，避免重复触发
 - 用户登录任一实例都可以做集群操作
@@ -32,7 +32,7 @@ CKMAN 支持多实例部署，避免单点故障。
 
 | 组件 | 要求 |
 | --- | --- |
-| Nacos | ≥ 1.4 |
+| 注册中心 | Nacos ≥ 1.4，或 Consul（推荐每台 ckman 机器部署本地 agent） |
 | 数据库 | MySQL / PostgreSQL / DM8 之一，独立部署且**编码为 UTF-8** |
 | 负载均衡 | 推荐 Nginx，将 `:80/8808` 反代到多个实例 |
 
@@ -76,8 +76,9 @@ psql -U postgres -d ckman_db -f dbscript/postgres.sql
       "database": "ckman_db"
     }
   },
+  "registry": { "type": "nacos" },
+  "config_center": { "type": "nacos" },   // 不需要配置中心时写 none
   "nacos": {
-    "enabled": true,
     "hosts": ["10.0.0.20", "10.0.0.21", "10.0.0.22"],
     "port": 8848,
     "user_name": "nacos",
@@ -101,6 +102,8 @@ ckman --encrypt 你的密码
 | 变量 | 作用 |
 | --- | --- |
 | `NACOS_HOST` | 逗号分隔的 `host:port` 列表，覆盖 hosts/port |
+| `CONSUL_ADDR` | 覆盖 `consul.address` |
+| `APOLLO_META` | 覆盖 `apollo.meta` |
 | `HOST_IP` | 强制指定本实例对外暴露的 IP |
 
 ## 步骤 4：依次启动
@@ -147,8 +150,8 @@ CKMAN 的 JWT 与客户端 IP 绑定。通过反代时务必设置 `X-Forwarded-
 
 ## Master 选举与定时任务
 
-- master 选举由 Nacos 协调，无需人工干预
-- master 故障后其他节点会接管，约 1 个心跳周期内完成切换（默认 `beat_interval = 5000ms`）
+- 各实例从注册中心拿到健康实例列表，按 `ip:port` 排序后取第一个作为 master，无需人工干预
+- master 故障后其他节点会接管：Nacos 约 1 个心跳周期（默认 `beat_interval = 5000ms`），Consul 约 `check_ttl`（默认 30s）。正常停止的实例会主动反注册，立即切换
 - `config.IsMasterNode()` 在代码层判断当前是否 master，cron 任务只在 master 上执行
 
 ## 常见问题
@@ -157,4 +160,4 @@ CKMAN 的 JWT 与客户端 IP 绑定。通过反代时务必设置 `X-Forwarded-
 A：检查是否所有实例都连接同一个 mysql/postgres/dm8 实例，并且 `persistent_policy` 一致。
 
 **Q：cron 任务在多个实例上重复触发？**
-A：检查 Nacos 注册是否成功（看启动日志），未注册成功的实例会退化为单机模式，所有 cron 都跑。
+A：检查所有实例的 `registry.type` 与注册中心地址是否一致。注册中心类型不同的实例互相看不见，会各自选出 master。

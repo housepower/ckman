@@ -65,6 +65,7 @@ export default defineConfig({
             { text: 'log', link: '/config/log' },
             { text: 'cron', link: '/config/cron' },
             { text: 'persistent_config', link: '/config/persistent' },
+            { text: 'registry / config_center', link: '/config/discovery' },
             { text: 'nacos', link: '/config/nacos' },
           ],
         },

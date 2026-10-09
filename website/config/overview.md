@@ -28,7 +28,9 @@ ckman -c /path/to/ckman.hjson
   "log":               { ... },   // 日志级别与切割
   "cron":              { ... },   // 定时任务
   "persistent_config": { ... },   // 持久层（mysql/postgres/dm8/local）
-  "nacos":             { ... }    // 服务发现（多实例时启用）
+  "registry":          { ... },   // 注册中心选择（多实例时启用）
+  "config_center":     { ... },   // 配置中心选择
+  "nacos":             { ... }    // Nacos 连接参数，另有 consul / apollo
 }
 ```
 
@@ -100,8 +102,10 @@ password: ENC(E310E892E56801CED9ED98AA177F18E6)
   //   }
   // },
 
+  "registry": { "type": "none" },
+  "config_center": { "type": "none" },
+
   "nacos": {
-    "enabled": false,
     "hosts": ["127.0.0.1"],
     "port": 8848,
     "user_name": "nacos",
@@ -118,7 +122,7 @@ password: ENC(E310E892E56801CED9ED98AA177F18E6)
 | `log.level` | 否（动态生效） |
 | `cron.*` | 是 |
 | `persistent_config`, `persistent_policy` | 是 |
-| `nacos.*` | 是 |
+| `registry`, `config_center`, `nacos.*`, `consul.*`, `apollo.*` | 是 |
 
 ::: tip 用户密码
 登录用户的密码不在 `ckman.hjson` 中——它存放在 `conf/password` 或持久层数据库的用户表里，由 CKMAN 自己管理。
