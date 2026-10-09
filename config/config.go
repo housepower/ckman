@@ -207,7 +207,7 @@ func GetClusterPeers() []ClusterNode {
 	ClusterMutex.RLock()
 	defer ClusterMutex.RUnlock()
 	for index, node := range ClusterNodes {
-		if GlobalConfig.Server.Ip != node.Ip && GlobalConfig.Server.Port != node.Port {
+		if GlobalConfig.Server.Ip != node.Ip || GlobalConfig.Server.Port != node.Port {
 			list = append(list, ClusterNodes[index])
 		}
 	}
