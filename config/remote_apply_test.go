@@ -96,7 +96,7 @@ func TestMergeFromNacos_NonBootstrapOverrides(t *testing.T) {
 		Cron:       CronJob{Enabled: true, SyncLogicSchema: "0 0 * * * *"},
 		ClickHouse: ClickHouseOpts{MaxOpenConns: 50, MaxIdleConns: 5, ConnMaxIdleTime: 30},
 	}
-	mergeFromNacos(&local, &remote)
+	mergeFromRemote(&local, &remote)
 	if local.Log.Level != "DEBUG" || local.Log.MaxCount != 9 {
 		t.Errorf("Log not overridden: %+v", local.Log)
 	}
@@ -113,7 +113,7 @@ func TestMergeFromNacos_EmptyRemoteSectionsKeepLocal(t *testing.T) {
 	local := newLocal()
 	snap := local
 	remote := CKManConfig{}
-	mergeFromNacos(&local, &remote)
+	mergeFromRemote(&local, &remote)
 	if !reflect.DeepEqual(local.Log, snap.Log) {
 		t.Errorf("Log changed unexpectedly: got=%+v want=%+v", local.Log, snap.Log)
 	}
@@ -143,7 +143,7 @@ func TestMergeFromNacos_BootstrapNeverOverridden(t *testing.T) {
 		},
 		Nacos: CKManNacosConfig{Enabled: false, Password: "evil"},
 	}
-	mergeFromNacos(&local, &remote)
+	mergeFromRemote(&local, &remote)
 	if local.Server.Ip != "10.0.0.1" || local.Server.Port != 8808 || local.Server.Https {
 		t.Errorf("Server bootstrap overridden: %+v", local.Server)
 	}
@@ -166,7 +166,7 @@ func TestMergeFromNacos_PreservesConfigFileVersion(t *testing.T) {
 		Version:    "0.0.0",
 		Log:        CKManLogConfig{Level: "DEBUG"},
 	}
-	mergeFromNacos(&local, &remote)
+	mergeFromRemote(&local, &remote)
 	if local.ConfigFile != "/etc/ckman/conf/ckman.hjson" {
 		t.Errorf("ConfigFile overridden: %s", local.ConfigFile)
 	}
@@ -187,7 +187,7 @@ func TestMergeFromNacos_ServerNonBootstrapSingleFieldOverride(t *testing.T) {
 			Port:           9999,
 		},
 	}
-	mergeFromNacos(&local, &remote)
+	mergeFromRemote(&local, &remote)
 	if local.Server.SessionTimeout != 7200 {
 		t.Errorf("SessionTimeout not overridden: %d", local.Server.SessionTimeout)
 	}
@@ -212,6 +212,8 @@ func TestDiffBootstrap_DetectsAllFields(t *testing.T) {
 	remote.Server.PersistentPolicy = "mysql"
 	remote.PersistentConfig = map[string]map[string]interface{}{"mysql": {"x": 1}}
 	remote.Nacos.Password = "new"
+	remote.Registry.Type = "consul"
+	remote.ConfigCenter.Type = "apollo"
 
 	diffs := diffBootstrap(&local, &remote)
 	got := map[string]bool{}
@@ -222,6 +224,7 @@ func TestDiffBootstrap_DetectsAllFields(t *testing.T) {
 		"Server.Ip", "Server.Port", "Server.Https",
 		"Server.CertFile", "Server.KeyFile", "Server.PkgPath",
 		"Server.PersistentPolicy", "PersistentConfig", "Nacos",
+		"Registry", "ConfigCenter",
 	}
 	for _, name := range expected {
 		if !got[name] {
@@ -244,11 +247,11 @@ func TestMain(m *testing.M) {
 	cfg := zap.NewProductionConfig()
 	cfg.Encoding = "console"
 	l, _ := cfg.Build()
-	SetNacosLogger(l.Sugar())
+	SetRemoteLogger(l.Sugar())
 	os.Exit(m.Run())
 }
 
-func TestApplyNacosUpdate_SkipsOnSameHash(t *testing.T) {
+func TestApplyRemoteUpdate_SkipsOnSameHash(t *testing.T) {
 	t.Cleanup(ResetForTest)
 	GlobalConfig = newLocal()
 
@@ -256,13 +259,13 @@ func TestApplyNacosUpdate_SkipsOnSameHash(t *testing.T) {
 	RegisterApplier("counter", func(_, _ *CKManConfig) { calls++ })
 
 	data := []byte(`{ log: { level: "DEBUG" } }`)
-	if err := ApplyNacosUpdate(data, ".hjson"); err != nil {
+	if err := ApplyRemoteUpdate(data, ".hjson"); err != nil {
 		t.Fatalf("first apply error: %v", err)
 	}
 	if calls != 1 {
 		t.Errorf("first apply: applier calls=%d, want 1", calls)
 	}
-	if err := ApplyNacosUpdate(data, ".hjson"); err != nil {
+	if err := ApplyRemoteUpdate(data, ".hjson"); err != nil {
 		t.Fatalf("second apply error: %v", err)
 	}
 	if calls != 1 {
@@ -270,12 +273,12 @@ func TestApplyNacosUpdate_SkipsOnSameHash(t *testing.T) {
 	}
 }
 
-func TestApplyNacosUpdate_ParseError(t *testing.T) {
+func TestApplyRemoteUpdate_ParseError(t *testing.T) {
 	t.Cleanup(ResetForTest)
 	GlobalConfig = newLocal()
 	snap := GlobalConfig
 
-	err := ApplyNacosUpdate([]byte("not a config"), ".hjson")
+	err := ApplyRemoteUpdate([]byte("not a config"), ".hjson")
 	if err == nil {
 		t.Fatal("expected parse error, got nil")
 	}
@@ -284,14 +287,14 @@ func TestApplyNacosUpdate_ParseError(t *testing.T) {
 	}
 }
 
-func TestApplyNacosUpdate_ApplierPanicIsolated(t *testing.T) {
+func TestApplyRemoteUpdate_ApplierPanicIsolated(t *testing.T) {
 	t.Cleanup(ResetForTest)
 	GlobalConfig = newLocal()
 	var afterCalled bool
 	RegisterApplier("boom", func(_, _ *CKManConfig) { panic("boom") })
 	RegisterApplier("after", func(_, _ *CKManConfig) { afterCalled = true })
 
-	if err := ApplyNacosUpdate([]byte(`{ log: { level: "DEBUG" } }`), ".hjson"); err != nil {
+	if err := ApplyRemoteUpdate([]byte(`{ log: { level: "DEBUG" } }`), ".hjson"); err != nil {
 		t.Fatalf("apply error: %v", err)
 	}
 	if !afterCalled {
@@ -299,7 +302,7 @@ func TestApplyNacosUpdate_ApplierPanicIsolated(t *testing.T) {
 	}
 }
 
-func TestApplyNacosUpdate_AppliersInRegistrationOrder(t *testing.T) {
+func TestApplyRemoteUpdate_AppliersInRegistrationOrder(t *testing.T) {
 	t.Cleanup(ResetForTest)
 	GlobalConfig = newLocal()
 	var order []string
@@ -307,7 +310,7 @@ func TestApplyNacosUpdate_AppliersInRegistrationOrder(t *testing.T) {
 	RegisterApplier("b", func(_, _ *CKManConfig) { order = append(order, "b") })
 	RegisterApplier("c", func(_, _ *CKManConfig) { order = append(order, "c") })
 
-	if err := ApplyNacosUpdate([]byte(`{ log: { level: "DEBUG" } }`), ".hjson"); err != nil {
+	if err := ApplyRemoteUpdate([]byte(`{ log: { level: "DEBUG" } }`), ".hjson"); err != nil {
 		t.Fatalf("apply error: %v", err)
 	}
 	if !reflect.DeepEqual(order, []string{"a", "b", "c"}) {
@@ -315,15 +318,15 @@ func TestApplyNacosUpdate_AppliersInRegistrationOrder(t *testing.T) {
 	}
 }
 
-func TestApplyInitialNacos_SetsHashSkipsAppliers(t *testing.T) {
+func TestApplyInitialRemote_SetsHashSkipsAppliers(t *testing.T) {
 	t.Cleanup(ResetForTest)
 	cfg := newLocal()
 	var calls int
 	RegisterApplier("never", func(_, _ *CKManConfig) { calls++ })
 
 	data := []byte(`{ log: { level: "DEBUG" } }`)
-	if err := ApplyInitialNacos(data, ".hjson", &cfg); err != nil {
-		t.Fatalf("ApplyInitialNacos error: %v", err)
+	if err := ApplyInitialRemote(data, ".hjson", &cfg); err != nil {
+		t.Fatalf("ApplyInitialRemote error: %v", err)
 	}
 	if calls != 0 {
 		t.Errorf("initial apply should not invoke applier, calls=%d", calls)
@@ -333,8 +336,8 @@ func TestApplyInitialNacos_SetsHashSkipsAppliers(t *testing.T) {
 	}
 
 	GlobalConfig = cfg
-	if err := ApplyNacosUpdate(data, ".hjson"); err != nil {
-		t.Fatalf("ApplyNacosUpdate error: %v", err)
+	if err := ApplyRemoteUpdate(data, ".hjson"); err != nil {
+		t.Fatalf("ApplyRemoteUpdate error: %v", err)
 	}
 	if calls != 0 {
 		t.Errorf("same-content update after initial should be deduped, calls=%d", calls)
@@ -360,7 +363,7 @@ func TestMergeFromNacos_OneWayBoolGate(t *testing.T) {
 			SwaggerEnable: false,
 		},
 	}
-	mergeFromNacos(&local, &remote)
+	mergeFromRemote(&local, &remote)
 
 	if !local.Server.Metric {
 		t.Error("Metric: documented behaviour is that Nacos cannot turn off (false ignored)")
@@ -370,5 +373,21 @@ func TestMergeFromNacos_OneWayBoolGate(t *testing.T) {
 	}
 	if !local.Server.SwaggerEnable {
 		t.Error("SwaggerEnable: documented behaviour is that Nacos cannot turn off (false ignored)")
+	}
+}
+
+// 远端不能改写注册中心 / 配置中心的选择，否则会出现配置中心把自己换掉的循环。
+func TestMergeFromRemote_DiscoverySectionsNeverOverridden(t *testing.T) {
+	t.Cleanup(ResetForTest)
+	local := newLocal()
+	local.Registry = RegistryConfig{Type: DISCOVERY_NACOS, ServiceName: "ckman"}
+	local.ConfigCenter = ConfigCenterConfig{Type: DISCOVERY_NACOS}
+	remote, err := parseRemote([]byte(`{ registry: { type: "none", service_name: "x" }, config_center: { type: "none" } }`), ".hjson")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mergeFromRemote(&local, &remote)
+	if local.Registry.Type != DISCOVERY_NACOS || local.Registry.ServiceName != "ckman" || local.ConfigCenter.Type != DISCOVERY_NACOS {
+		t.Errorf("discovery sections overridden: registry=%+v config_center=%+v", local.Registry, local.ConfigCenter)
 	}
 }

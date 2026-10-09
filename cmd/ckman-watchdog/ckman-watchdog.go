@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -55,7 +56,7 @@ var (
 	restartMax        = 3
 	startupGrace      = 60 * time.Second
 	checkDB           = true
-	checkNacos        = true
+	checkDiscovery    = true
 )
 
 type verdict int
@@ -461,7 +462,7 @@ func dbAddr(cfg *config.CKManConfig) (string, bool) {
 	return net.JoinHostPort(host, strconv.Itoa(port)), true
 }
 
-// depCheck 探 DB / Nacos(仅告警)。返回失败描述，空串表示都正常(或都跳过)。
+// depCheck 探 DB / 注册中心 / 配置中心(仅告警)。返回失败描述，空串表示都正常(或都跳过)。
 func depCheck(cfg *config.CKManConfig) string {
 	var msgs []string
 	if checkDB {
@@ -471,23 +472,26 @@ func depCheck(cfg *config.CKManConfig) string {
 			}
 		}
 	}
-	if checkNacos && cfg.Nacos.Enabled {
-		if err := checkNacosDep(cfg); err != nil {
-			msgs = append(msgs, "Nacos 探测失败: "+err.Error())
+	if checkDiscovery {
+		eps := config.DiscoveryEndpoints(cfg)
+		backends := make([]string, 0, len(eps))
+		for b := range eps {
+			backends = append(backends, b)
+		}
+		sort.Strings(backends)
+		for _, b := range backends {
+			if err := dialAny(eps[b]); err != nil {
+				msgs = append(msgs, fmt.Sprintf("%s 探测失败: %v", b, err))
+			}
 		}
 	}
 	return strings.Join(msgs, "; ")
 }
 
-// checkNacosDep TCP 拨号每个 nacos host:port，任一可达即视为可用(不启动 SDK,避免注册副作用)。
-func checkNacosDep(cfg *config.CKManConfig) error {
-	if len(cfg.Nacos.Hosts) == 0 {
-		return nil
-	}
-	port := strconv.FormatUint(cfg.Nacos.Port, 10)
+// dialAny TCP 拨号每个地址，任一可达即视为可用(不启动 SDK,避免注册副作用)。
+func dialAny(addrs []string) error {
 	var lastErr error
-	for _, host := range cfg.Nacos.Hosts {
-		addr := net.JoinHostPort(strings.TrimSpace(host), port)
+	for _, addr := range addrs {
 		if err := dialTCP(addr); err != nil {
 			lastErr = err
 			continue
@@ -508,7 +512,7 @@ func dialTCP(addr string) error {
 
 // ---------------- 探测主流程 ----------------
 
-// probe 执行一轮探测。deep=true 时附加 DB/Nacos 依赖探测(仅自愈模式用)。
+// probe 执行一轮探测。deep=true 时附加 DB/注册中心/配置中心依赖探测(仅自愈模式用)。
 func probe(cfg *config.CKManConfig, p *paths, deep bool) probeResult {
 	pids := findCkmanPids(*p)
 

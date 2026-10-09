@@ -28,7 +28,7 @@ import (
 	_ "github.com/housepower/ckman/repository/mysql"
 	_ "github.com/housepower/ckman/repository/postgres"
 	"github.com/housepower/ckman/server"
-	"github.com/housepower/ckman/service/nacos"
+	"github.com/housepower/ckman/service/discovery"
 	"github.com/housepower/ckman/service/zookeeper"
 	"github.com/patrickmn/go-cache"
 	"github.com/spf13/cobra"
@@ -112,22 +112,28 @@ func main() {
 		log.Logger.Fatalf("init persistent failed:%v", err)
 	}
 
-	nacosClient, err := nacos.InitNacosClient(&config.GlobalConfig.Nacos, LogFilePath)
-	if err != nil {
-		log.Logger.Fatalf("Failed to init nacos client, %v", err)
+	// 在 InitLogger 之后注入 remote_apply 使用的 logger（config 不能反向 import log）。
+	config.SetRemoteLogger(log.Logger)
+	for _, w := range config.ConfigWarnings {
+		log.Logger.Warn(w)
 	}
 
-	// 在 InitLogger 之后注入 nacos_apply 使用的 logger（config 不能反向 import log）。
-	config.SetNacosLogger(log.Logger)
+	// SDK 的缓存与日志目录，沿用原 nacos client 的取法。
+	discoveryCacheDir, err := filepath.Abs(filepath.Dir(LogFilePath))
+	if err != nil {
+		log.Logger.Fatalf("resolve discovery cache dir failed: %v", err)
+	}
+	configSource, err := discovery.NewConfigSource(&config.GlobalConfig, discoveryCacheDir)
+	if err != nil {
+		log.Logger.Fatalf("Failed to init config center %s, %v", config.GlobalConfig.ConfigCenter.Type, err)
+	}
+	defer configSource.Close()
 
-	// 启动期尝试从 Nacos 拉取配置并合并到 GlobalConfig；失败/不可达则沿用本地，启动不阻塞。
-	// 备份 Log 段以便在 merge 后立即按新值重建 logger（ApplyInitialNacos 故意不触发 applier）。
-	logBefore := config.GlobalConfig.Log
-	nacosClient.PullAndMerge(&config.GlobalConfig)
-	if !reflect.DeepEqual(logBefore, config.GlobalConfig.Log) {
+	// 启动期尝试从配置中心拉取配置并合并到 GlobalConfig；失败/不可达则沿用本地，启动不阻塞。
+	if discovery.LoadInitial(configSource, &config.GlobalConfig) {
 		log.InitLogger(LogFilePath, &config.GlobalConfig.Log)
-		config.SetNacosLogger(log.Logger)
-		log.Logger.Infof("log config updated by nacos at startup: %+v", config.GlobalConfig.Log)
+		config.SetRemoteLogger(log.Logger)
+		log.Logger.Infof("log config updated by %s at startup: %+v", config.GlobalConfig.ConfigCenter.Type, config.GlobalConfig.Log)
 	}
 
 	// log applier 在 Log 段变化时重建 logger；其余 applier 待对应服务 Start 完成后再注册。
@@ -179,10 +185,26 @@ func main() {
 	config.RegisterApplier("cron", cronApplier(&cronSvr))
 	config.RegisterApplier("ck", ckPoolApplier)
 
-	err = nacosClient.Start(config.GlobalConfig.Server.Ip, config.GlobalConfig.Server.Port)
-	if err != nil {
-		log.Logger.Fatalf("Failed to start nacos client, %v", err)
+	// 必须在所有 applier 注册之后再监听，否则早到的推送会漏掉 cron / ck applier。
+	if err = discovery.Watch(configSource); err != nil {
+		log.Logger.Fatalf("Failed to watch config center %s, %v", config.GlobalConfig.ConfigCenter.Type, err)
 	}
+
+	// 必须在 HTTP server 起来之后再注册，注册出去的实例要能被访问到。
+	registry, err := discovery.NewRegistry(&config.GlobalConfig, discoveryCacheDir)
+	if err != nil {
+		log.Logger.Fatalf("Failed to init registry %s, %v", config.GlobalConfig.Registry.Type, err)
+	}
+	registry.OnChange(config.SetClusterNodes)
+	if err = registry.Start(config.ClusterNode{Ip: config.GlobalConfig.Server.Ip, Port: config.GlobalConfig.Server.Port}); err != nil {
+		log.Logger.Fatalf("Failed to start registry %s, %v", config.GlobalConfig.Registry.Type, err)
+	}
+	// 退出时先反注册，让其他节点尽快感知，不必等心跳超时。
+	defer func() {
+		if err := registry.Stop(); err != nil {
+			log.Logger.Warnf("stop registry failed: %v", err)
+		}
+	}()
 
 	//block here, waiting for terminal signal
 	handleSignal(signalCh)
@@ -323,7 +345,7 @@ func logApplier(old, new *config.CKManConfig) {
 		return
 	}
 	log.InitLogger(LogFilePath, &new.Log)
-	config.SetNacosLogger(log.Logger)
+	config.SetRemoteLogger(log.Logger)
 	log.Logger.Infof("log config reloaded: %+v", new.Log)
 }
 

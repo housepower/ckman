@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,6 +48,8 @@ type CKManConfig struct {
 	Log              CKManLogConfig
 	PersistentConfig map[string]map[string]interface{} `yaml:"persistent_config" json:"persistent_config"`
 	Nacos            CKManNacosConfig
+	Registry         RegistryConfig     `yaml:"registry" json:"registry"`
+	ConfigCenter     ConfigCenterConfig `yaml:"config_center" json:"config_center"`
 	Cron             CronJob
 	Version          string `yaml:"-" json:"-"`
 }
@@ -96,6 +99,35 @@ type CKManNacosConfig struct {
 	BeatInterval   int64  `yaml:"beat_interval" json:"beat_interval"`
 	SyncConfig     bool   `yaml:"sync_config" json:"sync_config"`
 }
+
+// 注册中心 / 配置中心后端类型。
+const (
+	DISCOVERY_NONE  string = "none"
+	DISCOVERY_NACOS string = "nacos"
+)
+
+// RegistryConfig 选择注册中心后端；后端连接参数在各自的配置段（如 nacos）里。
+type RegistryConfig struct {
+	Type        string
+	ServiceName string `yaml:"service_name" json:"service_name"`
+}
+
+func (r RegistryConfig) Enabled() bool {
+	return r.Type != "" && r.Type != DISCOVERY_NONE
+}
+
+// ConfigCenterConfig 选择配置中心后端；后端连接参数在各自的配置段（如 nacos）里。
+type ConfigCenterConfig struct {
+	Type string
+}
+
+func (c ConfigCenterConfig) Enabled() bool {
+	return c.Type != "" && c.Type != DISCOVERY_NONE
+}
+
+// ConfigWarnings 收集解析配置时产生的告警。解析发生在 logger 初始化之前，由调用方在
+// logger 就绪后输出。
+var ConfigWarnings []string
 
 func fillDefault(c *CKManConfig) {
 	c.Server.Port = 8808
@@ -170,7 +202,82 @@ func ParseConfigFile(p, version string) error {
 		return err
 	}
 	MergeEnv()
+	warns, err := normalizeDiscovery(&GlobalConfig)
+	if err != nil {
+		return err
+	}
+	ConfigWarnings = warns
 	return nil
+}
+
+// normalizeDiscovery 由旧的 nacos.enabled / nacos.sync_config 推导 registry / config_center
+// 的类型，保证旧配置文件不改也能保持原有行为。显式写了新段时以新段为准。
+// 规则见 docs/superpowers/specs/2026-10-09-registry-config-split-design.md。
+func normalizeDiscovery(c *CKManConfig) ([]string, error) {
+	var warns []string
+	explicit := c.Registry.Type != "" || c.ConfigCenter.Type != ""
+
+	if c.Registry.Type == "" {
+		c.Registry.Type = DISCOVERY_NONE
+		if c.Nacos.Enabled {
+			c.Registry.Type = DISCOVERY_NACOS
+		}
+	}
+	if c.ConfigCenter.Type == "" {
+		c.ConfigCenter.Type = DISCOVERY_NONE
+		if c.Nacos.Enabled && c.Nacos.SyncConfig {
+			c.ConfigCenter.Type = DISCOVERY_NACOS
+		}
+	}
+	if c.Registry.ServiceName == "" {
+		c.Registry.ServiceName = c.Nacos.DataID
+		if c.Registry.ServiceName == "" {
+			c.Registry.ServiceName = "ckman"
+		}
+	}
+
+	for _, t := range []struct{ section, typ string }{
+		{"registry", c.Registry.Type},
+		{"config_center", c.ConfigCenter.Type},
+	} {
+		switch t.typ {
+		case DISCOVERY_NONE, DISCOVERY_NACOS:
+		default:
+			return nil, fmt.Errorf("unsupported %s type %q", t.section, t.typ)
+		}
+	}
+
+	usesNacos := c.Registry.Type == DISCOVERY_NACOS || c.ConfigCenter.Type == DISCOVERY_NACOS
+	// 新格式里 nacos.enabled 可以不写（即 false），所以只在它为 true 却用不上时告警。
+	if explicit && c.Nacos.Enabled && !usesNacos {
+		warns = append(warns, fmt.Sprintf(
+			"nacos.enabled=%v is ignored because registry/config_center are set explicitly (registry=%s, config_center=%s)",
+			c.Nacos.Enabled, c.Registry.Type, c.ConfigCenter.Type))
+	}
+	return warns, nil
+}
+
+// DiscoveryEndpoints 返回已启用的注册中心 / 配置中心后端地址，key 为后端类型。
+// 供 watchdog 做 TCP 探测，不启动 SDK。
+func DiscoveryEndpoints(c *CKManConfig) map[string][]string {
+	out := make(map[string][]string)
+	for _, typ := range []string{c.Registry.Type, c.ConfigCenter.Type} {
+		if _, ok := out[typ]; ok {
+			continue
+		}
+		switch typ {
+		case DISCOVERY_NACOS:
+			port := strconv.FormatUint(c.Nacos.Port, 10)
+			var addrs []string
+			for _, h := range c.Nacos.Hosts {
+				addrs = append(addrs, net.JoinHostPort(strings.TrimSpace(h), port))
+			}
+			if len(addrs) > 0 {
+				out[typ] = addrs
+			}
+		}
+	}
+	return out
 }
 
 func MarshConfigFile() error {
@@ -215,9 +322,34 @@ func GetClusterPeers() []ClusterNode {
 	return list
 }
 
+// SetClusterNodes 由注册中心的成员变更回调调用：并入 self、去重并按 ip:port 排序后写入
+// ClusterNodes。排序保证各节点基于同一份成员列表得出相同的主节点。
+func SetClusterNodes(nodes []ClusterNode) {
+	self := ClusterNode{Ip: GlobalConfig.Server.Ip, Port: GlobalConfig.Server.Port}
+	seen := map[ClusterNode]struct{}{}
+	list := make([]ClusterNode, 0, len(nodes)+1)
+	for _, n := range append(nodes, self) {
+		if _, ok := seen[n]; ok {
+			continue
+		}
+		seen[n] = struct{}{}
+		list = append(list, n)
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].Ip != list[j].Ip {
+			return list[i].Ip < list[j].Ip
+		}
+		return list[i].Port < list[j].Port
+	})
+
+	ClusterMutex.Lock()
+	ClusterNodes = list
+	ClusterMutex.Unlock()
+}
+
 func IsMasterNode() bool {
-	//if disabled nacos, always consider the current node to be the master node
-	if !GlobalConfig.Nacos.Enabled {
+	// 未启用注册中心即单机部署，当前节点总是主节点
+	if !GlobalConfig.Registry.Enabled() {
 		return true
 	}
 	ClusterMutex.RLock()

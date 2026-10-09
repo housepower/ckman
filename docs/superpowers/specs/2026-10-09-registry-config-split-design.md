@@ -1,7 +1,7 @@
 # 注册中心与配置中心拆分设计
 
 - 日期：2026-10-09
-- 状态：草案，待评审
+- 状态：第一步（纯重构）已实现；第二步（Consul / Apollo）待实施
 
 ## 背景与目标
 
@@ -43,35 +43,27 @@ Nacos 仍然是"一个连接、提供两种能力"，这种绑定放在**连接�
 ```go
 package discovery
 
-type Member struct {
-    Ip   string
-    Port int
-}
-
 // Registry 负责注册本实例并维护集群成员列表。
 type Registry interface {
-    // Start 注册本实例并开始订阅成员变更；变更通过 OnChange 回调通知。
-    Start(self Member) error
+    // Start 订阅成员变更并注册本实例；变更通过 OnChange 回调通知。
+    Start(self config.ClusterNode) error
     // Stop 反注册并释放资源；必须 best-effort，任一步失败也要继续执行后续步骤。
     Stop() error
     // OnChange 设置成员变更回调，必须在 Start 之前调用。回调收到的是完整的成员快照。
-    OnChange(func([]Member))
-    // Endpoints 返回后端地址，供 watchdog 做依赖探测。
-    Endpoints() []string
+    OnChange(func([]config.ClusterNode))
 }
 
-type Format string // ".hjson" / ".json" / ".yaml"，与 config.FORMAT_* 对齐
-
-// ConfigSource 负责拉取并监听远端配置。
+// ConfigSource 负责拉取并监听远端配置。format 取值为 config.FORMAT_*。
 type ConfigSource interface {
-    // Load 拉取一次完整配置。内容为空返回 (nil, "", nil)。
-    Load() ([]byte, Format, error)
+    // Load 拉取一次完整配置。远端没有配置时返回空内容、nil 错误。
+    Load() (data []byte, format string, err error)
     // Watch 开始监听变更，回调收到的是完整内容。
-    Watch(func([]byte, Format)) error
+    Watch(func(data []byte, format string)) error
     Close() error
-    Endpoints() []string
 }
 ```
+
+成员直接复用 `config.ClusterNode`，不另起类型。接口里不放 `Endpoints()`：watchdog 不启动 SDK，后端地址由纯函数 `config.DiscoveryEndpoints` 提供。
 
 要点：
 
@@ -82,9 +74,9 @@ type ConfigSource interface {
 
 ```
 service/discovery/
-  registry.go        # Registry / Member
-  source.go          # ConfigSource / Format
-  factory.go         # NewRegistry(cfg) / NewConfigSource(cfg)：按 type 分派，none → noop 实现
+  discovery.go       # Registry / ConfigSource 接口
+  factory.go         # NewRegistry / NewConfigSource：按 type 分派，none → noop 实现；
+                     # LoadInitial（启动拉取，原 PullAndMerge）/ Watch（热更新）
   noop.go
   nacos/
     conn.go          # 由 CKManNacosConfig 构造 ClientConfig/ServerConfigs（从 InitNacosClient 抽出）
@@ -99,7 +91,7 @@ service/discovery/
 
 `service/nacos/` 在第一步重构完成后删除，逻辑迁到 `service/discovery/nacos/`。
 
-`config/nacos_apply.go` 的合并、applier、hash 去重**原样保留**，只做改名：`ApplyNacosUpdate` → `ApplyRemoteUpdate`，`ApplyInitialNacos` → `ApplyInitialRemote`，`mergeFromNacos` → `mergeFromRemote`，`SetNacosLogger` → `SetRemoteLogger`。文件改名为 `remote_apply.go`。旧函数名在一个版本内保留为别名。
+`config/nacos_apply.go` 的合并、applier、hash 去重**原样保留**，只做改名：`ApplyNacosUpdate` → `ApplyRemoteUpdate`，`ApplyInitialNacos` → `ApplyInitialRemote`，`mergeFromNacos` → `mergeFromRemote`，`SetNacosLogger` → `SetRemoteLogger`。文件改名为 `remote_apply.go`。这些函数只在本仓库内调用，不保留旧名别名。
 
 ## 配置模型
 
@@ -136,9 +128,9 @@ apollo: {
 
 `CKManConfig` 新增 `Registry`、`ConfigCenter`、`Consul`、`Apollo` 四个字段，`Nacos` 字段保留不动。
 
-### 兼容规则：`normalize()`
+### 兼容规则：`normalizeDiscovery()`
 
-在 `config` 包新增 `normalize(c *CKManConfig)`，在 `fillDefault` → 解析文件 → `MergeEnv` 之后调用，**只调用这一次**。之后业务代码不再读取 `Nacos.Enabled` 和 `Nacos.SyncConfig`。
+在 `config` 包新增 `normalizeDiscovery(c *CKManConfig)`，由 `ParseConfigFile` 在 `fillDefault` → 解析文件 → `MergeEnv` 之后调用，**只调用这一次**。所有命令（ckman、watchdog、ckmanctl 等）都经过 `ParseConfigFile`，因此都能拿到推导后的 type。解析发生在 logger 初始化之前，告警先存进 `config.ConfigWarnings`，由 `main.go` 在 logger 就绪后输出。之后业务代码不再读取 `Nacos.Enabled` 和 `Nacos.SyncConfig`。
 
 | 条件 | 推导结果 |
 |---|---|
@@ -147,7 +139,7 @@ apollo: {
 | `config_center.type` 为空，`nacos.enabled=true` 且 `sync_config=true` | `config_center.type = nacos` |
 | `config_center.type` 为空，其他情况 | `config_center.type = none` |
 | `registry.service_name` 为空 | 取 `nacos.data_id`（默认 `ckman`），与现在一致 |
-| 显式写了新段，同时 `nacos.enabled` 的含义与之矛盾 | 以新段为准，打 WARN |
+| 显式写了新段，且 `nacos.enabled=true` 但两个 type 都不是 nacos | 以新段为准，打 WARN（新格式里 `nacos.enabled` 可以不写，所以不对 false 告警） |
 | `type` 取值非法 | 启动失败（Fatal），不静默回退 |
 
 注意 `fillDefault` 里 `SyncConfig` 的默认值是 `true`，因此旧配置只要打开了 `nacos.enabled`，就会同时得到注册中心和配置中心，与现在的行为一致。
@@ -193,7 +185,7 @@ handleSignal → registry.Stop(); source.Close()
 
 `setClusterNodes` 统一负责写入 `config.ClusterNodes`：
 
-- **按 `ip:port` 排序后再写入。** 现在 `IsMasterNode()` 取 `ClusterNodes[0]`，而 Nacos 回调和 Consul blocking query 返回的顺序都不保证稳定，可能出现两个节点同时认为自己是主节点。排序后至少保证各节点在同一份列表下得出同一个结论。
+- **按 `ip:port` 排序后再写入（实现为 `config.SetClusterNodes`）。** 现在 `IsMasterNode()` 取 `ClusterNodes[0]`，而 Nacos 回调和 Consul blocking query 返回的顺序都不保证稳定，可能出现两个节点同时认为自己是主节点。排序后至少保证各节点在同一份列表下得出同一个结论。
 - **始终把 self 并进去**，去重。`controller/config.go` 的 `GetInstances` 里现有的 union 逻辑下沉到这里。
 
 `IsMasterNode()` 改为：
@@ -254,9 +246,9 @@ if GlobalConfig.Registry.Type == "none" {
 
 ## watchdog
 
-`cmd/ckman-watchdog` 的 `checkNacosDep` 泛化为 `checkDiscoveryDeps`：对 `registry.type` 和 `config_center.type` 对应的后端，读取各自配置段里的地址，逐个做 TCP 探测。watchdog 不启动 SDK，所以不调用 `Endpoints()`，而是在 `config` 包里提供一个纯函数 `DiscoveryEndpoints(cfg) map[string][]string`，watchdog 和各后端实现共用。
+`cmd/ckman-watchdog` 的 `checkNacosDep` 泛化为 `depCheck` 里的注册中心/配置中心探测：`config.DiscoveryEndpoints(cfg)` 是一个纯函数，返回 `map[后端类型][]地址`，watchdog 对每个后端的地址做 TCP 拨号，任一可达即视为可用。watchdog 不启动 SDK，避免注册副作用。
 
-`normalize()` 必须同时在 watchdog 加载配置时调用，否则 watchdog 看不到推导出的 type。
+watchdog 通过 `ParseConfigFile` 加载配置，自动经过 `normalizeDiscovery`。
 
 ## 运维约束（写进文档）
 
@@ -266,19 +258,21 @@ if GlobalConfig.Registry.Type == "none" {
 
 ## 实施步骤
 
-### 第一步：纯重构，行为不变
+### 第一步：纯重构，行为不变（已完成）
 
 1. 新增 `service/discovery` 接口、factory、noop 实现。
 2. 把 Nacos 拆成 `registry.go` 和 `source.go`，删除 `service/nacos`。
-3. `config` 包：新增 `Registry` / `ConfigCenter` 段和 `normalize()`，`IsMasterNode` 改用 `Registry.Type`；`nacos_apply.go` 改名，旧名保留别名；`diffBootstrap` 补上新段。
+3. `config` 包：新增 `Registry` / `ConfigCenter` 段和 `normalizeDiscovery()`，`IsMasterNode` 改用 `Registry.Type`；`nacos_apply.go` 改名；`diffBootstrap` 补上新段。
 4. `main.go` 按新的启动编排改写，退出时调用 `registry.Stop()`。
 5. watchdog 泛化依赖探测。
 
 验收标准：
 
 - 现有测试全部通过。
-- `normalize()` 单元测试覆盖兼容规则表格里的每一行。
+- `normalizeDiscovery()` 单元测试覆盖兼容规则表格里的每一行。
 - 用一份**未修改**的旧 `ckman.hjson`，连真实 Nacos 起两个实例：成员列表、主节点判断、配置热更新（Log/Cron/ClickHouse）、进程退出后实例被摘除，这几项与重构前行为一致。
+  - 实测（nacos-server v2.4.3，2026-10-09）：两个实例互相可见；启动拉取与热更新生效；远端下发 `registry` 段被拦截并打 WARN；SIGTERM 后约 0.5 秒对端成员列表即更新（重构前不反注册，要等心跳超时）。
+  - 本机设了 `http_proxy` 时，curl 调 Nacos OpenAPI 要加 `--noproxy '*'`，ckman 进程也要去掉代理环境变量再启动。
 
 ### 第二步：新增后端
 

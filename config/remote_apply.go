@@ -12,18 +12,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// nacosLogger is the logger used by the nacos_apply functions.
-// It defaults to a no-op logger and can be set via SetNacosLogger.
-var nacosLogger *zap.SugaredLogger
+// remoteLogger is the logger used by the remote_apply functions.
+// It defaults to a no-op logger and can be set via SetRemoteLogger.
+var remoteLogger *zap.SugaredLogger
 
 func init() {
-	nacosLogger = zap.NewNop().Sugar()
+	remoteLogger = zap.NewNop().Sugar()
 }
 
-// SetNacosLogger sets the logger used by ApplyNacosUpdate and ApplyInitialNacos.
+// SetRemoteLogger sets the logger used by ApplyRemoteUpdate and ApplyInitialRemote.
 // Call this once after the application logger is initialised (e.g. in main.go).
-func SetNacosLogger(l *zap.SugaredLogger) {
-	nacosLogger = l
+func SetRemoteLogger(l *zap.SugaredLogger) {
+	remoteLogger = l
 }
 
 // Applier 是热生效回调。old 为 merge 前的 GlobalConfig 快照，new 为 merge 后的 &GlobalConfig。
@@ -61,9 +61,9 @@ func ResetForTest() {
 	lastAppliedHash = ""
 }
 
-// mergeFromNacos 将 remote 中非 bootstrap、非保留段的非零字段覆盖到 local。
+// mergeFromRemote 将 remote 中非 bootstrap、非保留段的非零字段覆盖到 local。
 // 规则见 docs/superpowers/specs/2026-05-16-nacos-config-hotreload-design.md。
-func mergeFromNacos(local, remote *CKManConfig) {
+func mergeFromRemote(local, remote *CKManConfig) {
 	// 1. Log：DeepEqual 零值判定后整段覆盖
 	if !reflect.DeepEqual(remote.Log, CKManLogConfig{}) {
 		local.Log = remote.Log
@@ -105,7 +105,7 @@ func mergeFromNacos(local, remote *CKManConfig) {
 		local.Server.Pprof = remote.Server.Pprof
 	}
 
-	// ConfigFile / Version / Nacos / Server.Ip,Port,Https,Cert,Key,PkgPath / PersistentPolicy /
+	// ConfigFile / Version / Nacos / Registry / ConfigCenter / Server.Ip,Port,Https,Cert,Key,PkgPath / PersistentPolicy /
 	// PersistentConfig 永不覆盖。
 }
 
@@ -117,7 +117,7 @@ type bootstrapDiff struct {
 }
 
 // diffBootstrap 返回 remote 想改、但 merge 不会覆盖的 bootstrap 字段列表。
-// 用于在 ApplyNacosUpdate 中输出 WARN 提示运维手动重启。
+// 用于在 ApplyRemoteUpdate 中输出 WARN 提示运维手动重启。
 func diffBootstrap(local, remote *CKManConfig) []bootstrapDiff {
 	var diffs []bootstrapDiff
 	add := func(field string, oldV, newV interface{}) {
@@ -151,10 +151,16 @@ func diffBootstrap(local, remote *CKManConfig) []bootstrapDiff {
 	if !reflect.DeepEqual(remote.Nacos, CKManNacosConfig{}) && !reflect.DeepEqual(local.Nacos, remote.Nacos) {
 		add("Nacos", "<section>", "<section>")
 	}
+	if !reflect.DeepEqual(remote.Registry, RegistryConfig{}) && !reflect.DeepEqual(local.Registry, remote.Registry) {
+		add("Registry", local.Registry, remote.Registry)
+	}
+	if !reflect.DeepEqual(remote.ConfigCenter, ConfigCenterConfig{}) && !reflect.DeepEqual(local.ConfigCenter, remote.ConfigCenter) {
+		add("ConfigCenter", local.ConfigCenter, remote.ConfigCenter)
+	}
 	return diffs
 }
 
-// parseRemote 按本地配置文件后缀解析 Nacos 推送的内容。
+// parseRemote 按 fmtExt 解析配置中心推送的内容。
 // fmtExt 应为 ".hjson" / ".json" / ".yaml"；其他后缀返回错误。
 func parseRemote(data []byte, fmtExt string) (CKManConfig, error) {
 	var out CKManConfig
@@ -179,48 +185,48 @@ func hashContent(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// ApplyInitialNacos 在启动阶段使用：把 Nacos 返回的内容合并到 cfg，并设置 lastAppliedHash。
+// ApplyInitialRemote 在启动阶段使用：把配置中心返回的内容合并到 cfg，并设置 lastAppliedHash。
 // 不触发 applier（启动期各服务尚未 Start）。
-func ApplyInitialNacos(data []byte, fmtExt string, cfg *CKManConfig) error {
+func ApplyInitialRemote(data []byte, fmtExt string, cfg *CKManConfig) error {
 	remote, err := parseRemote(data, fmtExt)
 	if err != nil {
-		return fmt.Errorf("parse nacos config: %w", err)
+		return fmt.Errorf("parse remote config: %w", err)
 	}
 	ConfigMutex.Lock()
 	defer ConfigMutex.Unlock()
 	diffs := diffBootstrap(cfg, &remote)
-	mergeFromNacos(cfg, &remote)
+	mergeFromRemote(cfg, &remote)
 	lastAppliedHash = hashContent(data)
 	for _, d := range diffs {
-		nacosLogger.Warnf(
-			"nacos config: bootstrap field %s differs from local (local=%v, remote=%v), ignored; local value will be used",
+		remoteLogger.Warnf(
+			"remote config: bootstrap field %s differs from local (local=%v, remote=%v), ignored; local value will be used",
 			d.field, d.old, d.new,
 		)
 	}
-	nacosLogger.Infof("nacos config initial merge done, sha=%s", lastAppliedHash)
+	remoteLogger.Infof("remote config initial merge done, sha=%s", lastAppliedHash)
 	return nil
 }
 
-// ApplyNacosUpdate 在 Nacos OnChange 回调中使用：解析、合并、触发 applier。
+// ApplyRemoteUpdate 在配置中心的变更回调中使用：解析、合并、触发 applier。
 // 解析失败立即返回，不进入 merge；内容与上次相同则跳过。
-func ApplyNacosUpdate(data []byte, fmtExt string) error {
+func ApplyRemoteUpdate(data []byte, fmtExt string) error {
 	remote, err := parseRemote(data, fmtExt)
 	if err != nil {
-		return fmt.Errorf("parse nacos config: %w", err)
+		return fmt.Errorf("parse remote config: %w", err)
 	}
 	hash := hashContent(data)
 
 	ConfigMutex.Lock()
 	if hash == lastAppliedHash {
 		ConfigMutex.Unlock()
-		nacosLogger.Debugf("nacos config unchanged (sha=%s), skip", hash)
+		remoteLogger.Debugf("remote config unchanged (sha=%s), skip", hash)
 		return nil
 	}
 	// 值拷贝即可：CKManConfig 中唯一的引用类型 PersistentConfig 是 bootstrap 字段，
-	// mergeFromNacos 不会改写它，因此 oldSnapshot 与 GlobalConfig 不会通过 map 别名互相影响。
+	// mergeFromRemote 不会改写它，因此 oldSnapshot 与 GlobalConfig 不会通过 map 别名互相影响。
 	oldSnapshot := GlobalConfig
 	diffs := diffBootstrap(&GlobalConfig, &remote)
-	mergeFromNacos(&GlobalConfig, &remote)
+	mergeFromRemote(&GlobalConfig, &remote)
 	lastAppliedHash = hash
 	newSnapshot := GlobalConfig
 	appliersMu.Lock()
@@ -229,10 +235,10 @@ func ApplyNacosUpdate(data []byte, fmtExt string) error {
 	appliersMu.Unlock()
 	ConfigMutex.Unlock()
 
-	nacosLogger.Infof("nacos config received, sha=%s", hash)
+	remoteLogger.Infof("remote config received, sha=%s", hash)
 	for _, d := range diffs {
-		nacosLogger.Warnf(
-			"nacos config: bootstrap field %s changed (local=%v, remote=%v), "+
+		remoteLogger.Warnf(
+			"remote config: bootstrap field %s changed (local=%v, remote=%v), "+
 				"ignored in memory; restart ckman manually to apply",
 			d.field, d.old, d.new,
 		)
@@ -240,7 +246,7 @@ func ApplyNacosUpdate(data []byte, fmtExt string) error {
 	for _, a := range current {
 		runApplier(a, &oldSnapshot, &newSnapshot)
 	}
-	nacosLogger.Infof("nacos config applied successfully")
+	remoteLogger.Infof("remote config applied successfully")
 	return nil
 }
 
@@ -248,7 +254,7 @@ func ApplyNacosUpdate(data []byte, fmtExt string) error {
 func runApplier(a namedApplier, old, new *CKManConfig) {
 	defer func() {
 		if r := recover(); r != nil {
-			nacosLogger.Errorf("applier %s panic: %v", a.name, r)
+			remoteLogger.Errorf("applier %s panic: %v", a.name, r)
 		}
 	}()
 	a.fn(old, new)
