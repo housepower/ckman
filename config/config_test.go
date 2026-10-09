@@ -200,3 +200,70 @@ func TestDiscoveryEndpoints(t *testing.T) {
 		t.Errorf("DiscoveryEndpoints = %v, want %v", got, want)
 	}
 }
+
+func TestNormalizeDiscoveryBackends(t *testing.T) {
+	cases := []struct {
+		registry, center string
+		wantErr          bool
+	}{
+		{DISCOVERY_CONSUL, DISCOVERY_APOLLO, false},
+		{DISCOVERY_CONSUL, DISCOVERY_CONSUL, false},
+		{DISCOVERY_NACOS, DISCOVERY_APOLLO, false},
+		{DISCOVERY_CONSUL, DISCOVERY_NONE, false},
+		{DISCOVERY_APOLLO, DISCOVERY_NONE, true}, // Apollo 不提供注册发现
+	}
+	for _, tc := range cases {
+		var c CKManConfig
+		fillDefault(&c)
+		c.Registry.Type, c.ConfigCenter.Type = tc.registry, tc.center
+		_, err := normalizeDiscovery(&c)
+		if (err != nil) != tc.wantErr {
+			t.Errorf("registry=%s config_center=%s: err=%v, wantErr %v", tc.registry, tc.center, err, tc.wantErr)
+		}
+	}
+}
+
+func TestDiscoveryEndpointsConsulApollo(t *testing.T) {
+	var c CKManConfig
+	fillDefault(&c)
+	c.Registry.Type = DISCOVERY_CONSUL
+	c.ConfigCenter.Type = DISCOVERY_APOLLO
+	c.Apollo.Meta = "http://10.0.0.5:8080, https://apollo.example.com"
+
+	want := map[string][]string{
+		DISCOVERY_CONSUL: {"127.0.0.1:8500"},
+		DISCOVERY_APOLLO: {"10.0.0.5:8080", "apollo.example.com:443"},
+	}
+	if got := DiscoveryEndpoints(&c); !reflect.DeepEqual(got, want) {
+		t.Errorf("DiscoveryEndpoints = %v, want %v", got, want)
+	}
+}
+
+func TestMergeEnvDiscovery(t *testing.T) {
+	saved := GlobalConfig
+	defer func() { GlobalConfig = saved }()
+	t.Setenv("CONSUL_ADDR", "10.0.0.7:8500")
+	t.Setenv("APOLLO_META", "http://10.0.0.8:8080")
+	GlobalConfig = CKManConfig{}
+	MergeEnv()
+	if GlobalConfig.Consul.Address != "10.0.0.7:8500" || GlobalConfig.Apollo.Meta != "http://10.0.0.8:8080" {
+		t.Errorf("consul=%q apollo=%q", GlobalConfig.Consul.Address, GlobalConfig.Apollo.Meta)
+	}
+}
+
+// 发布的配置模板必须能直接解析，且默认是单机模式。
+func TestTemplateParses(t *testing.T) {
+	saved := GlobalConfig
+	defer func() { GlobalConfig = saved }()
+	GlobalConfig = CKManConfig{}
+
+	if err := ParseConfigFile("../resources/ckman.hjson", ""); err != nil {
+		t.Fatal(err)
+	}
+	if GlobalConfig.Registry.Type != DISCOVERY_NONE || GlobalConfig.ConfigCenter.Type != DISCOVERY_NONE {
+		t.Errorf("registry=%q config_center=%q, want none", GlobalConfig.Registry.Type, GlobalConfig.ConfigCenter.Type)
+	}
+	if len(ConfigWarnings) != 0 {
+		t.Errorf("unexpected warnings: %v", ConfigWarnings)
+	}
+}

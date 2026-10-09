@@ -5,6 +5,8 @@ import (
 
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
+	"github.com/housepower/ckman/service/discovery/apollo"
+	"github.com/housepower/ckman/service/discovery/consul"
 	"github.com/housepower/ckman/service/discovery/nacos"
 	"github.com/pkg/errors"
 )
@@ -16,6 +18,8 @@ func NewRegistry(cfg *config.CKManConfig, cacheDir string) (Registry, error) {
 		return &noopRegistry{}, nil
 	case config.DISCOVERY_NACOS:
 		return nacos.NewRegistry(&cfg.Nacos, cfg.Registry.ServiceName, cacheDir)
+	case config.DISCOVERY_CONSUL:
+		return consul.NewRegistry(&cfg.Consul, cfg.Registry.ServiceName)
 	}
 	return nil, errors.Errorf("unsupported registry type %q", cfg.Registry.Type)
 }
@@ -27,6 +31,10 @@ func NewConfigSource(cfg *config.CKManConfig, cacheDir string) (ConfigSource, er
 		return noopSource{}, nil
 	case config.DISCOVERY_NACOS:
 		return nacos.NewConfigSource(&cfg.Nacos, cfg.ConfigFile, cacheDir)
+	case config.DISCOVERY_CONSUL:
+		return consul.NewConfigSource(&cfg.Consul)
+	case config.DISCOVERY_APOLLO:
+		return apollo.NewConfigSource(&cfg.Apollo, cfg.Server.Ip, cacheDir)
 	}
 	return nil, errors.Errorf("unsupported config_center type %q", cfg.ConfigCenter.Type)
 }

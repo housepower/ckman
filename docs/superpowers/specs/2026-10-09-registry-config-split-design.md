@@ -1,7 +1,7 @@
 # 注册中心与配置中心拆分设计
 
 - 日期：2026-10-09
-- 状态：第一步（纯重构）已实现；第二步（Consul / Apollo）待实施
+- 状态：第一步（纯重构）与第二步（Consul 注册发现、Consul KV / Apollo 配置中心）均已实现
 
 ## 背景与目标
 
@@ -86,7 +86,7 @@ service/discovery/
     registry.go      # TTL 健康检查 + blocking query，要点见下文
     source.go        # KV + blocking query（可选，第二步）
   apollo/
-    source.go        # agollo v4
+    source.go        # 直接对接 Apollo HTTP 接口，不引入 agollo
 ```
 
 `service/nacos/` 在第一步重构完成后删除，逻辑迁到 `service/discovery/nacos/`。
@@ -232,11 +232,21 @@ if GlobalConfig.Registry.Type == "none" {
 5. 配置使用 ckman 的强类型结构，时长用 `time.ParseDuration` 解析，日志用 `log.Logger`。
 6. 部署约定：Consul 的服务注册挂在 agent 节点上。推荐每台 ckman 机器跑一个本地 consul agent，`address` 指向 `127.0.0.1:8500`。如果直接连 server，那台 server 宕机时注册信息会跟着丢失。这一点写进部署文档。
 
+实现时追加的处理：
+
+7. TTL 上报失败（如 agent 重启后丢了注册，返回 404 Unknown check ID）时立即重新注册。
+8. blocking query 的索引处理：索引回退时从 0 重来；**请求失败过一次也把索引重置为 0**。否则 Consul 重启后，带着旧索引的请求会一直挂到 `wait_time` 超时（实测约 31 秒）才恢复；重置后 2 秒内恢复。回调是幂等的（成员列表覆盖写，配置有 hash 去重），重复回调无副作用。
+9. 依赖版本选 `hashicorp/consul/api v1.29.4`：v1.33 起要求 Go 1.25+，会把 go.mod 的 `go 1.24` 抬高并连带大幅升级 `x/crypto`、`x/net`、prometheus 等；v1.29.4 只把 `x/crypto` 从 0.21 抬到 0.22。用到的 API（Agent / Health / KV）在该版本均已稳定。
+
 ### Apollo 配置中心（第二步）
 
-- 使用 `github.com/apolloconfig/agollo/v4`。
-- `Load`：`GetConfig(namespace).GetValue("content")`。json/yaml 类型的命名空间会把整份内容存在 `content` 这个 key 下。
-- `Watch`：`AddChangeListener`，只处理 `content` 变更，把新值交给回调。
+- **不使用 agollo**：`agollo/v4` 会把 go.mod 抬到 Go 1.26，并带入 viper 等一串依赖。改为直接对接 Apollo 的 HTTP 接口（约 300 行）：
+  - `Load`：`GET /configs/{appId}/{cluster}/{namespace}?ip=`，取 `configurations.content`。json/yaml 类型的命名空间会把整份内容存在 `content` 这个 key 下。404（未发布）视为空内容。
+  - `Watch`：`GET /notifications/v2` 长轮询（服务端最多挂起 60 秒，客户端超时 90 秒）；收到变更后带上 `releaseKey` 拉配置，304 表示内容未变不回调。
+  - 访问密钥：`Authorization: Apollo {appId}:{Base64(HmacSHA1(secret, timestamp + "\n" + pathWithQuery))}` 加 `Timestamp` 头。单测用 openssl 独立算出的向量校验。
+  - `meta` 直接填 Config Service 地址（默认部署下与 Meta Server 是同一个进程），多个用逗号分隔，依次重试；不实现 `/services/config` 服务发现。
+  - 请求带上 `ip=server.ip`，支持 Apollo 按 IP 灰度。
+  - 本地备份：每次成功拉取写入 `<日志目录>/apollo/{appId}+{cluster}+{namespace}`；Apollo 不可达时用备份启动，连备份也没有才回退本地配置。
 - `Format`：由命名空间后缀决定，`.json` → `FORMAT_JSON`，`.yaml`/`.yml` → `FORMAT_YAML`。不支持 properties 类型，配置时报错。
 - Apollo 客户端是只读的，ckman 不往 Apollo 写配置。`NacosClient.PublishConfig` 目前没有调用方，不放进 `ConfigSource` 接口。
 
@@ -274,7 +284,7 @@ watchdog 通过 `ParseConfigFile` 加载配置，自动经过 `normalizeDiscover
   - 实测（nacos-server v2.4.3，2026-10-09）：两个实例互相可见；启动拉取与热更新生效；远端下发 `registry` 段被拦截并打 WARN；SIGTERM 后约 0.5 秒对端成员列表即更新（重构前不反注册，要等心跳超时）。
   - 本机设了 `http_proxy` 时，curl 调 Nacos OpenAPI 要加 `--noproxy '*'`，ckman 进程也要去掉代理环境变量再启动。
 
-### 第二步：新增后端
+### 第二步：新增后端（已完成）
 
 1. `consul/registry.go`（含上文 6 项修补）。
 2. `apollo/source.go`。
@@ -286,6 +296,21 @@ watchdog 通过 `ParseConfigFile` 加载配置，自动经过 `normalizeDiscover
 - Consul：两个实例互相可见；kill -9 一台后，在 `check_ttl` 时间内从成员列表消失，`deregister_after` 之后从 catalog 消失；主节点切换正确。
 - Apollo：启动拉取成功；在 Portal 发布后热更新生效；Apollo 不可达时，用本地备份或本地配置启动，不阻塞。
 - 组合测试：Consul + Apollo、Consul + none、Nacos + Apollo 三种组合都能正常启动。
+
+实测结果（2026-10-09，Consul v1.20.2 dev 模式，`check_interval=2s`、`check_ttl=6s`、`deregister_after=1m`）：
+
+| 场景 | 结果 |
+| --- | --- |
+| 两实例 Consul 注册 + Consul KV 配置 | 互相可见，健康检查均为 passing；启动拉取 KV 成功 |
+| 修改 KV | 约 1 秒内热更新生效 |
+| SIGTERM 一台 | 12 毫秒后对端成员列表更新 |
+| kill -9 一台 | 约 6 秒（TTL）后对端摘除；约 1.7 分钟后从 catalog 删除 |
+| 重启 Consul（dev 模式，状态全丢） | 2 秒内自动重新注册，watch 恢复；KV 丢失时保留当前配置并告警 |
+| Consul 注册 + Apollo 不可达 | 回退本地配置正常启动、注册成功，长轮询后台退避重试 |
+
+Apollo 本机没有可用的服务端镜像，协议部分由 `service/discovery/apollo` 的单测覆盖（httptest 模拟 Config Service：签名校验、未发布、本地备份回退、多地址重试、长轮询变更、namespace 类型校验）。**上线前需要在真实 Apollo 上验证一次 Portal 发布后的热更新。**
+
+已知窗口：注册中心刚重启、实例尚未重新注册的约一个心跳间隔内，成员列表为空，各实例会因并入 self 而都认为自己是主节点。窗口很短，暂不处理。
 
 ## 工作量估算
 

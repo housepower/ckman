@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -48,6 +49,8 @@ type CKManConfig struct {
 	Log              CKManLogConfig
 	PersistentConfig map[string]map[string]interface{} `yaml:"persistent_config" json:"persistent_config"`
 	Nacos            CKManNacosConfig
+	Consul           CKManConsulConfig
+	Apollo           CKManApolloConfig
 	Registry         RegistryConfig     `yaml:"registry" json:"registry"`
 	ConfigCenter     ConfigCenterConfig `yaml:"config_center" json:"config_center"`
 	Cron             CronJob
@@ -103,8 +106,40 @@ type CKManNacosConfig struct {
 // 注册中心 / 配置中心后端类型。
 const (
 	DISCOVERY_NONE  string = "none"
-	DISCOVERY_NACOS string = "nacos"
+	DISCOVERY_NACOS  string = "nacos"
+	DISCOVERY_CONSUL string = "consul"
+	DISCOVERY_APOLLO string = "apollo"
 )
+
+// CKManConsulConfig Consul 连接参数，注册中心与 KV 配置中心共用。
+type CKManConsulConfig struct {
+	// Address 推荐指向本机 consul agent：服务注册挂在 agent 节点上，直连 server 时
+	// 那台 server 宕机会连带丢失注册信息。
+	Address    string
+	Scheme     string
+	Datacenter string
+	Token      string
+	// CheckInterval 心跳间隔，必须小于 CheckTTL。
+	CheckInterval string `yaml:"check_interval" json:"check_interval"`
+	CheckTTL      string `yaml:"check_ttl" json:"check_ttl"`
+	// DeregisterAfter 实例 critical 超过该时长后由 Consul 从 catalog 删除，防止僵尸实例。
+	DeregisterAfter string `yaml:"deregister_after" json:"deregister_after"`
+	// WaitTime blocking query 的最长等待时间。
+	WaitTime string `yaml:"wait_time" json:"wait_time"`
+	// KVKey 配置中心使用的 key，内容格式由 key 后缀决定（.hjson / .json / .yaml）。
+	KVKey string `yaml:"kv_key" json:"kv_key"`
+}
+
+// CKManApolloConfig Apollo 配置中心参数。
+type CKManApolloConfig struct {
+	// Meta Config Service 地址，多个用逗号分隔，依次重试。
+	Meta    string
+	AppId   string `yaml:"app_id" json:"app_id"`
+	Cluster string
+	// Namespace 必须是 json 或 yaml 类型（如 ckman.json），整份配置存放在其 content 中。
+	Namespace string
+	Secret    string
+}
 
 // RegistryConfig 选择注册中心后端；后端连接参数在各自的配置段（如 nacos）里。
 type RegistryConfig struct {
@@ -154,6 +189,16 @@ func fillDefault(c *CKManConfig) {
 	c.ClickHouse.ConnMaxIdleTime = 10
 	c.Nacos.BeatInterval = 5000
 	c.Nacos.SyncConfig = true
+	c.Consul.Address = "127.0.0.1:8500"
+	c.Consul.Scheme = "http"
+	c.Consul.CheckInterval = "10s"
+	c.Consul.CheckTTL = "30s"
+	c.Consul.DeregisterAfter = "1m"
+	c.Consul.WaitTime = "30s"
+	c.Consul.KVKey = "ckman/ckman.hjson"
+	c.Apollo.AppId = "ckman"
+	c.Apollo.Cluster = "default"
+	c.Apollo.Namespace = "ckman.json"
 }
 
 func MergeEnv() {
@@ -167,6 +212,12 @@ func MergeEnv() {
 			GlobalConfig.Nacos.Port, _ = strconv.ParseUint(port, 10, 64)
 		}
 		GlobalConfig.Nacos.Hosts = hosts
+	}
+	if v := os.Getenv("CONSUL_ADDR"); v != "" {
+		GlobalConfig.Consul.Address = v
+	}
+	if v := os.Getenv("APOLLO_META"); v != "" {
+		GlobalConfig.Apollo.Meta = v
 	}
 	if v := os.Getenv("HOST_IP"); v != "" {
 		GlobalConfig.Server.Ip = v
@@ -236,15 +287,15 @@ func normalizeDiscovery(c *CKManConfig) ([]string, error) {
 		}
 	}
 
-	for _, t := range []struct{ section, typ string }{
-		{"registry", c.Registry.Type},
-		{"config_center", c.ConfigCenter.Type},
-	} {
-		switch t.typ {
-		case DISCOVERY_NONE, DISCOVERY_NACOS:
-		default:
-			return nil, fmt.Errorf("unsupported %s type %q", t.section, t.typ)
-		}
+	switch c.Registry.Type {
+	case DISCOVERY_NONE, DISCOVERY_NACOS, DISCOVERY_CONSUL:
+	default:
+		return nil, fmt.Errorf("unsupported registry type %q", c.Registry.Type)
+	}
+	switch c.ConfigCenter.Type {
+	case DISCOVERY_NONE, DISCOVERY_NACOS, DISCOVERY_CONSUL, DISCOVERY_APOLLO:
+	default:
+		return nil, fmt.Errorf("unsupported config_center type %q", c.ConfigCenter.Type)
 	}
 
 	usesNacos := c.Registry.Type == DISCOVERY_NACOS || c.ConfigCenter.Type == DISCOVERY_NACOS
@@ -271,6 +322,27 @@ func DiscoveryEndpoints(c *CKManConfig) map[string][]string {
 			var addrs []string
 			for _, h := range c.Nacos.Hosts {
 				addrs = append(addrs, net.JoinHostPort(strings.TrimSpace(h), port))
+			}
+			if len(addrs) > 0 {
+				out[typ] = addrs
+			}
+		case DISCOVERY_CONSUL:
+			if c.Consul.Address != "" {
+				out[typ] = []string{c.Consul.Address}
+			}
+		case DISCOVERY_APOLLO:
+			var addrs []string
+			for _, m := range strings.Split(c.Apollo.Meta, ",") {
+				if u, err := url.Parse(strings.TrimSpace(m)); err == nil && u.Hostname() != "" {
+					port := u.Port()
+					if port == "" {
+						port = "80"
+						if u.Scheme == "https" {
+							port = "443"
+						}
+					}
+					addrs = append(addrs, net.JoinHostPort(u.Hostname(), port))
+				}
 			}
 			if len(addrs) > 0 {
 				out[typ] = addrs

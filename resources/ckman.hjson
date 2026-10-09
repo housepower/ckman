@@ -65,8 +65,17 @@
   //  }
   //},
 
+  // 注册中心：多实例部署时启用，只有主节点执行定时任务。nacos | consul | none
+  "registry": {
+    "type": "none"
+    //service_name: ckman
+  },
+  // 配置中心：启动时拉取并热更新 log / cron / clickhouse 等段。nacos | consul | apollo | none
+  "config_center": {
+    "type": "none"
+  },
+
   "nacos":{
-    "enabled": false,
     "hosts":[
       "127.0.0.1"
     ],
@@ -76,4 +85,24 @@
     "password": "ENC(A7561228101CB07938FAFF00C4444546)"
     //namespace_id:
   }
+
+  //"consul":{
+  //  // 推荐指向本机 consul agent
+  //  "address": "127.0.0.1:8500",
+  //  //token: ENC(...)
+  //  "check_interval": "10s",
+  //  "check_ttl": "30s",
+  //  "deregister_after": "1m",
+  //  // config_center 为 consul 时使用，后缀决定内容格式
+  //  "kv_key": "ckman/ckman.hjson"
+  //},
+
+  //"apollo":{
+  //  "meta": "http://127.0.0.1:8080",
+  //  "app_id": "ckman",
+  //  "cluster": "default",
+  //  // 必须是 json 或 yaml 类型的 namespace
+  //  "namespace": "ckman.json"
+  //  //secret: ENC(...)
+  //}
 }
