@@ -214,6 +214,8 @@ func TestDiffBootstrap_DetectsAllFields(t *testing.T) {
 	remote.Nacos.Password = "new"
 	remote.Registry.Type = "consul"
 	remote.ConfigCenter.Type = "apollo"
+	remote.Consul.Address = "10.0.0.1:8500"
+	remote.Apollo.Meta = "http://10.0.0.2:8080"
 
 	diffs := diffBootstrap(&local, &remote)
 	got := map[string]bool{}
@@ -224,7 +226,7 @@ func TestDiffBootstrap_DetectsAllFields(t *testing.T) {
 		"Server.Ip", "Server.Port", "Server.Https",
 		"Server.CertFile", "Server.KeyFile", "Server.PkgPath",
 		"Server.PersistentPolicy", "PersistentConfig", "Nacos",
-		"Registry", "ConfigCenter",
+		"Registry", "ConfigCenter", "Consul", "Apollo",
 	}
 	for _, name := range expected {
 		if !got[name] {

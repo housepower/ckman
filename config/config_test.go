@@ -79,6 +79,22 @@ func TestNormalizeDiscovery(t *testing.T) {
 			wantRegistry: DISCOVERY_NONE, wantCenter: DISCOVERY_NONE, wantService: "ckman", wantWarn: true,
 		},
 		{
+			name: "只写了 registry，config_center 由旧配置推导成 nacos：告警",
+			setup: func(c *CKManConfig) {
+				c.Nacos.Enabled = true
+				c.Registry.Type = DISCOVERY_CONSUL
+			},
+			wantRegistry: DISCOVERY_CONSUL, wantCenter: DISCOVERY_NACOS, wantService: "ckman", wantWarn: true,
+		},
+		{
+			name: "只写了 config_center，registry 由旧配置推导成 nacos：告警",
+			setup: func(c *CKManConfig) {
+				c.Nacos.Enabled = true
+				c.ConfigCenter.Type = DISCOVERY_APOLLO
+			},
+			wantRegistry: DISCOVERY_NACOS, wantCenter: DISCOVERY_APOLLO, wantService: "ckman", wantWarn: true,
+		},
+		{
 			name:    "非法 registry 类型",
 			setup:   func(c *CKManConfig) { c.Registry.Type = "zk" },
 			wantErr: true,

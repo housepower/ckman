@@ -122,15 +122,18 @@ func (s *ConfigSource) Watch(fn func([]byte, string)) error {
 		for {
 			id, changed, err := s.poll(notificationId)
 			if err == nil && changed {
-				notificationId = id
 				s.mu.Lock()
 				releaseKey := s.releaseKey
 				s.mu.Unlock()
 				var content []byte
 				content, err = s.fetch(releaseKey)
-				if err == nil && content != nil {
-					s.saveBackup(content)
-					fn(content, s.format)
+				if err == nil {
+					// 拉取成功后才前移通知编号：失败时下一轮仍带旧编号轮询，会立即再次收到这次变更。
+					notificationId = id
+					if content != nil {
+						s.saveBackup(content)
+						fn(content, s.format)
+					}
 				}
 			}
 			if err != nil {
@@ -235,21 +238,33 @@ func (s *ConfigSource) poll(notificationId int64) (int64, bool, error) {
 	return notificationId, false, nil
 }
 
-// get 依次尝试每个 meta 地址，返回第一个成功响应。
+// get 依次尝试每个 meta 地址，返回第一个非 5xx 的响应。连接失败或 5xx 时换下一个地址；
+// 全部 5xx 时返回最后一个响应，由调用方按状态码报错。
 func (s *ConfigSource) get(path string, q url.Values, timeout time.Duration) (int, []byte, error) {
 	rawQuery := q.Encode()
-	var lastErr error
+	var (
+		lastErr    error
+		lastStatus int
+		lastBody   []byte
+	)
 	for _, meta := range s.metas {
 		ctx, cancel := context.WithTimeout(s.ctx, timeout)
 		status, body, err := s.do(ctx, meta+path, rawQuery)
 		cancel()
-		if err == nil {
+		if err == nil && status < http.StatusInternalServerError {
 			return status, body, nil
 		}
-		lastErr = err
+		if err == nil {
+			lastStatus, lastBody = status, body
+		} else {
+			lastErr = err
+		}
 		if s.ctx.Err() != nil {
 			break
 		}
+	}
+	if lastStatus != 0 {
+		return lastStatus, lastBody, nil
 	}
 	return 0, nil, lastErr
 }

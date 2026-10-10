@@ -39,6 +39,7 @@ type fakeApollo struct {
 	changed        chan struct{}
 	secret         string
 	authFailures   int
+	configFailures int // 接下来多少次 /configs 请求返回 500
 }
 
 func newFakeApollo() *fakeApollo {
@@ -72,6 +73,11 @@ func (f *fakeApollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/configs/ckman/default/ckman.json":
 		f.mu.Lock()
 		defer f.mu.Unlock()
+		if f.configFailures > 0 {
+			f.configFailures--
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		if f.content == "" {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -227,5 +233,53 @@ func TestNamespaceFormat(t *testing.T) {
 		if err != nil || s.format != want {
 			t.Errorf("namespace %s: format=%v err=%v, want %s", ns, s, err, want)
 		}
+	}
+}
+
+// 收到变更通知后拉配置失败，重试时必须仍能拿到这次变更，不能因通知编号已前移而丢失。
+func TestWatchRetriesFailedFetch(t *testing.T) {
+	f := newFakeApollo()
+	f.publish(`{ cron: { enabled: true } }`)
+	srv := httptest.NewServer(f)
+	defer srv.Close()
+
+	s := newSource(t, srv.URL, "", t.TempDir())
+	if _, _, err := s.Load(); err != nil {
+		t.Fatal(err)
+	}
+	got := make(chan string, 4)
+	if err := s.Watch(func(data []byte, format string) { got <- string(data) }); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond) // 等首轮 -1 通知处理完
+
+	f.mu.Lock()
+	f.configFailures = 1
+	f.mu.Unlock()
+	f.publish(`{ cron: { enabled: false } }`)
+	select {
+	case d := <-got:
+		if d != `{ cron: { enabled: false } }` {
+			t.Fatalf("回调内容 = %q", d)
+		}
+	case <-time.After(8 * time.Second):
+		t.Fatal("拉配置失败一次后，变更丢失")
+	}
+}
+
+// 第一个地址返回 5xx 时应换下一个地址，而不是把错误响应当作结果。
+func TestMetaFailoverOn5xx(t *testing.T) {
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer bad.Close()
+	f := newFakeApollo()
+	f.publish(`{}`)
+	good := httptest.NewServer(f)
+	defer good.Close()
+
+	s := newSource(t, bad.URL+","+good.URL, "", t.TempDir())
+	if data, _, err := s.Load(); err != nil || string(data) != `{}` {
+		t.Fatalf("第一个地址 503 时应使用第二个: data=%q err=%v", data, err)
 	}
 }

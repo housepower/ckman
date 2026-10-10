@@ -105,7 +105,7 @@ func mergeFromRemote(local, remote *CKManConfig) {
 		local.Server.Pprof = remote.Server.Pprof
 	}
 
-	// ConfigFile / Version / Nacos / Registry / ConfigCenter / Server.Ip,Port,Https,Cert,Key,PkgPath / PersistentPolicy /
+	// ConfigFile / Version / Nacos / Registry / ConfigCenter / Consul / Apollo / Server.Ip,Port,Https,Cert,Key,PkgPath / PersistentPolicy /
 	// PersistentConfig 永不覆盖。
 }
 
@@ -156,6 +156,13 @@ func diffBootstrap(local, remote *CKManConfig) []bootstrapDiff {
 	}
 	if !reflect.DeepEqual(remote.ConfigCenter, ConfigCenterConfig{}) && !reflect.DeepEqual(local.ConfigCenter, remote.ConfigCenter) {
 		add("ConfigCenter", local.ConfigCenter, remote.ConfigCenter)
+	}
+	// Consul / Apollo 段含 token、secret，只提示段名不打印内容。
+	if !reflect.DeepEqual(remote.Consul, CKManConsulConfig{}) && !reflect.DeepEqual(local.Consul, remote.Consul) {
+		add("Consul", "<section>", "<section>")
+	}
+	if !reflect.DeepEqual(remote.Apollo, CKManApolloConfig{}) && !reflect.DeepEqual(local.Apollo, remote.Apollo) {
+		add("Apollo", "<section>", "<section>")
 	}
 	return diffs
 }

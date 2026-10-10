@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"bytes"
 	"reflect"
 
 	"github.com/housepower/ckman/config"
@@ -67,6 +68,11 @@ func LoadInitial(src ConfigSource, cfg *config.CKManConfig) (logChanged bool) {
 // 否则早到的推送会漏掉尚未注册的 applier。
 func Watch(src ConfigSource) error {
 	return src.Watch(func(data []byte, format string) {
+		// 远端配置被删除时（Nacos 删 dataId、Consul KV 写成空值）会收到空内容，保持当前配置。
+		if len(bytes.TrimSpace(data)) == 0 {
+			log.Logger.Warnf("remote config is empty (deleted?), keep current config")
+			return
+		}
 		if err := config.ApplyRemoteUpdate(data, format); err != nil {
 			log.Logger.Errorf("apply remote config failed: %v", err)
 		}

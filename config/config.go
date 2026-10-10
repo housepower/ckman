@@ -105,7 +105,7 @@ type CKManNacosConfig struct {
 
 // 注册中心 / 配置中心后端类型。
 const (
-	DISCOVERY_NONE  string = "none"
+	DISCOVERY_NONE   string = "none"
 	DISCOVERY_NACOS  string = "nacos"
 	DISCOVERY_CONSUL string = "consul"
 	DISCOVERY_APOLLO string = "apollo"
@@ -268,16 +268,24 @@ func normalizeDiscovery(c *CKManConfig) ([]string, error) {
 	var warns []string
 	explicit := c.Registry.Type != "" || c.ConfigCenter.Type != ""
 
+	// 只显式写了其中一个新段时，另一个仍按旧配置推导；推导成 nacos 时告警，
+	// 免得只想换注册中心的用户不知不觉还连着 Nacos 拉配置。
 	if c.Registry.Type == "" {
 		c.Registry.Type = DISCOVERY_NONE
 		if c.Nacos.Enabled {
 			c.Registry.Type = DISCOVERY_NACOS
+			if explicit {
+				warns = append(warns, "registry is not set, derived as nacos from nacos.enabled; set registry.type explicitly")
+			}
 		}
 	}
 	if c.ConfigCenter.Type == "" {
 		c.ConfigCenter.Type = DISCOVERY_NONE
 		if c.Nacos.Enabled && c.Nacos.SyncConfig {
 			c.ConfigCenter.Type = DISCOVERY_NACOS
+			if explicit {
+				warns = append(warns, "config_center is not set, derived as nacos from nacos.enabled/sync_config; set config_center.type explicitly")
+			}
 		}
 	}
 	if c.Registry.ServiceName == "" {

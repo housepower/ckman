@@ -1,11 +1,18 @@
 package discovery
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
 	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
 )
+
+func TestMain(m *testing.M) {
+	log.InitLoggerConsole()
+	os.Exit(m.Run())
+}
 
 func TestNoneBackends(t *testing.T) {
 	var cfg config.CKManConfig
@@ -92,5 +99,34 @@ func TestBackendConfigValidation(t *testing.T) {
 	c.Apollo.Namespace = "application"
 	if _, err := NewConfigSource(&c, t.TempDir()); err == nil {
 		t.Error("properties namespace 应报错")
+	}
+}
+
+type fakeSource struct {
+	noopSource
+	fn func([]byte, string)
+}
+
+func (f *fakeSource) Watch(fn func([]byte, string)) error { f.fn = fn; return nil }
+
+// 远端配置被删除时（Nacos 删 dataId、Consul KV 写成空值）回调收到空内容，不应当作一份空配置应用。
+func TestWatchSkipsEmptyContent(t *testing.T) {
+	t.Cleanup(config.ResetForTest)
+	config.ResetForTest()
+	applied := 0
+	config.RegisterApplier("count", func(old, new *config.CKManConfig) { applied++ })
+
+	src := &fakeSource{}
+	if err := Watch(src); err != nil {
+		t.Fatal(err)
+	}
+	src.fn(nil, config.FORMAT_HJSON)
+	src.fn([]byte("  \n"), config.FORMAT_HJSON)
+	if applied != 0 {
+		t.Fatalf("空内容不应触发 applier，applied=%d", applied)
+	}
+	src.fn([]byte(`{ log: { level: "DEBUG" } }`), config.FORMAT_HJSON)
+	if applied != 1 {
+		t.Fatalf("有效内容应触发一次 applier，applied=%d", applied)
 	}
 }
