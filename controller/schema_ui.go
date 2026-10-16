@@ -244,16 +244,14 @@ func RegistCreateClusterSchema() common.ConfigParams {
 		LabelZH:       "运行方式",
 		LabelEN:       "Runtime",
 		Default:       model.KeeperRuntimeStandalone,
-		DescriptionZH: "如果单独部署，则和clickhouse-server 分开进程；如果内置，则和clickhouse-server放在一块",
+		DescriptionZH: "clickhouse-keeper 独立进程部署，与 clickhouse-server 分开",
 		Candidates: []common.Candidate{
 			{Value: model.KeeperRuntimeStandalone, LabelEN: "Standalone", LabelZH: "单独部署"},
-			{Value: model.KeeperRuntimeInternal, LabelEN: "Internal", LabelZH: "内置"},
 		},
 	})
 	params.MustRegister(keeper, "KeeperNodes", &common.Parameter{
-		LabelZH:  "Keeper节点",
-		LabelEN:  "KeeperNodes",
-		Visiable: "Runtime == 'standalone'",
+		LabelZH: "Keeper节点",
+		LabelEN: "KeeperNodes",
 	})
 
 	params.MustRegister(keeper, "TcpPort", &common.Parameter{
@@ -1124,10 +1122,9 @@ func RegistUpdateConfigSchema() common.ConfigParams {
 	params.MustRegister(keeper, "Runtime", &common.Parameter{
 		LabelZH:       "运行方式",
 		LabelEN:       "Runtime",
-		DescriptionZH: "如果单独部署，则和clickhouse-server 分开进程；如果内置，则和clickhouse-server放在一块",
+		DescriptionZH: "clickhouse-keeper 独立进程部署，与 clickhouse-server 分开",
 		Candidates: []common.Candidate{
 			{Value: model.KeeperRuntimeStandalone, LabelEN: "Standalone", LabelZH: "单独部署"},
-			{Value: model.KeeperRuntimeInternal, LabelEN: "Internal", LabelZH: "内置"},
 		},
 		Editable: "false",
 	})
