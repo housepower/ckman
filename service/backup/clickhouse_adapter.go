@@ -13,7 +13,6 @@ import (
 )
 
 // backupConnOpts returns ConnetOption presets for backup/restore connections:
-//   - MaxRead 6h: backup of large tables can stream for hours
 //   - max_execution_time=0: server-side per-connection setting; BACKUP/RESTORE
 //     statements don't accept inline SETTINGS so this is the only way to disable it.
 //   - BypassPool: backup 用完即关，不让此连接进 common.ConnectPool 被普通业务复用
@@ -23,7 +22,13 @@ import (
 //     max_remote_write_network_bandwidth 对它无效；max_backup_bandwidth 限的是读源数据，
 //     上传随之被压住。同样因为 25.1 之前 BACKUP 不接受 inline SETTINGS，只能放在连接级；
 //     该设置按查询建 throttler，即每条 BACKUP 各自受限。
-func backupConnOpts(cc model.CKManClickHouseConfig, bandwidth uint64) model.ConnetOption {
+//
+// maxReadSeconds 是单条 BACKUP/RESTORE 语句的读超时（秒），clickhouse-go 在 exec
+// 开始时一次性设置绝对读截止；<=0 时取 DefaultBackupMaxReadSeconds。
+func backupConnOpts(cc model.CKManClickHouseConfig, bandwidth uint64, maxReadSeconds int) model.ConnetOption {
+	if maxReadSeconds <= 0 {
+		maxReadSeconds = DefaultBackupMaxReadSeconds
+	}
 	settings := clickhouse.Settings{
 		"max_execution_time": uint64(0),
 	}
@@ -31,7 +36,7 @@ func backupConnOpts(cc model.CKManClickHouseConfig, bandwidth uint64) model.Conn
 		settings["max_backup_bandwidth"] = bandwidth
 	}
 	return cc.GetConnOption(
-		model.WithMaxRead(21600),
+		model.WithMaxRead(maxReadSeconds),
 		model.WithSettings(settings),
 		model.WithBypassPool(true),
 	)
@@ -71,13 +76,13 @@ func NewClickHouseAdapter() *ClickHouseAdapter {
 }
 
 // ConnFactory 给 Executor.connFactory 用：每 shard 拿第一个可达 replica，缓存 *common.Conn 到 shardConn。
-// maxBandwidthMB 为集群总上传限速（MB/s），0 不限。
-func (a *ClickHouseAdapter) ConnFactory(cluster string, maxBandwidthMB int) ([]*shardConn, error) {
+// maxBandwidthMB 为集群总上传限速（MB/s），0 不限；maxReadSeconds 为单分区语句读超时（秒），<=0 取默认。
+func (a *ClickHouseAdapter) ConnFactory(cluster string, maxBandwidthMB, maxReadSeconds int) ([]*shardConn, error) {
 	cc, err := a.getCluster(cluster)
 	if err != nil {
 		return nil, err
 	}
-	opt := backupConnOpts(cc, perShardBandwidth(maxBandwidthMB, len(cc.Shards)))
+	opt := backupConnOpts(cc, perShardBandwidth(maxBandwidthMB, len(cc.Shards)), maxReadSeconds)
 	var conns []*shardConn
 	for idx, shard := range cc.Shards {
 		var got *shardConn

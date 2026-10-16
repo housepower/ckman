@@ -142,3 +142,23 @@ func TestValidateBandwidth(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateMaxReadSeconds(t *testing.T) {
+	cases := []struct {
+		name    string
+		seconds int
+		wantErr bool
+	}{
+		{"zero means default", 0, false},
+		{"one hour", 3600, false},
+		{"one day", 86400, false},
+		{"negative rejected", -1, true},
+		{"over a day rejected", 86401, true},
+	}
+	for _, c := range cases {
+		err := validateMaxReadSeconds(c.seconds)
+		if (err != nil) != c.wantErr {
+			t.Errorf("%s: err = %v, wantErr %v", c.name, err, c.wantErr)
+		}
+	}
+}

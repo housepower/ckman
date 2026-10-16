@@ -27,7 +27,7 @@ func TestClickHouseAdapter_ConnFactory_SkipsUnreachableReplica(t *testing.T) {
 		getCluster: func(string) (model.CKManClickHouseConfig, error) { return cluster, nil },
 		dial:       dial,
 	}
-	conns, err := a.ConnFactory("ckA", 0)
+	conns, err := a.ConnFactory("ckA", 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestClickHouseAdapter_ConnFactory_FailsWhenAllReplicasDown(t *testing.T) {
 		getCluster: func(string) (model.CKManClickHouseConfig, error) { return cluster, nil },
 		dial:       dial,
 	}
-	if _, err := a.ConnFactory("ckA", 0); err == nil {
+	if _, err := a.ConnFactory("ckA", 0, 0); err == nil {
 		t.Fatal("expected error when all replicas down")
 	}
 }
@@ -69,7 +69,7 @@ func TestClickHouseAdapter_ConnFactory_BubbleUpClusterError(t *testing.T) {
 			return model.CKManClickHouseConfig{}, errors.New("not found")
 		},
 	}
-	if _, err := a.ConnFactory("ckA", 0); err == nil {
+	if _, err := a.ConnFactory("ckA", 0, 0); err == nil {
 		t.Fatal("expected cluster error to bubble up")
 	}
 }
@@ -243,7 +243,7 @@ func TestClickHouseAdapter_ConnFactory_SetsClusterName(t *testing.T) {
 		getCluster: func(string) (model.CKManClickHouseConfig, error) { return cluster, nil },
 		dial:       func(string, model.ConnetOption) (*common.Conn, error) { return nil, nil },
 	}
-	conns, err := a.ConnFactory("ckA", 0)
+	conns, err := a.ConnFactory("ckA", 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,16 +276,22 @@ func TestPerShardBandwidth(t *testing.T) {
 
 func TestBackupConnOpts_Bandwidth(t *testing.T) {
 	cc := model.CKManClickHouseConfig{}
-	opt := backupConnOpts(cc, 0)
+	opt := backupConnOpts(cc, 0, 0)
 	if _, ok := opt.Settings["max_backup_bandwidth"]; ok {
 		t.Fatal("bandwidth 0 must not set max_backup_bandwidth")
 	}
 	if opt.Settings["max_execution_time"] != uint64(0) || !opt.BypassPool {
 		t.Fatalf("base backup options lost: %+v", opt)
 	}
-	opt = backupConnOpts(cc, 1234)
+	if opt.MaxRead != DefaultBackupMaxReadSeconds {
+		t.Fatalf("MaxRead default = %d, want %d", opt.MaxRead, DefaultBackupMaxReadSeconds)
+	}
+	opt = backupConnOpts(cc, 1234, 43200)
 	if opt.Settings["max_backup_bandwidth"] != uint64(1234) {
 		t.Fatalf("settings = %+v", opt.Settings)
+	}
+	if opt.MaxRead != 43200 {
+		t.Fatalf("MaxRead = %d, want 43200", opt.MaxRead)
 	}
 }
 
@@ -304,7 +310,7 @@ func TestClickHouseAdapter_ConnFactory_SplitsBandwidthByShard(t *testing.T) {
 			return nil, nil
 		},
 	}
-	if _, err := a.ConnFactory("ckA", 100); err != nil {
+	if _, err := a.ConnFactory("ckA", 100, 0); err != nil {
 		t.Fatal(err)
 	}
 	// 2 个 shard（副本数不影响），每条 BACKUP 50MiB/s

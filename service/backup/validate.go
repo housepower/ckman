@@ -127,6 +127,24 @@ func parseYYYYMMDD(name, value string) (time.Time, error) {
 // 更老的集群带上它会报 Unknown setting，整个 BACKUP 失败，所以提交时就拦下。
 const minBandwidthVersion = "23.4"
 
+// maxReadSecondsUpperBound 是单分区读超时的上限（1 天）。备份语句的读截止是
+// 绝对时间（clickhouse-go 在 exec 开始时 SetReadDeadline 一次），超时即整分区
+// 重传。主场景是按天分区 + 每日调度：一天都备不完说明限流过狠，快速失败
+// 次日重试比重传大分区划算；上限只为防手滑。
+const maxReadSecondsUpperBound = 86400
+
+// validateMaxReadSeconds 校验单分区备份语句的读超时：0 表示用默认；负值或超过
+// 上限直接拒绝。
+func validateMaxReadSeconds(seconds int) error {
+	if seconds < 0 {
+		return fmt.Errorf("max_read_seconds must be >= 0, got %d", seconds)
+	}
+	if seconds > maxReadSecondsUpperBound {
+		return fmt.Errorf("max_read_seconds must be <= %d, got %d", maxReadSecondsUpperBound, seconds)
+	}
+	return nil
+}
+
 // validateBandwidth 校验 S3 上传限速：不允许负数；非 0 且目标为 S3 时要求集群版本 >= 23.4。
 // 0 或非 S3 目标不查集群，老集群和本地备份不受影响。
 func validateBandwidth(target string, mb int, lookupCluster func() (model.CKManClickHouseConfig, error)) error {

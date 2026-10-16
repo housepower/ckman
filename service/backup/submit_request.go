@@ -28,6 +28,9 @@ func (s *Service) SubmitBackupRequest(cluster string, req model.BackupRequest) (
 	}); err != nil {
 		return nil, err
 	}
+	if err := validateMaxReadSeconds(req.MaxReadSeconds); err != nil {
+		return nil, err
+	}
 	if req.ScheduleType == model.BACKUP_SCHEDULED {
 		if err := ValidateCrontabMinInterval(req.Crontab); err != nil {
 			return nil, fmt.Errorf("invalid crontab: %w", err)
@@ -99,6 +102,7 @@ func (s *Service) SubmitBackupRequest(cluster string, req model.BackupRequest) (
 			Compression:    req.Compression,
 			Checksum:       req.Checksum,
 			MaxBandwidthMB: req.MaxBandwidthMB,
+			MaxReadSeconds: req.MaxReadSeconds,
 			Clean:          req.Clean,
 			Enabled:        req.ScheduleType == model.BACKUP_SCHEDULED,
 		}

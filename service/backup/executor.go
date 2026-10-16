@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/housepower/ckman/common"
@@ -14,6 +16,11 @@ import (
 	"github.com/housepower/ckman/service/backup/storage"
 	"golang.org/x/sync/errgroup"
 )
+
+// errRunCancelled 是用户主动停止（StopRun → Executor.Cancel）时各阶段返回的
+// sentinel；Run 据此把台账收口为 interrupted 而不是 failed——连接是主动关的，
+// 随之而来的报错是预期行为，不算备份失败。
+var errRunCancelled = errors.New("run cancelled by user")
 
 // queryResult is a minimal interface satisfied by *common.Rows and test fakes.
 type queryResult interface{ Close() error }
@@ -53,7 +60,7 @@ func (stagesStub) Close(context.Context, *Executor, string) error   { return nil
 // Executor 状态机：init → prepare → backup/restore → check → close
 type Executor struct {
 	repo                 ExecRepo
-	connFactory          func(cluster string, maxBandwidthMB int) ([]*shardConn, error)
+	connFactory          func(cluster string, maxBandwidthMB, maxReadSeconds int) ([]*shardConn, error)
 	listPartitions       func(c *shardConn, db, table, fromYYYYMMDD, toYYYYMMDD string) ([]string, error)
 	listAllPartitions    func(c *shardConn, db, table string) ([]string, error)
 	getLastRunPartitions func(cluster, db, table string) ([]model.BackupRunPartition, error)
@@ -63,6 +70,15 @@ type Executor struct {
 	// run-scoped（Init 阶段填，后续阶段读）
 	conns   []*shardConn
 	storage BackupStorage
+
+	// connMu 保护 conns 的写（Init 赋值 / closeConns 清空）与 Cancel 的读：
+	// StopRun 的 goroutine 可能赶在 Run 收尾的 closeConns 之前调 Cancel，
+	// 两者会并发触碰 conns。阶段内的 execSQL 读发生在 closeConns 之前，无此问题。
+	connMu sync.Mutex
+
+	// cancelled 由 Cancel() 置位：用户主动停止。各阶段在分区间隙检查它提前
+	// 退出（返回 errRunCancelled），Run 据此记 interrupted 而非 failed。
+	cancelled atomic.Bool
 
 	// run-scoped helpers（Init 期间不一定都注入；Task 21 真实 adapter 全部填）
 	queryRows             func(host string) (queryResult, error)
@@ -87,12 +103,12 @@ type BackupStorage interface {
 func (e *Executor) Run(ctx context.Context, runID string) error {
 	if err := e.Init(ctx, runID); err != nil {
 		e.closeConns()
-		return e.markFailed(runID, "init: "+err.Error())
+		return e.failStage(runID, "init: "+err.Error())
 	}
 	defer e.closeConns()
 	r, err := e.repo.GetRun(runID)
 	if err != nil {
-		return e.markFailed(runID, "post-init get run: "+err.Error())
+		return e.failStage(runID, "post-init get run: "+err.Error())
 	}
 	// 空分区:窗口内无分区 / 全部已去重 → skipped(no_partitions),不进任何阶段,
 	// 避免产生「success + 0 分区」的误导记录(无法与真备份成功区分)。
@@ -102,33 +118,59 @@ func (e *Executor) Run(ctx context.Context, runID string) error {
 	st := e.resolveStages()
 	if r.Operation == model.OP_BACKUP {
 		if err := st.Prepare(ctx, e, runID); err != nil {
-			return e.markFailed(runID, "prepare: "+err.Error())
+			return e.failStage(runID, "prepare: "+err.Error())
 		}
 		if err := st.Backup(ctx, e, runID); err != nil {
-			return e.markFailed(runID, "backup: "+err.Error())
+			return e.failStage(runID, "backup: "+err.Error())
 		}
 		policy, _ := e.repo.GetPolicyForRun(r.PolicyID)
 		if policy.Checksum {
 			if err := st.Check(ctx, e, runID); err != nil {
-				return e.markFailed(runID, "check: "+err.Error())
+				return e.failStage(runID, "check: "+err.Error())
 			}
 		}
 	} else if r.Operation == model.OP_RESTORE {
 		if err := st.Restore(ctx, e, runID); err != nil {
-			return e.markFailed(runID, "restore: "+err.Error())
+			return e.failStage(runID, "restore: "+err.Error())
 		}
 	} else {
 		return e.markFailed(runID, "unknown operation: "+r.Operation)
 	}
 	if err := st.Close(ctx, e, runID); err != nil {
-		return e.markFailed(runID, "close: "+err.Error())
+		return e.failStage(runID, "close: "+err.Error())
 	}
 	return e.markSuccess(runID)
+}
+
+// Cancel 供 StopRun 调用：标记取消并关闭所有连接，促使在途 BACKUP/RESTORE
+// 语句立即报错退出。与 closeConns 不同，这里不清空 e.conns——Backup/Restore
+// 的执行 goroutine 可能正在读它；真正的清理由 Run 收尾时的 closeConns 做。
+func (e *Executor) Cancel() {
+	e.cancelled.Store(true)
+	e.connMu.Lock()
+	conns := e.conns
+	e.connMu.Unlock()
+	for _, c := range conns {
+		if c != nil && c.conn != nil {
+			_ = c.conn.Close()
+		}
+	}
+}
+
+// failStage 把阶段错误收口为台账终态：用户取消（连接是主动关的，报错属预期）
+// 记 interrupted，其余记 failed。
+func (e *Executor) failStage(runID, reason string) error {
+	if e.cancelled.Load() {
+		return e.markInterrupted(runID)
+	}
+	return e.markFailed(runID, reason)
 }
 
 // closeConns 关闭并清空 e.conns。backup 连接 BypassPool=true，用完显式 close，
 // 防止任何 caller（包括 Executor 自己下次 Run）拿到一个已 close 的 conn。
 func (e *Executor) closeConns() {
+	e.connMu.Lock()
+	defer e.connMu.Unlock()
 	for _, c := range e.conns {
 		if c != nil && c.conn != nil {
 			_ = c.conn.Close()
@@ -161,14 +203,16 @@ func (e *Executor) Init(ctx context.Context, runID string) error {
 	if err != nil {
 		return err
 	}
-	conns, err := e.connFactory(policy.ClusterName, runBandwidthMB(r, policy))
+	conns, err := e.connFactory(policy.ClusterName, runBandwidthMB(r, policy), runMaxReadSeconds(policy))
 	if err != nil {
 		return fmt.Errorf("connect cluster %s: %w", policy.ClusterName, err)
 	}
 	if len(conns) == 0 {
 		return fmt.Errorf("no shard reachable for cluster %s", policy.ClusterName)
 	}
+	e.connMu.Lock()
 	e.conns = conns
+	e.connMu.Unlock()
 
 	// 装配 storage（如果尚未注入，且 policy 有目标类型则按 policy 创建）
 	if e.storage == nil && policy.TargetType != "" {
@@ -203,6 +247,19 @@ func runBandwidthMB(r model.BackupRun, policy model.BackupPolicy) int {
 		return 0
 	}
 	return policy.MaxBandwidthMB
+}
+
+// DefaultBackupMaxReadSeconds 是单分区备份语句读超时的默认值（6 小时）。
+// clickhouse-go 在 exec 开始时一次性设置绝对读截止，单分区备份超过该时长会被
+// i/o timeout 打断；大分区场景可通过 policy.MaxReadSeconds 调大。
+const DefaultBackupMaxReadSeconds = 21600
+
+// runMaxReadSeconds 返回本次 run 的单分区读超时（秒）；policy 未配置时用默认值。
+func runMaxReadSeconds(policy model.BackupPolicy) int {
+	if policy.MaxReadSeconds > 0 {
+		return policy.MaxReadSeconds
+	}
+	return DefaultBackupMaxReadSeconds
 }
 
 // resolveRunPartitions 根据 policy 的 backup_style / backup_type 决定 run.Partitions 来源。
@@ -338,6 +395,37 @@ func (e *Executor) markFailed(runID, reason string) error {
 	return fmt.Errorf("run %s failed: %s", runID, reason)
 }
 
+// markInterrupted 把 run 收口为用户取消的终态（StopRun → Cancel）。
+// 未走完的 waiting/running 分区一并标 interrupted；已 success 的不动——
+// 已上传/已恢复的成果是真实的，重跑时增量去重仍应跳过它们。
+func (e *Executor) markInterrupted(runID string) error {
+	r, err := e.repo.GetRun(runID)
+	if err != nil {
+		log.Logger.Errorf("[exec] cannot mark interrupted, get run %s: %v", runID, err)
+		return err
+	}
+	r.Status = model.BACKUP_STATUS_INTERRUPTED
+	r.StatusReason = model.REASON_CANCELLED
+	r.ErrorMsg = "cancelled by user"
+	r.FinishedAt = e.clock()
+	if !r.StartedAt.IsZero() {
+		r.Elapsed = int(r.FinishedAt.Sub(r.StartedAt).Seconds())
+	}
+	for i := range r.Partitions {
+		s := r.Partitions[i].Status
+		if s == model.BACKUP_PARTITION_STATUS_WAITING || s == model.BACKUP_PARTITION_STATUS_RUNNING {
+			r.Partitions[i].Status = model.BACKUP_PARTITION_STATUS_INTERRUPTED
+			if r.Partitions[i].Msg == "" {
+				r.Partitions[i].Msg = "cancelled by user"
+			}
+		}
+	}
+	if upErr := e.repo.UpdateRun(r); upErr != nil {
+		log.Logger.Errorf("[exec] update interrupted run %s: %v", runID, upErr)
+	}
+	return errRunCancelled
+}
+
 func (e *Executor) markSuccess(runID string) error {
 	r, err := e.repo.GetRun(runID)
 	if err != nil {
@@ -380,6 +468,10 @@ func (realStages) Backup(ctx context.Context, e *Executor, runID string) error {
 		p := &run.Partitions[i]
 		if p.Status != model.BACKUP_PARTITION_STATUS_WAITING {
 			continue
+		}
+		// 用户取消：剩余分区不再执行，交给 Run → markInterrupted 统一收口
+		if e.cancelled.Load() {
+			return errRunCancelled
 		}
 		p.Status = model.BACKUP_PARTITION_STATUS_RUNNING
 		if err := e.repo.UpdateRun(run); err != nil {
@@ -437,6 +529,17 @@ func (realStages) Backup(ctx context.Context, e *Executor, runID string) error {
 		}
 		p.Elapsed = int(time.Since(start).Seconds())
 		if len(partErrs) > 0 {
+			if e.cancelled.Load() {
+				// 连接是 Cancel 主动关的，报错是预期行为：该分区记 interrupted 而非 failed
+				p.Status = model.BACKUP_PARTITION_STATUS_INTERRUPTED
+				if p.Msg == "" {
+					p.Msg = "cancelled by user"
+				}
+				if uerr := e.repo.UpdateRun(run); uerr != nil {
+					log.Logger.Errorf("[exec] update cancelled partition run=%s: %v", runID, uerr)
+				}
+				return errRunCancelled
+			}
 			p.Status = model.BACKUP_PARTITION_STATUS_FAILED
 			p.Msg = strings.Join(partErrs, "; ")
 			anyFail = true
@@ -463,6 +566,10 @@ func (realStages) Restore(ctx context.Context, e *Executor, runID string) error 
 		p := &run.Partitions[i]
 		if p.Status != model.BACKUP_PARTITION_STATUS_WAITING {
 			continue
+		}
+		// 用户取消：剩余分区不再执行，交给 Run → markInterrupted 统一收口
+		if e.cancelled.Load() {
+			return errRunCancelled
 		}
 		p.Status = model.BACKUP_PARTITION_STATUS_RUNNING
 		if err := e.repo.UpdateRun(run); err != nil {
@@ -494,6 +601,17 @@ func (realStages) Restore(ctx context.Context, e *Executor, runID string) error 
 		}
 		p.Elapsed = int(time.Since(start).Seconds())
 		if len(partErrs) > 0 {
+			if e.cancelled.Load() {
+				// 连接是 Cancel 主动关的，报错是预期行为：该分区记 interrupted 而非 failed
+				p.Status = model.BACKUP_PARTITION_STATUS_INTERRUPTED
+				if p.Msg == "" {
+					p.Msg = "cancelled by user"
+				}
+				if uerr := e.repo.UpdateRun(run); uerr != nil {
+					log.Logger.Errorf("[exec] update cancelled partition run=%s: %v", runID, uerr)
+				}
+				return errRunCancelled
+			}
 			p.Status = model.BACKUP_PARTITION_STATUS_FAILED
 			p.Msg = strings.Join(partErrs, "; ")
 			anyFail = true
@@ -509,6 +627,7 @@ func (realStages) Restore(ctx context.Context, e *Executor, runID string) error 
 	}
 	return nil
 }
+
 func (realStages) Check(ctx context.Context, e *Executor, runID string) error {
 	run, err := e.repo.GetRun(runID)
 	if err != nil {
@@ -516,6 +635,9 @@ func (realStages) Check(ctx context.Context, e *Executor, runID string) error {
 	}
 	var firstErr error
 	for i := range run.Partitions {
+		if e.cancelled.Load() {
+			return errRunCancelled
+		}
 		p := &run.Partitions[i]
 		if p.Status != model.BACKUP_PARTITION_STATUS_SUCCESS {
 			continue
@@ -530,6 +652,11 @@ func (realStages) Check(ctx context.Context, e *Executor, runID string) error {
 			})
 		}
 		if err := g.Wait(); err != nil {
+			if e.cancelled.Load() {
+				// 用户取消：产物本身未必坏，不能标 failed（否则增量去重会重备），
+				// 交给 Run 记 interrupted
+				return errRunCancelled
+			}
 			// 校验失败说明该分区在存储上的产物不可信：必须回写 failed，
 			// 否则分区级增量去重会把它当成功永久跳过，坏备份再也不会重备。
 			p.Status = model.BACKUP_PARTITION_STATUS_FAILED

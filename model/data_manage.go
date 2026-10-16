@@ -20,10 +20,11 @@ const (
 	BACKUP_LOCAL = "local"
 	BACKUP_S3    = "s3"
 
-	BACKUP_PARTITION_STATUS_WAITING = "waiting"
-	BACKUP_PARTITION_STATUS_RUNNING = "running"
-	BACKUP_PARTITION_STATUS_SUCCESS = "success"
-	BACKUP_PARTITION_STATUS_FAILED  = "failed"
+	BACKUP_PARTITION_STATUS_WAITING     = "waiting"
+	BACKUP_PARTITION_STATUS_RUNNING     = "running"
+	BACKUP_PARTITION_STATUS_SUCCESS     = "success"
+	BACKUP_PARTITION_STATUS_FAILED      = "failed"
+	BACKUP_PARTITION_STATUS_INTERRUPTED = "interrupted" // 用户主动停止（StopRun）时未走完的分区
 
 	BACKUP_STATUS_WAITING = "waiting"
 	BACKUP_STATUS_INIT    = "init"
@@ -118,6 +119,7 @@ type BackupRequest struct {
 	Clean          bool        `json:"clean"`                      //是否清理本地数据
 	Checksum       bool        `json:"checksum"`                   //是否进行md5校验
 	MaxBandwidthMB int         `json:"max_bandwidth_mb"`           //S3上传限速(MB/s)，单个任务的集群总量，按shard数均分；0不限
+	MaxReadSeconds int         `json:"max_read_seconds"`           //单分区备份语句的读超时(秒)，0用默认6小时
 }
 
 type RestoreRequest struct {
@@ -156,6 +158,7 @@ const (
 	REASON_RESTART      = "ckman restart"
 	REASON_INST_CHANGED  = "instance changed"
 	REASON_NO_PARTITIONS = "no_partitions" // 本次 run 无分区可备份(窗口空/全部已去重)
+	REASON_CANCELLED     = "cancelled"     // 用户通过 StopRun 主动停止
 )
 
 type BackupPolicy struct {
@@ -181,6 +184,7 @@ type BackupPolicy struct {
 	Compression    string      `json:"compression"`
 	Checksum       bool        `json:"checksum"`
 	MaxBandwidthMB int         `json:"max_bandwidth_mb"` // S3 上传限速(MB/s)，集群总量；0 不限。仅 backup + S3 生效
+	MaxReadSeconds int         `json:"max_read_seconds"` // 单分区备份语句的读超时(秒)；0 用默认 DefaultBackupMaxReadSeconds
 	Clean          bool        `json:"clean"`
 	Enabled        bool        `json:"enabled"`
 	Deleted        bool        `json:"deleted"`

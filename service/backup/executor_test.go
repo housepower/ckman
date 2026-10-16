@@ -67,7 +67,7 @@ func TestExecutor_Init_NoShardConnect(t *testing.T) {
 
 	e := &Executor{
 		repo:        repo,
-		connFactory: func(string, int) ([]*shardConn, error) { return nil, errors.New("cluster not found") },
+		connFactory: func(string, int, int) ([]*shardConn, error) { return nil, errors.New("cluster not found") },
 	}
 	err := e.Init(context.Background(), "r1")
 	if err == nil || !strings.Contains(err.Error(), "cluster not found") {
@@ -81,7 +81,7 @@ func TestExecutor_Init_NoShardReachable(t *testing.T) {
 
 	e := &Executor{
 		repo:        repo,
-		connFactory: func(string, int) ([]*shardConn, error) { return []*shardConn{}, nil },
+		connFactory: func(string, int, int) ([]*shardConn, error) { return []*shardConn{}, nil },
 	}
 	err := e.Init(context.Background(), "r1")
 	if err == nil || !strings.Contains(err.Error(), "no shard") {
@@ -101,7 +101,7 @@ func TestExecutor_Init_PartitionListErrorDoesNotDropList(t *testing.T) {
 	called := false
 	e := &Executor{
 		repo: repo,
-		connFactory: func(string, int) ([]*shardConn, error) {
+		connFactory: func(string, int, int) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
 		listPartitions: func(_ *shardConn, db, table, from, before string) ([]string, error) {
@@ -139,7 +139,7 @@ func TestExecutor_Init_ExcludesPreviouslySuccessfulPartitions(t *testing.T) {
 
 	e := &Executor{
 		repo: repo,
-		connFactory: func(string, int) ([]*shardConn, error) {
+		connFactory: func(string, int, int) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
 		listPartitions: func(_ *shardConn, db, table, from, before string) ([]string, error) {
@@ -186,7 +186,7 @@ func TestExecutor_Init_DailyRangeWithStartDate(t *testing.T) {
 
 	e := &Executor{
 		repo: repo,
-		connFactory: func(string, int) ([]*shardConn, error) {
+		connFactory: func(string, int, int) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
 		now: func() time.Time {
@@ -220,7 +220,7 @@ func TestExecutor_Init_DailyFixedRange(t *testing.T) {
 
 	e := &Executor{
 		repo: repo,
-		connFactory: func(string, int) ([]*shardConn, error) {
+		connFactory: func(string, int, int) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
 		listPartitions: func(_ *shardConn, db, table, from, to string) ([]string, error) {
@@ -251,7 +251,7 @@ func TestExecutor_Init_FullBackup(t *testing.T) {
 	allCalled := false
 	e := &Executor{
 		repo: repo,
-		connFactory: func(string, int) ([]*shardConn, error) {
+		connFactory: func(string, int, int) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
 		listAllPartitions: func(_ *shardConn, db, table string) ([]string, error) {
@@ -287,7 +287,7 @@ func TestExecutor_Init_FullBackup_NoPartitions(t *testing.T) {
 
 	e := &Executor{
 		repo: repo,
-		connFactory: func(string, int) ([]*shardConn, error) {
+		connFactory: func(string, int, int) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
 		listAllPartitions: func(_ *shardConn, db, table string) ([]string, error) {
@@ -312,7 +312,7 @@ func TestExecutor_Init_PartitionMode(t *testing.T) {
 
 	e := &Executor{
 		repo: repo,
-		connFactory: func(string, int) ([]*shardConn, error) {
+		connFactory: func(string, int, int) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
 		// listPartitions 不应该被调用（按名模式不枚举）
@@ -347,7 +347,7 @@ func TestExecutor_Init_PartitionMode_Empty(t *testing.T) {
 
 	e := &Executor{
 		repo: repo,
-		connFactory: func(string, int) ([]*shardConn, error) {
+		connFactory: func(string, int, int) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
 	}
@@ -912,7 +912,7 @@ func TestExecutor_Run_EmptyPartitions_SkippedNoPartitions(t *testing.T) {
 	e := &Executor{
 		repo:   repo,
 		stages: st,
-		connFactory: func(string, int) ([]*shardConn, error) {
+		connFactory: func(string, int, int) ([]*shardConn, error) {
 			return []*shardConn{newFakeShardConn("h1")}, nil
 		},
 		listPartitions: func(_ *shardConn, db, table, from, to string) ([]string, error) {
@@ -993,22 +993,122 @@ func TestRunBandwidthMB(t *testing.T) {
 	}
 }
 
+func TestRunMaxReadSeconds(t *testing.T) {
+	cases := []struct {
+		name   string
+		policy model.BackupPolicy
+		want   int
+	}{
+		{"unset uses default", model.BackupPolicy{}, DefaultBackupMaxReadSeconds},
+		{"explicit value", model.BackupPolicy{MaxReadSeconds: 86400}, 86400},
+		{"negative falls back", model.BackupPolicy{MaxReadSeconds: -1}, DefaultBackupMaxReadSeconds},
+	}
+	for _, c := range cases {
+		if got := runMaxReadSeconds(c.policy); got != c.want {
+			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
+		}
+	}
+}
+
 func TestExecutor_Init_PassesBandwidthToConnFactory(t *testing.T) {
 	repo := newFakeExecRepo(model.BackupPolicy{
-		PolicyID: "p1", ClusterName: "ckA", TargetType: model.BACKUP_S3, MaxBandwidthMB: 80,
+		PolicyID: "p1", ClusterName: "ckA", TargetType: model.BACKUP_S3, MaxBandwidthMB: 80, MaxReadSeconds: 43200,
 	})
 	repo.runs["r1"] = model.BackupRun{RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP, Status: model.BACKUP_STATUS_RUNNING}
 
-	got := -1
+	gotBandwidth, gotMaxRead := -1, -1
 	e := &Executor{
 		repo: repo,
-		connFactory: func(_ string, mb int) ([]*shardConn, error) {
-			got = mb
+		connFactory: func(_ string, mb, mr int) ([]*shardConn, error) {
+			gotBandwidth, gotMaxRead = mb, mr
 			return []*shardConn{}, nil // 让 Init 在建连后立即返回，不触碰 storage
 		},
 	}
 	_ = e.Init(context.Background(), "r1")
-	if got != 80 {
-		t.Fatalf("connFactory got maxBandwidthMB=%d, want 80", got)
+	if gotBandwidth != 80 {
+		t.Fatalf("connFactory got maxBandwidthMB=%d, want 80", gotBandwidth)
+	}
+	if gotMaxRead != 43200 {
+		t.Fatalf("connFactory got maxReadSeconds=%d, want 43200", gotMaxRead)
+	}
+}
+
+// ── StopRun / Cancel ──────────────────────────────────────────────────────────
+
+func TestRealStages_Backup_CancelMidRun(t *testing.T) {
+	// 第一个分区执行中用户取消：该分区记 interrupted（连接是主动关的，报错不算失败），
+	// 阶段返回 errRunCancelled；剩余分区留给 Run → markInterrupted 统一收口
+	repo := newFakeExecRepo(model.BackupPolicy{PolicyID: "p1"})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", PolicyID: "p1", Database: "dba", Table: "t1",
+		Partitions: []model.BackupRunPartition{
+			{Partition: "20250507", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+			{Partition: "20250508", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+			{Partition: "20250509", Status: model.BACKUP_PARTITION_STATUS_WAITING},
+		},
+	}
+	var e *Executor
+	e = &Executor{
+		repo:  repo,
+		conns: []*shardConn{newFakeShardConn("h1")},
+		execSQL: func(host, sql string) error {
+			e.Cancel() // 模拟 StopRun 关连接
+			return errors.New("connection closed")
+		},
+		storage: &fakeStorage{},
+	}
+	err := realStages{}.Backup(context.Background(), e, "r1")
+	if !errors.Is(err, errRunCancelled) {
+		t.Fatalf("expected errRunCancelled, got %v", err)
+	}
+	got, _ := repo.GetRun("r1")
+	if got.Partitions[0].Status != model.BACKUP_PARTITION_STATUS_INTERRUPTED {
+		t.Fatalf("killed partition: got %s, want interrupted", got.Partitions[0].Status)
+	}
+	if got.Partitions[1].Status != model.BACKUP_PARTITION_STATUS_WAITING {
+		t.Fatalf("partition[1]: got %s, want waiting (markInterrupted 统一收口)", got.Partitions[1].Status)
+	}
+}
+
+func TestExecutor_Run_CancelledRunMarkedInterrupted(t *testing.T) {
+	// Run 全链路：Cancel 后台账收口为 interrupted(cancelled)，
+	// 所有未走完分区一并 interrupted，已 success 的不动
+	repo := newFakeExecRepo(model.BackupPolicy{
+		PolicyID: "p1", BackupStyle: "incremental", BackupType: model.BACKUP_TYPE_PARTITION,
+		Partitions: []string{"20250507", "20250508"},
+	})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", PolicyID: "p1", Operation: model.OP_BACKUP,
+		Status:        model.BACKUP_STATUS_RUNNING,
+		StoragePrefix: "ckA",
+	}
+	var e *Executor
+	e = &Executor{
+		repo: repo,
+		connFactory: func(string, int, int) ([]*shardConn, error) {
+			return []*shardConn{newFakeShardConn("h1")}, nil
+		},
+		getLastRunPartitions: func(cluster, db, table string) ([]model.BackupRunPartition, error) {
+			return nil, nil
+		},
+		execSQL: func(host, sql string) error {
+			e.Cancel()
+			return errors.New("connection closed")
+		},
+		storage: &fakeStorage{},
+		stages:  realStages{},
+	}
+	err := e.Run(context.Background(), "r1")
+	if !errors.Is(err, errRunCancelled) {
+		t.Fatalf("expected errRunCancelled, got %v", err)
+	}
+	rn, _ := repo.GetRun("r1")
+	if rn.Status != model.BACKUP_STATUS_INTERRUPTED || rn.StatusReason != model.REASON_CANCELLED {
+		t.Fatalf("run status: got %s(%s), want interrupted(cancelled)", rn.Status, rn.StatusReason)
+	}
+	for _, p := range rn.Partitions {
+		if p.Status != model.BACKUP_PARTITION_STATUS_INTERRUPTED {
+			t.Fatalf("partition %s: got %s, want interrupted", p.Partition, p.Status)
+		}
 	}
 }

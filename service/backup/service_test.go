@@ -90,6 +90,17 @@ func (f *fakePool) Submit(id string) error {
 	return nil
 }
 
+// Remove 模拟生产 Pool：从 in 里移除，返回是否移除成功。
+func (f *fakePool) Remove(id string) bool {
+	for i, v := range f.in {
+		if v == id {
+			f.in = append(f.in[:i], f.in[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 func TestService_Submit_NormalCase(t *testing.T) {
 	repo := newMemRepo()
 	pool := &fakePool{}
@@ -265,5 +276,65 @@ func TestService_Boot_MarksInFlightAsInterrupted(t *testing.T) {
 	r4, _ := repo.GetRun("r-success")
 	if r4.Status != model.BACKUP_STATUS_SUCCESS {
 		t.Fatalf("success terminal state must not change: %+v", r4)
+	}
+}
+
+// ── StopRun ───────────────────────────────────────────────────────────────────
+
+func TestService_StopRun_QueuedRemovedFromPool(t *testing.T) {
+	repo := newMemRepo()
+	pool := &fakePool{}
+	svc := newServiceForTest("ckman-01", repo, pool)
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", PolicyID: "p1", Status: model.BACKUP_STATUS_QUEUED, Instance: "ckman-01",
+	}
+	pool.Submit("r1")
+
+	if err := svc.StopRun("r1"); err != nil {
+		t.Fatalf("StopRun: %v", err)
+	}
+	r, _ := repo.GetRun("r1")
+	if r.Status != model.BACKUP_STATUS_INTERRUPTED || r.StatusReason != model.REASON_CANCELLED {
+		t.Fatalf("run status: got %s(%s), want interrupted(cancelled)", r.Status, r.StatusReason)
+	}
+	if len(pool.in) != 0 {
+		t.Fatalf("run should be removed from pool queue, still in %v", pool.in)
+	}
+}
+
+func TestService_StopRun_TerminalRejected(t *testing.T) {
+	repo := newMemRepo()
+	svc := newServiceForTest("ckman-01", repo, &fakePool{})
+	repo.runs["r1"] = model.BackupRun{RunID: "r1", Status: model.BACKUP_STATUS_SUCCESS}
+	if err := svc.StopRun("r1"); err == nil {
+		t.Fatal("terminal run must be rejected")
+	}
+}
+
+func TestService_StopRun_OtherInstanceRejected(t *testing.T) {
+	repo := newMemRepo()
+	svc := newServiceForTest("ckman-01", repo, &fakePool{})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", Status: model.BACKUP_STATUS_RUNNING, Instance: "ckman-02",
+	}
+	if err := svc.StopRun("r1"); err == nil {
+		t.Fatal("run bound to another instance must be rejected")
+	}
+}
+
+func TestService_StopRun_RunningWithoutRegistryMarksLedger(t *testing.T) {
+	// executors 未接线（nil）：找不到 executor 时直接落 interrupted 台账兜底，
+	// claimRun 的 CAS 会失败，不会「停了却还在跑」
+	repo := newMemRepo()
+	svc := newServiceForTest("ckman-01", repo, &fakePool{})
+	repo.runs["r1"] = model.BackupRun{
+		RunID: "r1", Status: model.BACKUP_STATUS_RUNNING, Instance: "ckman-01",
+	}
+	if err := svc.StopRun("r1"); err != nil {
+		t.Fatalf("StopRun: %v", err)
+	}
+	r, _ := repo.GetRun("r1")
+	if r.Status != model.BACKUP_STATUS_INTERRUPTED || r.StatusReason != model.REASON_CANCELLED {
+		t.Fatalf("run status: got %s(%s), want interrupted(cancelled)", r.Status, r.StatusReason)
 	}
 }

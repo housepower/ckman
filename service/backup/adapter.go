@@ -284,6 +284,8 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 	repo := PersistentRepoAdapter{}
 
 	var inFlightPolicies sync.Map // policyID → runID，policy 维度执行互斥
+	// executors 登记在途 runID → *Executor，供 StopRun 取消执行中的备份
+	var executors sync.Map
 	pool := NewPool(maxConcurrent, func(ctx context.Context, runID string) {
 		executeExclusive(repo, &inFlightPolicies, runID,
 			func(id string) bool { return claimRun(repository.Ps.MarkRunRunningIfQueued, id, self) },
@@ -291,6 +293,8 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 				// 每个 run 一个独立 Executor：conns/storage 等 run-scoped 状态互不
 				// 串扰，多 worker 并发执行才安全（共享单例会互相覆盖/关闭对方的连接）。
 				e := newRealExecutor(repo, chAdapter)
+				executors.Store(id, e)
+				defer executors.Delete(id)
 				if rerr := e.Run(ctx, id); rerr != nil {
 					log.Logger.Errorf("[backup] run %s failed: %v", id, rerr)
 				}
@@ -298,6 +302,7 @@ func Init(ctx context.Context, self string, maxConcurrent int, chAdapter *ClickH
 	})
 
 	svc := NewService(self, repo, pool)
+	svc.executors = &executors
 	if err := svc.Boot(); err != nil {
 		return nil, err
 	}

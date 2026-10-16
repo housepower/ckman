@@ -168,3 +168,38 @@ func TestPool_QueueLen(t *testing.T) {
 		t.Fatalf("QueueLen got %d, expected 2 or 3", got)
 	}
 }
+
+func TestPool_RemoveQueuedRun(t *testing.T) {
+	block := make(chan struct{})
+	var ran int32
+	exec := func(ctx context.Context, runID string) {
+		atomic.AddInt32(&ran, 1)
+		<-block
+	}
+	p := NewPool(1, exec)
+	p.Start(context.Background())
+	defer p.Stop()
+
+	p.Submit("r1")
+	// 等 r1 被 worker 取走开始执行，r2 仍在队列
+	time.Sleep(50 * time.Millisecond)
+	p.Submit("r2")
+
+	if !p.Remove("r2") {
+		t.Fatal("Remove(r2) should succeed while still queued")
+	}
+	if p.QueueLen() != 0 {
+		t.Fatalf("queue len = %d, want 0 after remove", p.QueueLen())
+	}
+	if p.Remove("r1") {
+		t.Fatal("Remove(r1) must fail: already taken by worker")
+	}
+	if p.Remove("nope") {
+		t.Fatal("Remove(unknown) must fail")
+	}
+	close(block)
+	time.Sleep(50 * time.Millisecond)
+	if n := atomic.LoadInt32(&ran); n != 1 {
+		t.Fatalf("executed %d runs, want 1 (removed run must not execute)", n)
+	}
+}

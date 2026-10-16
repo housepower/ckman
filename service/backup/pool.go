@@ -127,6 +127,24 @@ func (p *Pool) Submit(runID string) error {
 	return nil
 }
 
+// Remove 把仍在队列中等待的 runID 移除（用户停止排队中的备份）。
+// 返回 true 表示移除成功；run 已被 worker 取走或池已关闭时返回 false，
+// 调用方应转而按「执行中」处理（cancel 在途 Executor）。
+func (p *Pool) Remove(runID string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return false
+	}
+	for i, id := range p.queue {
+		if id == runID {
+			p.queue = append(p.queue[:i], p.queue[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 // Stop discards queued-but-not-started runs and waits for all in-flight runs
 // to complete. Already-running execs are not interrupted (they use an
 // independent context). Discarded runs stay queued in the ledger and are

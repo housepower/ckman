@@ -243,6 +243,23 @@ func (c *DataManageController) DeleteRun(ctx *gin.Context) {
 	c.wrapfunc(ctx, model.E_SUCCESS, nil)
 }
 
+// StopRun POST /data_manage/backup/run/:run_id/stop
+// 主动停止 queued/running 的备份/恢复 run：queued 直接从队列移除，
+// running 关闭在途连接使 BACKUP/RESTORE 语句退出，台账落 interrupted(cancelled)。
+// 不再需要靠重启 ckman 中断备份。
+func (c *DataManageController) StopRun(ctx *gin.Context) {
+	rid := ctx.Param("run_id")
+	svc := c.svc(ctx)
+	if svc == nil {
+		return
+	}
+	if err := svc.StopRun(rid); err != nil {
+		c.wrapfunc(ctx, model.E_DATA_UPDATE_FAILED, err)
+		return
+	}
+	c.wrapfunc(ctx, model.E_SUCCESS, nil)
+}
+
 // ListRunsByPolicy GET /data_manage/backup/policy/:policy_id/runs?limit=&before=
 func (c *DataManageController) ListRunsByPolicy(ctx *gin.Context) {
 	pid := ctx.Param("policy_id")

@@ -2,6 +2,7 @@ package backup
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/go-basic/uuid"
@@ -26,9 +27,11 @@ type ServiceRepo interface {
 	InFlightRunsByCluster(cluster string) []model.BackupRun   // 队列统计（QueueStats）
 }
 
-// ServicePool 暴露入队能力。Task 11 的 Pool 实现满足。
+// ServicePool 暴露入队/移除能力。Task 11 的 Pool 实现满足。
 type ServicePool interface {
 	Submit(runID string) error
+	// Remove 把仍在队列中等待的 run 移除（StopRun 用）；返回是否移除成功。
+	Remove(runID string) bool
 }
 
 // Service 是 backup 提交的入口（HTTP / cron 都通过它）。
@@ -37,6 +40,10 @@ type Service struct {
 	repo ServiceRepo
 	pool ServicePool
 	now  func() time.Time
+
+	// executors 登记本实例正在执行的 runID → *Executor（Init 时注入），
+	// StopRun 据此 cancel 在途 run。nil（单测未接线）时按「找不到 executor」降级处理。
+	executors *sync.Map
 
 	// DeletePartitionRecords 的可注入依赖(测试用;nil 时走生产默认,见 purge.go)
 	getRunsByTable   func(cluster, db, table string, days int) ([]model.BackupRun, error)
