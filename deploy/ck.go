@@ -587,6 +587,112 @@ func (d *CKDeploy) Config() error {
 	return nil
 }
 
+// ConfigTopology updates only the files that describe cluster membership on existing nodes.
+func (d *CKDeploy) ConfigTopology() error {
+	d.Conf.Normalize()
+
+	if d.Conf.LogicCluster == nil {
+		metrikaFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "metrika")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(metrikaFile.FullName)
+		if _, err := ckconfig.GenerateMetrikaXML(metrikaFile.FullName, d.Conf); err != nil {
+			return err
+		}
+		if err := d.uploadTopologyFile(metrikaFile.FullName, "metrika.xml", d.Conf.Hosts); err != nil {
+			return err
+		}
+	} else {
+		logicMetrika, deploys := GenLogicMetrika(d)
+		for _, topologyDeploy := range deploys {
+			if d.Ext.CurClusterOnly && d.Conf.Cluster != topologyDeploy.Conf.Cluster {
+				continue
+			}
+			topologyDeploy.Conf.Normalize()
+			metrikaFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "metrika")
+			if err != nil {
+				return err
+			}
+			if _, err := ckconfig.GenerateMetrikaXMLwithLogic(metrikaFile.FullName, topologyDeploy.Conf, logicMetrika); err != nil {
+				os.Remove(metrikaFile.FullName)
+				return err
+			}
+			err = topologyDeploy.uploadTopologyFile(metrikaFile.FullName, "metrika.xml", topologyDeploy.Conf.Hosts)
+			os.Remove(metrikaFile.FullName)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if d.Conf.Keeper == model.ClickhouseKeeper && !d.Conf.KeeperWithStanalone() {
+		// server_id 必须与 raft_configuration 里 KeeperNodes 的顺序一致，
+		// 因此遍历 KeeperNodes 而不是 Hosts（二者顺序/成员不保证相同）
+		for index, host := range d.Conf.KeeperConf.KeeperNodes {
+			keeperFile, err := common.NewTempFile(path.Join(config.GetWorkDirectory(), "package"), "keeper_config")
+			if err != nil {
+				return err
+			}
+			if _, err := ckconfig.GenerateKeeperXML(keeperFile.FullName, d.Conf, d.Ext.Ipv6Enable, index+1); err != nil {
+				os.Remove(keeperFile.FullName)
+				return err
+			}
+			err = d.uploadTopologyFile(keeperFile.FullName, "keeper_config.xml", []string{host})
+			os.Remove(keeperFile.FullName)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (d *CKDeploy) uploadTopologyFile(localFile, name string, hosts []string) error {
+	remotePath := "/etc/clickhouse-server"
+	if !d.Conf.NeedSudo {
+		remotePath = path.Join(d.Conf.Cwd, "etc", "clickhouse-server")
+	}
+
+	var lastError error
+	var wg sync.WaitGroup
+	for _, host := range hosts {
+		innerHost := host
+		wg.Add(1)
+		_ = common.Pool.Submit(func() {
+			defer wg.Done()
+			sshOpts := common.SshOptions{
+				User:             d.Conf.SshUser,
+				Password:         d.Conf.SshPassword,
+				Port:             d.Conf.SshPort,
+				Host:             innerHost,
+				NeedSudo:         d.Conf.NeedSudo,
+				AuthenticateType: d.Conf.AuthenticateType,
+			}
+			finalFile := path.Join(remotePath, "config.d", name)
+			stagedFile := finalFile + "." + path.Base(localFile)
+			if err := common.ScpUploadFile(localFile, stagedFile, sshOpts); err != nil {
+				lastError = errors.Wrapf(err, "upload %s to %s", name, innerHost)
+				return
+			}
+			cmds := make([]string, 0, 3)
+			if d.Conf.NeedSudo {
+				cmds = append(cmds, fmt.Sprintf("chown clickhouse:clickhouse %s", stagedFile))
+			}
+			cmds = append(cmds, fmt.Sprintf("mv -f %s %s", stagedFile, finalFile))
+			// ScpUploadFile 会经 /tmp 中转且不自清，装完后删掉中转文件
+			cmds = append(cmds, fmt.Sprintf("rm -f %s", path.Join(common.TmpWorkDirectory, path.Base(stagedFile))))
+			if _, err := common.RemoteExecute(sshOpts, strings.Join(cmds, " && ")); err != nil {
+				lastError = errors.Wrapf(err, "install %s on %s", name, innerHost)
+				return
+			}
+		})
+	}
+	wg.Wait()
+	return lastError
+}
+
 func (d *CKDeploy) Start() error {
 	d.Conf.Normalize()
 	cmdIns := GetSuitableCmdAdpt(d.Conf.PkgType)

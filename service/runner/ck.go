@@ -215,7 +215,7 @@ func DeleteCkClusterNode(ctx context.Context, task *model.Task, conf *model.CKMa
 	if err := d.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
-	if err := d.Config(); err != nil {
+	if err := d.ConfigTopology(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
 	if d.Ext.Restart {
@@ -295,8 +295,8 @@ func AddCkClusterNode(ctx context.Context, task *model.Task, conf *model.CKManCl
 	if err := d2.Init(); err != nil {
 		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
-	if err := d2.Config(); err != nil {
-		return errors.Wrapf(err, "[%s]", model.NodeStatusConfig.EN)
+	if err := d2.ConfigTopology(); err != nil {
+		return errors.Wrapf(err, "[%s]", model.NodeStatusConfigExt.EN)
 	}
 
 	if d.Ext.Restart {
