@@ -15,6 +15,7 @@ migrate
 znodefix
 znode_count
 cmd/ckmanctl/ckmanctl
+cmd/ckman-watchdog/ckman-watchdog
 pkged.go
 static/dist/
 coverage.xml
