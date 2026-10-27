@@ -151,6 +151,29 @@ func TestParseConfigFileNormalizes(t *testing.T) {
 	}
 }
 
+func TestEncryptionAlgorithmConfig(t *testing.T) {
+	saved := GlobalConfig
+	defer func() { GlobalConfig = saved }()
+	for _, tc := range []struct{ name, content, want string }{
+		{"default", "{}", "AESWITHHEXANDBASE64"},
+		{"sm4", `{ encrypt_algorithm: "SM4" }`, "SM4"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			GlobalConfig = CKManConfig{}
+			p := filepath.Join(t.TempDir(), "ckman.hjson")
+			if err := os.WriteFile(p, []byte(tc.content), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := ParseConfigFile(p, ""); err != nil {
+				t.Fatal(err)
+			}
+			if GlobalConfig.EncryptAlgorithm != tc.want {
+				t.Fatalf("algorithm = %q, want %q", GlobalConfig.EncryptAlgorithm, tc.want)
+			}
+		})
+	}
+}
+
 func TestIsMasterNode(t *testing.T) {
 	saved, savedNodes := GlobalConfig, ClusterNodes
 	defer func() { GlobalConfig, ClusterNodes = saved, savedNodes }()

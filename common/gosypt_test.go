@@ -10,8 +10,12 @@ import (
 func TestGosypt_EnsurePassword(t *testing.T) {
 	p1 := "123456"
 	p2 := "ENC(E99D423889FBD0C4CF229E14D0864F68)"
-	assert.Equal(t, p1, Gsypt.ensurePassword(p1))
-	assert.Equal(t, "User@123", Gsypt.ensurePassword(p2))
+	got, err := Gsypt.ensurePassword(p1)
+	assert.NoError(t, err)
+	assert.Equal(t, p1, got)
+	got, err = Gsypt.ensurePassword(p2)
+	assert.NoError(t, err)
+	assert.Equal(t, "User@123", got)
 }
 
 type Extras struct {
@@ -63,7 +67,10 @@ func TestGosypt_Unmarshal(t *testing.T) {
 
 func TestSetAttribution(t *testing.T) {
 	Gsypt.SetAttribution("<", ">", GosyptAlgorithm)
-	assert.Equal(t, "123456", Gsypt.ensurePassword("123456"))
-	assert.Equal(t, "ENC(123456)", Gsypt.ensurePassword("ENC(123456)"))
-	assert.Equal(t, "User@123", Gsypt.ensurePassword("<E99D423889FBD0C4CF229E14D0864F68>"))
+	got, _ := Gsypt.ensurePassword("123456")
+	assert.Equal(t, "123456", got)
+	got, _ = Gsypt.ensurePassword("ENC(123456)")
+	assert.Equal(t, "ENC(123456)", got)
+	got, _ = Gsypt.ensurePassword("<E99D423889FBD0C4CF229E14D0864F68>")
+	assert.Equal(t, "User@123", got)
 }

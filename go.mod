@@ -25,6 +25,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/swaggo/gin-swagger v1.3.0
 	github.com/swaggo/swag v1.7.1
+	github.com/tjfoc/gmsm v1.4.1
 	github.com/valyala/fastjson v1.6.3
 	go.uber.org/zap v1.25.0
 	golang.org/x/crypto v0.22.0

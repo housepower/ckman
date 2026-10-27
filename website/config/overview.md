@@ -53,6 +53,21 @@ password: ENC(E310E892E56801CED9ED98AA177F18E6)
 
 未包裹则视为明文。
 
+默认算法为 `AESWITHHEXANDBASE64`，原有配置无需修改。需要使用 SM4 时，在主配置顶层设置 `encrypt_algorithm: SM4`，并为 CKMAN 进程设置 `CKMAN_SM4_KEY` 环境变量。密钥支持 16 字节原文，或 32 位十六进制（对应 16 字节密钥）：
+
+```bash
+export CKMAN_SM4_KEY='31323334353637383930616263646566'
+ckman --encrypt-algorithm SM4 --encrypt '123456'
+```
+
+原 `common/sm4.go` 中的密钥包含 `0x00`，无法直接作为环境变量原文传入。若要使用这份原密钥，可设置：
+
+```bash
+export CKMAN_SM4_KEY='6368656e79616e6368616e6702000205'
+```
+
+把输出的密文写为 `ENC(密文)`。SM4 使用随机 nonce，同一明文每次生成的密文不同。切换算法前，需将配置文件中原有的 `ENC(...)` 值重新加密；算法字段作用于整份配置文件，不能混用 AES 和 SM4 密文。密钥缺失、长度错误或 SM4 密文无法解密时，启动会报错。
+
 ## 完整示例
 
 ```hjson

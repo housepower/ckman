@@ -44,6 +44,7 @@ type CronJob struct {
 
 type CKManConfig struct {
 	ConfigFile       string `yaml:"-" json:"-"`
+	EncryptAlgorithm string `yaml:"encrypt_algorithm" json:"encrypt_algorithm"`
 	Server           CKManServerConfig
 	ClickHouse       ClickHouseOpts
 	Log              CKManLogConfig
@@ -76,10 +77,10 @@ type CKManServerConfig struct {
 	PersistentPolicy string `yaml:"persistent_policy" json:"persistent_policy"`
 	TaskInterval     int    `yaml:"task_interval" json:"task_interval"`
 	// BackupMaxConcurrent 数据备份 worker 池并发度（同时执行的 run 数），<=0 时取默认值 8
-	BackupMaxConcurrent int `yaml:"backup_max_concurrent" json:"backup_max_concurrent"`
-	PkgPath          string `yaml:"pkg_path" json:"pkg_path"`
-	Metric           bool   `yaml:"metric" json:"metric"`
-	MetricPath       string `yaml:"metric_path" json:"metric_path"`
+	BackupMaxConcurrent int    `yaml:"backup_max_concurrent" json:"backup_max_concurrent"`
+	PkgPath             string `yaml:"pkg_path" json:"pkg_path"`
+	Metric              bool   `yaml:"metric" json:"metric"`
+	MetricPath          string `yaml:"metric_path" json:"metric_path"`
 }
 
 type CKManLogConfig struct {
@@ -165,6 +166,7 @@ func (c ConfigCenterConfig) Enabled() bool {
 var ConfigWarnings []string
 
 func fillDefault(c *CKManConfig) {
+	c.EncryptAlgorithm = "AESWITHHEXANDBASE64"
 	c.Server.Port = 8808
 	c.Server.SessionTimeout = 3600
 	c.Server.Pprof = true

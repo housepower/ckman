@@ -24,9 +24,9 @@ import (
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/log"
 	_ "github.com/housepower/ckman/repository/dm8"
-	_ "github.com/housepower/ckman/repository/sqlite"
 	_ "github.com/housepower/ckman/repository/mysql"
 	_ "github.com/housepower/ckman/repository/postgres"
+	_ "github.com/housepower/ckman/repository/sqlite"
 	"github.com/housepower/ckman/server"
 	"github.com/housepower/ckman/service/discovery"
 	"github.com/housepower/ckman/service/zookeeper"
@@ -41,14 +41,15 @@ const (
 )
 
 var (
-	Version         = ""
-	BuildTimeStamp  = ""
-	GitCommitHash   = ""
-	Daemon          = false
-	ConfigFilePath  = ""
-	LogFilePath     = ""
-	PidFilePath     = ""
-	EncryptPassword = ""
+	Version          = ""
+	BuildTimeStamp   = ""
+	GitCommitHash    = ""
+	Daemon           = false
+	ConfigFilePath   = ""
+	LogFilePath      = ""
+	PidFilePath      = ""
+	EncryptPassword  = ""
+	EncryptAlgorithm = common.GosyptAlgorithm
 )
 
 //go:embed static/dist
@@ -64,6 +65,10 @@ func main() {
 	InitCmd()
 	if err := config.ParseConfigFile(ConfigFilePath, Version); err != nil {
 		fmt.Printf("Parse config file %s fail: %v\n", ConfigFilePath, err)
+		os.Exit(1)
+	}
+	if err := common.Gsypt.SetAlgorithm(config.GlobalConfig.EncryptAlgorithm); err != nil {
+		fmt.Printf("invalid encryption configuration: %v\n", err)
 		os.Exit(1)
 	}
 	var conf config.CKManConfig
@@ -304,6 +309,7 @@ func InitCmd() {
 	rootCmd.PersistentFlags().StringVarP(&LogFilePath, "log", "l", "logs/ckman.log", "Log file path")
 	rootCmd.PersistentFlags().StringVarP(&PidFilePath, "pid", "p", "run/ckman.pid", "Pid file path")
 	rootCmd.PersistentFlags().StringVarP(&EncryptPassword, "encrypt", "e", "", "encrypt password")
+	rootCmd.PersistentFlags().StringVar(&EncryptAlgorithm, "encrypt-algorithm", common.GosyptAlgorithm, "encryption algorithm: AESWITHHEXANDBASE64 or SM4")
 	rootCmd.PersistentFlags().BoolVarP(&Daemon, "daemon", "d", false, "Run as daemon")
 	rootCmd.AddCommand(VersionCmd)
 
@@ -322,7 +328,20 @@ func InitCmd() {
 	})
 	_ = rootCmd.Execute()
 	if EncryptPassword != "" {
-		fmt.Println(common.AesEncryptECB(EncryptPassword))
+		switch EncryptAlgorithm {
+		case common.GosyptAlgorithm:
+			fmt.Println(common.AesEncryptECB(EncryptPassword))
+		case common.GosyptSM4Algorithm:
+			ciphertext, err := common.SM4Encrypt(EncryptPassword)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "encrypt failed: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println(ciphertext)
+		default:
+			fmt.Fprintf(os.Stderr, "unsupported encryption algorithm %q\n", EncryptAlgorithm)
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 	fmt.Println("ckman is used to manager and monitor clickhouse")
