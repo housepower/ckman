@@ -1,6 +1,6 @@
 # API 接口
 
-CKMAN 提供 RESTful API，所有接口的**唯一权威定义**是 Swagger，由代码注解自动生成。
+CKMAN 提供 RESTful API。API Playground 展示仓库中由代码注解生成的 Swagger 快照；部分新接口尚未补齐 Swagger 注解，可结合对应功能页和路由代码查阅。
 
 <script setup>
 import { withBase } from 'vitepress';
@@ -56,8 +56,8 @@ import { withBase } from 'vitepress';
 }
 </style>
 
-::: tip 不再手写 API 表
-本页只描述接口设计原则、鉴权、响应结构与典型集成。具体每个接口的请求/响应字段以 Swagger 为准。
+::: tip 接口资料
+已收录接口的请求与响应字段以 Swagger 为准。新增备份接口的行为说明见[数据备份与恢复](/features/backup/overview#备份相关接口)。
 :::
 
 ## 接口前缀

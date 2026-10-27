@@ -24,6 +24,9 @@ CKMAN 的完整版本变更历史维护在仓库根目录 [`CHANGELOG.md`](https
 
 ### 数据备份
 
+- 备份表单支持查看并勾选具体分区、一次性固定日期范围
+- 支持主动停止排队中或运行中的备份/恢复 run
+- 单分区读超时可配置；S3 备份支持按任务设置上传限速
 - `data_manage` 重写为薄壁，全部委托 `service/backup`
 - 增量备份去重
 - 删除 run 时仅删 ckman 台账，不动 S3 数据
@@ -32,6 +35,8 @@ CKMAN 的完整版本变更历史维护在仓库根目录 [`CHANGELOG.md`](https
 
 ### 集群运维
 
+- 新部署的 ClickHouse Keeper 在页面上只提供独立进程模式
+- 增删节点时只更新其余节点的拓扑配置，避免重刷用户与自定义配置
 - `/ck/rebalance_plan` 接口：均衡执行计划预演
 - rebalance 改为通过 runner task 异步执行（修复锁泄漏与 error loss）
 - 节点 override 配置接口（GET / PUT / DELETE）

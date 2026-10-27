@@ -16,6 +16,7 @@ HTTP 服务、鉴权与基础设施相关配置。
 | `public_key` | string | — | RSA 公钥，用于跳过 JWT 的统一门户接入 |
 | `swagger_enable` | bool | `false` | 是否开启 Swagger 文档 `/swagger/*` |
 | `task_interval` | int | `5` | 异步任务扫描间隔（秒） |
+| `backup_max_concurrent` | int | `8` | 同一 CKMAN 实例同时执行的备份/恢复 run 数；小于等于 0 时按默认 8 处理 |
 | `pkg_path` | string | 工作目录 | 安装包存放路径 |
 | `metric` | bool | `true` | 是否暴露 Prometheus metrics |
 | `metric_path` | string | `/metrics` | metrics 路径 |

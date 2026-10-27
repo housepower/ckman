@@ -19,7 +19,11 @@
 | 策略 | 行为 |
 | --- | --- |
 | **Full**（全量升级） | 停服 → 全部节点替换 → 启动。**停服时间长**，但操作简单 |
-| **Rolling**（滚动升级） | 节点逐个升级，不停集群对外服务 |
+| **Rolling**（滚动升级） | ClickHouse 节点按 shard 分批升级，尽量保留服务能力 |
+
+::: warning 使用独立 ClickHouse Keeper 的集群
+未勾选“跳过升级 Keeper”时，CKMAN 会先处理 Keeper，再升级 ClickHouse。当前 Keeper 阶段会处理完整 Keeper 节点列表，**不按 Rolling 逐台升级**；执行前应安排维护窗口并确认 Keeper 的可用性方案。勾选跳过 Keeper 后，只升级 ClickHouse。升级生成的 Keeper 拓扑仍使用完整节点列表。
+:::
 
 ::: tip 如何选
 - 业务可停服且节点少：Full

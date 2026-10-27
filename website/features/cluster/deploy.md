@@ -51,11 +51,12 @@
   - 不启用：每个节点独立一个 shard
 - **是否启用副本一旦确定，后续不可更改**
 
-### ZooKeeper
+### 协调服务：ZooKeeper 或 ClickHouse Keeper
 
-- **ZooKeeper Node List**：ZK 节点 IP 列表（CKMAN 不提供 ZK 部署能力，需要预先搭建好）
-- **ZooKeeper Port**：默认 `2181`
-- **ZK Status Port**：监控端口，默认 `8080`（需要 ZK ≥ 3.5.0）
+- **ZooKeeper**：填写已有 ZK 集群的节点列表和端口（默认 `2181`）；CKMAN 不负责部署 ZK。
+- **ClickHouse Keeper**：选择 `clickhouse-keeper` 后填写 Keeper 节点、客户端端口、Raft 端口和数据路径，并先上传匹配版本的 Keeper 安装包。新部署页面只提供 `standalone` 方式，即由 CKMAN 独立部署 Keeper 进程。
+
+Keeper 数据路径需存在并以 `/` 结尾。使用 tgz 部署时，数据路径不能位于工作目录的 `bin/`、`etc/`、`log/`、`run/` 中；这些目录会在卸载时清理。
 
 ### 数据路径
 

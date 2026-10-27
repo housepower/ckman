@@ -147,6 +147,78 @@
                 }
             }
         },
+        "/api/v1/ck/cert/inspect": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "解析证书内容，返回到期时间与当前是否处于有效期内；只解析证书，不校验证书与私钥是否匹配（那个由保存配置时的校验负责）",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "检视证书",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CertInspectReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":{\"notAfter\":\"2036-08-04 10:42:26\",\"valid\":true,\"message\":\"\"}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ck/cert/selfsigned": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "为指定节点列表生成一张自签名 TLS 证书，仅返回内容不落库",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "生成自签名证书",
+                "parameters": [
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.SelfSignedCertReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":{\"cert\":\"\",\"key\":\"\"}}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/cluster": {
             "get": {
                 "security": [
@@ -1423,6 +1495,118 @@
                 }
             }
         },
+        "/api/v1/ck/rbac/profile/{clusterName}": {
+            "get": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "列出settings profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "name filter",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "创建settings profile"
+            }
+        },
+        "/api/v1/ck/rbac/profile/{clusterName}/{name}": {
+            "get": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "查询单个profile"
+            },
+            "put": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "修改profile"
+            },
+            "delete": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "删除profile"
+            }
+        },
+        "/api/v1/ck/rbac/user/{clusterName}": {
+            "get": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "列出CH用户",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "name filter",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ]
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "创建CH用户",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "user",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.RbacUserCreateReq"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/ck/rbac/user/{clusterName}/{name}": {
+            "get": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "查询单个CH用户"
+            },
+            "put": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "修改CH用户"
+            },
+            "delete": {
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "删除CH用户"
+            }
+        },
         "/api/v1/ck/rebalance/{clusterName}": {
             "put": {
                 "security": [
@@ -2408,7 +2592,7 @@
                     },
                     {
                         "type": "string",
-                        "default": "columns,partitions,parts,compressed,uncompressed,is_readonly,queries,cost",
+                        "default": "columns,partitions,parts,compressed,uncompressed,index_compressed,index_uncompressed,is_readonly,queries,cost",
                         "description": "return columns, if columns is empty, return all columns",
                         "name": "columns",
                         "in": "query"
@@ -2581,6 +2765,63 @@
                 "responses": {
                     "200": {
                         "description": "{\"code\":\"5804\",\"msg\":\"数据查询失败\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/data_manage/backup/table/{clusterName}/{database}/{table}/partitions/delete": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "按分区名删除备份台账记录,可选清理远端备份数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data_manage"
+                ],
+                "summary": "删除分区备份记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "database",
+                        "name": "database",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "table",
+                        "name": "table",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "request body",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeletePartitionRecordsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"retCode\":\"0000\",\"retMsg\":\"ok\",\"entity\":{\"removed_records\":2,\"deleted_runs\":1,\"warnings\":[]}}",
                         "schema": {
                             "type": "string"
                         }
@@ -3677,6 +3918,9 @@
                 "storage": {
                     "$ref": "#/definitions/model.Storage"
                 },
+                "tlsConf": {
+                    "$ref": "#/definitions/model.TlsConf"
+                },
                 "user": {
                     "type": "string",
                     "example": "ck"
@@ -3699,6 +3943,15 @@
                 "zkPort": {
                     "type": "integer",
                     "example": 2181
+                }
+            }
+        },
+        "model.CertInspectReq": {
+            "type": "object",
+            "properties": {
+                "cert": {
+                    "type": "string",
+                    "example": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
                 }
             }
         },
@@ -3745,14 +3998,6 @@
                 "port": {
                     "type": "integer",
                     "example": 9000
-                },
-                "prom_host": {
-                    "type": "string",
-                    "example": "127.0.01"
-                },
-                "prom_port": {
-                    "type": "integer",
-                    "example": 9090
                 },
                 "protocol": {
                     "type": "string",
@@ -4036,6 +4281,22 @@
                 },
                 "table": {
                     "type": "string"
+                }
+            }
+        },
+        "model.DeletePartitionRecordsRequest": {
+            "type": "object",
+            "properties": {
+                "clean_remote": {
+                    "description": "是否同时清理远端备份数据(best-effort)",
+                    "type": "boolean"
+                },
+                "partitions": {
+                    "description": "分区名列表,必填",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -4425,6 +4686,34 @@
                 }
             }
         },
+        "model.RbacUserCreateReq": {
+            "type": "object",
+            "properties": {
+                "access": {
+                    "description": "readonly | readwrite",
+                    "type": "string",
+                    "example": "readonly"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "alice"
+                },
+                "networks": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "password": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "profile": {
+                    "type": "string",
+                    "example": "readonly_p"
+                }
+            }
+        },
         "model.RebalanceTableReq": {
             "type": "object",
             "properties": {
@@ -4477,6 +4766,21 @@
                 }
             }
         },
+        "model.SelfSignedCertReq": {
+            "type": "object",
+            "properties": {
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "192.168.0.1",
+                        "192.168.0.2"
+                    ]
+                }
+            }
+        },
         "model.Storage": {
             "type": "object",
             "properties": {
@@ -4491,6 +4795,20 @@
                     "items": {
                         "$ref": "#/definitions/model.Policy"
                     }
+                }
+            }
+        },
+        "model.TlsConf": {
+            "type": "object",
+            "properties": {
+                "cert": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "selfSigned": {
+                    "type": "boolean"
                 }
             }
         },
