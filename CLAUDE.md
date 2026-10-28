@@ -4,131 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CKMAN is a ClickHouse cluster management and monitoring tool. It provides a web UI for deploying, upgrading, managing, and monitoring ClickHouse clusters.
+CKMAN is a ClickHouse cluster management and monitoring tool. It provides a web UI for deploying, upgrading, managing, and monitoring ClickHouse clusters. Backend is Go (Gin) with an embedded Vue.js frontend (`frontend/` submodule).
 
-**Tech Stack:**
-- **Backend**: Go 1.24 with Gin web framework
-- **Frontend**: Vue.js (TypeScript) in `frontend/` directory
-- **Database**: ClickHouse for managed clusters, persistent layer supports local, MySQL, PostgreSQL, DM8
-- **Service Discovery**: Nacos (optional) for multi-instance deployment
-- **Coordination**: ZooKeeper for ClickHouse distributed operations
-- **Auth**: JWT tokens + unified portal user tokens
+Build/test/lint entry points are the `Makefile` targets (`make build`, `make test`, …); frontend has its own `frontend/Makefile`.
 
-## Build Commands
+## API Versioning
 
-```bash
-# Full build (frontend + backend + swagger docs)
-make build
-
-# Build only backend
-make backend
-
-# Build with debug symbols
-make debug
-
-# Build frontend
-make frontend
-
-# Run all tests
-make test
-
-# Run tests with coverage
-make coverage
-
-# Lint code
-make lint
-
-# Create packages (tar.gz, rpm, deb)
-make package
-make rpm
-make deb
-
-# Run single test package
-go test ./<package> -v
-
-# Generate swagger docs
-swag init
-```
-
-## Architecture
-
-### Layer Structure
-```
-server/         # HTTP server setup, middleware, and routing
-controller/     # HTTP request handlers
-service/        # Business logic (clickhouse, zookeeper, cron, runner, prometheus)
-repository/     # Persistent storage abstraction with multiple backends
-model/          # Data models and structs
-config/         # Configuration management (HJSON/YAML support)
-common/         # Shared utilities (logging, crypto, pool, workerpool)
-router/         # API route definitions (v1 and v2)
-ckconfig/       # ClickHouse config generation logic
-```
-
-### API Versioning
 - **v1**: Legacy API endpoints (`/api/v1/`)
-- **v2**: Current API endpoints (`/api/v2/`) - primary focus for new features
-
-### Persistent Layer Pattern
-The repository layer uses a factory pattern for pluggable backends:
-- `repository/persistent.go` defines interfaces for cluster, logic cluster, query history, task, and backup operations
-- `repository/{local,mysql,postgres,dm8}/` provide implementations
-- Configuration selects backend via `persistent_policy` setting
-- **Any change here must pass the real-DB integration scaffold** (`repository/dbtest/`) —
-  see "Database backend compatibility" under Testing. These backends have DB-specific
-  landmines (DM8 case-sensitivity, MySQL zero-time, Postgres migration) that only surface
-  against a real database, never in mock tests.
-
-### Authentication Flow
-1. Login endpoint issues JWT token with username, client IP, and expiration
-2. Middleware checks token validity, expiration, and IP binding
-3. Unified portal tokens (RSA-encrypted) can bypass JWT
-4. Token cache stored in `controller.TokenCache` (in-memory cache)
-
-### Task System
-Async operations use a task queue:
-- Tasks created via `controller.TaskController`
-- Stored in persistent layer (`PersistentTaskService`)
-- Runner service (`service/runner`) processes pending tasks
-- Tasks tracked by ID with status updates
-
-### Multi-Instance Deployment
-When Nacos is enabled:
-- Each instance registers with Nacos heartbeat
-- Only master instance executes scheduled tasks (cron jobs)
-- `config.IsMasterNode()` determines if current instance should run tasks
-- Cluster node list stored in `config.ClusterNodes`
+- **v2**: Current API endpoints (`/api/v2/`) — primary focus for new features
 
 ## Configuration
 
-Main config file: `conf/ckman.hjson` (HJSON format, YAML also supported)
+Main config file: `resources/ckman.hjson` (HJSON format, YAML also supported). Notable environment variables: `NACOS_HOST`, `HOST_IP`.
 
-Key config sections:
-- `server`: HTTP server, session timeout, auth settings, metrics path
-- `clickhouse`: Connection pool settings for CKMAN's ClickHouse connections
-- `log`: Logging level, rotation settings
-- `persistent_config`: Backend-specific storage config
-- `nacos`: Service discovery config
-- `cron`: Scheduled job settings
-
-Environment variables:
-- `NACOS_HOST`: Comma-separated host:port list for Nacos
-- `HOST_IP`: Override server IP address
-
-## Frontend Development
-
-Frontend is in `frontend/` directory:
-```bash
-cd frontend
-make install    # Install dependencies
-make dev        # Development server with hot reload
-make build      # Production build to static/dist/
-make lint       # Lint code
-```
-
-The built frontend is embedded in the Go binary using `//go:embed static/dist`.
-
-### IMPORTANT: Frontend submodule workflow
+## IMPORTANT: Frontend submodule workflow
 
 `frontend/` is a git submodule (clone of `ckman-fe.git`). **Never edit code or commit inside `frontend/`.** Its HEAD is frequently detached, commits there don't land on any branch and are unreachable to remote/other clones.
 
@@ -142,71 +31,18 @@ Before any frontend work, verify `cd ../ckman-fe && git status && git branch -vv
 
 `make build` to verify frontend changes is run in `ckman-fe/`, not `ckman/frontend`.
 
-## Key Patterns
+## Multi-Instance Deployment
 
-### Response Wrapping
-APIs use `router.WrapMsg()` or `router.WrapMsg2()` to standardize responses:
-- Code/Msg/Data structure
-- Automatic ClickHouse exception decoding
-- Error logging on failure
-
-### ClickHouse Operations
-Most cluster operations go through `controller.ClickHouseController`:
-- Cluster CRUD, start/stop, upgrade, destroy, rebalance
-- Table management (create, alter, delete, truncate, TTL, readonly)
-- Query execution and history tracking
-- Partition management, data archive/purge
-- Node management (add, delete, start, stop)
-- Distributed DDL queue monitoring
-
-### Connection Pooling
-- `common.ConnectPool`: ClickHouse connection pool by cluster
-- `common.Pool`: Worker pool for concurrent operations
-- Connection management in `common/workerpool.go`
-
-### Config Generation
-ClickHouse config files generated in `ckconfig/`:
-- `metrika.go`: ZooKeeper and distributed table config
-- `users.go`: User management config
-- `custom.go`: Custom settings
-- `keeper.go`: ClickHouse Keeper config
+When Nacos is enabled, each instance registers with a heartbeat and only the master instance (`config.IsMasterNode()`) executes scheduled tasks (cron jobs). Cluster node list stored in `config.ClusterNodes`.
 
 ## Testing
 
-Test files use standard Go testing:
-- Unit tests: `*_test.go` files
-- Run all tests: `go test ./... -v`
-- Coverage: `go test ./... -coverprofile=coverage.txt`
-
-### Database backend compatibility (REQUIRED for any DB-related change)
-
-**Any change touching the persistent layer MUST be verified against real databases
-before being considered done** — this means changes to `repository/{mysql,postgres,dm8}/`,
-the models, time handling, schema/migration (`Init`), or any repository interface method.
-
-Mock unit tests CANNOT catch these bugs — they live inside the real driver/DB boundary
-(e.g. DM8 case-sensitive `Has*` failing on restart → -2124/-2116/-2140; MySQL rejecting
-Go zero-time `0000-00-00` → Error 1292; Postgres migration never creating some tables).
-The integration scaffold `repository/dbtest/` (build tag `dbintegration`) exercises the
-real `repository.Ps` methods against real MySQL/DM8/Postgres: connect-start ×3 (migration
-idempotency), zero-time backup_run, and full CRUD per entity.
-
-```bash
-# one-command real PostgreSQL regression (spins up postgres:16, tests, removes container)
-./repository/dbtest/pg-local-test.sh
-
-# or point env vars at real DBs and run all three (see repository/dbtest/README.md)
-go test -tags dbintegration -v ./repository/dbtest/ -run TestBackends
-```
-
-Run it for all three backends when the change is cross-backend (models, time, interface
-shape); at minimum run the affected backend. Do not rely on mocks or a single backend.
+- Unit tests: `go test ./... -v`; coverage: `make coverage`
+- **Any change touching the persistent layer** (`repository/{mysql,postgres,dm8}/`, the models, time handling, schema/migration, repository interfaces) **MUST be verified against real databases** — mocks cannot catch driver/DB-boundary bugs. Full policy and commands: `repository/CLAUDE.md`.
 
 ## Development Notes
 
-- Frontend changes require `make frontend` to rebuild into `static/dist/`
 - API changes require `swag init` to regenerate swagger docs
-- Backend uses embedded filesystem - no static file serving needed
 - Configuration passwords are encrypted using `common.AesEncryptECB()`
 - JWT tokens bound to client IP for security
 - ZooKeeper operations cached in `zookeeper.ZkServiceCache` (1hr TTL)
