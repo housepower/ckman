@@ -2,7 +2,9 @@ package dm8
 
 import (
 	"encoding/json"
-	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 
 	"github.com/housepower/ckman/common"
 	"github.com/pkg/errors"
@@ -46,7 +48,14 @@ func BuildDialector(cfgMap map[string]interface{}) (gorm.Dialector, error) {
 		return nil, errors.Wrap(err, "unmarshal cfgMap")
 	}
 	cfg.Normalize()
-	dsn := fmt.Sprintf("dm://%s:%s@%s:%d?autoCommit=true",
-		cfg.User, cfg.Password, cfg.Host, cfg.Port)
+	// 驱动用 net/url 解析 dm:// DSN,user/password 必须 percent-encode,否则密码里的
+	// # ? % @ / 等字符会截断 DSN(如 ckman#pwd123 → invalid port ":ckman")甚至让
+	// sql.Open 静默失败。用 url.URL 构造而不是 fmt.Sprintf 拼接。
+	dsn := (&url.URL{
+		Scheme:   "dm",
+		User:     url.UserPassword(cfg.User, cfg.Password),
+		Host:     net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port)),
+		RawQuery: "autoCommit=true",
+	}).String()
 	return driver.Open(dsn), nil
 }
