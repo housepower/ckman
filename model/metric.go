@@ -42,6 +42,7 @@ var MetricMap = map[string]M{
 	"CPU Usage (cores)":         {"metric_log", "avg(ProfileEvent_OSCPUVirtualTimeMicroseconds)", 1000000},
 	"IO Wait":                   {"metric_log", "avg(ProfileEvent_OSIOWaitMicroseconds)", 1000000},
 	"Memory (tracked)":          {"metric_log", "avg(CurrentMetric_MemoryTracking)", 1048576},
+	"Memory (RSS)":              {"asynchronous_metric_log", "MemoryResident", 1048576},
 	"Network Recive":            {"metric_log", "avg(ProfileEvent_NetworkReceiveBytes)", 1048576},
 	"Network Send":              {"metric_log", "avg(ProfileEvent_NetworkSendBytes)", 1048576},
 	"Read From Disk":            {"metric_log", "avg(ProfileEvent_OSReadBytes)", 1048576},
