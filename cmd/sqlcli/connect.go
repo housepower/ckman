@@ -1,6 +1,7 @@
 package sqlcli
 
 import (
+	"github.com/housepower/ckman/repository"
 	"github.com/housepower/ckman/repository/dm8"
 	"github.com/housepower/ckman/repository/mysql"
 	"github.com/housepower/ckman/repository/postgres"
@@ -15,7 +16,7 @@ import (
 type Backend int
 
 const (
-	BackendUnknown  Backend = iota
+	BackendUnknown Backend = iota
 	BackendSQLite
 	BackendMySQL
 	BackendPostgres
@@ -65,7 +66,7 @@ func OpenDB(policy string, cfgMap map[string]interface{}) (*gorm.DB, Backend, er
 	if err != nil {
 		return nil, BackendUnknown, errors.Wrap(err, "build dialector")
 	}
-	db, err := gorm.Open(dialector, &gorm.Config{
+	db, err := repository.OpenGormDB(dialector, &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {

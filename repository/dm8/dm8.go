@@ -22,33 +22,14 @@ type DM8Persistent struct {
 	ParentDB *gorm.DB
 }
 
-// openGormDB 用 dialector 建立 *gorm.DB 并保证底层 *sql.DB 非空。
-// gorm-dm8 的 Dialector.Initialize 会用回调注册的返回值覆盖 sql.Open 的 err:
-// DSN 解析失败时 ConnPool 是 nil *sql.DB 却不报错,交给 gorm 自动 Ping 会 SIGSEGV
-// (线上真实事故:密码含 # 截断 DSN → 启动即崩)。所以这里关掉自动 Ping、手工校验
-// 并显式 Ping,把这种情形降级成普通 error。
+// openGormDB 已收敛到 repository.OpenGormDB（含 ping 失败时关闭底层连接的修复）。
 func openGormDB(dialector gorm.Dialector) (*gorm.DB, error) {
 	logger := zapgorm2.New(log.ZapLog)
 	logger.SetAsDefault()
-	db, err := gorm.Open(dialector, &gorm.Config{
+	return repository.OpenGormDB(dialector, &gorm.Config{
 		Logger:                                   logger,
 		DisableForeignKeyConstraintWhenMigrating: true,
-		DisableAutomaticPing:                     true,
 	})
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-	if sqlDB == nil {
-		return nil, errors.New("dm8 驱动未建立底层连接(DSN 解析失败?),请检查 persistent_config.dm8 配置")
-	}
-	if err := sqlDB.Ping(); err != nil {
-		return nil, errors.Wrap(err, "ping dm8")
-	}
-	return db, nil
 }
 
 func (mp *DM8Persistent) Init(config interface{}) error {
