@@ -957,10 +957,11 @@ func (sp *SQLitePersistent) GetAllUsers() ([]model.CkmanUser, error) {
 
 func (sp *SQLitePersistent) CreateUser(u model.CkmanUser) error {
 	tbl := TblUser{
-		Username:     u.Username,
-		PasswordHash: u.PasswordHash,
-		Policy:       u.Policy,
-		Enabled:      u.Enabled,
+		Username:           u.Username,
+		PasswordHash:       u.PasswordHash,
+		Policy:             u.Policy,
+		Enabled:            u.Enabled,
+		MustChangePassword: u.MustChangePassword,
 	}
 	if err := sp.Client.Create(&tbl).Error; err != nil {
 		if isUniqueViolation(err) {
@@ -973,9 +974,10 @@ func (sp *SQLitePersistent) CreateUser(u model.CkmanUser) error {
 
 func (sp *SQLitePersistent) UpdateUser(u model.CkmanUser) error {
 	updates := map[string]interface{}{
-		"password_hash": u.PasswordHash,
-		"policy":        u.Policy,
-		"enabled":       u.Enabled,
+		"password_hash":        u.PasswordHash,
+		"policy":               u.Policy,
+		"enabled":              u.Enabled,
+		"must_change_password": u.MustChangePassword,
 	}
 	tx := sp.Client.Model(&TblUser{}).Where("username = ?", u.Username).Updates(updates)
 	if tx.Error != nil {

@@ -91,22 +91,24 @@ func (TblMeta) TableName() string { return SQLITE_TBL_META }
 
 type TblUser struct {
 	gorm.Model
-	Username     string `gorm:"index:idx_user_name,unique; column:username; size:32; not null"`
-	PasswordHash string `gorm:"column:password_hash; size:64; not null"`
-	Policy       string `gorm:"column:policy; size:16; not null"`
-	Enabled      bool   `gorm:"column:enabled; not null"`
+	Username           string `gorm:"index:idx_user_name,unique; column:username; size:32; not null"`
+	PasswordHash       string `gorm:"column:password_hash; size:64; not null"`
+	Policy             string `gorm:"column:policy; size:16; not null"`
+	Enabled            bool   `gorm:"column:enabled; not null"`
+	MustChangePassword bool   `gorm:"column:must_change_password; not null; default:false"`
 }
 
 func (TblUser) TableName() string { return SQLITE_TBL_USER }
 
 func tblUserToModel(t TblUser) model.CkmanUser {
 	return model.CkmanUser{
-		ID:           int64(t.ID),
-		Username:     t.Username,
-		PasswordHash: t.PasswordHash,
-		Policy:       t.Policy,
-		Enabled:      t.Enabled,
-		CreatedAt:    t.CreatedAt.Unix(),
-		UpdatedAt:    t.UpdatedAt.Unix(),
+		ID:                 int64(t.ID),
+		Username:           t.Username,
+		PasswordHash:       t.PasswordHash,
+		Policy:             t.Policy,
+		Enabled:            t.Enabled,
+		MustChangePassword: t.MustChangePassword,
+		CreatedAt:          t.CreatedAt.Unix(),
+		UpdatedAt:          t.UpdatedAt.Unix(),
 	}
 }

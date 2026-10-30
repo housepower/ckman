@@ -77,6 +77,11 @@ func main() {
 		os.Exit(1)
 	}
 	log.InitLogger(LogFilePath, &config.GlobalConfig.Log)
+	// Bootstrap before daemonizing so the one-time password reaches the invoking
+	// terminal (or the service manager's standard output), not /dev/null.
+	if err := repository.InitPersistent(); err != nil {
+		log.Logger.Fatalf("init persistent failed:%v", err)
+	}
 
 	cntxt := &daemon.Context{
 		PidFileName: PidFilePath,
@@ -110,11 +115,6 @@ func main() {
 	signalCh := make(chan os.Signal, 1)
 
 	defer common.Pool.Close()
-	err = repository.InitPersistent()
-	if err != nil {
-		log.Logger.Fatalf("init persistent failed:%v", err)
-	}
-
 	// 在 InitLogger 之后注入 remote_apply 使用的 logger（config 不能反向 import log）。
 	config.SetRemoteLogger(log.Logger)
 	for _, w := range config.ConfigWarnings {

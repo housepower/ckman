@@ -207,15 +207,27 @@ token: <你的 token>
 
 ```python
 import hashlib
+import getpass
 import requests
 
 # 登录
-pwd_hashed = hashlib.md5("Ckman123456!".encode()).hexdigest()
+password = getpass.getpass("CKMAN password: ")
+pwd_hashed = hashlib.md5(password.encode()).hexdigest()
 r = requests.post("http://ckman:8808/api/login", json={
     "username": "ckman",
     "password": pwd_hashed,
 })
-token = r.json()["entity"]["token"]
+login = r.json()["entity"]
+token = login["token"]
+if login["must_change_password"]:
+    new_password = getpass.getpass("New password: ")
+    change = requests.put(
+        "http://ckman:8808/api/v1/user/password",
+        headers={"token": token},
+        json={"old_password": password, "new_password": new_password},
+    ).json()
+    if change["retCode"] != "0000":
+        raise RuntimeError(change["retMsg"])
 
 # 调用业务接口
 r = requests.get(

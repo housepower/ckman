@@ -6,29 +6,32 @@ type LoginReq struct {
 }
 
 type LoginRsp struct {
-	Username string `json:"username" example:"ckman"`
-	Token    string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"`
-	Policy   string `json:"policy" example:"admin"`
-	Enabled  bool   `json:"enabled" example:"true"`
+	Username           string `json:"username" example:"ckman"`
+	Token              string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"`
+	Policy             string `json:"policy" example:"admin"`
+	Enabled            bool   `json:"enabled" example:"true"`
+	MustChangePassword bool   `json:"must_change_password"`
 }
 
 // CkmanUser is the persisted user record. PasswordHash is never serialized to JSON.
 type CkmanUser struct {
-	ID           int64  `json:"-"`
-	Username     string `json:"username"`
-	PasswordHash string `json:"-"`
-	Policy       string `json:"policy"`
-	Enabled      bool   `json:"enabled"`
-	CreatedAt    int64  `json:"created_at"`
-	UpdatedAt    int64  `json:"updated_at"`
+	ID                 int64  `json:"-"`
+	Username           string `json:"username"`
+	PasswordHash       string `json:"-"`
+	Policy             string `json:"policy"`
+	Enabled            bool   `json:"enabled"`
+	MustChangePassword bool   `json:"must_change_password"`
+	CreatedAt          int64  `json:"created_at"`
+	UpdatedAt          int64  `json:"updated_at"`
 }
 
 type UserListItem struct {
-	Username  string `json:"username"`
-	Policy    string `json:"policy"`
-	Enabled   bool   `json:"enabled"`
-	CreatedAt int64  `json:"created_at"`
-	UpdatedAt int64  `json:"updated_at"`
+	Username           string `json:"username"`
+	Policy             string `json:"policy"`
+	Enabled            bool   `json:"enabled"`
+	MustChangePassword bool   `json:"must_change_password"`
+	CreatedAt          int64  `json:"created_at"`
+	UpdatedAt          int64  `json:"updated_at"`
 }
 
 type CreateUserReq struct {

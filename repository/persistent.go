@@ -1,11 +1,12 @@
 package repository
 
 import (
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
-	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
 )
@@ -120,10 +121,10 @@ type PersistentMgr interface {
 	PersistentLogicService
 	PersistentQueryHistoryService
 	PersistentTaskService
-	PersistentBackupService           // 老接口保留
-	PersistentBackupPolicyService     // 新增
-	PersistentBackupRunService        // 新增
-	PersistentUserService             // 新增 — Phase 1 用户管理
+	PersistentBackupService       // 老接口保留
+	PersistentBackupPolicyService // 新增
+	PersistentBackupRunService    // 新增
+	PersistentUserService         // 新增 — Phase 1 用户管理
 }
 
 func RegistePersistent(fn func() PersistentFactory) {
@@ -149,19 +150,24 @@ func seedAdminIfAbsent() error {
 	if Ps.UserExists(common.DefaultAdminName) {
 		return nil
 	}
-	md5pw := common.Md5CheckSum(common.DefaultAdminPassword)
+	password, err := common.GenerateInitialAdminPassword()
+	if err != nil {
+		return err
+	}
+	md5pw := common.Md5CheckSum(password)
 	hash, err := common.HashPassword(md5pw)
 	if err != nil {
-		return errors.Wrap(err, "hash default admin password")
+		return errors.Wrap(err, "hash initial admin password")
 	}
 	now := time.Now().Unix()
 	err = Ps.CreateUser(model.CkmanUser{
-		Username:     common.DefaultAdminName,
-		PasswordHash: hash,
-		Policy:       common.ADMIN,
-		Enabled:      true,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		Username:           common.DefaultAdminName,
+		PasswordHash:       hash,
+		Policy:             common.ADMIN,
+		Enabled:            true,
+		MustChangePassword: true,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	})
 	if err != nil {
 		if errors.Is(err, ErrRecordExists) {
@@ -169,9 +175,7 @@ func seedAdminIfAbsent() error {
 		}
 		return err
 	}
-	log.Logger.Warnf("bootstrap: seeded admin user %q with default password %q.",
-		common.DefaultAdminName, common.DefaultAdminPassword)
-	log.Logger.Warnf("bootstrap: please log in via Web UI and change the password immediately.")
+	fmt.Fprintf(os.Stdout, "CKMAN initial login: username=%s password=%s\nChange this password after the first login.\n", common.DefaultAdminName, password)
 	return nil
 }
 

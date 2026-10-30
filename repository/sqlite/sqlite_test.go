@@ -2,8 +2,10 @@ package sqlite
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -601,9 +603,15 @@ func TestSeedAdminFromInitPersistent(t *testing.T) {
 		},
 	}
 	repository.Ps = nil
-	if err := repository.InitPersistent(); err != nil {
-		t.Fatalf("first InitPersistent failed: %v", err)
+	output, initErr := captureInitOutput(t, repository.InitPersistent)
+	if initErr != nil {
+		t.Fatalf("first InitPersistent failed: %v", initErr)
 	}
+	match := regexp.MustCompile(`username=ckman password=([^\s]+)`).FindStringSubmatch(output)
+	if len(match) != 2 {
+		t.Fatal("initial password was not printed to stdout")
+	}
+	password := match[1]
 
 	got, err := repository.Ps.GetUserByName(common.DefaultAdminName)
 	if err != nil {
@@ -615,11 +623,18 @@ func TestSeedAdminFromInitPersistent(t *testing.T) {
 	if !got.Enabled {
 		t.Errorf("expected enabled=true")
 	}
+	if !got.MustChangePassword || !common.ComparePassword(got.PasswordHash, common.Md5CheckSum(password)) {
+		t.Error("initial password is not stored with required-change flag")
+	}
 
 	// Idempotent: re-initializing must not duplicate or fail.
 	repository.Ps = nil
-	if err := repository.InitPersistent(); err != nil {
-		t.Fatalf("second InitPersistent failed: %v", err)
+	output, initErr = captureInitOutput(t, repository.InitPersistent)
+	if initErr != nil {
+		t.Fatalf("second InitPersistent failed: %v", initErr)
+	}
+	if output != "" {
+		t.Error("restart printed an initial password again")
 	}
 	all, err := repository.Ps.GetAllUsers()
 	if err != nil {
@@ -628,6 +643,41 @@ func TestSeedAdminFromInitPersistent(t *testing.T) {
 	if len(all) != 1 {
 		t.Errorf("expected 1 user after re-init, got %d", len(all))
 	}
+	if len(all) == 1 && (all[0].PasswordHash != got.PasswordHash || all[0].MustChangePassword != got.MustChangePassword) {
+		t.Error("restart changed the existing admin user")
+	}
+	got.MustChangePassword = false
+	if err := repository.Ps.UpdateUser(got); err != nil {
+		t.Fatal(err)
+	}
+	repository.Ps = nil
+	output, initErr = captureInitOutput(t, repository.InitPersistent)
+	if initErr != nil || output != "" {
+		t.Fatal("restart after password change regenerated the initial password")
+	}
+	gotAfterChange, err := repository.Ps.GetUserByName(common.DefaultAdminName)
+	if err != nil || gotAfterChange.MustChangePassword || gotAfterChange.PasswordHash != got.PasswordHash {
+		t.Fatal("restart did not preserve the changed admin state")
+	}
+}
+
+func captureInitOutput(t *testing.T, fn func() error) (string, error) {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = oldStdout }()
+	callErr := fn()
+	_ = w.Close()
+	data, err := io.ReadAll(r)
+	_ = r.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data), callErr
 }
 
 func TestUserCRUD(t *testing.T) {

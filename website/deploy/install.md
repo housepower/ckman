@@ -337,9 +337,9 @@ K8s 里跑的只是 CKMAN 自身。**被管控的 ClickHouse 集群通常还是�
 | --- | --- |
 | 地址 | `http://<host>:8808` |
 | 用户名 | `ckman` |
-| 密码 | `Ckman123456!`（首次登录建议立刻修改） |
+| 密码 | 首次启动时输出的随机口令 |
 
-登录后在「用户管理 → 修改密码」中替换默认密码。
+CKMAN 只在首次创建 `ckman` 用户时将口令打印到启动终端；systemd 启动时可在 `journalctl -u ckman` 中查看首次启动的标准输出。首次登录会强制进入修改密码页，完成后才能使用其他功能。重启不会再次生成或打印口令，已有用户密码保持不变。
 
 ::: tip
 旧版本通过 `conf/password` 文件 + `ckmanpassword` 工具管理密码，**新版已移除**，账号统一存放在持久层（local SQLite / MySQL / PostgreSQL / DM8），通过 Web 界面或 API 管理。

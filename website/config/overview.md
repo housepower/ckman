@@ -174,5 +174,5 @@ ckman -c /etc/ckman/conf/ckman.hjson --encrypt-algorithm SM4 --encrypt '123456'
 | `registry`, `config_center`, `nacos.*`, `consul.*`, `apollo.*` | 是 |
 
 ::: tip 用户密码
-登录用户的密码不在 `ckman.hjson` 中——它存放在 `conf/password` 或持久层数据库的用户表里，由 CKMAN 自己管理。
+登录用户的密码不在 `ckman.hjson` 中，而是以哈希形式存放在持久层数据库的用户表里。首次启动生成的 `ckman` 口令只输出一次。
 :::

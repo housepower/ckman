@@ -1078,10 +1078,11 @@ func (mp *DM8Persistent) GetAllUsers() ([]model.CkmanUser, error) {
 
 func (mp *DM8Persistent) CreateUser(u model.CkmanUser) error {
 	tbl := TblUser{
-		Username:     u.Username,
-		PasswordHash: u.PasswordHash,
-		Policy:       u.Policy,
-		Enabled:      u.Enabled,
+		Username:           u.Username,
+		PasswordHash:       u.PasswordHash,
+		Policy:             u.Policy,
+		Enabled:            u.Enabled,
+		MustChangePassword: u.MustChangePassword,
 	}
 	if err := mp.Client.Create(&tbl).Error; err != nil {
 		if isUniqueViolationDM8(err) {
@@ -1094,9 +1095,10 @@ func (mp *DM8Persistent) CreateUser(u model.CkmanUser) error {
 
 func (mp *DM8Persistent) UpdateUser(u model.CkmanUser) error {
 	updates := map[string]interface{}{
-		"password_hash": u.PasswordHash,
-		"policy":        u.Policy,
-		"enabled":       u.Enabled,
+		"password_hash":        u.PasswordHash,
+		"policy":               u.Policy,
+		"enabled":              u.Enabled,
+		"must_change_password": u.MustChangePassword,
 	}
 	tx := mp.Client.Model(&TblUser{}).Where("username = ?", u.Username).Updates(updates)
 	if tx.Error != nil {

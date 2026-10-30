@@ -116,6 +116,7 @@ func (server *ApiServer) Start() error {
 	// add authenticate middleware for /api
 	groupApi.Use(ginJWTAuth())
 	groupApi.Use(ginRefreshTokenExpires())
+	groupApi.Use(ginRequirePasswordChange())
 	groupApi.Use(ginEnforce())
 	groupApi.PUT("/logout", userController.Logout)
 	groupV1 := groupApi.Group("/v1")
@@ -339,6 +340,29 @@ func ginEnforce() gin.HandlerFunc {
 		if !ok {
 			err := fmt.Errorf("permission denied: username [%s]", username)
 			router.WrapMsg(c, model.E_USER_VERIFY_FAIL, err)
+			c.Abort()
+		}
+	}
+}
+
+func ginRequirePasswordChange() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if path == "/api/logout" || path == "/api/v1/user/me" || path == "/api/v1/user/password" {
+			return
+		}
+		username := c.GetString("username")
+		if username == common.InternalOrdinaryName {
+			return // unified portal has no CKMAN password
+		}
+		user, err := repository.Ps.GetUserByName(username)
+		if err != nil || !user.Enabled {
+			router.WrapMsg(c, model.E_USER_VERIFY_FAIL, nil)
+			c.Abort()
+			return
+		}
+		if user.MustChangePassword {
+			router.WrapMsg(c, model.E_PASSWORD_CHANGE_REQUIRED, nil)
 			c.Abort()
 		}
 	}

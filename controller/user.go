@@ -98,10 +98,11 @@ func (controller *UserController) Login(c *gin.Context) {
 	}
 
 	rsp := model.LoginRsp{
-		Username: user.Username,
-		Token:    token,
-		Policy:   user.Policy,
-		Enabled:  user.Enabled,
+		Username:           user.Username,
+		Token:              token,
+		Policy:             user.Policy,
+		Enabled:            user.Enabled,
+		MustChangePassword: user.MustChangePassword,
 	}
 	TokenCache.SetDefault(token,
 		time.Now().Add(time.Second*time.Duration(controller.config.Server.SessionTimeout)).Unix())
@@ -131,11 +132,12 @@ func (controller *UserController) Me(c *gin.Context) {
 		return
 	}
 	controller.wrapfunc(c, model.E_SUCCESS, model.UserListItem{
-		Username:  user.Username,
-		Policy:    user.Policy,
-		Enabled:   user.Enabled,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		Username:           user.Username,
+		Policy:             user.Policy,
+		Enabled:            user.Enabled,
+		MustChangePassword: user.MustChangePassword,
+		CreatedAt:          user.CreatedAt,
+		UpdatedAt:          user.UpdatedAt,
 	})
 }
 
@@ -156,6 +158,7 @@ func (controller *UserController) List(c *gin.Context) {
 			Username:  u.Username,
 			Policy:    u.Policy,
 			Enabled:   u.Enabled,
+			MustChangePassword: u.MustChangePassword,
 			CreatedAt: u.CreatedAt,
 			UpdatedAt: u.UpdatedAt,
 		})
@@ -328,12 +331,17 @@ func (controller *UserController) ChangeMyPassword(c *gin.Context) {
 		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, err)
 		return
 	}
+	if common.ComparePassword(user.PasswordHash, common.Md5CheckSum(req.NewPassword)) {
+		controller.wrapfunc(c, model.E_DATA_CHECK_FAILED, errors.New("new password must differ from the old password"))
+		return
+	}
 	hash, err := common.HashPassword(common.Md5CheckSum(req.NewPassword))
 	if err != nil {
 		controller.wrapfunc(c, model.E_DATA_UPDATE_FAILED, err)
 		return
 	}
 	user.PasswordHash = hash
+	user.MustChangePassword = false
 	user.UpdatedAt = time.Now().Unix()
 	if err := repository.Ps.UpdateUser(user); err != nil {
 		controller.wrapfunc(c, model.E_DATA_UPDATE_FAILED, err)

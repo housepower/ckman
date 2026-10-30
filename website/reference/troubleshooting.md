@@ -13,12 +13,13 @@
 3. `tail -100 /var/log/ckman/ckman.log` 看启动日志
 4. 防火墙是否放开（`firewall-cmd --list-ports`）
 
-### Q：默认密码 `Ckman123456!` 登录失败
+### Q：首次登录时找不到初始口令
 
-可能原因：
+初始口令只在首次创建 `ckman` 用户时打印一次，不再使用固定默认密码。
 
-- 历史版本残留的 `conf/password` 文件密码不是默认值
-- 用 `ckmanpassword` 工具重置：`cd /etc/ckman/conf && ckmanpassword`
+- 在启动终端输出中查找 `CKMAN initial login`；若由 systemd 启动，查看首次启动时的 `journalctl -u ckman` 输出。
+- 已有 `ckman` 用户升级后保留原密码，不会生成新口令。
+- 重启不会重复打印初始口令。
 
 ### Q：rpm 升级后服务起不来
 
