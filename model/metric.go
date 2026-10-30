@@ -39,7 +39,9 @@ var MetricMap = map[string]M{
 	"Replicated Part Mutations": {"metric_log", "avg(ProfileEvent_ReplicatedPartMutations)", 1},
 	"Total MergeTree Parts":     {"asynchronous_metric_log", "TotalPartsOfMergeTreeTables", 1},
 	"Max Parts For Partition":   {"asynchronous_metric_log", "MaxPartCountForPartition", 1},
-	"CPU Usage (cores)":         {"metric_log", "avg(ProfileEvent_OSCPUVirtualTimeMicroseconds)", 1000000},
+	// OSCPUVirtualTimeMicroseconds may stay at zero when the node does not expose
+	// taskstats. UserTimeMicroseconds and SystemTimeMicroseconds are still recorded.
+	"CPU Usage (cores)":         {"metric_log", "avg(if(ProfileEvent_OSCPUVirtualTimeMicroseconds > 0, ProfileEvent_OSCPUVirtualTimeMicroseconds, ProfileEvent_UserTimeMicroseconds + ProfileEvent_SystemTimeMicroseconds))", 1000000},
 	"IO Wait":                   {"metric_log", "avg(ProfileEvent_OSIOWaitMicroseconds)", 1000000},
 	"Memory (tracked)":          {"metric_log", "avg(CurrentMetric_MemoryTracking)", 1048576},
 	"Memory (RSS)":              {"asynchronous_metric_log", "MemoryResident", 1048576},
