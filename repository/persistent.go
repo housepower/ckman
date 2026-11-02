@@ -175,7 +175,7 @@ func seedAdminIfAbsent() error {
 		}
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "CKMAN initial login: username=%s password=%s\nChange this password after the first login.\n", common.DefaultAdminName, password)
+	fmt.Fprintf(os.Stdout, "CKMAN initial login: username=%s password=%s\nSave this password now; it will not be printed again. Change it after the first login.\n", common.DefaultAdminName, password)
 	return nil
 }
 

@@ -43,6 +43,7 @@ var (
 	BuildTimeStamp   = ""
 	GitCommitHash    = ""
 	Daemon           = false
+	BootstrapAdmin   = false
 	ConfigFilePath   = ""
 	LogFilePath      = ""
 	PidFilePath      = ""
@@ -81,6 +82,9 @@ func main() {
 	// terminal (or the service manager's standard output), not /dev/null.
 	if err := repository.InitPersistent(); err != nil {
 		log.Logger.Fatalf("init persistent failed:%v", err)
+	}
+	if BootstrapAdmin {
+		return
 	}
 
 	cntxt := &daemon.Context{
@@ -275,6 +279,7 @@ func InitCmd() {
 	rootCmd.PersistentFlags().StringVarP(&EncryptPassword, "encrypt", "e", "", "encrypt password")
 	rootCmd.PersistentFlags().StringVar(&EncryptAlgorithm, "encrypt-algorithm", common.GosyptAlgorithm, "encryption algorithm: AESWITHHEXANDBASE64 or SM4")
 	rootCmd.PersistentFlags().BoolVarP(&Daemon, "daemon", "d", false, "Run as daemon")
+	rootCmd.PersistentFlags().BoolVar(&BootstrapAdmin, "bootstrap-admin", false, "Initialize the admin user and exit")
 	rootCmd.AddCommand(VersionCmd)
 
 	rootCmd.SetUsageFunc(func(cmd *cobra.Command) error {

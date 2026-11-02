@@ -17,7 +17,7 @@
 
 初始口令只在首次创建 `ckman` 用户时打印一次，不再使用固定默认密码。
 
-- 在启动终端输出中查找 `CKMAN initial login`；若由 systemd 启动，查看首次启动时的 `journalctl -u ckman` 输出。
+- 先在 RPM/DEB 安装输出或启动终端中查找 `CKMAN initial login`；若初始化延后到 systemd 启动，查看首次启动时的 `journalctl -u ckman` 输出。
 - 已有 `ckman` 用户升级后保留原密码，不会生成新口令。
 - 重启不会重复打印初始口令。
 
