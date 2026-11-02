@@ -4849,6 +4849,9 @@ var doc = `{
                 "enabled": {
                     "type": "boolean"
                 },
+                "must_change_password": {
+                    "type": "boolean"
+                },
                 "policy": {
                     "type": "string"
                 },
