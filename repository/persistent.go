@@ -3,12 +3,15 @@ package repository
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var Ps PersistentMgr
@@ -146,18 +149,69 @@ func GetPersistentByName(name string) PersistentMgr {
 	return nil
 }
 
-func seedAdminIfAbsent() error {
-	if Ps.UserExists(common.DefaultAdminName) {
+// Older RPM/DEB packages wrote this hash during installation. Consume it once
+// so upgrades before the first service start still accept the printed password.
+const preparedAdminHashFile = ".ckman-initial-password.hash"
+
+func preparedAdminHashPath() string {
+	if config.GlobalConfig.ConfigFile == "" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(config.GlobalConfig.ConfigFile), preparedAdminHashFile)
+}
+
+func readPreparedAdminHash() (string, bool, error) {
+	path := preparedAdminHashPath()
+	if path == "" {
+		return "", false, nil
+	}
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, errors.Wrap(err, "read prepared admin password hash")
+	}
+	hash := strings.TrimSpace(string(data))
+	if _, err := bcrypt.Cost([]byte(hash)); err != nil {
+		return "", false, errors.Wrap(err, "invalid prepared admin password hash")
+	}
+	return hash, true, nil
+}
+
+func removePreparedAdminHash() error {
+	path := preparedAdminHashPath()
+	if path == "" {
 		return nil
 	}
-	password, err := common.GenerateInitialAdminPassword()
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return errors.Wrap(err, "remove prepared admin password hash")
+	}
+	return nil
+}
+
+func printInitialAdminPassword(password string) {
+	fmt.Fprintf(os.Stdout, "CKMAN initial login: username=%s password=%s\nSave this password now; it will not be printed again. Change it after the first login.\n", common.DefaultAdminName, password)
+}
+
+func seedAdminIfAbsent() error {
+	if Ps.UserExists(common.DefaultAdminName) {
+		return removePreparedAdminHash()
+	}
+	hash, prepared, err := readPreparedAdminHash()
 	if err != nil {
 		return err
 	}
-	md5pw := common.Md5CheckSum(password)
-	hash, err := common.HashPassword(md5pw)
-	if err != nil {
-		return errors.Wrap(err, "hash initial admin password")
+	password := ""
+	if !prepared {
+		password, err = common.GenerateInitialAdminPassword()
+		if err != nil {
+			return err
+		}
+		hash, err = common.HashPassword(common.Md5CheckSum(password))
+		if err != nil {
+			return errors.Wrap(err, "hash initial admin password")
+		}
 	}
 	now := time.Now().Unix()
 	err = Ps.CreateUser(model.CkmanUser{
@@ -171,11 +225,14 @@ func seedAdminIfAbsent() error {
 	})
 	if err != nil {
 		if errors.Is(err, ErrRecordExists) {
-			return nil // multi-instance race: another instance won, treat as success
+			return removePreparedAdminHash() // another instance won the race
 		}
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "CKMAN initial login: username=%s password=%s\nSave this password now; it will not be printed again. Change it after the first login.\n", common.DefaultAdminName, password)
+	if prepared {
+		return removePreparedAdminHash()
+	}
+	printInitialAdminPassword(password)
 	return nil
 }
 

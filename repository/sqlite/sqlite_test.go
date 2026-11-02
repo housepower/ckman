@@ -661,6 +661,58 @@ func TestSeedAdminFromInitPersistent(t *testing.T) {
 	}
 }
 
+func TestExistingPreparedAdminHashUsesFirstStartPersistence(t *testing.T) {
+	dir := t.TempDir()
+	savedConfig, savedPs := config.GlobalConfig, repository.Ps
+	t.Cleanup(func() { config.GlobalConfig, repository.Ps = savedConfig, savedPs })
+	config.GlobalConfig.ConfigFile = filepath.Join(dir, "ckman.hjson")
+	config.GlobalConfig.Server.PersistentPolicy = SQLitePersistentName
+	config.GlobalConfig.PersistentConfig = map[string]map[string]interface{}{
+		SQLitePersistentName: {"config_dir": dir, "config_file": "install.db"},
+	}
+	// A previous package may have prepared a password before the config changed.
+	// Keep honoring that pending hash to avoid losing its printed password.
+	repository.Ps = nil
+	if _, err := captureInitOutput(t, repository.InitPersistent); err != nil {
+		t.Fatalf("create old local admin: %v", err)
+	}
+	oldUser, err := repository.Ps.GetUserByName(common.DefaultAdminName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	password := "PreparedPass123!"
+	hash, err := common.HashPassword(common.Md5CheckSum(password))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hashPath := filepath.Join(dir, ".ckman-initial-password.hash")
+	if err := os.WriteFile(hashPath, []byte(hash+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	oldLocal := NewSQLitePersistent()
+	if err := oldLocal.Init(LocalConfig{ConfigDir: dir, ConfigFile: "install.db"}); err != nil {
+		t.Fatal(err)
+	}
+	unchanged, err := oldLocal.GetUserByName(common.DefaultAdminName)
+	if err != nil || unchanged.PasswordHash != oldUser.PasswordHash {
+		t.Fatal("installation modified the old local admin")
+	}
+	// Simulate changing the persistence destination before first service start.
+	config.GlobalConfig.PersistentConfig[SQLitePersistentName]["config_file"] = "production.db"
+	repository.Ps = nil
+	output, err := captureInitOutput(t, repository.InitPersistent)
+	if err != nil || output != "" {
+		t.Fatalf("first start failed or printed another password: %v", err)
+	}
+	user, err := repository.Ps.GetUserByName(common.DefaultAdminName)
+	if err != nil || !user.MustChangePassword || !common.ComparePassword(user.PasswordHash, common.Md5CheckSum(password)) {
+		t.Fatal("first start did not create an admin with the installation password in the final persistence destination")
+	}
+	if _, err := os.Stat(hashPath); !os.IsNotExist(err) {
+		t.Fatalf("prepared hash was not removed after account creation: %v", err)
+	}
+}
+
 func captureInitOutput(t *testing.T, fn func() error) (string, error) {
 	t.Helper()
 	r, w, err := os.Pipe()

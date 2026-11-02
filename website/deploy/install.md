@@ -22,9 +22,15 @@ CKMAN 提供三种发行包：`tar.gz`、`rpm`、`deb`，以及 Docker 镜像。
 sudo rpm -ivh ckman-x.x.x.x86_64.rpm
 ```
 
-首次安装时，RPM 会初始化 `ckman` 管理员，并在安装输出中打印一次随机口令，格式为 `CKMAN initial login: username=ckman password=...`。请在安装时保存它。升级或重装且账号已存在时，不会重新生成口令。若初始化因配置不可用而延后，安装输出会提示原因；启动服务后可从 `journalctl -u ckman` 查看首次生成的口令。
+RPM 安装时不创建账号或口令。请先配置 `persistent_policy` 和对应持久层，再首次启动 CKMAN。首次启动会在实际配置的持久层创建 `ckman` 账号；使用 systemd 启动时，随机口令会打印到 systemd 日志。请立即查看并保存：
 
-![RPM 安装时输出初始口令，口令已遮盖](/img/deploy/rpm-initial-password.png)
+```bash
+sudo journalctl -u ckman -b --no-pager | grep 'CKMAN initial login'
+```
+
+![systemd 首次启动时从日志查看初始口令，口令已遮盖](/img/deploy/rpm-initial-password.png)
+
+若目标持久层已有 `ckman` 账号，则保留其现有密码，不生成新口令。旧版安装包可能已经留下 `/etc/ckman/conf/.ckman-initial-password.hash`；首次启动会使用该哈希建号并删除文件，原先安装时打印的口令仍然有效，不会在日志中重复打印。
 
 工作目录位于 `/etc/ckman/`（日志和配置都在这里）。
 
@@ -38,6 +44,8 @@ sudo systemctl enable ckman
 # 方式 2：直接运行
 /usr/local/bin/ckman -c=/etc/ckman/conf/ckman.hjson -p=/run/ckman/ckman.pid -l=/var/log/ckman/ckman.log -d
 ```
+
+直接运行时，初始口令会显示在启动终端。
 
 ## tar.gz 安装
 
@@ -345,9 +353,9 @@ K8s 里跑的只是 CKMAN 自身。**被管控的 ClickHouse 集群通常还是�
 | --- | --- |
 | 地址 | `http://<host>:8808` |
 | 用户名 | `ckman` |
-| 密码 | RPM/DEB 首次安装输出的随机口令；其他安装方式在首次启动时输出 |
+| 密码 | 首次启动创建账号时输出的随机口令 |
 
-CKMAN 只在首次创建 `ckman` 用户时打印口令。RPM/DEB 安装会尝试在安装阶段创建；如果改用 systemd 启动时才创建，可在 `journalctl -u ckman` 中查看首次启动的标准输出。首次登录会强制进入修改密码页，完成后才能使用其他功能。重启不会再次生成或打印口令，已有用户密码保持不变。
+RPM/DEB 首次启动时按最终持久层配置创建账号，并将口令打印到 `journalctl -u ckman`；tar.gz 首次启动时在当前终端打印。请在启动前完成持久层配置。首次登录会强制进入修改密码页，完成后才能使用其他功能。已有 `ckman` 账号时保留现有密码，重启不会再次生成或打印口令。
 
 ![首次登录后的强制修改密码页面](/img/deploy/first-login-password-change.png)
 

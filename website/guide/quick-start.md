@@ -45,15 +45,15 @@ sudo systemctl start ckman
 | 字段 | 默认值 |
 | --- | --- |
 | 用户名 | `ckman` |
-| 密码 | RPM/DEB 首次安装或 CKMAN 首次启动时输出的随机口令 |
+| 密码 | CKMAN 首次启动创建账号时输出的随机口令 |
 
 ::: warning 首次登录必须修改密码
-首次登录后，页面会自动跳转到修改密码页。口令只在创建 `ckman` 用户时输出一次；RPM/DEB 会在安装阶段尝试初始化并打印口令。如果初始化延后到 systemd 首次启动，可通过 `journalctl -u ckman` 查找。已有用户不会重新生成口令。
+首次登录后，页面会自动跳转到修改密码页。请先配置 `persistent_policy`，再首次启动 CKMAN。RPM/DEB 的随机口令在首次启动时写入 systemd 日志，可用 `sudo journalctl -u ckman -b --no-pager | grep 'CKMAN initial login'` 查找；tar.gz 会在启动终端打印。目标持久层已有 `ckman` 账号时沿用其原密码。
 :::
 
 ![首次登录后的修改密码页面](/img/deploy/first-login-password-change.png)
 
-RPM 安装与 tar.gz 启动时的口令输出示例见[安装文档](/deploy/install)。
+安装及查看初始口令的方法见[安装文档](/deploy/install)。
 
 ## 导入第一个集群
 

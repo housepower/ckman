@@ -15,9 +15,11 @@
 
 ### Q：首次登录时找不到初始口令
 
-初始口令只在首次创建 `ckman` 用户时打印一次，不再使用固定默认密码。
+RPM/DEB 安装时不创建账号或口令。首次启动时按最终持久层配置创建账号，并将随机口令打印到 systemd 日志；tar.gz 在启动终端打印。不再使用固定默认密码。
 
-- 先在 RPM/DEB 安装输出或启动终端中查找 `CKMAN initial login`；若初始化延后到 systemd 启动，查看首次启动时的 `journalctl -u ckman` 输出。
+- RPM/DEB：查看首次启动时的 `sudo journalctl -u ckman -b --no-pager | grep 'CKMAN initial login'`；tar.gz：查看首次启动终端。
+- 若目标持久层已有 `ckman` 账号，则沿用该账号原密码，不生成新口令。
+- 旧版安装包若已生成 `.ckman-initial-password.hash`，首次启动会沿用原先打印的口令，不会重复打印。
 - 已有 `ckman` 用户升级后保留原密码，不会生成新口令。
 - 重启不会重复打印初始口令。
 
