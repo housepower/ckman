@@ -68,7 +68,23 @@ Consul KV 不保留修改历史，需要回滚时请借助外部工具（如把�
 
 ## 注意事项
 
-- 远端配置只会覆盖 `log`、`cron`、`clickhouse` 以及 `server` 中的部分字段。`registry`、`config_center`、`nacos`、`consul`、`apollo` 等段在远端修改无效，日志会提示需要重启。
+### 远端完整配置与本地 bootstrap
+
+启用 `config_center.type` 后，本地 `ckman.hjson` 可以只保留配置中心的连接信息：
+`config_center` 以及对应的 `nacos`、`consul` 或 `apollo` 段。
+`server`、`persistent_config`、`registry`、`log`、`cron` 和 `clickhouse` 等运行配置可全部放在远端，
+启动命令和配置文件路径不变。
+
+本地只有 bootstrap 时，启动优先读取远端完整配置，失败时使用最近一次成功校验的缓存；
+两者都不可用则明确退出，不会使用默认值启动。
+
+如果本地 `ckman.hjson` 仍包含 `server`、`persistent_config`、`log`、`cron` 或 `clickhouse` 等运行段，
+程序会将它识别为旧版完整本地配置，保持原有的“本地为主、远端合并热更新字段”语义。
+因此旧版本地配置与启动命令无需修改。
+
+未启用配置中心时仍按原逻辑完整解析本地 `ckman.hjson`，旧版本地配置无需修改。
+
+- bootstrap-only 模式在启动期会加载远端完整运行配置；运行期热更新只会覆盖 `log`、`cron`、`clickhouse` 以及 `server` 中的部分字段。`registry`、`config_center`、`nacos`、`consul`、`apollo` 等段在运行期修改无效，日志会提示需要重启。
 - **切换注册中心类型必须整个集群一起切**。部分实例在 Nacos、部分在 Consul 时，两边会各自选出主节点，定时任务会重复执行。
 - 切换配置中心类型时，先把配置内容同步到新的配置中心，再逐台重启。
 - 注册中心刚重启、实例尚未重新注册的短暂窗口内（约一个心跳间隔），各实例可能都认为自己是主节点。

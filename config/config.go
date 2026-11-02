@@ -204,6 +204,10 @@ func fillDefault(c *CKManConfig) {
 }
 
 func MergeEnv() {
+	mergeEnv(&GlobalConfig)
+}
+
+func mergeEnv(c *CKManConfig) {
 	// 合并环境变量
 	if v := os.Getenv("NACOS_HOST"); v != "" {
 		hostports := strings.Split(v, ",")
@@ -211,18 +215,18 @@ func MergeEnv() {
 		for _, h := range hostports {
 			host, port, _ := net.SplitHostPort(h)
 			hosts = append(hosts, host)
-			GlobalConfig.Nacos.Port, _ = strconv.ParseUint(port, 10, 64)
+			c.Nacos.Port, _ = strconv.ParseUint(port, 10, 64)
 		}
-		GlobalConfig.Nacos.Hosts = hosts
+		c.Nacos.Hosts = hosts
 	}
 	if v := os.Getenv("CONSUL_ADDR"); v != "" {
-		GlobalConfig.Consul.Address = v
+		c.Consul.Address = v
 	}
 	if v := os.Getenv("APOLLO_META"); v != "" {
-		GlobalConfig.Apollo.Meta = v
+		c.Apollo.Meta = v
 	}
 	if v := os.Getenv("HOST_IP"); v != "" {
-		GlobalConfig.Server.Ip = v
+		c.Server.Ip = v
 	}
 }
 
@@ -241,29 +245,39 @@ func ParseConfigFile(p, version string) error {
 		return errors.Wrap(err, "")
 	}
 
-	GlobalConfig.ConfigFile = p
-	GlobalConfig.Version = version
-
-	fillDefault(&GlobalConfig)
-	configFmt := path.Ext(p)
-	switch configFmt {
-	case FORMAT_JSON, FORMAT_HJSON:
-		err = hjson.Unmarshal(data, &GlobalConfig)
-	case FORMAT_YAML:
-		err = yaml.Unmarshal(data, &GlobalConfig)
-	default:
-		return fmt.Errorf("config format %s unsupported yet", configFmt)
-	}
+	cfg, warns, err := parseConfig(data, path.Ext(p), p, version)
 	if err != nil {
 		return err
 	}
-	MergeEnv()
-	warns, err := normalizeDiscovery(&GlobalConfig)
-	if err != nil {
-		return err
-	}
+	GlobalConfig = cfg
 	ConfigWarnings = warns
 	return nil
+}
+
+func parseConfig(data []byte, configFmt, configFile, version string) (CKManConfig, []string, error) {
+	var cfg CKManConfig
+	fillDefault(&cfg)
+	switch configFmt {
+	case FORMAT_JSON, FORMAT_HJSON:
+		err := hjson.Unmarshal(data, &cfg)
+		if err != nil {
+			return CKManConfig{}, nil, err
+		}
+	case FORMAT_YAML:
+		if err := yaml.Unmarshal(data, &cfg); err != nil {
+			return CKManConfig{}, nil, err
+		}
+	default:
+		return CKManConfig{}, nil, fmt.Errorf("config format %s unsupported yet", configFmt)
+	}
+	cfg.ConfigFile = configFile
+	cfg.Version = version
+	mergeEnv(&cfg)
+	warns, err := normalizeDiscovery(&cfg)
+	if err != nil {
+		return CKManConfig{}, nil, err
+	}
+	return cfg, warns, nil
 }
 
 // normalizeDiscovery 由旧的 nacos.enabled / nacos.sync_config 推导 registry / config_center

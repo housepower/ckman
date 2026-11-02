@@ -175,6 +175,56 @@ func TestMergeFromNacos_PreservesConfigFileVersion(t *testing.T) {
 	}
 }
 
+func TestBuildInitialRemoteConfigUsesCompleteRemoteAndLocalBootstrap(t *testing.T) {
+	bootstrap := CKManConfig{}
+	fillDefault(&bootstrap)
+	bootstrap.ConfigFile = "/etc/ckman/conf/ckman.hjson"
+	bootstrap.Version = "test"
+	bootstrap.ConfigCenter.Type = DISCOVERY_APOLLO
+	bootstrap.Apollo = CKManApolloConfig{
+		Meta: "http://apollo:8080", AppId: "ckman", Cluster: "default", Namespace: "ckman.json", Secret: "cipher",
+	}
+
+	remote := []byte(`{
+		server: { port: 9900, persistent_policy: "mysql", metric: false }
+		persistent_config: { mysql: { host: "db" } }
+		log: { level: "DEBUG" }
+		config_center: { type: "nacos" }
+		apollo: { meta: "http://wrong" }
+	}`)
+	got, _, err := BuildInitialRemoteConfig(remote, FORMAT_HJSON, &bootstrap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Server.Port != 9900 || got.Server.PersistentPolicy != "mysql" || got.Server.Metric {
+		t.Fatalf("remote runtime config not fully applied: %+v", got.Server)
+	}
+	if got.PersistentConfig["mysql"]["host"] != "db" {
+		t.Fatalf("persistent config not loaded: %#v", got.PersistentConfig)
+	}
+	if got.ConfigCenter.Type != DISCOVERY_APOLLO || got.Apollo.Meta != bootstrap.Apollo.Meta || got.Apollo.Secret != "cipher" {
+		t.Fatalf("local bootstrap was not preserved: center=%+v apollo=%+v", got.ConfigCenter, got.Apollo)
+	}
+	if got.ConfigFile != bootstrap.ConfigFile || got.Version != bootstrap.Version {
+		t.Fatalf("metadata not preserved: file=%q version=%q", got.ConfigFile, got.Version)
+	}
+}
+
+func TestHasRuntimeConfig(t *testing.T) {
+	bootstrap := []byte(`{ config_center: { type: "nacos" }, nacos: { hosts: ["127.0.0.1"] } }`)
+	if got, err := HasRuntimeConfig(bootstrap, FORMAT_HJSON); err != nil || got {
+		t.Fatalf("bootstrap-only = %v, %v", got, err)
+	}
+	bootstrapWithIP := []byte(`{ config_center: { type: "apollo" }, server: { ip: "10.0.0.1" } }`)
+	if got, err := HasRuntimeConfig(bootstrapWithIP, FORMAT_HJSON); err != nil || got {
+		t.Fatalf("bootstrap with client IP = %v, %v", got, err)
+	}
+	complete := []byte(`{ config_center: { type: "nacos" }, server: { port: 8808 } }`)
+	if got, err := HasRuntimeConfig(complete, FORMAT_HJSON); err != nil || !got {
+		t.Fatalf("complete config = %v, %v", got, err)
+	}
+}
+
 func TestMergeFromNacos_ServerNonBootstrapSingleFieldOverride(t *testing.T) {
 	t.Cleanup(ResetForTest)
 	local := newLocal()

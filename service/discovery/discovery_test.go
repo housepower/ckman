@@ -130,3 +130,18 @@ func TestWatchSkipsEmptyContent(t *testing.T) {
 		t.Fatalf("有效内容应触发一次 applier，applied=%d", applied)
 	}
 }
+
+func TestStartupCacheRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	want := []byte(`{ server: { port: 8808 } }`)
+	if err := SaveStartupCache(dir, config.FORMAT_HJSON, want); err != nil {
+		t.Fatal(err)
+	}
+	got, format, err := LoadCachedConfig(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) || format != config.FORMAT_HJSON {
+		t.Fatalf("cache = (%q, %q), want (%q, %q)", got, format, want, config.FORMAT_HJSON)
+	}
+}

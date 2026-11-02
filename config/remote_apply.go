@@ -5,12 +5,89 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/hjson/hjson-go/v4"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
+
+// BuildInitialRemoteConfig 把配置中心返回的内容解析成一份完整运行配置。
+// 与热更新不同，启动期使用完整替换语义，因此 false 和 0 也能正确生效。
+// 配置中心自身的连接信息始终取自本地 bootstrap，避免循环依赖。
+func BuildInitialRemoteConfig(data []byte, fmtExt string, bootstrap *CKManConfig) (CKManConfig, []string, error) {
+	cfg, _, err := parseConfig(data, fmtExt, bootstrap.ConfigFile, bootstrap.Version)
+	if err != nil {
+		return CKManConfig{}, nil, fmt.Errorf("parse remote config: %w", err)
+	}
+	cfg.ConfigCenter = bootstrap.ConfigCenter
+	cfg.EncryptAlgorithm = bootstrap.EncryptAlgorithm
+	switch bootstrap.ConfigCenter.Type {
+	case DISCOVERY_NACOS:
+		cfg.Nacos = bootstrap.Nacos
+	case DISCOVERY_CONSUL:
+		cfg.Consul = bootstrap.Consul
+	case DISCOVERY_APOLLO:
+		cfg.Apollo = bootstrap.Apollo
+	}
+	warns, err := normalizeDiscovery(&cfg)
+	if err != nil {
+		return CKManConfig{}, nil, err
+	}
+	return cfg, warns, nil
+}
+
+// MarkInitialRemote records the accepted startup content for watch de-duplication.
+// It must only be called after parsing and secret decryption have both succeeded.
+func MarkInitialRemote(data []byte) {
+	ConfigMutex.Lock()
+	lastAppliedHash = hashContent(data)
+	ConfigMutex.Unlock()
+}
+
+// HasRuntimeConfig reports whether a local file contains runtime sections in addition
+// to bootstrap data. Such a file keeps the old local-primary/remote-merge semantics;
+// a bootstrap-only file enables the new complete-remote startup semantics.
+func HasRuntimeConfig(data []byte, fmtExt string) (bool, error) {
+	var top map[string]interface{}
+	switch fmtExt {
+	case FORMAT_HJSON, FORMAT_JSON:
+		if err := hjson.Unmarshal(data, &top); err != nil {
+			return false, err
+		}
+	case FORMAT_YAML:
+		if err := yaml.Unmarshal(data, &top); err != nil {
+			return false, err
+		}
+	default:
+		return false, fmt.Errorf("unsupported config format %q", fmtExt)
+	}
+	var rawServer interface{}
+	var hasServer bool
+	for key, value := range top {
+		switch strings.ToLower(key) {
+		case "persistent_config", "registry", "log", "cron", "clickhouse":
+			return true, nil
+		case "server":
+			rawServer, hasServer = value, true
+		}
+	}
+	// server.ip is also needed by Apollo IP-gray release and is therefore allowed
+	// in a bootstrap-only file. Any other server setting makes it a runtime config.
+	if hasServer {
+		if server, ok := rawServer.(map[string]interface{}); !ok {
+			return true, nil
+		} else {
+			for key := range server {
+				if !strings.EqualFold(key, "ip") {
+					return true, nil
+				}
+			}
+		}
+	}
+	return false, nil
+}
 
 // remoteLogger is the logger used by the remote_apply functions.
 // It defaults to a no-op logger and can be set via SetRemoteLogger.

@@ -66,25 +66,39 @@ func main() {
 		fmt.Printf("Parse config file %s fail: %v\n", ConfigFilePath, err)
 		os.Exit(1)
 	}
+	localData, err := os.ReadFile(ConfigFilePath)
+	if err != nil {
+		fmt.Printf("Read config file %s fail: %v\n", ConfigFilePath, err)
+		os.Exit(1)
+	}
+	localHasRuntime, err := config.HasRuntimeConfig(localData, filepath.Ext(ConfigFilePath))
+	if err != nil {
+		fmt.Printf("Inspect config file %s fail: %v\n", ConfigFilePath, err)
+		os.Exit(1)
+	}
 	if err := common.Gsypt.SetAlgorithm(config.GlobalConfig.EncryptAlgorithm); err != nil {
 		fmt.Printf("invalid encryption configuration: %v\n", err)
 		os.Exit(1)
 	}
 	var conf config.CKManConfig
 	_ = common.DeepCopyByGob(&conf, &config.GlobalConfig)
-	err := common.Gsypt.Unmarshal(&config.GlobalConfig)
+	err = common.Gsypt.Unmarshal(&config.GlobalConfig)
 	if err != nil {
 		fmt.Printf("gsypt config file %s fail: %v\n", ConfigFilePath, err)
 		os.Exit(1)
 	}
 	log.InitLogger(LogFilePath, &config.GlobalConfig.Log)
-	// Bootstrap before daemonizing so the one-time password reaches the invoking
-	// terminal (or the service manager's standard output), not /dev/null.
-	if err := repository.InitPersistent(); err != nil {
-		log.Logger.Fatalf("init persistent failed:%v", err)
-	}
-	if BootstrapAdmin {
-		return
+	persistentInitialized := false
+	if !config.GlobalConfig.ConfigCenter.Enabled() || localHasRuntime {
+		// 纯本地模式保持旧版顺序：在 daemonize 前初始化持久层，
+		// 使首次管理员密码仍能输出到调用终端。
+		if err := repository.InitPersistent(); err != nil {
+			log.Logger.Fatalf("init persistent failed:%v", err)
+		}
+		persistentInitialized = true
+		if BootstrapAdmin {
+			return
+		}
 	}
 
 	cntxt := &daemon.Context{
@@ -110,8 +124,6 @@ func main() {
 	log.Logger.Infof("version: %v", Version)
 	log.Logger.Infof("build time: %v", BuildTimeStamp)
 	log.Logger.Infof("git commit hash: %v", GitCommitHash)
-	//dump config to log must ensure the password not be decode
-	DumpConfig(conf)
 	common.SetPkgPath(config.GlobalConfig.Server.PkgPath)
 	if config.GlobalConfig.Server.Ip == "" {
 		config.GlobalConfig.Server.Ip = common.GetOutboundIP().String()
@@ -121,9 +133,6 @@ func main() {
 	defer common.Pool.Close()
 	// 在 InitLogger 之后注入 remote_apply 使用的 logger（config 不能反向 import log）。
 	config.SetRemoteLogger(log.Logger)
-	for _, w := range config.ConfigWarnings {
-		log.Logger.Warn(w)
-	}
 
 	// SDK 的缓存与日志目录，沿用原 nacos client 的取法。
 	discoveryCacheDir, err := filepath.Abs(filepath.Dir(LogFilePath))
@@ -136,11 +145,89 @@ func main() {
 	}
 	defer configSource.Close()
 
-	// 启动期尝试从配置中心拉取配置并合并到 GlobalConfig；失败/不可达则沿用本地，启动不阻塞。
-	if discovery.LoadInitial(configSource, &config.GlobalConfig) {
-		log.InitLogger(LogFilePath, &config.GlobalConfig.Log)
-		config.SetRemoteLogger(log.Logger)
-		log.Logger.Infof("log config updated by %s at startup: %+v", config.GlobalConfig.ConfigCenter.Type, config.GlobalConfig.Log)
+	// 本地文件在启用配置中心时只需包含 bootstrap。远端内容在任何业务
+	// 服务（尤其是持久层）初始化之前完整替换 GlobalConfig。
+	if config.GlobalConfig.ConfigCenter.Enabled() && localHasRuntime {
+		// 旧版完整本地配置保持原语义：本地为主，远端只合并允许热更新的字段。
+		if discovery.LoadInitial(configSource, &config.GlobalConfig) {
+			log.Logger.Infof("log config updated by %s at startup", config.GlobalConfig.ConfigCenter.Type)
+		}
+	}
+	if config.GlobalConfig.ConfigCenter.Enabled() && !localHasRuntime {
+		data, format, origin, loadErr := discovery.LoadRemoteOrCache(configSource, discoveryCacheDir)
+		applied := false
+		if loadErr == nil {
+			var remoteEncrypted config.CKManConfig
+			var warns []string
+			remoteEncrypted, warns, err = config.BuildInitialRemoteConfig(data, format, &conf)
+			if err == nil {
+				var decoded config.CKManConfig
+				err = common.DeepCopyByGob(&decoded, &remoteEncrypted)
+				if err == nil {
+					err = common.Gsypt.Unmarshal(&decoded)
+				}
+				if err == nil {
+					config.GlobalConfig = decoded
+					config.ConfigWarnings = warns
+					conf = remoteEncrypted
+					config.MarkInitialRemote(data)
+					applied = true
+					if origin == "remote" {
+						if cacheErr := discovery.SaveStartupCache(discoveryCacheDir, format, data); cacheErr != nil {
+							log.Logger.Warnf("save last-good remote config failed: %v", cacheErr)
+						}
+					}
+					log.Logger.Infof("loaded complete startup config from %s (%s)", origin, config.GlobalConfig.ConfigCenter.Type)
+				}
+			}
+			if !applied && origin == "remote" {
+				// 远端内容损坏时仍尝试上一份已校验成功的缓存。
+				if cached, cachedFmt, cacheErr := discovery.LoadCachedConfig(discoveryCacheDir); cacheErr == nil {
+					remoteEncrypted, cachedWarns, buildErr := config.BuildInitialRemoteConfig(cached, cachedFmt, &conf)
+					var decoded config.CKManConfig
+					if buildErr == nil {
+						buildErr = common.DeepCopyByGob(&decoded, &remoteEncrypted)
+					}
+					if buildErr == nil {
+						buildErr = common.Gsypt.Unmarshal(&decoded)
+					}
+					if buildErr == nil {
+						config.GlobalConfig, conf, config.ConfigWarnings = decoded, remoteEncrypted, cachedWarns
+						config.MarkInitialRemote(cached)
+						applied = true
+						log.Logger.Warnf("remote config rejected (%v), loaded last-good cache", err)
+					} else {
+						loadErr = fmt.Errorf("remote config rejected: %v; cached config rejected: %w", err, buildErr)
+					}
+				}
+			}
+			if !applied && loadErr == nil {
+				loadErr = fmt.Errorf("%s config rejected: %w", origin, err)
+			}
+		}
+		if !applied {
+			log.Logger.Fatalf("load complete config from remote/cache failed and local file is bootstrap-only: %v", loadErr)
+		}
+	}
+
+	// 远端可以提供日志、持久层和服务器配置，因此必须在远端初始加载后初始化。
+	log.InitLogger(LogFilePath, &config.GlobalConfig.Log)
+	config.SetRemoteLogger(log.Logger)
+	for _, w := range config.ConfigWarnings {
+		log.Logger.Warn(w)
+	}
+	common.SetPkgPath(config.GlobalConfig.Server.PkgPath)
+	if config.GlobalConfig.Server.Ip == "" {
+		config.GlobalConfig.Server.Ip = common.GetOutboundIP().String()
+	}
+	DumpConfig(conf) // conf 始终保留密文，避免在日志中泄露密码。
+	if !persistentInitialized {
+		if err := repository.InitPersistent(); err != nil {
+			log.Logger.Fatalf("init persistent failed:%v", err)
+		}
+	}
+	if BootstrapAdmin {
+		return
 	}
 
 	// log applier 在 Log 段变化时重建 logger；其余 applier 待对应服务 Start 完成后再注册。
