@@ -51,6 +51,10 @@ sudo systemctl start ckman
 首次登录后，页面会自动跳转到修改密码页。口令只在创建 `ckman` 用户时输出一次；RPM/DEB 会在安装阶段尝试初始化并打印口令。如果初始化延后到 systemd 首次启动，可通过 `journalctl -u ckman` 查找。已有用户不会重新生成口令。
 :::
 
+![首次登录后的修改密码页面](/img/deploy/first-login-password-change.png)
+
+RPM 安装与 tar.gz 启动时的口令输出示例见[安装文档](/deploy/install)。
+
 ## 导入第一个集群
 
 如果你已经有一套运行中的 ClickHouse 集群，使用**导入集群**最快：

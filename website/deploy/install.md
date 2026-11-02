@@ -24,6 +24,8 @@ sudo rpm -ivh ckman-x.x.x.x86_64.rpm
 
 首次安装时，RPM 会初始化 `ckman` 管理员，并在安装输出中打印一次随机口令，格式为 `CKMAN initial login: username=ckman password=...`。请在安装时保存它。升级或重装且账号已存在时，不会重新生成口令。若初始化因配置不可用而延后，安装输出会提示原因；启动服务后可从 `journalctl -u ckman` 查看首次生成的口令。
 
+![RPM 安装时输出初始口令，口令已遮盖](/img/deploy/rpm-initial-password.png)
+
 工作目录位于 `/etc/ckman/`（日志和配置都在这里）。
 
 启动方式两选一：
@@ -46,6 +48,10 @@ tar -xzvf ckman-x.x.x-YYDDMM.Linux.x86_64.tar.gz
 cd ckman
 bin/start
 ```
+
+首次执行 `bin/start` 时，随机口令会直接显示在当前终端。请在关闭终端前保存；再次启动不会重复输出。
+
+![tar.gz 首次启动时输出初始口令，口令已遮盖](/img/deploy/tar-initial-password.png)
 
 启动后浏览器访问 `http://<host>:8808`。
 
@@ -342,6 +348,8 @@ K8s 里跑的只是 CKMAN 自身。**被管控的 ClickHouse 集群通常还是�
 | 密码 | RPM/DEB 首次安装输出的随机口令；其他安装方式在首次启动时输出 |
 
 CKMAN 只在首次创建 `ckman` 用户时打印口令。RPM/DEB 安装会尝试在安装阶段创建；如果改用 systemd 启动时才创建，可在 `journalctl -u ckman` 中查看首次启动的标准输出。首次登录会强制进入修改密码页，完成后才能使用其他功能。重启不会再次生成或打印口令，已有用户密码保持不变。
+
+![首次登录后的强制修改密码页面](/img/deploy/first-login-password-change.png)
 
 ::: tip
 旧版本通过 `conf/password` 文件 + `ckmanpassword` 工具管理密码，**新版已移除**，账号统一存放在持久层（local SQLite / MySQL / PostgreSQL / DM8），通过 Web 界面或 API 管理。
