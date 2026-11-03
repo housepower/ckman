@@ -72,6 +72,7 @@ type CKManServerConfig struct {
 	KeyFile          string `yaml:"keyfile"`
 	Pprof            bool
 	SessionTimeout   int    `yaml:"session_timeout" json:"session_timeout"`
+	JWTSkipClientIP  bool   `yaml:"jwt_skip_clientip" json:"jwt_skip_clientip"`
 	SwaggerEnable    bool   `yaml:"swagger_enable" json:"swagger_enable"`
 	PublicKey        string `yaml:"public_key" json:"public_key"`
 	PersistentPolicy string `yaml:"persistent_policy" json:"persistent_policy"`

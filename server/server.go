@@ -250,40 +250,27 @@ func ginJWTAuth() gin.HandlerFunc {
 			return
 		}
 
-		// Verify client ip
-		// proxy with ngnix, will get client ip from x-forwarded-for
-		// refs: https://nginx.org/en/docs/http/ngx_http_realip_module.html
-		// refs: https://www.cnblogs.com/mypath/articles/5239687.html
-		/*
-			nginx config example:
-						server {
-				        	listen       80;
-				        	server_name  net.eoitek.ckman.com;
-
-				        	location / {
-				                        index  index.html index.htm;
-				                        proxy_pass http://192.168.110.8:8808;
-				                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-				        	}
-				    }
-
-		*/
-		clientIps := c.Request.Header.Get("X-Forwarded-For")
-		if clientIps != "" {
-			clientIp := strings.Split(clientIps, ",")[0]
-			log.Logger.Debugf("maybe set proxy, the real ip is %s", clientIp)
-			if clientIp == claims.ClientIP {
-				c.Set("claims", claims)
-				c.Set("token", token)
-				c.Set("username", claims.Name)
+		if !config.GlobalConfig.Server.JWTSkipClientIP {
+			// Verify client ip
+			// Behind a proxy, use the first address from X-Forwarded-For.
+			// refs: https://nginx.org/en/docs/http/ngx_http_realip_module.html
+			clientIps := c.Request.Header.Get("X-Forwarded-For")
+			if clientIps != "" {
+				clientIp := strings.Split(clientIps, ",")[0]
+				log.Logger.Debugf("maybe set proxy, the real ip is %s", clientIp)
+				if clientIp == claims.ClientIP {
+					c.Set("claims", claims)
+					c.Set("token", token)
+					c.Set("username", claims.Name)
+					return
+				}
+			}
+			if claims.ClientIP != c.ClientIP() {
+				err := errors.Errorf("cliams.ClientIP: %s, c.ClientIP:%s", claims.ClientIP, c.ClientIP())
+				router.WrapMsg(c, model.E_JWT_TOKEN_EXPIRED, err)
+				c.Abort()
 				return
 			}
-		}
-		if claims.ClientIP != c.ClientIP() {
-			err := errors.Errorf("cliams.ClientIP: %s, c.ClientIP:%s", claims.ClientIP, c.ClientIP())
-			router.WrapMsg(c, model.E_JWT_TOKEN_EXPIRED, err)
-			c.Abort()
-			return
 		}
 
 		c.Set("claims", claims)

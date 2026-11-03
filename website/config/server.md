@@ -13,6 +13,7 @@ HTTP 服务、鉴权与基础设施相关配置。
 | `keyfile` | string | `conf/server.key` | HTTPS 私钥路径，启用 HTTPS 必填 |
 | `pprof` | bool | `true` | 是否暴露 `/debug/pprof/*` |
 | `session_timeout` | int | `3600` | 会话超时秒数，超时后 token 失效 |
+| `jwt_skip_clientip` | bool | `false` | 是否跳过 JWT token 的客户端 IP 绑定校验 |
 | `public_key` | string | — | RSA 公钥，用于跳过 JWT 的统一门户接入 |
 | `swagger_enable` | bool | `false` | 是否开启 Swagger 文档 `/swagger/*` |
 | `task_interval` | int | `5` | 异步任务扫描间隔（秒） |

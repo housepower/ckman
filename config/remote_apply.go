@@ -160,6 +160,9 @@ func mergeFromRemote(local, remote *CKManConfig) {
 	if remote.Server.SessionTimeout != 0 {
 		local.Server.SessionTimeout = remote.Server.SessionTimeout
 	}
+	if remote.Server.JWTSkipClientIP {
+		local.Server.JWTSkipClientIP = true
+	}
 	if remote.Server.SwaggerEnable {
 		local.Server.SwaggerEnable = remote.Server.SwaggerEnable
 	}

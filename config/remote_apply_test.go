@@ -125,6 +125,18 @@ func TestMergeFromNacos_EmptyRemoteSectionsKeepLocal(t *testing.T) {
 	}
 }
 
+func TestMergeFromNacos_JWTSkipClientIP(t *testing.T) {
+	t.Cleanup(ResetForTest)
+	local := newLocal()
+	remote := CKManConfig{Server: CKManServerConfig{JWTSkipClientIP: true}}
+
+	mergeFromRemote(&local, &remote)
+
+	if !local.Server.JWTSkipClientIP {
+		t.Fatal("Server.JWTSkipClientIP was not enabled by remote config")
+	}
+}
+
 func TestMergeFromNacos_BootstrapNeverOverridden(t *testing.T) {
 	t.Cleanup(ResetForTest)
 	local := newLocal()
