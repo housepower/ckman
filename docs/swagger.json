@@ -1495,6 +1495,86 @@
                 }
             }
         },
+        "/api/v1/ck/query_stream/{clusterName}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "流式执行查询,结果以 SSE 事件逐批返回(meta/progress/data/done/error)。\n响应 meta 事件中的 qid 可用于调用取消接口;前端断连会自动终止查询。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "流式查询SQL(SSE)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "show databases",
+                        "description": "sql",
+                        "name": "query",
+                        "in": "query",
+                        "required": true
+                    }
+                ]
+            }
+        },
+        "/api/v1/ck/query_stream_cancel/{clusterName}/{qid}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "取消一个在途的流式查询(qid 来自 query_stream 接口的 meta 事件)",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clickhouse"
+                ],
+                "summary": "取消流式查询",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "test",
+                        "description": "cluster name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "query id",
+                        "name": "qid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":\"0000\",\"msg\":\"ok\",\"data\":\"\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ck/rbac/profile/{clusterName}": {
             "get": {
                 "tags": [

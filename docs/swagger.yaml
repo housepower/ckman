@@ -1861,6 +1861,60 @@ paths:
       summary: SQL查询历史
       tags:
       - clickhouse
+  /api/v1/ck/query_stream/{clusterName}:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        流式执行查询,结果以 SSE 事件逐批返回(meta/progress/data/done/error)。
+        响应 meta 事件中的 qid 可用于调用取消接口;前端断连会自动终止查询。
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - default: show databases
+        description: sql
+        in: query
+        name: query
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      security:
+      - ApiKeyAuth: []
+      summary: 流式查询SQL(SSE)
+      tags:
+      - clickhouse
+  /api/v1/ck/query_stream_cancel/{clusterName}/{qid}:
+    post:
+      consumes:
+      - application/json
+      description: 取消一个在途的流式查询(qid 来自 query_stream 接口的 meta 事件)
+      parameters:
+      - default: test
+        description: cluster name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: query id
+        in: path
+        name: qid
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":"0000","msg":"ok","data":""}'
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 取消流式查询
+      tags:
+      - clickhouse
   /api/v1/ck/rbac/profile/{clusterName}:
     get:
       parameters:
