@@ -1298,11 +1298,17 @@ func (controller *ClickHouseController) QueryInfoStream(c *gin.Context) {
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 
+	// emit 必须串行:native 协议下 progress 事件由驱动的读包 goroutine 触发,
+	// meta/data/done 由本 goroutine 发出,并发写 http.ResponseWriter 会导致
+	// SSE 帧字节交错(且 http.ResponseWriter 非 goroutine-safe)。
+	var emitMu sync.Mutex
 	emit := func(event string, payload interface{}) error {
 		data, err := json.Marshal(payload)
 		if err != nil {
 			return err
 		}
+		emitMu.Lock()
+		defer emitMu.Unlock()
 		if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data); err != nil {
 			return err
 		}

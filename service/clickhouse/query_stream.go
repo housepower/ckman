@@ -77,10 +77,15 @@ func (ck *CkService) QueryInfoStream(ctx context.Context, query, qid string, emi
 	rows, err := ck.Conn.QueryWithCtx(ctx, query)
 	if err != nil {
 		if err == io.EOF {
+			// 与正常路径保持同一事件序列:meta → data → done,
+			// 数据行只能走 data 事件,客户端无需为 EOF 特判。
 			if err := emit("meta", map[string]interface{}{"qid": qid, "columns": []string{"result"}}); err != nil {
 				return err
 			}
-			return emit("done", map[string]interface{}{"total_rows": 1, "rows": [][]interface{}{{"OK"}}})
+			if err := emit("data", map[string]interface{}{"rows": [][]interface{}{{"OK"}}}); err != nil {
+				return err
+			}
+			return emit("done", map[string]interface{}{"total_rows": 1})
 		}
 		return errors.Wrap(err, "")
 	}
