@@ -69,6 +69,16 @@ func (r *Rows) Next() bool {
 	}
 }
 
+// Err 返回迭代过程中发生的错误(Next 返回 false 之后调用)。
+// 流式查询中途断连/被取消时,错误只能通过它暴露。
+func (r *Rows) Err() error {
+	if r.protocol == clickhouse.HTTP {
+		return r.rs1.Err()
+	} else {
+		return r.rs2.Err()
+	}
+}
+
 func (r *Rows) Scan(dest ...any) error {
 	if r.protocol == clickhouse.HTTP {
 		return r.rs1.Scan(dest...)
@@ -149,6 +159,33 @@ func (c *Conn) QueryWithQueryID(query, query_id string, args ...any) (*Rows, err
 	var rs Rows
 	//log.Logger.Debugf("[%s]%s", c.addr, query)
 	ctx := clickhouse.Context(c.ctx, clickhouse.WithQueryID(query_id))
+	rs.protocol = c.protocol
+	if c.protocol == clickhouse.HTTP {
+		rows, err := c.db.QueryContext(ctx, query, args...)
+		if err != nil {
+			return &rs, err
+		} else {
+			rs.rs1 = rows
+		}
+	} else {
+		rows, err := c.c.Query(ctx, query, args...)
+		if err != nil {
+			return &rs, err
+		} else {
+			rs.rs2 = rows
+		}
+	}
+	return &rs, nil
+}
+
+// QueryWithCtx 用调用方传入的 ctx 执行查询。
+//
+// 与 Query / QueryWithQueryID 的区别在于 ctx 的所有权：前两者用连接自带的
+// c.ctx，查询的生命周期不受调用方控制；这里用调用方的 ctx，取消（cancel /
+// 前端断连）会实时传导到驱动并中断查询。clickhouse 的 QueryOption
+// （WithQueryID / WithProgress 等）由调用方自己包进 ctx。
+func (c *Conn) QueryWithCtx(ctx context.Context, query string, args ...any) (*Rows, error) {
+	var rs Rows
 	rs.protocol = c.protocol
 	if c.protocol == clickhouse.HTTP {
 		rows, err := c.db.QueryContext(ctx, query, args...)

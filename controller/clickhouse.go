@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-basic/uuid"
 	"github.com/housepower/ckman/repository"
 	"github.com/pkg/errors"
 
@@ -1244,6 +1246,107 @@ func (controller *ClickHouseController) QueryInfo(c *gin.Context) {
 	}
 
 	controller.wrapfunc(c, model.E_SUCCESS, data)
+}
+
+// @Summary 流式查询SQL(SSE)
+// @Description 流式执行查询,结果以 SSE 事件逐批返回(meta/progress/data/done/error)。
+// @Description 响应 meta 事件中的 qid 可用于调用取消接口;前端断连会自动终止查询。
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Produce text/event-stream
+// @Param clusterName path string true "cluster name" default(test)
+// @Param query query string true "sql" default(show databases)
+// @Router /api/v1/ck/query_stream/{clusterName} [get]
+func (controller *ClickHouseController) QueryInfoStream(c *gin.Context) {
+	clusterName := c.Param(ClickHouseClusterPath)
+	host := c.Query("host")
+	query := c.Query("query")
+	query = strings.TrimRight(strings.TrimSpace(query), ";")
+
+	var ckService *clickhouse.CkService
+	var err error
+	if host == "" {
+		ckService, err = clickhouse.GetCkService(clusterName)
+		if err != nil {
+			controller.wrapfunc(c, model.E_CH_CONNECT_FAILED, err)
+			return
+		}
+	} else {
+		ckService, err = clickhouse.GetCkNodeService(clusterName, host)
+		if err != nil {
+			controller.wrapfunc(c, model.E_CH_CONNECT_FAILED, err)
+			return
+		}
+	}
+
+	qid := uuid.New()
+	// ctx 挂在请求生命周期上:前端断连 → c.Request.Context() 取消 → 驱动断开
+	// 到 ClickHouse 的连接 → server 终止查询。cancel 接口走同一个 cancel。
+	ctx, cancel := context.WithCancel(c.Request.Context())
+	clickhouse.RegisterStreamCancel(qid, cancel)
+	defer func() {
+		clickhouse.UnregisterStreamCancel(qid)
+		cancel()
+	}()
+
+	w := c.Writer
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	// 防反向代理(nginx 等)缓冲 SSE 流
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+
+	emit := func(event string, payload interface{}) error {
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data); err != nil {
+			return err
+		}
+		w.Flush()
+		return nil
+	}
+
+	if err := ckService.QueryInfoStream(ctx, query, qid, emit); err != nil {
+		// 流已开始(200 已发),错误只能作为流内事件表达
+		_ = emit("error", gin.H{"message": err.Error()})
+		return
+	}
+
+	// 与 QueryInfo 一致:成功的查询写入历史
+	key := fmt.Sprintf("[%s]%s", clusterName, query)
+	history := model.QueryHistory{
+		CheckSum: common.Md5CheckSum(key),
+		Cluster:  clusterName,
+		QuerySql: query,
+	}
+	if _, err := repository.Ps.GetQueryHistoryByCheckSum(history.CheckSum); err != nil {
+		_ = repository.Ps.CreateQueryHistory(history)
+	} else {
+		_ = repository.Ps.UpdateQueryHistory(history)
+	}
+}
+
+// @Summary 取消流式查询
+// @Description 取消一个在途的流式查询(qid 来自 query_stream 接口的 meta 事件)
+// @version 1.0
+// @Security ApiKeyAuth
+// @Tags clickhouse
+// @Accept  json
+// @Param clusterName path string true "cluster name" default(test)
+// @Param qid path string true "query id"
+// @Success 200 {string} json "{"code":"0000","msg":"ok","data":""}"
+// @Router /api/v1/ck/query_stream_cancel/{clusterName}/{qid} [post]
+func (controller *ClickHouseController) CancelQueryStream(c *gin.Context) {
+	qid := c.Param("qid")
+	if clickhouse.CancelStream(qid) {
+		controller.wrapfunc(c, model.E_SUCCESS, nil)
+		return
+	}
+	controller.wrapfunc(c, model.E_RECORD_NOT_FOUND, errors.Errorf("query stream not found or already finished"))
 }
 
 // @Summary 查询SQL
