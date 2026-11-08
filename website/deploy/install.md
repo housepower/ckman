@@ -70,6 +70,133 @@ sudo dpkg -i ckman_x.x.x_amd64.deb
 sudo systemctl start ckman
 ```
 
+## 使用远端配置中心（完整示例）
+
+CKMAN 可以把完整运行配置放在 Nacos、Consul KV 或标准 Apollo 中。本地仍使用
+原来的 `ckman.hjson` 路径和启动命令，但文件内只保留连接配置中心所需的 bootstrap。
+
+::: warning 不要在 bootstrap 中混入运行配置
+本地文件中出现 `server.port`、`persistent_config`、`registry`、`log`、`cron` 或
+`clickhouse` 时，CKMAN 会将它识别为旧版完整本地配置，继续使用“本地为主、
+远端部分合并”的兼容语义。`server.ip` 是例外，可用于 Apollo IP 灰度发布。
+:::
+
+### 1. 在 Apollo 发布完整配置
+
+以标准 Apollo 为例：创建 AppId `ckman`、集群 `default` 和 JSON 类型 namespace
+`ckman.json`，将下列内容作为 namespace 的 `content` 发布。生产环境请替换数据库
+地址、账号和密码。
+
+```json
+{
+  "server": {
+    "port": 8808,
+    "https": false,
+    "pprof": true,
+    "session_timeout": 3600,
+    "swagger_enable": false,
+    "persistent_policy": "mysql",
+    "task_interval": 5,
+    "backup_max_concurrent": 8,
+    "metric": true,
+    "metric_path": "/metrics"
+  },
+  "persistent_config": {
+    "mysql": {
+      "host": "10.0.0.20",
+      "port": 3306,
+      "user": "ckman",
+      "password": "ENC(...)",
+      "database": "ckman"
+    }
+  },
+  "registry": {
+    "type": "none"
+  },
+  "log": {
+    "level": "INFO",
+    "max_count": 5,
+    "max_size": 10,
+    "max_age": 10
+  },
+  "clickhouse": {
+    "max_open_conns": 10,
+    "max_idle_conns": 2,
+    "conn_max_idle_time": 10
+  },
+  "cron": {
+    "enabled": true,
+    "sync_logic_schema": "0 * * * * ?",
+    "watch_cluster_status": "0 */3 * * * ?",
+    "sync_dist_schema": "30 */10 * * * ?"
+  }
+}
+```
+
+::: tip 密码加密
+上例的 `ENC(...)` 是占位符。使用 SM4 时，将 `encrypt_algorithm: SM4` 和
+`CKMAN_SM4_KEY` 保留在本地 bootstrap / `.ckman.env` 中。远端可使用
+`ENC(sm4:gcm:v1:...)` 或与 CKMAN SM4-GCM 格式兼容的无前缀 Base64 密文。
+:::
+
+### 2. 本地只保留 bootstrap
+
+RPM/DEB 修改 `/etc/ckman/conf/ckman.hjson`；tar.gz 修改 `conf/ckman.hjson`：
+
+```hjson
+{
+  "encrypt_algorithm": "SM4",
+  "config_center": {
+    "type": "apollo"
+  },
+  "apollo": {
+    "meta": "http://10.0.0.30:8080",
+    "app_id": "ckman",
+    "cluster": "default",
+    "namespace": "ckman.json"
+  }
+}
+```
+
+SM4 密钥示例（不要把真实密钥放进 Apollo）：
+
+```bash
+ckmanctl keygen sm4 > /etc/ckman/conf/.ckman.env
+chown ckman:ckman /etc/ckman/conf/.ckman.env
+chmod 600 /etc/ckman/conf/.ckman.env
+```
+
+### 3. 发布、启动与验证
+
+Apollo 发布后先确认 Config Service 可读取：
+
+```bash
+curl -s http://10.0.0.30:8080/configs/ckman/default/ckman.json | jq
+```
+
+然后启动 CKMAN：
+
+```bash
+sudo systemctl restart ckman
+sudo journalctl -u ckman -n 100 --no-pager
+tail -100 /var/log/ckman/ckman.log
+```
+
+启动日志应包含：
+
+```text
+loaded complete startup config from remote (apollo)
+```
+
+每次启动时成功解析和解密的远端配置都会成为 last-good 缓存。RPM/DEB 默认位置为：
+
+```text
+/var/log/ckman/config-cache/remote-config-last-good.json
+```
+
+下次启动时远端不可达会使用该缓存；远端和缓存都不可用时，
+bootstrap-only 模式会明确退出，不会用默认值误启动。
+
 ## Docker 启动
 
 ```bash
