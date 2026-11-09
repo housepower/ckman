@@ -9,7 +9,6 @@ import (
 	"github.com/go-basic/uuid"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
-	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	_ "github.com/housepower/ckman/repository/dm8"
@@ -472,8 +471,6 @@ func runMigration(ps PersistentForUpgrade, opts BackupUpgradeOpts) (Stats, error
 
 // BackupUpgradeHandle is the CLI entry point for `ckmanctl upgrade backup`.
 func BackupUpgradeHandle(opts BackupUpgradeOpts) {
-	log.InitLoggerDefault("info", []string{"/var/log/ckmanctl.log"})
-
 	// Load ckman.hjson into GlobalConfig.
 	if err := config.ParseConfigFile(opts.ConfigFile, ""); err != nil {
 		fmt.Printf("parse config file %s failed: %v\n", opts.ConfigFile, err)

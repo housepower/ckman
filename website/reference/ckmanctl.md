@@ -14,7 +14,7 @@ ckmanctl 直接读写 ckman 的持久层和被管控集群的 ZooKeeper。**操�
 | rpm | `/usr/local/bin/ckmanctl` |
 | 源码 | `cmd/ckmanctl/ckmanctl`（`make backend` 自动构建） |
 
-日志默认写到 `/var/log/ckmanctl.log`。
+日志默认写到 `/var/log/ckmanctl.log`。如果当前用户无权写入该路径，ckmanctl 会输出告警并自动将日志写到标准错误，不会因此终止命令。
 
 ## 全局帮助
 

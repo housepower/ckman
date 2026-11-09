@@ -98,7 +98,9 @@ func main() {
 		fmt.Printf("%s=%s\n", common.SM4KeyEnv, key)
 		return
 	}
-	log.InitLoggerDefault("debug", []string{"/var/log/ckmanctl.log"})
+	if err := log.InitLoggerDefault("debug", []string{"/var/log/ckmanctl.log"}); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v; logging to stderr\n", err)
+	}
 	switch firstCmd {
 	case "migrate":
 		migrate.MigrateHandle(*m_conf)
