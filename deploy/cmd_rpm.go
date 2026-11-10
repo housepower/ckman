@@ -11,7 +11,7 @@ import (
 type RpmFacotry struct{}
 
 const (
-	rpmPrefix string = "DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps"
+	rpmPrefix string = "DEBIAN_FRONTEND=noninteractive LC_ALL=C rpm --force --nosignature --nodeps"
 )
 
 func (RpmFacotry) Create() CmdAdpt {
@@ -32,27 +32,27 @@ func (p *RpmPkg) RestartCmd(svr, cwd, dataDir string) string {
 }
 
 func (p *RpmPkg) InstallCmd(svr string, pkgs Packages) string {
-	var cmd string
+	cmds := make([]string, 0)
 	if svr == CkSvrName {
 		for _, pkg := range pkgs.PkgLists {
-			cmd += fmt.Sprintf("%s -ivh %s;", rpmPrefix, path.Join(common.TmpWorkDirectory, pkg))
+			cmds = append(cmds, fmt.Sprintf("%s -ivh %s", rpmPrefix, path.Join(common.TmpWorkDirectory, pkg)))
 		}
 	} else if svr == KeeperSvrName {
-		cmd += fmt.Sprintf("%s -ivh %s;", rpmPrefix, path.Join(common.TmpWorkDirectory, pkgs.Keeper))
+		cmds = append(cmds, fmt.Sprintf("%s -ivh %s", rpmPrefix, path.Join(common.TmpWorkDirectory, pkgs.Keeper)))
 	}
-	return strings.TrimSuffix(cmd, ";")
+	return strings.Join(cmds, " || exit $?;")
 }
 
 func (p *RpmPkg) UpgradeCmd(svr string, pkgs Packages) string {
-	var cmd string
+	cmds := make([]string, 0)
 	if svr == CkSvrName {
 		for _, pkg := range pkgs.PkgLists {
-			cmd += fmt.Sprintf("%s -Uvh %s;", rpmPrefix, path.Join(common.TmpWorkDirectory, pkg))
+			cmds = append(cmds, fmt.Sprintf("%s -Uvh %s", rpmPrefix, path.Join(common.TmpWorkDirectory, pkg)))
 		}
 	} else if svr == KeeperSvrName {
-		cmd += fmt.Sprintf("%s -Uvh %s;", rpmPrefix, path.Join(common.TmpWorkDirectory, pkgs.Keeper))
+		cmds = append(cmds, fmt.Sprintf("%s -Uvh %s", rpmPrefix, path.Join(common.TmpWorkDirectory, pkgs.Keeper)))
 	}
-	return strings.TrimSuffix(cmd, ";")
+	return strings.Join(cmds, " || exit $?;")
 }
 
 func (p *RpmPkg) Uninstall(svr string, pkgs Packages, version string) string {

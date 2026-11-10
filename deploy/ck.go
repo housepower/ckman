@@ -224,7 +224,7 @@ func (d *CKDeploy) Install() error {
 			cmd2 := strings.Join(cmds, ";")
 			_, err := common.RemoteExecute(sshOpts, cmd2)
 			if err != nil {
-				lastError = err
+				lastError = explainRPMInstallError(d.Conf.PkgType, err)
 				return
 			}
 			if err = d.reconcileSystemdCapabilities(sshOpts); err != nil {
@@ -325,7 +325,7 @@ func (d *CKDeploy) Upgrade() error {
 			}
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
-				lastError = err
+				lastError = explainRPMInstallError(d.Conf.PkgType, err)
 				return
 			}
 			if err = d.reconcileSystemdCapabilities(sshOpts); err != nil {

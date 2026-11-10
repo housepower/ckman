@@ -104,7 +104,7 @@ func TestRpmPkg_InstallCmd(t *testing.T) {
 	}
 	p := RpmFacotry{}.Create()
 	out := p.InstallCmd(CkSvrName, pkgs)
-	expect := `DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -ivh /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz;DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -ivh /tmp/clickhouse-server-22.3.6.5-amd64.tgz;DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -ivh /tmp/clickhouse-client-22.3.6.5-amd64.tgz`
+	expect := `DEBIAN_FRONTEND=noninteractive LC_ALL=C rpm --force --nosignature --nodeps -ivh /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz || exit $?;DEBIAN_FRONTEND=noninteractive LC_ALL=C rpm --force --nosignature --nodeps -ivh /tmp/clickhouse-server-22.3.6.5-amd64.tgz || exit $?;DEBIAN_FRONTEND=noninteractive LC_ALL=C rpm --force --nosignature --nodeps -ivh /tmp/clickhouse-client-22.3.6.5-amd64.tgz`
 	assert.Equal(t, expect, out)
 }
 
@@ -132,7 +132,7 @@ func TestRpmPkg_UpgradeCmd(t *testing.T) {
 	}
 	p := RpmFacotry{}.Create()
 	out := p.UpgradeCmd(CkSvrName, pkgs)
-	expect := `DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -Uvh /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz;DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -Uvh /tmp/clickhouse-server-22.3.6.5-amd64.tgz;DEBIAN_FRONTEND=noninteractive rpm --force --nosignature --nodeps -Uvh /tmp/clickhouse-client-22.3.6.5-amd64.tgz`
+	expect := `DEBIAN_FRONTEND=noninteractive LC_ALL=C rpm --force --nosignature --nodeps -Uvh /tmp/clickhouse-common-static-22.3.6.5-amd64.tgz || exit $?;DEBIAN_FRONTEND=noninteractive LC_ALL=C rpm --force --nosignature --nodeps -Uvh /tmp/clickhouse-server-22.3.6.5-amd64.tgz || exit $?;DEBIAN_FRONTEND=noninteractive LC_ALL=C rpm --force --nosignature --nodeps -Uvh /tmp/clickhouse-client-22.3.6.5-amd64.tgz`
 	assert.Equal(t, expect, out)
 }
 

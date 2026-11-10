@@ -163,7 +163,7 @@ func (d *KeeperDeploy) Install() error {
 			cmd2 := strings.Join(cmds, ";")
 			_, err := common.RemoteExecute(sshOpts, cmd2)
 			if err != nil {
-				lastError = err
+				lastError = explainRPMInstallError(d.Conf.PkgType, err)
 				return
 			}
 			if d.Conf.Cwd != "" {
@@ -253,7 +253,7 @@ func (d *KeeperDeploy) Upgrade() error {
 			}
 			_, err := common.RemoteExecute(sshOpts, cmd)
 			if err != nil {
-				lastError = err
+				lastError = explainRPMInstallError(d.Conf.PkgType, err)
 				return
 			}
 			log.Logger.Debugf("host %s upgrade done", innerHost)
