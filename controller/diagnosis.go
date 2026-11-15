@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/housepower/ckman/common"
 	"github.com/housepower/ckman/config"
+	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/housepower/ckman/repository"
 	diagnosisservice "github.com/housepower/ckman/service/diagnosis"
@@ -28,7 +29,8 @@ func NewDiagnosisController(wrapfunc Wrapfunc) *DiagnosisController {
 }
 
 func (ctl *DiagnosisController) Checks(c *gin.Context) {
-	ctl.wrapfunc(c, model.E_SUCCESS, gin.H{"checks": diagnose.ListChecks(), "profiles": diagnosisservice.ListProfiles(), "llm_enabled": config.GlobalConfig.LLM.Enabled})
+	status := novaagent.ConfigStatus(config.GlobalConfig.LLM)
+	ctl.wrapfunc(c, model.E_SUCCESS, gin.H{"checks": diagnose.ListChecks(), "profiles": diagnosisservice.ListProfiles(), "llm_enabled": config.GlobalConfig.LLM.Enabled, "llm_status": status})
 }
 
 func (ctl *DiagnosisController) CreateRun(c *gin.Context) {
@@ -121,7 +123,7 @@ func (ctl *DiagnosisController) Explain(c *gin.Context) {
 	}
 	engine, err := novaagent.New(config.GlobalConfig.LLM)
 	if err != nil {
-		ctl.wrapfunc(c, model.E_INVALID_PARAMS, err)
+		ctl.wrapfunc(c, model.E_INVALID_PARAMS, novaagent.FriendlyError(err))
 		return
 	}
 	c.Header("Content-Type", "text/event-stream; charset=utf-8")
@@ -136,7 +138,9 @@ func (ctl *DiagnosisController) Explain(c *gin.Context) {
 		_, _ = fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event.Type, raw)
 		c.Writer.Flush()
 	}
-	_ = engine.Explain(c.Request.Context(), ckagent.ExplainRequest{Report: report}, writeEvent)
+	if err := engine.Explain(c.Request.Context(), ckagent.ExplainRequest{Report: report}, writeEvent); err != nil {
+		log.Logger.Warnf("AI explanation failed for diagnosis run %s: %v", run.RunID, err)
+	}
 }
 
 func (ctl *DiagnosisController) authorizedRun(c *gin.Context) (model.DiagnosisRun, bool) {

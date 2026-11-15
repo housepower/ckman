@@ -86,7 +86,7 @@ func (e *Engine) Explain(ctx context.Context, req ckagent.ExplainRequest, emit f
 		}
 	})
 	if err != nil {
-		emit(ckagent.Event{Type: ckagent.EventError, Error: err.Error()})
+		emit(ckagent.Event{Type: ckagent.EventError, Error: FriendlyError(err)})
 		return err
 	}
 	if response != nil {
