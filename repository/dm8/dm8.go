@@ -81,6 +81,7 @@ func (mp *DM8Persistent) Init(config interface{}) error {
 		&TblBackupPolicy{},
 		&TblBackupRun{},
 		&TblUser{}, // Phase 1 用户管理
+		&TblDiagnosisRun{},
 	}); err != nil {
 		return errors.Wrap(err, "")
 	}

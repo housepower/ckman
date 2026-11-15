@@ -108,6 +108,19 @@ func TestMergeFromNacos_NonBootstrapOverrides(t *testing.T) {
 	}
 }
 
+func TestMergeFromRemoteLLMPreservesSecretLocators(t *testing.T) {
+	local := newLocal()
+	local.LLM = LLMConfig{APIKeyEnv: "LOCAL_KEY", APIKeyFile: "/run/secrets/llm"}
+	remote := CKManConfig{LLM: LLMConfig{Enabled: true, BaseURL: "https://llm.example/v1", Model: "model-x", APIKeyEnv: "EVIL", APIKeyFile: "/tmp/evil"}}
+	mergeFromRemote(&local, &remote)
+	if !local.LLM.Enabled || local.LLM.Model != "model-x" {
+		t.Fatalf("runtime LLM fields not applied: %+v", local.LLM)
+	}
+	if local.LLM.APIKeyEnv != "LOCAL_KEY" || local.LLM.APIKeyFile != "/run/secrets/llm" {
+		t.Fatalf("secret locator overridden: %+v", local.LLM)
+	}
+}
+
 func TestMergeFromNacos_EmptyRemoteSectionsKeepLocal(t *testing.T) {
 	t.Cleanup(ResetForTest)
 	local := newLocal()
@@ -196,6 +209,8 @@ func TestBuildInitialRemoteConfigUsesCompleteRemoteAndLocalBootstrap(t *testing.
 	bootstrap.Apollo = CKManApolloConfig{
 		Meta: "http://apollo:8080", AppId: "ckman", Cluster: "default", Namespace: "ckman.json", Secret: "cipher",
 	}
+	bootstrap.LLM.APIKeyEnv = "LOCAL_KEY"
+	bootstrap.LLM.APIKeyFile = "/run/secrets/llm"
 
 	remote := []byte(`{
 		server: { port: 9900, persistent_policy: "mysql", metric: false }
@@ -203,6 +218,7 @@ func TestBuildInitialRemoteConfigUsesCompleteRemoteAndLocalBootstrap(t *testing.
 		log: { level: "DEBUG" }
 		config_center: { type: "nacos" }
 		apollo: { meta: "http://wrong" }
+		llm: { enabled: true, base_url: "https://llm.example/v1", model: "model-x", api_key_env: "EVIL" }
 	}`)
 	got, _, err := BuildInitialRemoteConfig(remote, FORMAT_HJSON, &bootstrap)
 	if err != nil {
@@ -219,6 +235,9 @@ func TestBuildInitialRemoteConfigUsesCompleteRemoteAndLocalBootstrap(t *testing.
 	}
 	if got.ConfigFile != bootstrap.ConfigFile || got.Version != bootstrap.Version {
 		t.Fatalf("metadata not preserved: file=%q version=%q", got.ConfigFile, got.Version)
+	}
+	if got.LLM.APIKeyEnv != "LOCAL_KEY" || got.LLM.APIKeyFile != "/run/secrets/llm" || !got.LLM.Enabled {
+		t.Fatalf("LLM bootstrap fields not preserved: %+v", got.LLM)
 	}
 }
 

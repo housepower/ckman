@@ -118,6 +118,18 @@ type PersistentUserService interface {
 	DeleteUser(username string) error
 }
 
+type PersistentDiagnosisRunService interface {
+	CreateDiagnosisRun(run model.DiagnosisRun) error
+	GetDiagnosisRun(runID string) (model.DiagnosisRun, error)
+	ListDiagnosisRuns(query model.DiagnosisRunQuery) ([]model.DiagnosisRun, error)
+	UpdateDiagnosisRun(run model.DiagnosisRun) error
+	MarkDiagnosisRunRunningIfQueued(runID, instance string, startedAtMS int64) (bool, error)
+	RequestDiagnosisRunCancel(runID, requestedBy string, updatedAtMS int64) (bool, error)
+	HeartbeatDiagnosisRun(runID, instance string, updatedAtMS int64) (bool, error)
+	MarkStaleDiagnosisRunsInterrupted(staleBeforeMS, finishedAtMS int64) (int64, error)
+	DeleteExpiredDiagnosisRuns(nowMS int64) (int64, error)
+}
+
 type PersistentMgr interface {
 	PersistentBase
 	PersistentClusterService
@@ -128,6 +140,7 @@ type PersistentMgr interface {
 	PersistentBackupPolicyService // 新增
 	PersistentBackupRunService    // 新增
 	PersistentUserService         // 新增 — Phase 1 用户管理
+	PersistentDiagnosisRunService
 }
 
 func RegistePersistent(fn func() PersistentFactory) {

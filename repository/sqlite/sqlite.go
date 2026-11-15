@@ -82,6 +82,7 @@ func (sp *SQLitePersistent) Init(cfgIn interface{}) error {
 		&TblBackupRun{},
 		&TblMeta{},
 		&TblUser{},
+		&model.DiagnosisRun{},
 	); err != nil {
 		return errors.Wrap(err, "")
 	}

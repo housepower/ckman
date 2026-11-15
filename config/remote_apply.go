@@ -23,6 +23,8 @@ func BuildInitialRemoteConfig(data []byte, fmtExt string, bootstrap *CKManConfig
 	}
 	cfg.ConfigCenter = bootstrap.ConfigCenter
 	cfg.EncryptAlgorithm = bootstrap.EncryptAlgorithm
+	cfg.LLM.APIKeyEnv = bootstrap.LLM.APIKeyEnv
+	cfg.LLM.APIKeyFile = bootstrap.LLM.APIKeyFile
 	switch bootstrap.ConfigCenter.Type {
 	case DISCOVERY_NACOS:
 		cfg.Nacos = bootstrap.Nacos
@@ -67,7 +69,7 @@ func HasRuntimeConfig(data []byte, fmtExt string) (bool, error) {
 	var hasServer bool
 	for key, value := range top {
 		switch strings.ToLower(key) {
-		case "persistent_config", "registry", "log", "cron", "clickhouse":
+		case "persistent_config", "registry", "log", "cron", "clickhouse", "llm":
 			return true, nil
 		case "server":
 			rawServer, hasServer = value, true
@@ -154,6 +156,14 @@ func mergeFromRemote(local, remote *CKManConfig) {
 	// 3. ClickHouse：同上
 	if !reflect.DeepEqual(remote.ClickHouse, ClickHouseOpts{}) {
 		local.ClickHouse = remote.ClickHouse
+	}
+
+	// LLM secret locators are bootstrap-only. Remote config may tune runtime
+	// behavior, but cannot redirect where this process reads its API key.
+	if !reflect.DeepEqual(remote.LLM, LLMConfig{}) {
+		apiKeyEnv, apiKeyFile := local.LLM.APIKeyEnv, local.LLM.APIKeyFile
+		local.LLM = remote.LLM
+		local.LLM.APIKeyEnv, local.LLM.APIKeyFile = apiKeyEnv, apiKeyFile
 	}
 
 	// 4. Server 段内非 bootstrap 字段：单字段非零时覆盖（不能整段 DeepEqual）。

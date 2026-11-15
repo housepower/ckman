@@ -252,10 +252,17 @@ func (c *Conn) ExecWithQueryID(query, query_id string, args ...any) error {
 }
 
 func (c *Conn) Ping() error {
+	return c.PingWithCtx(c.ctx)
+}
+
+// PingWithCtx verifies the connection with the caller-owned context. It is
+// used by bounded operations such as diagnosis so pool validation and initial
+// connection setup cannot outlive the request budget.
+func (c *Conn) PingWithCtx(ctx context.Context) error {
 	if c.protocol == clickhouse.HTTP {
-		return c.db.Ping()
+		return c.db.PingContext(ctx)
 	} else {
-		return c.c.Ping(c.ctx)
+		return c.c.Ping(ctx)
 	}
 }
 

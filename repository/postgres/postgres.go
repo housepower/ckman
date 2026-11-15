@@ -69,6 +69,16 @@ func (mp *PostgresPersistent) Init(config interface{}) error {
 	// delete_at 在 model 里是 string 字段,故用 TEXT;id 用 BIGSERIAL 自增),不再依赖
 	// 手动 dbscript。
 	coreTblSQLs := []string{
+		`CREATE TABLE IF NOT EXISTS tbl_diagnosis_run (
+			run_id VARCHAR(64) PRIMARY KEY, cluster_name VARCHAR(128), requested_by VARCHAR(64), scene VARCHAR(64),
+			context_json TEXT, checks_json TEXT, status VARCHAR(16), execution VARCHAR(16), outcome VARCHAR(16), severity VARCHAR(16),
+			report_json TEXT, error_message TEXT, owner_instance VARCHAR(128), cancel_requested BOOLEAN DEFAULT FALSE,
+			created_at_ms BIGINT, started_at_ms BIGINT, finished_at_ms BIGINT, updated_at_ms BIGINT, expires_at_ms BIGINT
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dr_cluster_created ON tbl_diagnosis_run(cluster_name, created_at_ms)`,
+		`CREATE INDEX IF NOT EXISTS idx_dr_user_created ON tbl_diagnosis_run(requested_by, created_at_ms)`,
+		`CREATE INDEX IF NOT EXISTS idx_dr_status_updated ON tbl_diagnosis_run(status, updated_at_ms)`,
+		`CREATE INDEX IF NOT EXISTS idx_dr_expires ON tbl_diagnosis_run(expires_at_ms)`,
 		`CREATE TABLE IF NOT EXISTS tbl_cluster (
 			id           BIGSERIAL PRIMARY KEY,
 			created_at   TEXT,
@@ -153,8 +163,10 @@ func (mp *PostgresPersistent) Init(config interface{}) error {
 			username      VARCHAR(32) NOT NULL,
 			password_hash VARCHAR(64) NOT NULL,
 			policy        VARCHAR(16) NOT NULL,
-			enabled       BOOLEAN NOT NULL DEFAULT true
+			enabled       BOOLEAN NOT NULL DEFAULT true,
+			must_change_password BOOLEAN NOT NULL DEFAULT false
 		)`,
+		`ALTER TABLE tbl_user ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_name ON tbl_user(username)`,
 	}
 	for _, sql := range userTblSQLs {

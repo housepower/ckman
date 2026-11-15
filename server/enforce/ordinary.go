@@ -31,6 +31,8 @@ func OrdinaryPolicies() []Policy {
 		{"/ck/rbac/user/*", GET},
 		{"/ck/rbac/user/*", PUT},
 		{"/ck/rbac/user/*", DELETE},
+		{"/diagnostics/*", GET},
+		{"/diagnostics/*", POST},
 		{"/ck/rbac/profile/*", POST},
 		{"/ck/rbac/profile/*", GET},
 		{"/ck/rbac/profile/*", PUT},

@@ -72,6 +72,13 @@ func connOrderId(base ConnBase) (string, error) {
 }
 
 func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*Conn, error) {
+	return ConnectClickHouseWithCtx(context.Background(), host, database, opt)
+}
+
+// ConnectClickHouseWithCtx returns a pooled or newly opened ClickHouse
+// connection while applying ctx to pool validation and the initial Ping.
+// DialTimeout remains the driver's upper bound; an earlier ctx deadline wins.
+func ConnectClickHouseWithCtx(ctx context.Context, host string, database string, opt model.ConnetOption) (*Conn, error) {
 	opts := clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", host, opt.Port)},
 		Auth: clickhouse.Auth{
@@ -110,7 +117,7 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 		if v, ok := ConnectPool.Load(host); ok {
 			c := v.(Connection)
 			if c.orderId == orderId {
-				if err := c.conn.Ping(); err == nil {
+				if err := c.conn.PingWithCtx(ctx); err == nil {
 					return c.conn, nil
 				}
 			}
@@ -137,7 +144,7 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 	}
 	if opt.Protocol == clickhouse.HTTP {
 		db := clickhouse.OpenDB(&opts)
-		err := db.Ping()
+		err := db.PingContext(ctx)
 		if err != nil {
 			db.Close()
 			return nil, err
@@ -152,7 +159,7 @@ func ConnectClickHouse(host string, database string, opt model.ConnetOption) (*C
 		if err != nil {
 			return nil, err
 		}
-		err = c.Ping(conn.ctx)
+		err = c.Ping(ctx)
 		if err != nil {
 			c.Close()
 			return nil, err

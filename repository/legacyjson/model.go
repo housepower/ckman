@@ -12,6 +12,7 @@ type PersistentData struct {
 	Backup       map[string]model.Backup                `json:"backup" yaml:"backup"`
 	BackupPolicy map[string]model.BackupPolicy          `json:"backup_policy" yaml:"backup_policy"`
 	BackupRun    map[string]model.BackupRun             `json:"backup_run" yaml:"backup_run"`
+	DiagnosisRun map[string]model.DiagnosisRun          `json:"diagnosis_run" yaml:"diagnosis_run"`
 }
 
 type Historys []model.QueryHistory

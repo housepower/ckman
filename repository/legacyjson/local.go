@@ -47,8 +47,16 @@ func (lp *LocalPersistent) Init(config interface{}) error {
 	lp.Snapshot.BackupPolicy = make(map[string]model.BackupPolicy)
 	lp.Data.BackupRun = make(map[string]model.BackupRun)
 	lp.Snapshot.BackupRun = make(map[string]model.BackupRun)
+	lp.Data.DiagnosisRun = make(map[string]model.DiagnosisRun)
+	lp.Snapshot.DiagnosisRun = make(map[string]model.DiagnosisRun)
 
-	return lp.load()
+	if err := lp.load(); err != nil {
+		return err
+	}
+	if lp.Data.DiagnosisRun == nil {
+		lp.Data.DiagnosisRun = make(map[string]model.DiagnosisRun)
+	}
+	return nil
 }
 
 func (lp *LocalPersistent) UnmarshalConfig(configMap map[string]interface{}) interface{} {

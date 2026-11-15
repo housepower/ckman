@@ -85,6 +85,7 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	userController := controller.NewUserController(config, WrapMsg)
 	overrideController := controller.NewNodeOverrideController(WrapMsg)
 	rbacController := controller.NewRBACController(WrapMsg)
+	diagnosisController := controller.NewDiagnosisController(WrapMsg)
 
 	groupV1.POST("/ck/cluster", ckController.ImportCluster)
 	groupV1.GET("/ck/cluster", ckController.GetClusters)
@@ -206,4 +207,11 @@ func InitRouterV1(groupV1 *gin.RouterGroup, config *config.CKManConfig, signal c
 	groupV1.GET(fmt.Sprintf("/ck/rbac/profile/:%s/:name", controller.ClickHouseClusterPath), rbacController.GetProfile)
 	groupV1.PUT(fmt.Sprintf("/ck/rbac/profile/:%s/:name", controller.ClickHouseClusterPath), rbacController.AlterProfile)
 	groupV1.DELETE(fmt.Sprintf("/ck/rbac/profile/:%s/:name", controller.ClickHouseClusterPath), rbacController.DropProfile)
+
+	groupV1.GET("/diagnostics/checks", diagnosisController.Checks)
+	groupV1.POST("/diagnostics/:cluster/runs", diagnosisController.CreateRun)
+	groupV1.GET("/diagnostics/:cluster/runs", diagnosisController.ListRuns)
+	groupV1.GET("/diagnostics/:cluster/runs/:runId", diagnosisController.GetRun)
+	groupV1.POST("/diagnostics/:cluster/runs/:runId/cancel", diagnosisController.CancelRun)
+	groupV1.POST("/diagnostics/:cluster/runs/:runId/explain", diagnosisController.Explain)
 }

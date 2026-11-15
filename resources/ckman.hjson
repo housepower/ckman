@@ -54,6 +54,20 @@
     "conn_max_idle_time": 10
   },
 
+  // 可选 AI 解释。结构化诊断不依赖 LLM；API key 只从环境变量或 secret file 读取。
+  "llm": {
+    "enabled": false,
+    "base_url": "",
+    "model": "",
+    "api_key_env": "CKMAN_LLM_API_KEY",
+    "api_key_file": "",
+    "timeout_seconds": 120,
+    "max_turns": 4,
+    "max_context_bytes": 32768,
+    "max_output_tokens": 2048,
+    "send_raw_exceptions": false
+  },
+
   // cron job task
   "cron":{
     "sync_logic_schema": "0 * * * * ?",

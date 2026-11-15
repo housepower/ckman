@@ -1,6 +1,6 @@
 module github.com/housepower/ckman
 
-go 1.26.0
+go 1.26.6
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
@@ -21,7 +21,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.32.1
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/gin-swagger v1.3.0
 	github.com/swaggo/swag v1.7.1
@@ -34,7 +34,9 @@ require (
 )
 
 require (
+	github.com/AutumnsGrove/nova v0.4.1
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0
+	github.com/YenchangChan/clickhouse-go-diagnose v0.5.0
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/arl/statsviz v0.5.1
 	github.com/aws/aws-sdk-go v1.27.0
@@ -139,7 +141,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.5.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/thoas/go-funk v0.9.2 // indirect
 	github.com/ugorji/go/codec v1.1.13 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect

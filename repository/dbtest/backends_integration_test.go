@@ -131,6 +131,7 @@ func runBackend(t *testing.T, bc backendCase) {
 	t.Run("user_crud", func(t *testing.T) { testUserCRUD(t, mgr) })
 	t.Run("query_history", func(t *testing.T) { testQueryHistory(t, mgr) })
 	t.Run("task_crud", func(t *testing.T) { testTaskCRUD(t, mgr) })
+	t.Run("diagnosis_run", func(t *testing.T) { testDiagnosisRun(t, mgr) })
 }
 
 const tagPrefix = "dbtest_"
@@ -467,5 +468,38 @@ func testTaskCRUD(t *testing.T, mgr repository.PersistentMgr) {
 	defer mgr.DeleteTask(id)
 	if _, err := mgr.GetTaskbyTaskId(id); err != nil {
 		t.Fatalf("GetTaskbyTaskId: %v", err)
+	}
+}
+
+func testDiagnosisRun(t *testing.T, mgr repository.PersistentMgr) {
+	now := time.Now().UnixMilli()
+	id := tagPrefix + "diagnosis_" + strconv.FormatInt(now, 10)
+	run := model.DiagnosisRun{RunID: id, ClusterName: tagPrefix + "cluster", RequestedBy: "dbtest", Scene: "cluster_health",
+		ChecksJSON: `["replica_status"]`, Status: model.DiagnosisStatusQueued, ReportJSON: strings.Repeat("x", 256*1024),
+		CreatedAtMS: now, UpdatedAtMS: now, ExpiresAtMS: now + 60000}
+	if err := mgr.CreateDiagnosisRun(run); err != nil {
+		t.Fatalf("CreateDiagnosisRun: %v", err)
+	}
+	ok, err := mgr.MarkDiagnosisRunRunningIfQueued(id, "instance-a", now+1)
+	if err != nil || !ok {
+		t.Fatalf("first claim ok=%v err=%v", ok, err)
+	}
+	ok, err = mgr.MarkDiagnosisRunRunningIfQueued(id, "instance-b", now+1)
+	if err != nil || ok {
+		t.Fatalf("second claim ok=%v err=%v", ok, err)
+	}
+	got, err := mgr.GetDiagnosisRun(id)
+	if err != nil || got.StartedAtMS != now+1 || len(got.ReportJSON) != len(run.ReportJSON) {
+		t.Fatalf("round trip: %+v err=%v", got, err)
+	}
+	ok, err = mgr.RequestDiagnosisRunCancel(id, "dbtest", now+2)
+	if err != nil || !ok {
+		t.Fatalf("cancel ok=%v err=%v", ok, err)
+	}
+	if n, err := mgr.MarkStaleDiagnosisRunsInterrupted(now+3, now+4); err != nil || n < 1 {
+		t.Fatalf("stale n=%d err=%v", n, err)
+	}
+	if n, err := mgr.DeleteExpiredDiagnosisRuns(now + 60001); err != nil || n < 1 {
+		t.Fatalf("expire n=%d err=%v", n, err)
 	}
 }

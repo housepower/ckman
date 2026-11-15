@@ -235,3 +235,22 @@ func TestConnectClickHouse_PingFailed_DropsStalePoolEntry(t *testing.T) {
 		t.Error("a pool entry that was closed after a failed Ping must not stay in the pool")
 	}
 }
+
+func TestConnectClickHouseWithCtx_CanceledBeforePing(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	started := time.Now()
+	_, err := ConnectClickHouseWithCtx(ctx, "127.0.0.1", "default", model.ConnetOption{
+		Protocol:   clickhouse.Native,
+		Port:       1,
+		User:       "default",
+		BypassPool: true,
+	})
+	if err == nil {
+		t.Fatal("canceled context must fail connection validation")
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("canceled context was not applied to initial Ping: %v", elapsed)
+	}
+}

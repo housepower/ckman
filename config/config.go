@@ -55,7 +55,21 @@ type CKManConfig struct {
 	Registry         RegistryConfig     `yaml:"registry" json:"registry"`
 	ConfigCenter     ConfigCenterConfig `yaml:"config_center" json:"config_center"`
 	Cron             CronJob
-	Version          string `yaml:"-" json:"-"`
+	LLM              LLMConfig `yaml:"llm" json:"llm"`
+	Version          string    `yaml:"-" json:"-"`
+}
+
+type LLMConfig struct {
+	Enabled           bool   `yaml:"enabled" json:"enabled"`
+	BaseURL           string `yaml:"base_url" json:"base_url"`
+	Model             string `yaml:"model" json:"model"`
+	APIKeyEnv         string `yaml:"api_key_env" json:"api_key_env"`
+	APIKeyFile        string `yaml:"api_key_file" json:"api_key_file"`
+	TimeoutSeconds    int    `yaml:"timeout_seconds" json:"timeout_seconds"`
+	MaxTurns          int    `yaml:"max_turns" json:"max_turns"`
+	MaxContextBytes   int    `yaml:"max_context_bytes" json:"max_context_bytes"`
+	MaxOutputTokens   int    `yaml:"max_output_tokens" json:"max_output_tokens"`
+	SendRawExceptions bool   `yaml:"send_raw_exceptions" json:"send_raw_exceptions"`
 }
 
 type ClickHouseOpts struct {
@@ -190,6 +204,11 @@ func fillDefault(c *CKManConfig) {
 	c.ClickHouse.MaxOpenConns = 10
 	c.ClickHouse.MaxIdleConns = 2
 	c.ClickHouse.ConnMaxIdleTime = 10
+	c.LLM.APIKeyEnv = "CKMAN_LLM_API_KEY"
+	c.LLM.TimeoutSeconds = 120
+	c.LLM.MaxTurns = 4
+	c.LLM.MaxContextBytes = 32 << 10
+	c.LLM.MaxOutputTokens = 2048
 	c.Nacos.BeatInterval = 5000
 	c.Nacos.SyncConfig = true
 	c.Consul.Address = "127.0.0.1:8500"

@@ -69,6 +69,30 @@ type TblBackupRun struct {
 	CreateTime  DmTime        `gorm:"column:CREATE_TIME"`
 }
 
+type TblDiagnosisRun struct {
+	RunID           string        `gorm:"column:RUN_ID;primaryKey;size:64"`
+	ClusterName     string        `gorm:"column:CLUSTER_NAME;size:128;index:idx_dr_cluster_created,priority:1"`
+	RequestedBy     string        `gorm:"column:REQUESTED_BY;size:64;index:idx_dr_user_created,priority:1"`
+	Scene           string        `gorm:"column:SCENE;size:64"`
+	ContextJSON     dmSchema.Clob `gorm:"column:CONTEXT_JSON;size:4194304"`
+	ChecksJSON      dmSchema.Clob `gorm:"column:CHECKS_JSON;size:4194304"`
+	Status          string        `gorm:"column:STATUS;size:16;index:idx_dr_status_updated,priority:1"`
+	Execution       string        `gorm:"column:EXECUTION;size:16"`
+	Outcome         string        `gorm:"column:OUTCOME;size:16"`
+	Severity        string        `gorm:"column:SEVERITY;size:16"`
+	ReportJSON      dmSchema.Clob `gorm:"column:REPORT_JSON;size:4194304"`
+	ErrorMessage    dmSchema.Clob `gorm:"column:ERROR_MESSAGE;size:4194304"`
+	OwnerInstance   string        `gorm:"column:OWNER_INSTANCE;size:128"`
+	CancelRequested bool          `gorm:"column:CANCEL_REQUESTED"`
+	CreatedAtMS     int64         `gorm:"column:CREATED_AT_MS;index:idx_dr_cluster_created,priority:2;index:idx_dr_user_created,priority:2"`
+	StartedAtMS     int64         `gorm:"column:STARTED_AT_MS"`
+	FinishedAtMS    int64         `gorm:"column:FINISHED_AT_MS"`
+	UpdatedAtMS     int64         `gorm:"column:UPDATED_AT_MS;index:idx_dr_status_updated,priority:2"`
+	ExpiresAtMS     int64         `gorm:"column:EXPIRES_AT_MS;index:idx_dr_expires"`
+}
+
+func (TblDiagnosisRun) TableName() string { return "tbl_diagnosis_run" }
+
 type TblUser struct {
 	gorm.Model
 	Username           string `gorm:"index:idx_user_name,unique; column:username; size:32; not null"`

@@ -4,6 +4,7 @@ import (
 	"github.com/housepower/ckman/log"
 	"github.com/housepower/ckman/model"
 	"github.com/pkg/errors"
+	"time"
 )
 
 // MigrateBetween 把 src 的全量数据搬到 dst，覆盖所有 7 类实体。
@@ -49,6 +50,17 @@ func MigrateBetween(src, dst PersistentMgr) error {
 	if err != nil {
 		return errors.Wrap(err, "get backup runs")
 	}
+	var diagnosisRuns []model.DiagnosisRun
+	for offset := 0; ; offset += 100 {
+		page, listErr := src.ListDiagnosisRuns(model.DiagnosisRunQuery{Limit: 100, Offset: offset})
+		if listErr != nil {
+			return errors.Wrap(listErr, "get diagnosis runs")
+		}
+		diagnosisRuns = append(diagnosisRuns, page...)
+		if len(page) < 100 {
+			break
+		}
+	}
 
 	if err = dst.Begin(); err != nil {
 		return errors.Wrap(err, "begin")
@@ -91,6 +103,14 @@ func MigrateBetween(src, dst PersistentMgr) error {
 	for _, r := range runs {
 		if err = dst.CreateBackupRun(r); err != nil {
 			return rollback(err)
+		}
+	}
+	for _, r := range diagnosisRuns {
+		if r.ExpiresAtMS > 0 && r.ExpiresAtMS < time.Now().UnixMilli() {
+			continue
+		}
+		if err = dst.CreateDiagnosisRun(r); err != nil {
+			return errors.Wrap(err, "create diagnosis run")
 		}
 	}
 

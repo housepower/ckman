@@ -94,6 +94,30 @@ type TblBackupRun struct {
 
 func (v TblBackupRun) TableName() string { return MYSQL_TBL_BACKUP_RUN }
 
+type TblDiagnosisRun struct {
+	RunID           string `gorm:"column:run_id;primaryKey;size:64"`
+	ClusterName     string `gorm:"column:cluster_name;size:128;index:idx_dr_cluster_created,priority:1"`
+	RequestedBy     string `gorm:"column:requested_by;size:64;index:idx_dr_user_created,priority:1"`
+	Scene           string `gorm:"column:scene;size:64"`
+	ContextJSON     string `gorm:"column:context_json;type:LONGTEXT"`
+	ChecksJSON      string `gorm:"column:checks_json;type:LONGTEXT"`
+	Status          string `gorm:"column:status;size:16;index:idx_dr_status_updated,priority:1"`
+	Execution       string `gorm:"column:execution;size:16"`
+	Outcome         string `gorm:"column:outcome;size:16"`
+	Severity        string `gorm:"column:severity;size:16"`
+	ReportJSON      string `gorm:"column:report_json;type:LONGTEXT"`
+	ErrorMessage    string `gorm:"column:error_message;type:LONGTEXT"`
+	OwnerInstance   string `gorm:"column:owner_instance;size:128"`
+	CancelRequested bool   `gorm:"column:cancel_requested"`
+	CreatedAtMS     int64  `gorm:"column:created_at_ms;index:idx_dr_cluster_created,priority:2;index:idx_dr_user_created,priority:2"`
+	StartedAtMS     int64  `gorm:"column:started_at_ms"`
+	FinishedAtMS    int64  `gorm:"column:finished_at_ms"`
+	UpdatedAtMS     int64  `gorm:"column:updated_at_ms;index:idx_dr_status_updated,priority:2"`
+	ExpiresAtMS     int64  `gorm:"column:expires_at_ms;index:idx_dr_expires"`
+}
+
+func (TblDiagnosisRun) TableName() string { return "tbl_diagnosis_run" }
+
 type TblUser struct {
 	gorm.Model
 	Username           string `gorm:"index:idx_user_name,unique; column:username; size:32; not null"`
