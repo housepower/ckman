@@ -3,11 +3,11 @@ layout: home
 
 hero:
   name: CKMAN
-  text: ClickHouse 集群管理平台
-  tagline: 面向企业级数据团队的一站式 Web 控制台 —— 让部署、运维、监控与备份变得可视、可控、可靠。
+  text: ClickHouse 运维，不止于看见问题
+  tagline: 从集群生命周期到场景化 AI 诊断，把部署、监控、查询、备份和故障定位放进同一个控制面。
   image:
-    src: /hero.svg
-    alt: CKMAN
+    src: /img/features/monitoring/overview.png
+    alt: CKMAN 集群监控界面
   actions:
     - theme: brand
       text: 快速开始
@@ -39,6 +39,21 @@ import { withBase } from 'vitepress';
   </div>
 </section>
 
+<section class="emp-ai">
+  <div class="emp-container emp-ai__layout">
+    <div class="emp-ai__copy">
+      <p class="emp-section__eyebrow">AI NATIVE DIAGNOSIS</p>
+      <h2>从一条异常，直接抵达可核验的结论</h2>
+      <p>诊断入口就在资源、复制表、表指标、慢查询和分布式 DDL 的工作现场。CKMAN 先查询系统表完成确定性检查，再让 LLM 解释结构化证据；一轮输出，不进入漫无目的的聊天。</p>
+      <a :href="withBase('/features/diagnosis/overview.html')">了解场景化诊断 →</a>
+    </div>
+    <figure class="emp-ai__visual">
+      <img :src="withBase('/img/features/diagnosis/table-health.png')" alt="CKMAN 指定表健康诊断与 AI 解释" loading="lazy" />
+      <figcaption><span>01 采集证据</span><span>02 结构化判断</span><span>03 AI 一次性解释</span></figcaption>
+    </figure>
+  </div>
+</section>
+
 <section class="emp-section">
   <div class="emp-container">
     <header class="emp-section__head">
@@ -64,8 +79,8 @@ import { withBase } from 'vitepress';
       </article>
       <article class="emp-card">
         <div class="emp-card__num">04</div>
-        <h3>原生监控</h3>
-        <p>直读 ClickHouse 系统表，开箱即看 KPI · 慢查询 · 表合并 · DDL 队列；可选接入 Prometheus 做长期存储。</p>
+        <h3>监控与 AI 诊断</h3>
+        <p>直读 ClickHouse 系统表查看 KPI，并针对资源、复制、表健康、慢查询与 DDL 卡顿输出一轮可核验结论。</p>
       </article>
       <article class="emp-card">
         <div class="emp-card__num">05</div>
@@ -207,6 +222,67 @@ import { withBase } from 'vitepress';
 /* ===== Section ===== */
 .emp-section {
   padding: 96px 0;
+}
+
+/* ===== AI diagnosis narrative ===== */
+.emp-ai {
+  padding: 104px 0;
+  color: #F8FAFC;
+  background: #111319;
+  overflow: hidden;
+}
+.emp-ai__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(520px, 1.2fr);
+  align-items: center;
+  gap: 80px;
+}
+.emp-ai__copy h2 {
+  max-width: 560px;
+  margin: 0;
+  color: #FFFFFF;
+  font-size: 42px;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+.emp-ai__copy > p:not(.emp-section__eyebrow) {
+  max-width: 560px;
+  margin: 24px 0 28px;
+  color: #AEB4C0;
+  font-size: 16px;
+  line-height: 1.8;
+}
+.emp-ai__copy a {
+  color: #ECCF57;
+  font-weight: 700;
+  text-decoration: none;
+}
+.emp-ai__visual {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: #0B0D11;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.38);
+}
+.emp-ai__visual img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 420ms ease;
+}
+.emp-ai__visual:hover img { transform: scale(1.012); }
+.emp-ai__visual figcaption {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 15px 18px;
+  color: #AEB4C0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
 }
 .emp-section--alt {
   background: var(--vp-c-bg-soft);
@@ -492,11 +568,19 @@ import { withBase } from 'vitepress';
   .emp-grid--3 { grid-template-columns: 1fr 1fr; }
   .emp-trust__list { grid-template-columns: repeat(2, 1fr); gap: 24px 16px; }
   .emp-compare { grid-template-columns: 1fr; }
+  .emp-ai { padding: 72px 0; }
+  .emp-ai__layout { grid-template-columns: 1fr; gap: 48px; }
+  .emp-ai__copy h2 { font-size: 34px; }
 }
 @media (max-width: 640px) {
   .emp-grid--3 { grid-template-columns: 1fr; }
   .emp-trust__num { font-size: 22px; }
   .emp-section { padding: 56px 0; }
   .emp-cta { padding: 64px 0; }
+  .emp-ai__visual figcaption { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emp-ai__visual img { transition: none; }
 }
 </style>

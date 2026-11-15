@@ -26,6 +26,7 @@ ckman -c /path/to/ckman.hjson
   "encrypt_algorithm": "AESWITHHEXANDBASE64", // 新写入密文的算法，可设为 SM4
   "server":            { ... },   // HTTP 服务、鉴权、metrics
   "clickhouse":        { ... },   // ClickHouse 连接池
+  "llm":               { ... },   // 可选：AI 诊断解释模型
   "log":               { ... },   // 日志级别与切割
   "cron":              { ... },   // 定时任务
   "persistent_config": { ... },   // 持久层（mysql/postgres/dm8/local）
@@ -171,6 +172,7 @@ ckman -c /etc/ckman/conf/ckman.hjson --encrypt-algorithm SM4 --encrypt '123456'
 | `cron.*` | 是 |
 | `persistent_config`, `persistent_policy` | 是 |
 | `encrypt_algorithm`, `.ckman.env` | 是 |
+| `llm.*`, LLM API key | 是 |
 | `registry`, `config_center`, `nacos.*`, `consul.*`, `apollo.*` | 是 |
 
 ::: tip 用户密码

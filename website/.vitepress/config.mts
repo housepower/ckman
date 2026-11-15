@@ -60,6 +60,7 @@ export default defineConfig({
           text: '配置',
           items: [
             { text: '配置总览', link: '/config/overview' },
+            { text: 'LLM 与 AI 诊断', link: '/config/llm' },
             { text: 'server', link: '/config/server' },
             { text: 'clickhouse', link: '/config/clickhouse' },
             { text: 'log', link: '/config/log' },
@@ -88,6 +89,7 @@ export default defineConfig({
           items: [
             { text: '监控指标', link: '/features/monitoring/metrics' },
             { text: '表 & 会话管理', link: '/features/tables/overview' },
+            { text: 'AI 场景诊断', link: '/features/diagnosis/overview' },
           ],
         },
         {

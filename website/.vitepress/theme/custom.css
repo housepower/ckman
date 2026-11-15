@@ -85,6 +85,36 @@
   white-space: nowrap;
 }
 
+/* 首页用真实产品界面做主视觉，桌面端扩大截图而不是把它当作图标展示。 */
+@media (min-width: 1200px) {
+  .VPHomeHero .container {
+    max-width: 1280px !important;
+  }
+
+  .VPHomeHero .main {
+    max-width: 500px !important;
+  }
+
+  .VPHomeHero .image-container {
+    transform: none !important;
+  }
+
+  .VPHomeHero .image-bg {
+    width: min(620px, 100%) !important;
+    height: 320px !important;
+    border-radius: 24px !important;
+  }
+
+  .VPHomeHero .image-src {
+    width: min(700px, 100%) !important;
+    max-width: none !important;
+    max-height: none !important;
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 12px;
+    box-shadow: 0 28px 64px rgba(15, 17, 21, 0.2);
+  }
+}
+
 /* ===== 把 "..." 折叠按钮的阈值从 1280px 降到 960px =====
  * VitePress 默认：< 1280px 用 VPNavBarExtra（"..."）折叠 GitHub /
  * 主题切换；≥ 1280px 才直接展开。这里覆盖让 ≥ 960px 就直接展开。
