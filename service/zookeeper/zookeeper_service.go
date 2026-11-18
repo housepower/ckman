@@ -37,27 +37,11 @@ func NewZkService(nodes []string, port int, sessionTimeout int) (*ZkService, err
 		SessionTimeout: sessionTimeout,
 	}
 
-	var leader string
-	for _, node := range nodes {
-		tmp := model.ZkStatusRsp{
-			Host: node,
-		}
-		body, err := ZkMetric(node, port, "mntr")
-		if err != nil {
-			continue
-		}
-		err = json.Unmarshal(body, &tmp)
-		if err == nil {
-			if tmp.ServerState == "leader" {
-				leader = node
-				break
-			}
-		}
+	node, err := findUsableNode(nodes, port, ZkMetric)
+	if err != nil {
+		return nil, err
 	}
-	if leader == "" {
-		return nil, errors.New("no leader zookeeper node")
-	}
-	servers := []string{net.JoinHostPort(leader, fmt.Sprint(port))}
+	servers := []string{net.JoinHostPort(node, fmt.Sprint(port))}
 
 	c, e, err := zk.Connect(servers, time.Duration(sessionTimeout)*time.Second)
 	if err != nil {
@@ -68,6 +52,36 @@ func NewZkService(nodes []string, port int, sessionTimeout int) (*ZkService, err
 	zkService.Event = e
 
 	return zkService, nil
+}
+
+// findUsableNode picks a zookeeper node to connect to. A zookeeper cluster is
+// accessed through its leader, while a standalone single-node zookeeper reports
+// its state as "standalone" and must be accepted as well.
+func findUsableNode(nodes []string, port int, probe func(string, int, string) ([]byte, error)) (string, error) {
+	if len(nodes) == 0 {
+		return "", errors.New("no leader zookeeper node: zookeeper nodes is empty")
+	}
+	var failures []string
+	for _, node := range nodes {
+		tmp := model.ZkStatusRsp{
+			Host: node,
+		}
+		body, err := probe(node, port, "mntr")
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", node, err))
+			continue
+		}
+		if err = json.Unmarshal(body, &tmp); err != nil {
+			failures = append(failures, fmt.Sprintf("%s: parse mntr response failed: %v, response: %s",
+				node, err, strings.TrimSpace(string(body))))
+			continue
+		}
+		if tmp.ServerState == "leader" || tmp.ServerState == "standalone" {
+			return node, nil
+		}
+		failures = append(failures, fmt.Sprintf("%s: server state is %q", node, tmp.ServerState))
+	}
+	return "", fmt.Errorf("no leader zookeeper node: %s", strings.Join(failures, "; "))
 }
 
 func (z *ZkService) Reconnect() error {
