@@ -193,9 +193,10 @@ func fillDefault(c *CKManConfig) {
 	c.Log.MaxAge = 10
 	c.Nacos.Group = "DEFAULT_GROUP"
 	c.Nacos.DataID = "ckman"
-	c.Server.CertFile = path.Join(GetWorkDirectory(), "conf", "server.crt")
-	c.Server.KeyFile = path.Join(GetWorkDirectory(), "conf", "server.key")
-	c.Server.PkgPath = GetWorkDirectory()
+	workDir := workDirectory(c.ConfigFile)
+	c.Server.CertFile = path.Join(workDir, "conf", "server.crt")
+	c.Server.KeyFile = path.Join(workDir, "conf", "server.key")
+	c.Server.PkgPath = workDir
 	c.Server.TaskInterval = 5
 	c.Server.BackupMaxConcurrent = 8
 	c.Server.Metric = true
@@ -276,6 +277,10 @@ func ParseConfigFile(p, version string) error {
 
 func parseConfig(data []byte, configFmt, configFile, version string) (CKManConfig, []string, error) {
 	var cfg CKManConfig
+	// ConfigFile 必须在 fillDefault 之前写入：默认的 pkg_path / 证书路径都
+	// 以配置文件位置为基准，依赖尚未赋值的 GlobalConfig 会退化成 cwd。
+	cfg.ConfigFile = configFile
+	cfg.Version = version
 	fillDefault(&cfg)
 	switch configFmt {
 	case FORMAT_JSON, FORMAT_HJSON:
@@ -290,8 +295,6 @@ func parseConfig(data []byte, configFmt, configFile, version string) (CKManConfi
 	default:
 		return CKManConfig{}, nil, fmt.Errorf("config format %s unsupported yet", configFmt)
 	}
-	cfg.ConfigFile = configFile
-	cfg.Version = version
 	mergeEnv(&cfg)
 	warns, err := normalizeDiscovery(&cfg)
 	if err != nil {
@@ -419,7 +422,13 @@ func MarshConfigFile() error {
 }
 
 func GetWorkDirectory() string {
-	dir, err := filepath.Abs(filepath.Dir(GlobalConfig.ConfigFile))
+	return workDirectory(GlobalConfig.ConfigFile)
+}
+
+// workDirectory 返回配置文件所在目录的父目录（即 ckman 的工作目录）。
+// configFile 为空时退回进程 cwd 的父目录，保持旧行为。
+func workDirectory(configFile string) string {
+	dir, err := filepath.Abs(filepath.Dir(configFile))
 	if err != nil {
 		return ""
 	}
