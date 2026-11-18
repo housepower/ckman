@@ -12,6 +12,10 @@ import (
 	"github.com/housepower/ckman/service/backup/storage"
 )
 
+// DefaultS3MinUploadPartSize 是备份连接 s3_min_upload_part_size 的取值（256MB）。
+// 原因见 backupConnOpts 注释。
+const DefaultS3MinUploadPartSize = 256 << 20
+
 // backupConnOpts returns ConnetOption presets for backup/restore connections:
 //   - max_execution_time=0: server-side per-connection setting; BACKUP/RESTORE
 //     statements don't accept inline SETTINGS so this is the only way to disable it.
@@ -22,6 +26,14 @@ import (
 //     max_remote_write_network_bandwidth 对它无效；max_backup_bandwidth 限的是读源数据，
 //     上传随之被压住。同样因为 25.1 之前 BACKUP 不接受 inline SETTINGS，只能放在连接级；
 //     该设置按查询建 throttler，即每条 BACKUP 各自受限。
+//   - s3_min_upload_part_size：S3 multipart 上传的最小分片（字节）。23.8 的
+//     copyDataToS3File 会把整个文件的所有 part 一次性异步提交（无 inflight 上限），
+//     16MB 默认值下单个 10GB+ 数据文件就能打出数百条并发 PUT 连接；这些连接共享
+//     max_backup_bandwidth 的令牌桶（桶容量仅 1 秒、超速按"后记账者背全部债务"睡眠），
+//     分配极度不均，部分连接单次停滞可达数百秒，撞上 proxy/网关约 300s 的 idle 超时
+//     被批量掐断（broken pipe / Connection refused），任务在振荡中失败。调大到 256MB
+//     把单文件 part 数降 16 倍，每条连接持续有数据流动，不再触发该超时。part body
+//     是流式读源文件，不占额外内存。
 //
 // maxReadSeconds 是单条 BACKUP/RESTORE 语句的读超时（秒），clickhouse-go 在 exec
 // 开始时一次性设置绝对读截止；<=0 时取 DefaultBackupMaxReadSeconds。
@@ -30,7 +42,8 @@ func backupConnOpts(cc model.CKManClickHouseConfig, bandwidth uint64, maxReadSec
 		maxReadSeconds = DefaultBackupMaxReadSeconds
 	}
 	settings := clickhouse.Settings{
-		"max_execution_time": uint64(0),
+		"max_execution_time":      uint64(0),
+		"s3_min_upload_part_size": DefaultS3MinUploadPartSize,
 	}
 	if bandwidth > 0 {
 		settings["max_backup_bandwidth"] = bandwidth

@@ -283,6 +283,9 @@ func TestBackupConnOpts_Bandwidth(t *testing.T) {
 	if opt.Settings["max_execution_time"] != uint64(0) || !opt.BypassPool {
 		t.Fatalf("base backup options lost: %+v", opt)
 	}
+	if opt.Settings["s3_min_upload_part_size"] != DefaultS3MinUploadPartSize {
+		t.Fatalf("s3_min_upload_part_size = %v, want %d", opt.Settings["s3_min_upload_part_size"], DefaultS3MinUploadPartSize)
+	}
 	if opt.MaxRead != DefaultBackupMaxReadSeconds {
 		t.Fatalf("MaxRead default = %d, want %d", opt.MaxRead, DefaultBackupMaxReadSeconds)
 	}
