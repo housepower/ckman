@@ -171,6 +171,7 @@ func (a *ClickHouseAdapter) ListAllPartitions(c *shardConn, db, table string) ([
 			return "<nil>"
 		}())
 	}
+	// 全量备份无日期过滤
 	query := fmt.Sprintf(
 		"SELECT DISTINCT partition FROM clusterAllReplicas('%s', system.parts) WHERE database = '%s' AND `table` = '%s' AND active = 1 ORDER BY partition",
 		c.cluster,
@@ -190,7 +191,19 @@ func (a *ClickHouseAdapter) ListAllPartitions(c *shardConn, db, table string) ([
 		}
 		partitions = append(partitions, p)
 	}
-	return partitions, nil
+	return normalizeAllPartitions(partitions), nil
+}
+
+// normalizeAllPartitions 把无分区表的分区名归一化为整表哨兵 "all"。
+// 无 PARTITION BY 的表在 system.parts.partition 里恒为 'tuple()'，若当普通分区名
+// 往下传，BackupSQL 会拼出 PARTITION 'tuple()'，被 CK 以
+// "Wrong number of fields in the partition expression: 1, must be: 0" 拒绝。
+// "all" 是 BackupSQL/RestoreSQL/realQueryPartitionPaths 共同的整表哨兵（不拼分区子句）。
+func normalizeAllPartitions(partitions []string) []string {
+	if len(partitions) == 1 && partitions[0] == "tuple()" {
+		return []string{"all"}
+	}
+	return partitions
 }
 
 // realQueryPartitionPaths 拿 partition 在本 shard 上每个 active part 的目录（system.parts.path）。

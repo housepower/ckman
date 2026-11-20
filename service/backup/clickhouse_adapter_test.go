@@ -255,6 +255,32 @@ func TestClickHouseAdapter_ConnFactory_SetsClusterName(t *testing.T) {
 	}
 }
 
+func TestNormalizeAllPartitions(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{"unpartitioned table tuple() -> all", []string{"tuple()"}, []string{"all"}},
+		{"normal partitions unchanged", []string{"20260101", "20260102"}, []string{"20260101", "20260102"}},
+		{"single normal partition unchanged", []string{"20260101"}, []string{"20260101"}},
+		{"empty unchanged", nil, nil},
+	}
+	for _, c := range cases {
+		got := normalizeAllPartitions(c.in)
+		if len(got) != len(c.want) {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+				break
+			}
+		}
+	}
+}
+
 func TestPerShardBandwidth(t *testing.T) {
 	cases := []struct {
 		totalMB, shards int
