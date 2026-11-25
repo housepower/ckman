@@ -245,15 +245,6 @@ func query_cache() map[string]interface{} {
 	}
 	return output
 }
-func merge_tree_metadata_cache() map[string]interface{} {
-	output := make(map[string]interface{})
-	output["merge_tree_metadata_cache"] = map[string]interface{}{
-		"lru_cache_size":        1073741824,
-		"continue_if_corrupted": true,
-	}
-	return output
-}
-
 func merge_tree(conf *model.CKManClickHouseConfig) map[string]interface{} {
 	output := make(map[string]interface{})
 	if conf.IsReplica {
@@ -319,9 +310,6 @@ func GenerateCustomXML(filename string, conf *model.CKManClickHouseConfig, ext m
 	mergo.Merge(&custom, prometheus())
 	if conf.Secure {
 		mergo.Merge(&custom, openssl(conf))
-	}
-	if common.CompareClickHouseVersion(conf.Version, "22.4.x") >= 0 {
-		mergo.Merge(&custom, merge_tree_metadata_cache())
 	}
 	if common.CompareClickHouseVersion(conf.Version, "23.4.x") >= 0 {
 		mergo.Merge(&custom, query_cache())

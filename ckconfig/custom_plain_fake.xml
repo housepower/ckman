@@ -22,10 +22,6 @@
     <max_concurrent_select_queries>90</max_concurrent_select_queries>
     <max_partition_size_to_drop>0</max_partition_size_to_drop>
     <max_table_size_to_drop>0</max_table_size_to_drop>
-    <merge_tree_metadata_cache>
-        <continue_if_corrupted>true</continue_if_corrupted>
-        <lru_cache_size>1073741824</lru_cache_size>
-    </merge_tree_metadata_cache>
     <metric_log>
         <flush_interval_milliseconds>30000</flush_interval_milliseconds>
         <partition_by>toYYYYMMDD(event_date)</partition_by>
